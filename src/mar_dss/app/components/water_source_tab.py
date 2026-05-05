@@ -13,33 +13,110 @@ import mar_dss.app.utils.data_storage as dash_storage
 from .runoff_calculator_tab import create_runoff_calculator_tab, create_curve_number_tab
 
 
+def _nearest_place_label(lat: float, lon: float) -> str | None:
+    """Find nearest city/town/village name using Overpass, return a label or None.
+
+    Called only as a fallback when Nominatim reverse doesn't provide a place-like name.
+    Keep it conservative (short timeout, small responses) to avoid slowing normal UX.
+    """
+    try:
+        overpass_url = "https://overpass-api.de/api/interpreter"
+        # Escalate search radius (meters) only if needed
+        for radius in (10_000, 25_000, 50_000, 100_000):
+            query = f"""
+[out:json][timeout:5];
+(
+  node(around:{radius},{lat},{lon})["place"~"^(city|town|village)$"];
+  way(around:{radius},{lat},{lon})["place"~"^(city|town|village)$"];
+  relation(around:{radius},{lat},{lon})["place"~"^(city|town|village)$"];
+);
+out center 30;
+"""
+            r = requests.post(
+                overpass_url,
+                data=query,
+                headers={"User-Agent": "MAR-DSS-Dashboard/1.0"},
+                timeout=6,
+            )
+            if r.status_code != 200:
+                continue
+            data = r.json()
+            elems = data.get("elements") or []
+            if not elems:
+                continue
+
+            # Pick nearest by simple squared-distance in degrees (good enough for small radii)
+            best_name = None
+            best_d2 = None
+            for e in elems:
+                tags = e.get("tags") or {}
+                name = tags.get("name")
+                if not name:
+                    continue
+                if "lat" in e and "lon" in e:
+                    elat, elon = float(e["lat"]), float(e["lon"])
+                else:
+                    c = e.get("center") or {}
+                    if "lat" not in c or "lon" not in c:
+                        continue
+                    elat, elon = float(c["lat"]), float(c["lon"])
+                d2 = (elat - lat) ** 2 + (elon - lon) ** 2
+                if best_d2 is None or d2 < best_d2:
+                    best_d2 = d2
+                    best_name = name
+
+            if best_name:
+                return f"Near {best_name}"
+        return None
+    except Exception:
+        return None
+
+
 def get_location_details(lat, lon):
-    """Get city, state, and country from coordinates via reverse geocoding."""
+    """Get closest city/town-style label from coordinates via reverse geocoding.
+
+    Nominatim reverse-geocoding can return very local features (roads, hamlets) or
+    only higher-level admin areas depending on where the point lies. For UI display,
+    we prefer a human-friendly nearby place name (city/town/village/municipality).
+    """
     try:
         url = (
             "https://nominatim.openstreetmap.org/reverse?format=json&lat="
-            f"{lat}&lon={lon}&zoom=10&addressdetails=1"
+            f"{lat}&lon={lon}&zoom=10&addressdetails=1&namedetails=1"
         )
         headers = {"User-Agent": "MAR-DSS-Dashboard/1.0"}
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             data = response.json()
             address = data.get("address", {})
-            city = (
-                address.get("city")
-                or address.get("town")
-                or address.get("village")
+            # Prefer nearby place-like labels (roughly "closest town/city" UX).
+            place = (
+                address.get("locality")
+                or address.get("municipality")
                 or address.get("hamlet")
+                or address.get("village")
+                or address.get("town")
+                or address.get("city")
+                or address.get("county")
             )
             state = address.get("state")
             country = address.get("country")
-            if city and state and country:
-                return f"{city}, {state}, {country}"
-            elif city and country:
-                return f"{city}, {country}"
+            if place and state and country:
+                return f"{place}, {state}, {country}"
+            elif place and country:
+                return f"{place}, {country}"
+            elif place:
+                return f"{place}"
             elif state and country:
                 return f"{state}, {country}"
             else:
+                # Fallback to the first token of display_name (often a named place)
+                display = (data.get("display_name") or "").split(",")[0].strip()
+                if display:
+                    return display
+                near = _nearest_place_label(float(lat), float(lon))
+                if near:
+                    return near
                 return country or "Unknown Location"
         return "Unknown Location"
     except Exception:
