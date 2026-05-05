@@ -288,10 +288,9 @@ def create_water_source_info_tab():
     """Create the content for the Water Source Information tab."""
     # Get existing values from data storage if available
     water_source = dash_storage.get_data("water_source") or "surface_water_sources"
-    proximity_distance = dash_storage.get_data("proximity_distance") or 1.0
+    # Removed from UI: proximity_distance (still stored elsewhere if needed)
     water_conveyance = dash_storage.get_data("water_conveyance") or "open_canals_ditches"
-    water_ownership = dash_storage.get_data("water_ownership") or "legal_rights"
-    pumping_needed = dash_storage.get_data("pumping_needed") or "no"
+    # Removed from UI: water_ownership, pumping_needed (still stored elsewhere if needed)
     physical_parameters = dash_storage.get_data("physical_parameters") or []
     chemical_parameters = dash_storage.get_data("chemical_parameters") or []
     biological_indicators = dash_storage.get_data("biological_indicators") or []
@@ -349,19 +348,7 @@ def create_water_source_info_tab():
                                                             value=water_source,
                                                             placeholder="Select water source...",
                                                         ),
-                                                        html.Label(
-                                                            "Proximity Distance (miles):",
-                                                            className="fw-bold mt-3 mb-2",
-                                                        ),
-                                                        dbc.Input(
-                                                            id="proximity-distance-input",
-                                                            type="number",
-                                                            value=proximity_distance,
-                                                            min=0.1,
-                                                            max=100.0,
-                                                            step=0.1,
-                                                            placeholder="Enter distance",
-                                                        ),
+                                                        # Proximity distance control removed per request.
                                                     ],
                                                     width=6,
                                                 ),
@@ -391,38 +378,7 @@ def create_water_source_info_tab():
                                                             value=water_conveyance,
                                                             placeholder="Select conveyance method...",
                                                         ),
-                                                        html.Label(
-                                                            "Water Ownership:",
-                                                            className="fw-bold mt-3 mb-2",
-                                                        ),
-                                                        dbc.RadioItems(
-                                                            id="water-ownership-radio",
-                                                            options=[
-                                                                {
-                                                                    "label": "Legal Rights",
-                                                                    "value": "legal_rights",
-                                                                },
-                                                                {"label": "None", "value": "none"},
-                                                            ],
-                                                            value=water_ownership,
-                                                            inline=True,
-                                                        ),
-                                                        html.Label(
-                                                            "Pumping Needed:",
-                                                            className="fw-bold mt-3 mb-2",
-                                                        ),
-                                                        dbc.RadioItems(
-                                                            id="pumping-needed-radio",
-                                                            options=[
-                                                                {
-                                                                    "label": "Yes",
-                                                                    "value": "yes",
-                                                                },
-                                                                {"label": "No", "value": "no"},
-                                                            ],
-                                                            value=pumping_needed,
-                                                            inline=True,
-                                                        ),
+                                                        # Water Ownership + Pumping Needed controls removed per request.
                                                     ],
                                                     width=6,
                                                 ),
@@ -433,26 +389,13 @@ def create_water_source_info_tab():
                                             target="water-source-dropdown",
                                             placement="top",
                                         ),
-                                        dbc.Tooltip(
-                                            "Distance from the MAR site to the diversion or intake point (miles)",
-                                            target="proximity-distance-input",
-                                            placement="top",
-                                        ),
+                                        # Tooltip removed with proximity distance control.
                                         dbc.Tooltip(
                                             "How water is moved from the source to the MAR facility",
                                             target="water-conveyance-dropdown",
                                             placement="top",
                                         ),
-                                        dbc.Tooltip(
-                                            "Whether you hold legal rights or permits for the source water",
-                                            target="water-ownership-radio",
-                                            placement="top",
-                                        ),
-                                        dbc.Tooltip(
-                                            "Whether pumping is required to deliver source water to the site",
-                                            target="pumping-needed-radio",
-                                            placement="top",
-                                        ),
+                                        # Tooltips removed with Water Ownership / Pumping Needed controls.
                                     ],
                                     className="p-3",
                                 ),

@@ -184,7 +184,6 @@ def setup_cost_callbacks(app):
         
         # Get all water source data from storage
         water_source = dash_storage.get_data("water_source") or "Not set"
-        proximity_distance = dash_storage.get_data("proximity_distance")
         water_conveyance = dash_storage.get_data("water_conveyance") or "Not set"
         water_ownership = dash_storage.get_data("water_ownership") or "Not set"
         pumping_needed = dash_storage.get_data("pumping_needed") or "Not set"
@@ -222,16 +221,9 @@ def setup_cost_callbacks(app):
         }
         pumping_needed_display = pumping_labels.get(pumping_needed, pumping_needed)
         
-        # Format proximity distance
-        if proximity_distance is not None:
-            proximity_display = f"{proximity_distance} miles"
-        else:
-            proximity_display = "Not set"
-        
         # Create table data
         table_data = [
             {"Parameter": "Water Source", "Value": water_source_display},
-            {"Parameter": "Proximity Distance", "Value": proximity_display},
             {"Parameter": "Water Conveyance", "Value": water_conveyance_display},
             {"Parameter": "Water Ownership", "Value": water_ownership_display},
             {"Parameter": "Pumping Needed", "Value": pumping_needed_display},

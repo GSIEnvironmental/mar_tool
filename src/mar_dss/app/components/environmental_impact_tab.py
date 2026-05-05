@@ -264,127 +264,8 @@ def create_water_quality_content():
     pathogen_risk = dash_storage.get_data("pathogen_risk") or "LOW RISK"
     vadose_zone_pollution = dash_storage.get_data("vadose_zone_pollution") or "None"
     
-    # Get water quality parameters from data storage
-    physical_parameters = dash_storage.get_data("physical_parameters") or []
-    chemical_parameters = dash_storage.get_data("chemical_parameters") or []
-    biological_indicators = dash_storage.get_data("biological_indicators") or []
-    emerging_contaminants = dash_storage.get_data("emerging_contaminants") or []
-    
     return [
-        # Water Quality Card at the top - Compact
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        dbc.Card(
-                            [
-                                dbc.CardHeader(
-                                    "Water Quality Parameters",
-                                    className="fw-bold bg-primary text-white py-2",
-                                    style={"fontSize": "0.9rem"}
-                                ),
-                                dbc.CardBody(
-                                    [
-                                        dbc.Row(
-                                            [
-                                                dbc.Col(
-                                                    [
-                                                        html.H6(
-                                                            "Physical Parameters",
-                                                            className="fw-bold mb-2 small",
-                                                            style={"fontSize": "0.85rem"}
-                                                        ),
-                                                        dbc.Checklist(
-                                                            id="physical-parameters",
-                                                            options=[
-                                                                {"label": "Temperature", "value": "temperature"},
-                                                                {"label": "Turbidity", "value": "turbidity"},
-                                                                {"label": "Total Suspended Solids", "value": "tss"},
-                                                            ],
-                                                            value=physical_parameters,
-                                                            inline=False,
-                                                            className="small"
-                                                        ),
-                                                    ],
-                                                    width=3,
-                                                ),
-                                                dbc.Col(
-                                                    [
-                                                        html.H6(
-                                                            "Chemical Parameters",
-                                                            className="fw-bold mb-2 small",
-                                                            style={"fontSize": "0.85rem"}
-                                                        ),
-                                                        dbc.Checklist(
-                                                            id="chemical-parameters",
-                                                            options=[
-                                                                {"label": "Salinity/TDS", "value": "salinity_tds"},
-                                                                {"label": "Major Ions", "value": "major_ions"},
-                                                                {"label": "Nitrate", "value": "nitrate"},
-                                                                {"label": "Phosphate", "value": "phosphate"},
-                                                                {"label": "Trace Metals", "value": "trace_metals"},
-                                                            ],
-                                                            value=chemical_parameters,
-                                                            inline=False,
-                                                            className="small"
-                                                        ),
-                                                    ],
-                                                    width=3,
-                                                ),
-                                                dbc.Col(
-                                                    [
-                                                        html.H6(
-                                                            "Biological Indicators",
-                                                            className="fw-bold mb-2 small",
-                                                            style={"fontSize": "0.85rem"}
-                                                        ),
-                                                        dbc.Checklist(
-                                                            id="biological-indicators",
-                                                            options=[
-                                                                {"label": "E. coli", "value": "e_coli"},
-                                                                {"label": "Viruses", "value": "viruses"},
-                                                                {"label": "Protozoa", "value": "protozoa"},
-                                                            ],
-                                                            value=biological_indicators,
-                                                            inline=False,
-                                                            className="small"
-                                                        ),
-                                                    ],
-                                                    width=3,
-                                                ),
-                                                dbc.Col(
-                                                    [
-                                                        html.H6(
-                                                            "Emerging Contaminants",
-                                                            className="fw-bold mb-2 small",
-                                                            style={"fontSize": "0.85rem"}
-                                                        ),
-                                                        dbc.Checklist(
-                                                            id="emerging-contaminants",
-                                                            options=[
-                                                                {"label": "PFAS", "value": "pfas"},
-                                                                {"label": "Pesticides", "value": "pesticides"},
-                                                            ],
-                                                            value=emerging_contaminants,
-                                                            inline=False,
-                                                            className="small"
-                                                        ),
-                                                    ],
-                                                    width=3,
-                                                ),
-                                            ]
-                                        )
-                                    ],
-                                    style={"padding": "0.75rem"}
-                                ),
-                            ],
-                            className="mb-2"
-                        )
-                    ],
-                    width=12,
-                )
-            ]
-        ),
+        # Water Quality Parameters card removed per request.
         # Main content row - Compact layout with 4 cards in grid
         dbc.Row([
             # Left Column for Inputs (Decision Tree Steps) - Grid layout
@@ -696,26 +577,7 @@ def create_water_quality_content():
                 "align-self": "start"
             }),
         ]),
-        dbc.Tooltip(
-            "Water-quality parameters to track for suitability scoring",
-            target="physical-parameters",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Constituent groups used in chemical compatibility and compliance steps",
-            target="chemical-parameters",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Pathogen indicators considered in microbial risk scoring",
-            target="biological-indicators",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "PFAS, pesticides, and similar constituents of emerging concern",
-            target="emerging-contaminants",
-            placement="top",
-        ),
+        # Tooltips for Water Quality Parameters card removed with the card.
         dbc.Tooltip(
             "Physical clogging risk from suspended solids and turbidity",
             target="env-step1-input",

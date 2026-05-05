@@ -902,39 +902,9 @@ def setup_main_callbacks(app, dashboard_instance):
         
         return current_selection
 
-    # Callback for proximity distance input - saves to data storage
-    @app.callback(
-        Output("proximity-distance-input", "value"),
-        [
-            Input("proximity-distance-input", "value"),
-            Input("proximity-distance-input", "n_blur"),
-            Input("proximity-distance-input", "n_submit"),
-            Input("proximity-distance-input", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_proximity_distance_input(value, n_blur, n_submit, component_id):
-        """Handle proximity distance input for all triggers: value change, blur, submit, and load."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved proximity distance or use default, and save it
-            proximity_distance = dash_storage.get_data("proximity_distance") or 1.0
-            dash_storage.set_data("proximity_distance", proximity_distance)
-            return proximity_distance
-        
-        # Get the current value from the input
-        current_value = value if value is not None else 1.0
-        
-        # Determine which trigger caused the callback
-        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
-        # Save proximity distance for all triggers except initial load
-        if trigger_prop != "id":
-            dash_storage.set_data("proximity_distance", current_value)
-        
-        return current_value
+    # Note: The Water Source tab no longer shows the "Proximity Distance" control, so
+    # the callback for `proximity-distance-input` was removed. The storage key remains
+    # initialized for backward compatibility / reporting.
 
     # Callback for water conveyance dropdown - saves to data storage
     @app.callback(
@@ -963,165 +933,12 @@ def setup_main_callbacks(app, dashboard_instance):
         
         return current_selection
 
-    # Callback for water ownership radio - saves to data storage
-    @app.callback(
-        Output("water-ownership-radio", "value"),
-        [
-            Input("water-ownership-radio", "value"),
-            Input("water-ownership-radio", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_water_ownership_selection(value, component_id):
-        """Handle water ownership selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved water ownership or use default, and save it
-            water_ownership = dash_storage.get_data("water_ownership") or "legal_rights"
-            dash_storage.set_data("water_ownership", water_ownership)
-            return water_ownership
-        
-        # Get the current selection
-        current_selection = value if value else "legal_rights"
-        
-        # Save water ownership selection to data storage
-        dash_storage.set_data("water_ownership", current_selection)
-        
-        return current_selection
+    # Note: The Water Source tab no longer shows the "Water Ownership" and "Pumping Needed"
+    # radio controls, so the callbacks for those component ids were removed. The storage
+    # keys remain initialized for backward compatibility / reporting.
 
-    # Callback for pumping needed radio - saves to data storage
-    @app.callback(
-        Output("pumping-needed-radio", "value"),
-        [
-            Input("pumping-needed-radio", "value"),
-            Input("pumping-needed-radio", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_pumping_needed_selection(value, component_id):
-        """Handle pumping needed selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved pumping needed value or use default, and save it
-            pumping_needed = dash_storage.get_data("pumping_needed") or "no"
-            dash_storage.set_data("pumping_needed", pumping_needed)
-            return pumping_needed
-        
-        # Get the current selection
-        current_selection = value if value else "no"
-        
-        # Save pumping needed selection to data storage
-        dash_storage.set_data("pumping_needed", current_selection)
-        
-        return current_selection
-
-    # Callback for physical parameters checklist - saves to data storage
-    @app.callback(
-        Output("physical-parameters", "value"),
-        [
-            Input("physical-parameters", "value"),
-            Input("physical-parameters", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_physical_parameters_selection(value, component_id):
-        """Handle physical parameters checklist selections and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved physical parameters or use default, and save it
-            physical_params = dash_storage.get_data("physical_parameters") or []
-            dash_storage.set_data("physical_parameters", physical_params)
-            return physical_params
-        
-        # Get the current selections
-        current_selections = value if value else []
-        
-        # Save physical parameters to data storage
-        dash_storage.set_data("physical_parameters", current_selections)
-        
-        return current_selections
-
-    # Callback for chemical parameters checklist - saves to data storage
-    @app.callback(
-        Output("chemical-parameters", "value"),
-        [
-            Input("chemical-parameters", "value"),
-            Input("chemical-parameters", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_chemical_parameters_selection(value, component_id):
-        """Handle chemical parameters checklist selections and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved chemical parameters or use default, and save it
-            chemical_params = dash_storage.get_data("chemical_parameters") or []
-            dash_storage.set_data("chemical_parameters", chemical_params)
-            return chemical_params
-        
-        # Get the current selections
-        current_selections = value if value else []
-        
-        # Save chemical parameters to data storage
-        dash_storage.set_data("chemical_parameters", current_selections)
-        
-        return current_selections
-
-    # Callback for biological indicators checklist - saves to data storage
-    @app.callback(
-        Output("biological-indicators", "value"),
-        [
-            Input("biological-indicators", "value"),
-            Input("biological-indicators", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_biological_indicators_selection(value, component_id):
-        """Handle biological indicators checklist selections and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved biological indicators or use default, and save it
-            biological_indicators = dash_storage.get_data("biological_indicators") or []
-            dash_storage.set_data("biological_indicators", biological_indicators)
-            return biological_indicators
-        
-        # Get the current selections
-        current_selections = value if value else []
-        
-        # Save biological indicators to data storage
-        dash_storage.set_data("biological_indicators", current_selections)
-        
-        return current_selections
-
-    # Callback for emerging contaminants checklist - saves to data storage
-    @app.callback(
-        Output("emerging-contaminants", "value"),
-        [
-            Input("emerging-contaminants", "value"),
-            Input("emerging-contaminants", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_emerging_contaminants_selection(value, component_id):
-        """Handle emerging contaminants checklist selections and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved emerging contaminants or use default, and save it
-            emerging_contaminants = dash_storage.get_data("emerging_contaminants") or []
-            dash_storage.set_data("emerging_contaminants", emerging_contaminants)
-            return emerging_contaminants
-        
-        # Get the current selections
-        current_selections = value if value else []
-        
-        # Save emerging contaminants to data storage
-        dash_storage.set_data("emerging_contaminants", current_selections)
-        
-        return current_selections
+    # Note: The "Water Quality Parameters" card was removed from the UI, so the
+    # checklist callbacks for those controls were removed as well. The underlying
+    # storage keys (physical_parameters, chemical_parameters, etc.) are still
+    # initialized elsewhere for backward compatibility.
 
