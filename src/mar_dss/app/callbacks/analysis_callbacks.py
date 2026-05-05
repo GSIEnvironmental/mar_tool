@@ -1067,7 +1067,30 @@ def setup_analysis_callbacks(app):
         
         result = results[selected_option]
         return _create_option_interpretation(selected_option, result, filters)
-    
+
+    @app.callback(
+        Output("decision-interpretation-workbook-text", "children"),
+        [
+            Input("decision-interpretation-subtabs", "active_tab"),
+            Input("knowledge-graph-store", "data"),
+            Input("analysis-tabs", "active_tab"),
+        ],
+        prevent_initial_call=False,
+    )
+    def refresh_decision_workbook_text(active_subtab, graph_store, analysis_tab):
+        """Fill the Detailed calculations workbook when the user opens that sub-tab."""
+        if analysis_tab != "analysis-decision-interpretation":
+            return dash.no_update
+        if active_subtab != "decision-interpretation-workbook":
+            return dash.no_update
+        from mar_dss.graph_computation_log import format_computation_log_entries
+
+        text = dash_storage.get_data("graph_computation_log_text")
+        if text is not None:
+            return text
+        raw = dash_storage.get_data("graph_computation_log")
+        return format_computation_log_entries(raw)
+
     @app.callback(
         Output("analysis-scenarios-comparison-content", "children"),
         [Input("analysis-tabs", "active_tab")],

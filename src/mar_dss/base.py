@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from collections import deque
 import importlib
 import importlib.util
@@ -72,6 +72,15 @@ class Node:
 class DecisionGraph:
     def __init__(self):
         self.nodes = {}  # key: node_id, value: Node instance
+        # Filled when evaluate(..., trace=True); list of step dicts for UI / export
+        self._computation_log: Optional[List[Dict[str, Any]]] = None
+
+    @property
+    def computation_log(self) -> List[Dict[str, Any]]:
+        """Step-by-step trace from the last ``evaluate(..., trace=True)`` call."""
+        if self._computation_log is None:
+            return []
+        return list(self._computation_log)
 
     def add_node(self, node: Node):
         self.nodes[node.node_id] = node
@@ -117,6 +126,17 @@ class DecisionGraph:
     def evaluate_node(self, node_id: str, input_values: dict, cache: dict) -> Any:
         """Recursively evaluate a node with memoization."""
         if node_id in cache:
+            if self._computation_log is not None:
+                node = self.nodes.get(node_id)
+                self._computation_log.append(
+                    {
+                        "kind": "cached",
+                        "node_id": node_id,
+                        "name": node.name if node else node_id,
+                        "cached": True,
+                        "result": cache[node_id],
+                    }
+                )
             return cache[node_id]
 
         node = self.nodes[node_id]
@@ -184,13 +204,57 @@ class DecisionGraph:
                 #     print(f"DEBUG design_sizing - No function available, using node.value: {node.value}")
                 value = node.value
 
+        if self._computation_log is not None:
+            if node.is_input():
+                self._computation_log.append(
+                    {
+                        "kind": "input",
+                        "node_id": node_id,
+                        "name": node.name,
+                        "group": node.group,
+                        "inputs": {node_id: value},
+                        "calculation": "value from site / project inputs",
+                        "result": value,
+                    }
+                )
+            else:
+                if node.module and node.function_name:
+                    calc = f"{node.module}.{node.function_name}(...)"
+                elif node.function:
+                    calc = getattr(node.function, "__name__", repr(node.function))
+                else:
+                    calc = "static or default node value"
+                self._computation_log.append(
+                    {
+                        "kind": "rule",
+                        "node_id": node_id,
+                        "name": node.name,
+                        "group": node.group,
+                        "inputs": dep_values,
+                        "calculation": calc,
+                        "result": value,
+                    }
+                )
+
         # Update the node's value with the computed result
         node.value = value
         cache[node_id] = value
         return value
 
-    def evaluate(self, input_values: dict) -> dict:
-        """Evaluate all rule nodes in the graph."""
+    def evaluate(self, input_values: dict, trace: bool = False) -> dict:
+        """Evaluate all rule nodes in the graph.
+
+        Parameters
+        ----------
+        input_values : dict
+            Input values keyed by node id.
+        trace : bool
+            If True, populate :attr:`computation_log` with a step-by-step trace for display.
+        """
+        if trace:
+            self._computation_log = []
+        else:
+            self._computation_log = None
         cache = {}  # Cache for all computed values
         rule_nodes = [nid for nid, n in self.nodes.items() if n.is_rule()]
         

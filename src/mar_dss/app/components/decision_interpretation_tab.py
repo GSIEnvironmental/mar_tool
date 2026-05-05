@@ -326,16 +326,66 @@ def create_decision_interpretation_content():
     dss_results = dash_storage.get_data("dss_results")
     
     if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
+        wb_empty = dash_storage.get_data("graph_computation_log_text")
+        if wb_empty is None:
+            wb_empty = "Run analysis to populate this workbook."
         return html.Div(
             [
-                html.H4("Decision Interpretation", className="mb-2", style={"fontSize": "1.2rem"}),
-                dbc.Alert(
-                    "No evaluation results available. Please run the feasibility analysis first.",
-                    color="info",
-                    className="mt-2 small",
+                dbc.Tabs(
+                    [
+                        dbc.Tab(
+                            label="Overview",
+                            tab_id="decision-interpretation-overview",
+                            children=html.Div(
+                                [
+                                    html.H4(
+                                        "Decision Interpretation",
+                                        className="mb-2",
+                                        style={"fontSize": "1.2rem"},
+                                    ),
+                                    dbc.Alert(
+                                        "No evaluation results available. Please run the feasibility analysis first.",
+                                        color="info",
+                                        className="mt-2 small",
+                                    ),
+                                ],
+                                style={"padding": "0.5rem"},
+                            ),
+                        ),
+                        dbc.Tab(
+                            label="Detailed calculations workbook",
+                            tab_id="decision-interpretation-workbook",
+                            children=html.Div(
+                                [
+                                    html.P(
+                                        "Step-by-step decision graph log (available after analysis runs).",
+                                        className="text-muted small mb-2",
+                                    ),
+                                    html.Pre(
+                                        id="decision-interpretation-workbook-text",
+                                        children=wb_empty,
+                                        style={
+                                            "whiteSpace": "pre-wrap",
+                                            "fontFamily": "monospace",
+                                            "fontSize": "0.8rem",
+                                            "backgroundColor": "#f8f9fa",
+                                            "border": "1px solid #dee2e6",
+                                            "borderRadius": "4px",
+                                            "padding": "12px",
+                                            "maxHeight": "70vh",
+                                            "overflowY": "auto",
+                                        },
+                                    ),
+                                ],
+                                style={"padding": "0.5rem"},
+                            ),
+                        ),
+                    ],
+                    id="decision-interpretation-subtabs",
+                    active_tab="decision-interpretation-overview",
                 ),
             ],
-            style={"padding": "0.5rem"}
+            style={"padding": "0.5rem"},
         )
     
     results = dss_results.results
@@ -443,9 +493,8 @@ def create_decision_interpretation_content():
     avg_benefit = sum(benefit_scores) / len(benefit_scores) if benefit_scores else 0
     
     option_names = list(results.keys())
-    
-    return html.Div(
-        [
+
+    overview_tab_children = [
             html.H4("Decision Interpretation", className="mb-2", style={"fontSize": "1.2rem"}),
             html.P(
                 "Comprehensive analysis and interpretation of MAR technology evaluation results.",
@@ -670,8 +719,62 @@ def create_decision_interpretation_content():
                 target="decision-interpretation-benefit-chart",
                 placement="top",
             ),
+    ]
+
+    workbook_initial = dash_storage.get_data("graph_computation_log_text")
+    if workbook_initial is None:
+        workbook_initial = (
+            "Open this sub-tab after running analysis to load the step-by-step decision graph log."
+        )
+
+    return html.Div(
+        [
+            dbc.Tabs(
+                [
+                    dbc.Tab(
+                        label="Overview",
+                        tab_id="decision-interpretation-overview",
+                        children=html.Div(
+                            overview_tab_children,
+                            style={"padding": "0.5rem"},
+                        ),
+                    ),
+                    dbc.Tab(
+                        label="Detailed calculations workbook",
+                        tab_id="decision-interpretation-workbook",
+                        children=html.Div(
+                            [
+                                html.P(
+                                    "Step-by-step log of decision graph evaluation: inputs, dependency values, "
+                                    "rule functions, and results. Edit formatting in "
+                                    "`mar_dss.graph_computation_log.format_computation_log_entries`.",
+                                    className="text-muted small mb-2",
+                                ),
+                                html.Pre(
+                                    id="decision-interpretation-workbook-text",
+                                    children=workbook_initial,
+                                    style={
+                                        "whiteSpace": "pre-wrap",
+                                        "fontFamily": "monospace",
+                                        "fontSize": "0.8rem",
+                                        "backgroundColor": "#f8f9fa",
+                                        "border": "1px solid #dee2e6",
+                                        "borderRadius": "4px",
+                                        "padding": "12px",
+                                        "maxHeight": "70vh",
+                                        "overflowY": "auto",
+                                    },
+                                ),
+                            ],
+                            style={"padding": "0.5rem"},
+                        ),
+                    ),
+                ],
+                id="decision-interpretation-subtabs",
+                active_tab="decision-interpretation-overview",
+            ),
         ],
-        style={"padding": "0.5rem"}
+        style={"padding": "0.5rem"},
     )
 
 

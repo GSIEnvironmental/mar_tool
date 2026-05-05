@@ -23,8 +23,15 @@ def evaluate_and_store_decision_graph(graph: "DecisionGraph", inputs: Mapping[st
     """
     if graph is None:
         raise ValueError("decision_graph is required")
-    graph.evaluate(dict(inputs))
+    graph.evaluate(dict(inputs), trace=True)
     data_storage.set_data("decision_graph", graph)
+    from mar_dss.graph_computation_log import format_computation_log_entries
+
+    data_storage.set_data("graph_computation_log", graph.computation_log)
+    data_storage.set_data(
+        "graph_computation_log_text",
+        format_computation_log_entries(graph.computation_log),
+    )
 
 
 def forward_run(cost_override: Optional[Dict[str, float]] = None):
