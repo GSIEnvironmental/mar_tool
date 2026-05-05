@@ -8,7 +8,7 @@ from dash import Input, Output, html
 import dash_bootstrap_components as dbc
 import mar_dss
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.mar import forward_run
+from mar_dss.mar.forward_run import evaluate_and_store_decision_graph, forward_run
 from mar_dss.base import DecisionGraph
 import pandas as pd
 import hashlib
@@ -441,7 +441,7 @@ def calculate_individual_feasibility_metrics(selected_technology, graph=None):
         if graph is not None:
             try:
                 inputs = get_graph_inputs()
-                graph.evaluate(inputs)
+                evaluate_and_store_decision_graph(graph, inputs)
                 node_values = graph.get_node_values()
                 aq_type = dash_storage.get_data("aq_type")
                 if aq_type is None:
@@ -720,20 +720,23 @@ def map_costs_to_options(capital_costs_series, maintenance_costs_series=None):
 def run_integrated_analysis():
     """
     Main entry point: Run cost calculation and DSS together.
-    
-    This function:
-    1. Runs cost calculation first
-    2. Extracts costs from calculator
-    3. Maps costs to option names
-    4. Runs DSS evaluation with cost override
-    5. Stores all results in data_storage
-    
+
+    Pipeline (unified around :func:`mar_dss.mar.forward_run.forward_run`):
+    1. Build graph inputs and evaluate the knowledge graph (required for cost + constraints)
+    2. Run cost calculation (uses evaluated node values, e.g. well counts)
+    3. Map costs to MAR options and run forward DSS with optional cost override
+    4. Store DSS results
+
     Returns:
         tuple: (dss_results, cost_calculator)
     """
     logger.info("Running integrated analysis (cost + DSS)...")
-    
-    # Step 1: Run cost calculation
+
+    inputs = get_graph_inputs()
+    graph = get_session_graph()
+    evaluate_and_store_decision_graph(graph, inputs)
+
+    # Step 1: Run cost calculation (requires evaluated decision_graph in storage)
     try:
         cost_calculator = create_and_run_cost_calculator()
         logger.info("Cost calculation completed successfully")
@@ -791,12 +794,12 @@ def run_integrated_analysis():
         else:
             capital_cost_override = None
         
-        dss_results = forward_run.forward_run(cost_override=capital_cost_override)
+        dss_results = forward_run(cost_override=capital_cost_override)
         logger.info("DSS evaluation completed successfully")
     except Exception as e:
         logger.error(f"Error in DSS evaluation: {e}", exc_info=True)
         # Run without cost override if there's an error
-        dss_results = forward_run.forward_run()
+        dss_results = forward_run()
     
     # Step 5: Store DSS results
     dash_storage.set_data("dss_results", dss_results)
@@ -815,16 +818,7 @@ def run_feasibility_analysis():
     
     # Create hash of current inputs
     current_hash = create_inputs_hash(inputs)
-    
-    # Get the last stored hash
-    last_hash = dash_storage.get_data("feasibility_analysis_hash")
-    
-    # Check if DSS results exist
-    dss_results = dash_storage.get_data("dss_results")
-    has_dss_results = (dss_results is not None and 
-                      hasattr(dss_results, 'results') and 
-                      dss_results.results)
-    
+
     # Check if inputs have changed
     # if current_hash == last_hash:
     #     # Inputs haven't changed
@@ -847,17 +841,11 @@ def run_feasibility_analysis():
     
     # Inputs have changed, run the analysis
     logger.info(f"Feasibility analysis running - inputs changed (hash: {current_hash[:8]}...)")
-    
-    graph = get_session_graph()
-    results = graph.evaluate(inputs)
-    dash_storage.set_data("decision_graph", graph)
-    
+
     # Store the new hash for next time
     dash_storage.set_data("feasibility_analysis_hash", current_hash)
-    logger.debug("Graph evaluation completed, plotting results")
-    #graph.plotly()
-    
-    # Run integrated analysis (cost + DSS)
+
+    # Integrated analysis evaluates the graph, runs costs, then forward_run (single pipeline)
     dss_results, cost_calculator = run_integrated_analysis()
     
     return 1

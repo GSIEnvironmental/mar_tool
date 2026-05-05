@@ -6,6 +6,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.callbacks.analysis_callbacks import get_session_graph, get_graph_inputs
+from mar_dss.mar.forward_run import evaluate_and_store_decision_graph
 from mar_dss.app.utils.hydrogeologic_feasibility import (
     calculate_hydrogeological_feasibility_score,
     create_feasibility_gauge,
@@ -118,7 +119,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
             return create_loading_content("Unable to load decision graph.")
         
         inputs = get_graph_inputs()
-        graph.evaluate(inputs)
+        evaluate_and_store_decision_graph(graph, inputs)
         graph.plotly()
         node_values = graph.get_node_values()
         
