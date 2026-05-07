@@ -99,6 +99,10 @@ def create_mar_purpose_section():
 
     project_location = dash_storage.get_data("project_location") or ""
     mar_purpose = dash_storage.get_data("mar_purpose") or ["secure_water_supply"]
+    # Site description values (kept here so they live under this card)
+    ground_slope = dash_storage.get_data("ground_surface_slope") or 0.5
+    max_area = dash_storage.get_data("max_available_area") or 1.0
+    land_use = dash_storage.get_data("land_use") or "Urban Residential"
 
     return dbc.Card([
         dbc.CardHeader(
@@ -192,6 +196,48 @@ def create_mar_purpose_section():
                 inline=False,
                 style={"margin-top": "10px"},
             ),
+            html.Hr(className="my-3"),
+            html.H6("Site Description", className="fw-bold"),
+            html.Label("Ground Surface Slope (%):", className="fw-bold"),
+            dbc.Input(
+                id="ground-slope-input",
+                type="number",
+                placeholder="Enter ground surface slope percentage...",
+                value=ground_slope,
+                min=0,
+                step=0.1,
+                style={"margin-bottom": "15px"},
+            ),
+            html.Label("Maximum Available Area for Recharge (acres):", className="fw-bold"),
+            html.Small(
+                "This area is the total area available for the MAR site",
+                className="text-muted d-block mb-2",
+            ),
+            dbc.Input(
+                id="max-area-input",
+                type="number",
+                placeholder="Enter maximum available area...",
+                value=max_area,
+                min=0,
+                step=0.1,
+                style={"margin-bottom": "15px"},
+            ),
+            html.Label("Land Use:", className="fw-bold"),
+            html.P(
+                "Select the primary land use type for the recharge site:",
+                className="text-muted small",
+            ),
+            dcc.Dropdown(
+                id="land-use-dropdown",
+                options=[
+                    {"label": "Urban Residential", "value": "Urban Residential"},
+                    {"label": "Urban Nonresidential", "value": "Urban Nonresidential"},
+                    {"label": "Rural Agricultural", "value": "Rural Agricultural"},
+                    {"label": "Rural Open Space", "value": "Rural Open Space"},
+                ],
+                value=land_use,
+                style={"margin-top": "10px"},
+            ),
             dbc.Tooltip(
                 'Enter a descriptive name for your MAR project '
                 '(e.g., "Sacramento Groundwater Recharge")',
@@ -222,6 +268,21 @@ def create_mar_purpose_section():
             dbc.Tooltip(
                 "Select the objectives your MAR project aims to achieve",
                 target="mar-purpose-checklist",
+                placement="top",
+            ),
+            dbc.Tooltip(
+                "Enter slope as percentage (e.g., 5% = 0.05). Affects recharge calculations",
+                target="ground-slope-input",
+                placement="top",
+            ),
+            dbc.Tooltip(
+                "Total land area available for recharge activities (impacts design capacity)",
+                target="max-area-input",
+                placement="top",
+            ),
+            dbc.Tooltip(
+                "Land use type affects infiltration rates and suitability for recharge",
+                target="land-use-dropdown",
                 placement="top",
             ),
         ])
@@ -350,8 +411,5 @@ def create_overview_content():
         dbc.Row([
             dbc.Col([create_mar_purpose_section()], width=6),
             dbc.Col([create_location_map_section()], width=6),
-        ], className="mb-4"),
-        dbc.Row([
-            dbc.Col([create_site_description_section()], width=6),
         ], className="mb-4")
     ]

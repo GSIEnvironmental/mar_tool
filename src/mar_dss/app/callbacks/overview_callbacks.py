@@ -214,50 +214,93 @@ def setup_overview_callbacks(app):
             map_style=style,
         )
 
-    # Map pan/zoom: persist center & zoom for Save/Load and refresh header label
+    # Map pan/zoom: persist center & zoom, update header label, and (optionally) fill Project Location input
     @app.callback(
         Output("location-card-header", "children"),
-        [Input("location-map", "relayoutData")],
+        Output("project-location-input", "value"),
+        [
+            Input("location-map", "relayoutData"),
+            Input("project-location-input", "value"),
+            Input("project-location-input", "n_blur"),
+            Input("project-location-input", "n_submit"),
+            Input("project-location-input", "id"),
+        ],
+        prevent_initial_call=False,
     )
-    def update_location_title(relayout_data):
-        """Persist overview map view (lat/lon/zoom) and update card header."""
+    def update_location_title_and_input(relayout_data, project_location_value, n_blur, n_submit, component_id):
+        """Persist overview map view (lat/lon/zoom) and keep Project Location in sync.
+
+        - When the user pans/zooms the map: reverse-geocode the center and fill the input.
+        - When the user edits the input: store it and update the header label.
+        """
+        ctx = dash.callback_context
+
         old_lat = dash_storage.get_data("overview_map_lat")
         old_lon = dash_storage.get_data("overview_map_lon")
-        lat, lon, zoom = _extract_mapbox_view_from_relayout(relayout_data)
-        if lat is not None:
-            dash_storage.set_data("overview_map_lat", lat)
-        if lon is not None:
-            dash_storage.set_data("overview_map_lon", lon)
-        if zoom is not None:
-            dash_storage.set_data("overview_map_zoom", zoom)
-        # Reverse-geocode only when center moves meaningfully (avoid spam while dragging)
-        center_changed = False
-        if lat is not None and lon is not None:
-            try:
-                ola = float(old_lat) if old_lat is not None else None
-                olo = float(old_lon) if old_lon is not None else None
-                center_changed = (
-                    ola is None
-                    or olo is None
-                    or abs(ola - lat) > 0.002
-                    or abs(olo - lon) > 0.002
-                )
-            except (TypeError, ValueError):
-                center_changed = True
-        if center_changed:
-            try:
-                from mar_dss.app.components.water_source_tab import (
-                    get_location_details,
-                )
-            except ImportError:
-                from ..components.water_source_tab import get_location_details
 
-            location_name = get_location_details(lat, lon)
-            dash_storage.set_data(
-                "overview_map_location_label",
-                f"Project Location — {location_name}",
-            )
-        return get_overview_map_header_text()
+        # Default to stored value on initial load
+        stored_project_location = dash_storage.get_data("project_location") or ""
+
+        trigger_id = None
+        trigger_prop = None
+        if ctx.triggered:
+            trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+            trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
+
+        # 1) Map moved: update stored view + reverse-geocode (only when moved meaningfully)
+        if trigger_id == "location-map":
+            lat, lon, zoom = _extract_mapbox_view_from_relayout(relayout_data)
+            if lat is not None:
+                dash_storage.set_data("overview_map_lat", lat)
+            if lon is not None:
+                dash_storage.set_data("overview_map_lon", lon)
+            if zoom is not None:
+                dash_storage.set_data("overview_map_zoom", zoom)
+
+            center_changed = False
+            if lat is not None and lon is not None:
+                try:
+                    ola = float(old_lat) if old_lat is not None else None
+                    olo = float(old_lon) if old_lon is not None else None
+                    center_changed = (
+                        ola is None
+                        or olo is None
+                        or abs(ola - lat) > 0.002
+                        or abs(olo - lon) > 0.002
+                    )
+                except (TypeError, ValueError):
+                    center_changed = True
+
+            if center_changed and lat is not None and lon is not None:
+                try:
+                    from mar_dss.app.components.water_source_tab import get_location_details
+                except ImportError:
+                    from ..components.water_source_tab import get_location_details
+
+                location_name = get_location_details(lat, lon)
+                dash_storage.set_data("project_location", location_name)
+                dash_storage.set_data(
+                    "overview_map_location_label",
+                    f"Project Location — {location_name}",
+                )
+                return get_overview_map_header_text(), location_name
+
+            # No meaningful change: keep current stored input
+            return get_overview_map_header_text(), stored_project_location
+
+        # 2) User edited the Project Location input: store it and update header
+        if trigger_id == "project-location-input" and trigger_prop != "id":
+            current_value = (project_location_value or "").strip()
+            dash_storage.set_data("project_location", current_value)
+            if current_value:
+                dash_storage.set_data(
+                    "overview_map_location_label",
+                    f"Project Location — {current_value}",
+                )
+            return get_overview_map_header_text(), current_value
+
+        # Initial load / unrelated triggers: keep stored values
+        return get_overview_map_header_text(), stored_project_location
 
     # Callback for workspace input - saves to data storage
     @app.callback(

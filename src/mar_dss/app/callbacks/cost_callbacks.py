@@ -184,7 +184,6 @@ def setup_cost_callbacks(app):
         
         # Get all water source data from storage
         water_source = dash_storage.get_data("water_source") or "Not set"
-        water_conveyance = dash_storage.get_data("water_conveyance") or "Not set"
         water_ownership = dash_storage.get_data("water_ownership") or "Not set"
         pumping_needed = dash_storage.get_data("pumping_needed") or "Not set"
         # Map water source value to label
@@ -197,15 +196,6 @@ def setup_cost_callbacks(app):
             "other_non_conventional_sources": "(6) Other Non-Conventional Sources"
         }
         water_source_display = water_source_labels.get(water_source, water_source)
-        
-        # Map water conveyance value to label
-        conveyance_labels = {
-            "open_canals_ditches": "Open canals/ditches",
-            "pipelines": "Pipelines",
-            "direct_diversion": "Direct Diversion",
-            "other": "Other"
-        }
-        water_conveyance_display = conveyance_labels.get(water_conveyance, water_conveyance)
         
         # Map water ownership value to label
         ownership_labels = {
@@ -224,7 +214,6 @@ def setup_cost_callbacks(app):
         # Create table data
         table_data = [
             {"Parameter": "Water Source", "Value": water_source_display},
-            {"Parameter": "Water Conveyance", "Value": water_conveyance_display},
             {"Parameter": "Water Ownership", "Value": water_ownership_display},
             {"Parameter": "Pumping Needed", "Value": pumping_needed_display},
         ]

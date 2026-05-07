@@ -906,32 +906,9 @@ def setup_main_callbacks(app, dashboard_instance):
     # the callback for `proximity-distance-input` was removed. The storage key remains
     # initialized for backward compatibility / reporting.
 
-    # Callback for water conveyance dropdown - saves to data storage
-    @app.callback(
-        Output("water-conveyance-dropdown", "value"),
-        [
-            Input("water-conveyance-dropdown", "value"),
-            Input("water-conveyance-dropdown", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_water_conveyance_selection(value, component_id):
-        """Handle water conveyance selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved water conveyance or use default, and save it
-            water_conveyance = dash_storage.get_data("water_conveyance") or "open_canals_ditches"
-            dash_storage.set_data("water_conveyance", water_conveyance)
-            return water_conveyance
-        
-        # Get the current selection
-        current_selection = value if value else "open_canals_ditches"
-        
-        # Save water conveyance selection to data storage
-        dash_storage.set_data("water_conveyance", current_selection)
-        
-        return current_selection
+    # Note: The Water Source tab no longer shows the "Water Conveyance" dropdown, so the
+    # callback for `water-conveyance-dropdown` was removed. `water_conveyance` remains
+    # initialized on new project for backward compatibility / reporting.
 
     # Note: The Water Source tab no longer shows the "Water Ownership" and "Pumping Needed"
     # radio controls, so the callbacks for those component ids were removed. The storage

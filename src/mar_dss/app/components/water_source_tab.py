@@ -366,7 +366,7 @@ def create_water_source_info_tab():
     # Get existing values from data storage if available
     water_source = dash_storage.get_data("water_source") or "surface_water_sources"
     # Removed from UI: proximity_distance (still stored elsewhere if needed)
-    water_conveyance = dash_storage.get_data("water_conveyance") or "open_canals_ditches"
+    # Removed from UI: water_conveyance (still defaulted on new project / backward compat)
     # Removed from UI: water_ownership, pumping_needed (still stored elsewhere if needed)
     physical_parameters = dash_storage.get_data("physical_parameters") or []
     chemical_parameters = dash_storage.get_data("chemical_parameters") or []
@@ -427,37 +427,7 @@ def create_water_source_info_tab():
                                                         ),
                                                         # Proximity distance control removed per request.
                                                     ],
-                                                    width=6,
-                                                ),
-                                                dbc.Col(
-                                                    [
-                                                        html.Label(
-                                                            "Water Conveyance:",
-                                                            className="fw-bold mb-2",
-                                                        ),
-                                                        dcc.Dropdown(
-                                                            id="water-conveyance-dropdown",
-                                                            options=[
-                                                                {
-                                                                    "label": "Open canals/ditches",
-                                                                    "value": "open_canals_ditches",
-                                                                },
-                                                                {
-                                                                    "label": "Pipelines",
-                                                                    "value": "pipelines",
-                                                                },
-                                                                {
-                                                                    "label": "Direct Diversion",
-                                                                    "value": "direct_diversion",
-                                                                },
-                                                                {"label": "Other", "value": "other"},
-                                                            ],
-                                                            value=water_conveyance,
-                                                            placeholder="Select conveyance method...",
-                                                        ),
-                                                        # Water Ownership + Pumping Needed controls removed per request.
-                                                    ],
-                                                    width=6,
+                                                    width=12,
                                                 ),
                                             ]
                                         ),
@@ -467,11 +437,6 @@ def create_water_source_info_tab():
                                             placement="top",
                                         ),
                                         # Tooltip removed with proximity distance control.
-                                        dbc.Tooltip(
-                                            "How water is moved from the source to the MAR facility",
-                                            target="water-conveyance-dropdown",
-                                            placement="top",
-                                        ),
                                         # Tooltips removed with Water Ownership / Pumping Needed controls.
                                     ],
                                     className="p-3",
