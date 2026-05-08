@@ -8,8 +8,10 @@ import mar_dss.app.utils.data_storage as dash_storage
 import mar_dss.app.utils.helpers as helpers
 
 try:
+    from mar_dss.app.utils.project_file_path import format_project_path
     from mar_dss.app.components.water_source_tab import create_location_map
 except ImportError:
+    from ..utils.project_file_path import format_project_path
     from .water_source_tab import create_location_map
 
 DEFAULT_OVERVIEW_MAP_LAT = 38.5816
@@ -78,8 +80,10 @@ def get_overview_map_figure_params():
 def create_mar_purpose_section():
     """Create MAR Project Purpose section for overview with tooltips."""
     project_name = dash_storage.get_data("project_name")
-    workspace = dash_storage.get_data("workspace")
-    filename = dash_storage.get_data("filename")
+    project_file_path_initial = format_project_path(
+        dash_storage.get_data("workspace"),
+        dash_storage.get_data("filename"),
+    )
     analysis_date_raw = dash_storage.get_data("analysis_date")
 
     if analysis_date_raw:
@@ -118,39 +122,29 @@ def create_mar_purpose_section():
                 value=project_name or "",
                 style={"margin-bottom": "8px"},
             ),
-            dbc.Row([
-                dbc.Col([
-                    html.Label("Workspace:", className="fw-bold small mb-1"),
+            html.Label("Project file path:", className="fw-bold small mb-1"),
+            dbc.InputGroup(
+                [
                     dbc.Input(
-                        id="workspace-input",
+                        id="project-path-input",
                         type="text",
-                        placeholder="Enter workspace path...",
-                        value=workspace or "",
-                        style={"margin-bottom": "8px"},
-                    )
-                ], width=6),
-                dbc.Col([
-                    html.Label("File Name:", className="fw-bold small mb-1"),
-                    dbc.InputGroup([
-                        dbc.Input(
-                            id="filename-input",
-                            type="text",
-                            placeholder="Enter filename...",
-                            value=filename if filename is not None else "",
+                        placeholder=(
+                            r"Example: C:\Projects\my_site\mar_dss_project.csv "
+                            "(folder + file name)"
                         ),
-                        dbc.Button(
-                            [html.I(className="fas fa-upload me-1"), "Load"],
-                            id="btn-open",
-                            color="outline-primary",
-                            size="sm",
-                            title="Open a native file picker to choose a CSV/JSON project file "
-                            "(updates Workspace and File name fields). Without a desktop UI, "
-                            "enter Workspace and File name and click Load.",
-                            style={"padding": "4px 8px"},
-                        )
-                    ], style={"margin-bottom": "8px"})
-                ], width=6)
-            ], className="g-2"),
+                        value=project_file_path_initial,
+                    ),
+                    dbc.Button(
+                        [html.I(className="fas fa-upload me-1"), "Load"],
+                        id="btn-open",
+                        color="outline-primary",
+                        size="sm",
+                        title="Browse for a CSV/JSON project file, or type a full path and click Load.",
+                        style={"padding": "4px 8px"},
+                    ),
+                ],
+                className="mb-2",
+            ),
             html.Label("Analysis Date:", className="fw-bold small mb-1"),
             dbc.Input(
                 id="analysis-date-input",
@@ -247,14 +241,9 @@ def create_mar_purpose_section():
                 placement="top",
             ),
             dbc.Tooltip(
-                "Specify the filesystem path where project files will be stored "
-                "(default: current directory)",
-                target="workspace-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Filename for saving/loading the project (auto-generated if left blank)",
-                target="filename-input",
+                "Full path to save/load the project CSV/JSON "
+                "(folder and file name). Save uses folder + filename if only one part is filled.",
+                target="project-path-input",
                 placement="top",
             ),
             dbc.Tooltip(

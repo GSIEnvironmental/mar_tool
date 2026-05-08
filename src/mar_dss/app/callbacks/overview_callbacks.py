@@ -15,8 +15,10 @@ import pandas as pd
 
 try:
     from mar_dss.app.utils.native_file_dialog import ask_open_project_path
+    from mar_dss.app.utils.project_file_path import format_project_path, split_project_path
 except ImportError:
     from ..utils.native_file_dialog import ask_open_project_path
+    from ..utils.project_file_path import format_project_path, split_project_path
 
 # Import the overview content creation function
 try:
@@ -310,73 +312,49 @@ def setup_overview_callbacks(app):
         # Initial load / unrelated triggers: keep stored values
         return get_overview_map_header_text(), stored_project_location
 
-    # Callback for workspace input - saves to data storage
+    # Combined project path (workspace + file name) — kept as two storage keys for save/load CSV
     @app.callback(
-        Output("workspace-input", "value"),
+        Output("project-path-input", "value"),
         [
-            Input("workspace-input", "value"),
-            Input("workspace-input", "n_blur"),
-            Input("workspace-input", "n_submit"),
-            Input("workspace-input", "id")
+            Input("project-path-input", "value"),
+            Input("project-path-input", "n_blur"),
+            Input("project-path-input", "n_submit"),
+            Input("project-path-input", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
-    def handle_workspace_input(value, n_blur, n_submit, component_id):
-        """Handle workspace input for all triggers: value change, blur, submit, and load."""
+    def handle_project_path_input(value, n_blur, n_submit, component_id):
+        """Sync workspace + filename storage from one full path string."""
         ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved workspace or use default, and save it
-            workspace = dash_storage.get_data("workspace") or ""
-            dash_storage.set_data("workspace", workspace)
-            return workspace
-        
-        # Get the current value from the input
-        current_value = value if value else ""
-        
-        # Determine which trigger caused the callback
-        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
-        # Save workspace for all triggers except initial load
-        if trigger_prop != "id" and current_value:
-            dash_storage.set_data("workspace", current_value)
-        
-        return current_value
 
-    # Callback for filename input - saves to data storage
-    @app.callback(
-        Output("filename-input", "value"),
-        [
-            Input("filename-input", "value"),
-            Input("filename-input", "n_blur"),
-            Input("filename-input", "n_submit"),
-            Input("filename-input", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_filename_input(value, n_blur, n_submit, component_id):
-        """Handle filename input for all triggers: value change, blur, submit, and load."""
-        ctx = dash.callback_context
-        
         if not ctx.triggered:
-            # Initial load - get saved filename or use default, and save it
-            filename = dash_storage.get_data("filename") or ""
-            dash_storage.set_data("filename", filename)
-            return filename
-        
-        # Get the current value from the input
-        current_value = value if value else ""
-        
-        # Determine which trigger caused the callback
-        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+            display = format_project_path(
+                dash_storage.get_data("workspace"),
+                dash_storage.get_data("filename"),
+            )
+            ws, fn = split_project_path(display)
+            dash_storage.set_data("workspace", ws)
+            dash_storage.set_data("filename", fn)
+            return display
+
+        raw = value if isinstance(value, str) else ""
+        current_value = raw.strip()
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
-        # Save filename for all triggers except initial load
-        if trigger_prop != "id" and current_value:
-            dash_storage.set_data("filename", current_value)
-        
-        return current_value
+
+        if trigger_prop != "id":
+            if current_value:
+                ws, fn = split_project_path(current_value)
+                dash_storage.set_data("workspace", ws)
+                dash_storage.set_data("filename", fn)
+                return format_project_path(ws, fn)
+            dash_storage.set_data("workspace", "")
+            dash_storage.set_data("filename", "")
+            return ""
+
+        return format_project_path(
+            dash_storage.get_data("workspace"),
+            dash_storage.get_data("filename"),
+        )
 
     def _load_project_rows_into_storage(df):
         """Populate dash_storage from a key/value CSV export."""
@@ -401,14 +379,13 @@ def setup_overview_callbacks(app):
     # Callback for Open button - load project from file (native picker when available)
     @app.callback(
         Output("main-content", "children", allow_duplicate=True),
-        Output("workspace-input", "value", allow_duplicate=True),
-        Output("filename-input", "value", allow_duplicate=True),
+        Output("project-path-input", "value", allow_duplicate=True),
         [Input("btn-open", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_open_project(n_clicks):
         """Pick a CSV/JSON project file (Tk dialog) then load into storage."""
-        noop = dash.no_update, dash.no_update, dash.no_update
+        noop = dash.no_update, dash.no_update
         if not n_clicks:
             return noop
 
@@ -420,52 +397,30 @@ def setup_overview_callbacks(app):
 
         if isinstance(picked, str) and picked:
             fn = picked
-            workspace_dir = os.path.dirname(fn) or ""
-            base_name = os.path.basename(fn)
+            workspace_dir, base_name = split_project_path(fn)
             dash_storage.set_data("workspace", workspace_dir)
             dash_storage.set_data("filename", base_name)
-            workspace_out = workspace_dir
-            filename_out = base_name
+            path_out = format_project_path(workspace_dir, base_name)
         else:
-            # Tk unavailable: use workspace + filename fields from storage
+            # Tk unavailable: use combined path from storage
             data = dash_storage.get_data_storage()
-            raw_ws = data.get("workspace")
-            workspace_dir = raw_ws.strip() if isinstance(raw_ws, str) else ""
-            raw_fn = data.get("filename")
-            base_name = raw_fn.strip() if isinstance(raw_fn, str) else ""
-            workspace_out = dash.no_update
-            filename_out = dash.no_update
-            if not workspace_dir:
+            fn = format_project_path(data.get("workspace"), data.get("filename"))
+            path_out = dash.no_update
+            if not (fn or "").strip():
                 ov = create_overview_content()
                 return (
                     [
                         dbc.Alert(
-                            "Native file picker is unavailable here. Enter a Workspace path, "
-                            "a File name, then click Load.",
+                            "Native file picker is unavailable here. Enter a full project "
+                            "file path, then click Load.",
                             color="danger",
                             className="mb-3",
                         ),
                     ]
                     + ov,
                     dash.no_update,
-                    dash.no_update,
                 )
-            if not base_name:
-                ov = create_overview_content()
-                return (
-                    [
-                        dbc.Alert(
-                            "Native file picker is unavailable here. Enter a File name, "
-                            "then click Load.",
-                            color="danger",
-                            className="mb-3",
-                        ),
-                    ]
-                    + ov,
-                    dash.no_update,
-                    dash.no_update,
-                )
-            fn = os.path.join(workspace_dir, base_name)
+            fn = os.path.normpath(fn.strip())
 
         if not os.path.exists(fn):
             ov = create_overview_content()
@@ -478,8 +433,7 @@ def setup_overview_callbacks(app):
                     ),
                 ]
                 + ov,
-                workspace_out,
-                filename_out,
+                path_out,
             )
 
         try:
@@ -504,6 +458,10 @@ def setup_overview_callbacks(app):
             if dash_storage.get_data("overview_map_basemap") == "stamen-terrain":
                 dash_storage.set_data("overview_map_basemap", "opentopomap")
 
+            path_after = format_project_path(
+                dash_storage.get_data("workspace"),
+                dash_storage.get_data("filename"),
+            )
             ov = create_overview_content()
             return (
                 [
@@ -514,8 +472,7 @@ def setup_overview_callbacks(app):
                     ),
                 ]
                 + ov,
-                workspace_out,
-                filename_out,
+                path_after or path_out,
             )
         except Exception as e:
             ov = create_overview_content()
@@ -528,8 +485,7 @@ def setup_overview_callbacks(app):
                     ),
                 ]
                 + ov,
-                workspace_out,
-                filename_out,
+                path_out,
             )
 
     # Callback for ground surface slope input - saves to data storage
