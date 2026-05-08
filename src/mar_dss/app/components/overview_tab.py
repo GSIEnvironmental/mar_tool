@@ -114,6 +114,7 @@ def create_mar_purpose_section():
             className="fw-bold bg-primary text-white",
         ),
         dbc.CardBody([
+            html.H6("Project Setup", className="fw-bold mb-2"),
             html.Label("Project Name:", className="fw-bold small mb-1"),
             dbc.Input(
                 id="project-name-input",
@@ -140,7 +141,7 @@ def create_mar_purpose_section():
                         color="outline-primary",
                         size="sm",
                         title="Browse for a CSV/JSON project file, or type a full path and click Load.",
-                        style={"padding": "4px 8px"},
+                        style={"padding": "4px 16px", "minWidth": "8rem"},
                     ),
                 ],
                 className="mb-2",
@@ -157,9 +158,10 @@ def create_mar_purpose_section():
                 type="text",
                 placeholder="Enter project location (e.g., Sacramento, CA)...",
                 value=project_location,
-                style={"margin-bottom": "10px"},
+                style={"margin-bottom": "8px"},
             ),
-            html.Label("MAR-Tool Starting Information:", className="fw-bold small mb-1"),
+            html.Hr(className="my-2"),
+            html.H6("MAR-Tool Starting Information", className="fw-bold mb-2"),
             html.P(
                 "Select one or more purposes for your MAR project:",
                 className="text-muted small mb-2",
