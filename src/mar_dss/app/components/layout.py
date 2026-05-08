@@ -75,7 +75,7 @@ def _build_title_block() -> html.Div:
                                 src="assets/logo2.png",
                                 alt="MAR DSS Logo 2",
                                 style={
-                                    "height": "90px",
+                                    "height": "60px",
                                     "width": "auto",
                                     "vertical-align": "middle",
                                 },
@@ -91,8 +91,8 @@ def _build_title_block() -> html.Div:
                                 className="text-center mb-0",
                                 style={
                                     "font-family": ("'Segoe UI', Tahoma, sans-serif"),
-                                    "font-size": "2.88rem",
-                                    "line-height": "1.2",
+                                    "font-size": "2.1rem",
+                                    "line-height": "1.1",
                                     "font-weight": "700",
                                     "color": "#2C3E50",
                                     "background-color": "transparent",
@@ -113,7 +113,7 @@ def _build_title_block() -> html.Div:
                                     src="assets/logos.jpg",
                                     alt="Partner Logos",
                                     style={
-                                        "height": "125px",
+                                        "height": "70px",
                                         "width": "auto",
                                         "vertical-align": "middle",
                                     },
@@ -128,9 +128,9 @@ def _build_title_block() -> html.Div:
             )
         ],
         style={
-            "min-height": "80px",
+            "min-height": "0px",
             "width": "100%",
-            "padding": "20px 0",
+            "padding": "8px 0",
         },
     )
 
@@ -156,7 +156,7 @@ def _build_action_buttons() -> dbc.ButtonGroup:
                 title="Start a new project (clear inputs depending on app logic)",
             ),
         ],
-        className="mb-2",
+        className="mb-1",
     )
 
 
@@ -207,7 +207,7 @@ def _build_header() -> dbc.Row:
                         [_build_title_block(), _build_action_buttons()],
                         className="position-relative",
                     ),
-                    html.Hr(),
+                    html.Hr(className="my-2"),
                 ]
             )
         ]

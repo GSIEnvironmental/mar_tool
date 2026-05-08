@@ -882,7 +882,10 @@ def setup_main_callbacks(app, dashboard_instance):
     app.clientside_callback(
         ClientsideFunction(namespace="clientside", function_name="resizeMapOnTab"),
         Output("runoff-map", "id", allow_duplicate=True),  # dummy output; will always return no_update
-        Input("water-source-tabs", "active_tab"),
+        [
+            Input("water-source-tabs", "active_tab"),
+            Input("optional-runoff-tabs", "active_tab"),
+        ],
         prevent_initial_call=True,
     )
 

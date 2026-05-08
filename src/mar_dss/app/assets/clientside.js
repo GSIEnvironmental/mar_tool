@@ -1,7 +1,7 @@
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
   clientside: {
-    resizeMapOnTab: function(activeTab) {
-      if (activeTab === "runoff-calculator") {
+    resizeMapOnTab: function(waterSourceActiveTab, optionalRunoffActiveTab) {
+      if (waterSourceActiveTab === "water-source-info" && optionalRunoffActiveTab === "runoff-calculator") {
         // Defer to next tick so the tab is fully visible before resizing
         setTimeout(function() {
           try {

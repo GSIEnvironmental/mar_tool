@@ -361,6 +361,62 @@ def create_editable_flow_table():
     return table
 
 
+def _create_optional_runoff_calculations_card():
+    """Card below Volume Estimates: nested Runoff Calculator and Watershed tabs."""
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                "Optional Runoff Calculations",
+                className="fw-bold bg-primary text-white py-2",
+            ),
+            dbc.CardBody(
+                [
+                    dbc.Tabs(
+                        [
+                            dbc.Tab(
+                                label="Runoff Calculator",
+                                tab_id="curve-number",
+                                children=create_curve_number_tab(),
+                                label_style={
+                                    "color": "#ffffff",
+                                    "fontWeight": "bold",
+                                    "backgroundColor": "#28a745",
+                                    "border": "1px solid #28a745",
+                                },
+                                active_label_style={
+                                    "color": "#ffffff",
+                                    "backgroundColor": "#1e7e34",
+                                    "border": "1px solid #1e7e34",
+                                },
+                            ),
+                            dbc.Tab(
+                                label="Watershed Information",
+                                tab_id="runoff-calculator",
+                                children=create_runoff_calculator_tab(),
+                                label_style={
+                                    "color": "#ffffff",
+                                    "fontWeight": "bold",
+                                    "backgroundColor": "#dc3545",
+                                    "border": "1px solid #dc3545",
+                                },
+                                active_label_style={
+                                    "color": "#ffffff",
+                                    "backgroundColor": "#a71e2a",
+                                    "border": "1px solid #a71e2a",
+                                },
+                            ),
+                        ],
+                        id="optional-runoff-tabs",
+                        active_tab="curve-number",
+                    )
+                ],
+                className="p-2",
+            ),
+        ],
+        className="mb-3",
+    )
+
+
 def create_water_source_info_tab():
     """Create the content for the Water Source Information tab."""
     # Get existing values from data storage if available
@@ -514,11 +570,16 @@ def create_water_source_info_tab():
                 )
             ],
         ),
+        dbc.Row(
+            [
+                dbc.Col([_create_optional_runoff_calculations_card()], width=12),
+            ],
+        ),
     ]
 
 
 def create_general_tab_content():
-    """Create the main tab structure with Water Source Information, Curve Number, and Runoff Calculator tabs."""
+    """Create the main tab structure with Water Source Information (includes optional runoff)."""
     return [
         dbc.Tabs(
             [
@@ -536,38 +597,6 @@ def create_general_tab_content():
                         "color": "#ffffff", 
                         "backgroundColor": "#1e3d72",
                         "border": "1px solid #1e3d72"
-                    },
-                ),
-                dbc.Tab(
-                    label="Runoff Calculator",
-                    tab_id="curve-number",
-                    children=create_curve_number_tab(),
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#28a745",
-                        "border": "1px solid #28a745"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#1e7e34",
-                        "border": "1px solid #1e7e34"
-                    },
-                ),
-                dbc.Tab(
-                    label="Watershed Information",
-                    tab_id="runoff-calculator",
-                    children=create_runoff_calculator_tab(),
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#dc3545",
-                        "border": "1px solid #dc3545"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#a71e2a",
-                        "border": "1px solid #a71e2a"
                     },
                 ),
             ],

@@ -106,31 +106,31 @@ def create_mar_purpose_section():
 
     return dbc.Card([
         dbc.CardHeader(
-            "MAR Project Purpose",
+            "MAR-Tool Starting Information",
             className="fw-bold bg-primary text-white",
         ),
         dbc.CardBody([
-            html.Label("Project Name:", className="fw-bold"),
+            html.Label("Project Name:", className="fw-bold small mb-1"),
             dbc.Input(
                 id="project-name-input",
                 type="text",
                 placeholder="Enter your MAR project name...",
                 value=project_name or "",
-                style={"margin-bottom": "15px"},
+                style={"margin-bottom": "8px"},
             ),
             dbc.Row([
                 dbc.Col([
-                    html.Label("Workspace:", className="fw-bold"),
+                    html.Label("Workspace:", className="fw-bold small mb-1"),
                     dbc.Input(
                         id="workspace-input",
                         type="text",
                         placeholder="Enter workspace path...",
                         value=workspace or "",
-                        style={"margin-bottom": "15px"},
+                        style={"margin-bottom": "8px"},
                     )
                 ], width=6),
                 dbc.Col([
-                    html.Label("File Name:", className="fw-bold"),
+                    html.Label("File Name:", className="fw-bold small mb-1"),
                     dbc.InputGroup([
                         dbc.Input(
                             id="filename-input",
@@ -146,27 +146,27 @@ def create_mar_purpose_section():
                             title="Load an existing project file from the specified workspace",
                             style={"padding": "4px 8px"},
                         )
-                    ], style={"margin-bottom": "15px"})
+                    ], style={"margin-bottom": "8px"})
                 ], width=6)
-            ]),
-            html.Label("Analysis Date:", className="fw-bold"),
+            ], className="g-2"),
+            html.Label("Analysis Date:", className="fw-bold small mb-1"),
             dbc.Input(
                 id="analysis-date-input",
                 type="date",
-                style={"margin-bottom": "15px"},
+                style={"margin-bottom": "8px"},
             ),
-            html.Label("Project Location:", className="fw-bold"),
+            html.Label("Project Location:", className="fw-bold small mb-1"),
             dbc.Input(
                 id="project-location-input",
                 type="text",
                 placeholder="Enter project location (e.g., Sacramento, CA)...",
                 value=project_location,
-                style={"margin-bottom": "20px"},
+                style={"margin-bottom": "10px"},
             ),
-            html.Label("MAR Project Purpose:", className="fw-bold"),
+            html.Label("MAR-Tool Starting Information:", className="fw-bold small mb-1"),
             html.P(
                 "Select one or more purposes for your MAR project:",
-                className="text-muted small",
+                className="text-muted small mb-2",
             ),
             dbc.Checklist(
                 id="mar-purpose-checklist",
@@ -194,11 +194,11 @@ def create_mar_purpose_section():
                 ],
                 value=mar_purpose,
                 inline=False,
-                style={"margin-top": "10px"},
+                style={"margin-top": "4px"},
             ),
-            html.Hr(className="my-3"),
-            html.H6("Site Description", className="fw-bold"),
-            html.Label("Ground Surface Slope (%):", className="fw-bold"),
+            html.Hr(className="my-2"),
+            html.H6("Site Description", className="fw-bold mb-2"),
+            html.Label("Ground Surface Slope (%):", className="fw-bold small mb-1"),
             dbc.Input(
                 id="ground-slope-input",
                 type="number",
@@ -206,12 +206,12 @@ def create_mar_purpose_section():
                 value=ground_slope,
                 min=0,
                 step=0.1,
-                style={"margin-bottom": "15px"},
+                style={"margin-bottom": "8px"},
             ),
-            html.Label("Maximum Available Area for Recharge (acres):", className="fw-bold"),
+            html.Label("Maximum Available Area for Recharge (acres):", className="fw-bold small mb-1"),
             html.Small(
                 "This area is the total area available for the MAR site",
-                className="text-muted d-block mb-2",
+                className="text-muted d-block mb-1",
             ),
             dbc.Input(
                 id="max-area-input",
@@ -220,12 +220,12 @@ def create_mar_purpose_section():
                 value=max_area,
                 min=0,
                 step=0.1,
-                style={"margin-bottom": "15px"},
+                style={"margin-bottom": "8px"},
             ),
-            html.Label("Land Use:", className="fw-bold"),
+            html.Label("Land Use:", className="fw-bold small mb-1"),
             html.P(
                 "Select the primary land use type for the recharge site:",
-                className="text-muted small",
+                className="text-muted small mb-2",
             ),
             dcc.Dropdown(
                 id="land-use-dropdown",
@@ -236,7 +236,7 @@ def create_mar_purpose_section():
                     {"label": "Rural Open Space", "value": "Rural Open Space"},
                 ],
                 value=land_use,
-                style={"margin-top": "10px"},
+                style={"margin-top": "4px"},
             ),
             dbc.Tooltip(
                 'Enter a descriptive name for your MAR project '
