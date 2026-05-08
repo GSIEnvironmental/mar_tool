@@ -2,6 +2,8 @@
 General tab content and utilities for MAR DSS dashboard (Water Source).
 """
 
+import math
+
 import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
@@ -141,6 +143,9 @@ _OPENTOPOMAP_TILES = ["https://tile.opentopomap.org/{z}/{x}/{y}.png"]
 # Overview location map figure height (px); 720 = 50% increase over prior 480.
 _LOCATION_MAP_HEIGHT_PX = 720
 
+# Water Source map: minimum plot area below basemap when filling the card (flex layout).
+_WATER_SOURCE_MAP_MIN_HEIGHT_PX = 360
+
 # Satellite + roads/labels via Esri World Imagery and Reference overlays (no Mapbox token; Esri terms apply).
 _ESRI_WORLD_IMAGERY = (
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -155,28 +160,33 @@ _ESRI_WORLD_BOUNDARIES_PLACES = (
 )
 
 
-def create_location_map(
-    lat=38.5816,
-    lon=-121.4944,
-    location_name="Sacramento, CA",
-    zoom=10,
-    map_style=None,
-):
-    """Create a map centered on specified location with default Sacramento."""
-    style = map_style if map_style in _ALLOWED_MAP_STYLES else _DEFAULT_MAP_STYLE
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scattermapbox(
-            lat=[lat],
-            lon=[lon],
-            mode="markers",
-            marker=dict(size=20, color="red", symbol="circle"),
-            text=[location_name],
-            textposition="top center",
-            name=location_name,
-        )
+def offset_latlon_miles_east(lat_deg: float, lon_deg: float, miles: float) -> tuple[float, float]:
+    """Return (lat, lon) of the point ``miles`` statute miles east of (lat_deg, lon_deg)."""
+    if miles == 0:
+        return float(lat_deg), float(lon_deg)
+    lat_rad = math.radians(float(lat_deg))
+    m_per_deg_lat = 111_320.0
+    cos_lat = math.cos(lat_rad)
+    m_per_deg_lon = max(m_per_deg_lat * cos_lat, 1e-6)
+    m_east = float(miles) * 1609.34
+    dlon = m_east / m_per_deg_lon
+    return float(lat_deg), float(lon_deg) + dlon
+
+
+def _normalize_map_style(map_style):
+    style = (
+        map_style if map_style in _ALLOWED_MAP_STYLES else _DEFAULT_MAP_STYLE
     )
-    mapbox = dict(center=dict(lat=lat, lon=lon), zoom=float(zoom))
+    return style
+
+
+def _mapbox_dict_for_style(style, center_lat, center_lon, zoom):
+    """Mapbox layout subtree for Scattermapbox (tiles / preset style)."""
+    style = _normalize_map_style(style)
+    mapbox = dict(
+        center=dict(lat=float(center_lat), lon=float(center_lon)),
+        zoom=float(zoom),
+    )
     if style == "opentopomap":
         mapbox["style"] = "white-bg"
         mapbox["layers"] = [
@@ -190,18 +200,189 @@ def create_location_map(
         mapbox["style"] = "white-bg"
         mapbox["layers"] = [
             dict(sourcetype="raster", source=[_ESRI_WORLD_IMAGERY], below="traces"),
-            dict(sourcetype="raster", source=[_ESRI_WORLD_TRANSPORTATION], below="traces"),
-            dict(sourcetype="raster", source=[_ESRI_WORLD_BOUNDARIES_PLACES], below="traces"),
+            dict(
+                sourcetype="raster",
+                source=[_ESRI_WORLD_TRANSPORTATION],
+                below="traces",
+            ),
+            dict(
+                sourcetype="raster",
+                source=[_ESRI_WORLD_BOUNDARIES_PLACES],
+                below="traces",
+            ),
         ]
     else:
         mapbox["style"] = style
-    fig.update_layout(
+    return mapbox
+
+
+_WATER_MAP_SOURCE_KEYS = ("water_map_source_lat", "water_map_source_lon")
+_WATER_MAP_RECHARGE_KEYS = ("water_map_recharge_lat", "water_map_recharge_lon")
+
+
+def ensure_water_source_site_coordinates():
+    """Return saved source/recharge coords, seeding defaults if storage is incomplete."""
+
+    def _float_or_none(raw):
+        if raw is None:
+            return None
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
+
+    plat = dash_storage.get_data(_WATER_MAP_SOURCE_KEYS[0])
+    plon = dash_storage.get_data(_WATER_MAP_SOURCE_KEYS[1])
+    rlat = dash_storage.get_data(_WATER_MAP_RECHARGE_KEYS[0])
+    rlon = dash_storage.get_data(_WATER_MAP_RECHARGE_KEYS[1])
+    platf = _float_or_none(plat)
+    plonf = _float_or_none(plon)
+    rlatf = _float_or_none(rlat)
+    rlonf = _float_or_none(rlon)
+
+    if all(v is not None for v in (platf, plonf, rlatf, rlonf)):
+        return platf, plonf, rlatf, rlonf
+
+    try:
+        from mar_dss.app.components.overview_tab import (
+            get_overview_map_figure_params,
+        )
+    except ImportError:
+        from ..components.overview_tab import get_overview_map_figure_params
+
+    proj_lat, proj_lon, _, _, _ = get_overview_map_figure_params()
+    rlat_def, rlon_def = offset_latlon_miles_east(proj_lat, proj_lon, 1.0)
+    dash_storage.set_data(_WATER_MAP_SOURCE_KEYS[0], proj_lat)
+    dash_storage.set_data(_WATER_MAP_SOURCE_KEYS[1], proj_lon)
+    dash_storage.set_data(_WATER_MAP_RECHARGE_KEYS[0], rlat_def)
+    dash_storage.set_data(_WATER_MAP_RECHARGE_KEYS[1], rlon_def)
+    return float(proj_lat), float(proj_lon), rlat_def, rlon_def
+
+
+def create_water_source_sites_map(
+    source_lat,
+    source_lon,
+    recharge_lat,
+    recharge_lon,
+    center_lat,
+    center_lon,
+    zoom,
+    map_style=None,
+    uirevision="mar-water-source-location-map",
+    fill_container=True,
+):
+    """Two-marker map for Water Source tab (red Source, blue Recharge); camera follows overview storage."""
+    style = _normalize_map_style(map_style)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=[float(source_lat)],
+            lon=[float(source_lon)],
+            mode="markers",
+            marker=dict(size=18, color="red", symbol="circle"),
+            text=["Source Site"],
+            textposition="top center",
+            name="Source Site",
+        )
+    )
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=[float(recharge_lat)],
+            lon=[float(recharge_lon)],
+            mode="markers",
+            marker=dict(size=18, color="blue", symbol="circle"),
+            text=["Recharge Site"],
+            textposition="top center",
+            name="Recharge Site",
+        )
+    )
+    mapbox = _mapbox_dict_for_style(style, center_lat, center_lon, zoom)
+    layout = dict(
         mapbox=mapbox,
         margin=dict(l=0, r=0, t=0, b=0),
-        height=_LOCATION_MAP_HEIGHT_PX,
-        uirevision="mar-overview-location-map",
+        uirevision=uirevision,
+        dragmode="pan",
+        showlegend=False,
+    )
+    if fill_container:
+        layout["autosize"] = True
+    else:
+        layout["height"] = _LOCATION_MAP_HEIGHT_PX
+    fig.update_layout(**layout)
+    return fig
+
+
+def build_water_source_location_map_figure(map_style):
+    """Build the Water Source location card figure from storage (basemap, camera, site coords)."""
+    try:
+        from mar_dss.app.components.overview_tab import (
+            ALLOWED_OVERVIEW_BASEMAP_STYLES,
+            DEFAULT_OVERVIEW_MAP_BASEMAP,
+            get_overview_map_figure_params,
+        )
+    except ImportError:
+        from ..components.overview_tab import (
+            ALLOWED_OVERVIEW_BASEMAP_STYLES,
+            DEFAULT_OVERVIEW_MAP_BASEMAP,
+            get_overview_map_figure_params,
+        )
+
+    style = (
+        map_style
+        if map_style in ALLOWED_OVERVIEW_BASEMAP_STYLES
+        else DEFAULT_OVERVIEW_MAP_BASEMAP
+    )
+    slat, slon, rlat, rlon = ensure_water_source_site_coordinates()
+    cam_lat, cam_lon, cam_zoom, _, _ = get_overview_map_figure_params()
+    return create_water_source_sites_map(
+        source_lat=slat,
+        source_lon=slon,
+        recharge_lat=rlat,
+        recharge_lon=rlon,
+        center_lat=cam_lat,
+        center_lon=cam_lon,
+        zoom=float(cam_zoom),
+        map_style=style,
+        uirevision="mar-water-source-location-map",
+        fill_container=True,
+    )
+
+
+def create_location_map(
+    lat=38.5816,
+    lon=-121.4944,
+    location_name="Sacramento, CA",
+    zoom=10,
+    map_style=None,
+    uirevision="mar-overview-location-map",
+    fill_container=False,
+):
+    """Create a map centered on specified location with default Sacramento."""
+    style = _normalize_map_style(map_style)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=[lat],
+            lon=[lon],
+            mode="markers",
+            marker=dict(size=20, color="red", symbol="circle"),
+            text=[location_name],
+            textposition="top center",
+            name=location_name,
+        )
+    )
+    mapbox = _mapbox_dict_for_style(style, lat, lon, zoom)
+    layout = dict(
+        mapbox=mapbox,
+        margin=dict(l=0, r=0, t=0, b=0),
+        uirevision=uirevision,
         dragmode="pan",
     )
+    if fill_container:
+        layout["autosize"] = True
+    else:
+        layout["height"] = _LOCATION_MAP_HEIGHT_PX
+    fig.update_layout(**layout)
     return fig
 
 
@@ -361,6 +542,167 @@ def create_editable_flow_table():
     return table
 
 
+def create_water_source_location_map_card():
+    """Same map setup as Overview: shared dash_storage lat/lon/zoom/basemap/header."""
+    try:
+        from mar_dss.app.components.overview_tab import (
+            OVERVIEW_BASEMAP_OPTIONS,
+            get_overview_map_figure_params,
+            get_overview_map_header_text,
+        )
+    except ImportError:
+        from ..components.overview_tab import (
+            OVERVIEW_BASEMAP_OPTIONS,
+            get_overview_map_figure_params,
+            get_overview_map_header_text,
+        )
+
+    _, _, _, _, basemap = get_overview_map_figure_params()
+    header_text = get_overview_map_header_text()
+    # Match ``create_location_map_section`` in overview_tab (card + tooltips structure)
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                header_text,
+                id="water-source-location-card-header",
+                className="fw-bold bg-primary text-white",
+            ),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        [
+                            html.Div(
+                                [
+                                    html.Label(
+                                        "Basemap:",
+                                        className="fw-bold small me-2 mb-0",
+                                    ),
+                                    dcc.Dropdown(
+                                        id="water-source-overview-map-basemap",
+                                        options=OVERVIEW_BASEMAP_OPTIONS,
+                                        value=basemap,
+                                        clearable=False,
+                                        className="mb-0",
+                                        style={
+                                            "flex": "1 1 auto",
+                                            "width": "100%",
+                                            "minWidth": "min(380px, 100%)",
+                                        },
+                                    ),
+                                    dbc.Tooltip(
+                                        "Switch background tiles; center and zoom stay as "
+                                        "last saved from the map. Terrain uses OpenTopoMap "
+                                        "(© OpenStreetMap contributors). Satellite + streets "
+                                        "uses Esri imagery and reference overlays; comply with "
+                                        "Esri terms. Same extent as Overview.",
+                                        target="water-source-overview-map-basemap",
+                                        placement="top",
+                                    ),
+                                ],
+                                className="d-flex flex-wrap align-items-center gap-2 flex-grow-1",
+                                style={
+                                    "flex": "1 1 auto",
+                                    "minWidth": "min(360px, 100%)",
+                                },
+                            ),
+                            html.Div(
+                                [
+                                    dbc.RadioItems(
+                                        id="water-source-map-site-radio",
+                                        options=[
+                                            {
+                                                "label": "Source Site",
+                                                "value": "source_site",
+                                            },
+                                            {
+                                                "label": "Recharge Site",
+                                                "value": "recharge_site",
+                                            },
+                                        ],
+                                        value=(
+                                            dash_storage.get_data(
+                                                "water_source_map_site"
+                                            )
+                                            or "source_site"
+                                        ),
+                                        inline=True,
+                                        className="mb-0",
+                                    ),
+                                    dbc.Tooltip(
+                                        "Choose which marker to move, then click the map "
+                                        "to drop the red Source Site or blue Recharge Site.",
+                                        target="water-source-map-site-radio",
+                                        placement="top",
+                                    ),
+                                ],
+                                className=(
+                                    "d-flex flex-column align-items-start "
+                                    "align-items-lg-end text-lg-end"
+                                ),
+                                style={"flex": "0 0 auto"},
+                            ),
+                        ],
+                        className="d-flex flex-wrap justify-content-between "
+                        "align-items-end gap-3 pb-2",
+                        style={"flexShrink": 0},
+                    ),
+                    html.Div(
+                        [
+                            dcc.Store(
+                                id="water-source-map-mapbox-click-store",
+                                data=None,
+                            ),
+                            html.Div(
+                                id="water-source-map-click-relay-hook",
+                                style={"display": "none"},
+                                children=[],
+                            ),
+                            dcc.Graph(
+                                figure=build_water_source_location_map_figure(
+                                    basemap
+                                ),
+                                config={
+                                    "displayModeBar": True,
+                                    "scrollZoom": True,
+                                },
+                                id="water-source-location-map",
+                                responsive=True,
+                                style={
+                                    "flex": "1 1 auto",
+                                    "minHeight": f"{_WATER_SOURCE_MAP_MIN_HEIGHT_PX}px",
+                                    "height": "100%",
+                                    "overflow": "hidden",
+                                },
+                            ),
+                            dbc.Tooltip(
+                                "Red = Source Site, blue = Recharge Site (defaults: "
+                                "source at saved project location, recharge ~1 mi east). "
+                                "Choose Source Site or Recharge Site above, then click "
+                                "the map to place that marker.",
+                                target="water-source-location-map-shell",
+                                placement="top",
+                            ),
+                        ],
+                        id="water-source-location-map-shell",
+                        style={
+                            "flex": "1 1 auto",
+                            "minHeight": 0,
+                            "display": "flex",
+                            "flexDirection": "column",
+                            "overflow": "hidden",
+                            "overscrollBehavior": "contain",
+                        },
+                        className="water-source-location-map-shell",
+                    ),
+                ],
+                className="p-3 d-flex flex-column flex-grow-1",
+                style={"minHeight": 0, "overflow": "hidden"},
+            ),
+        ],
+        className="h-100 w-100 d-flex flex-column mb-3 mb-lg-0",
+    )
+
+
 def _create_optional_runoff_calculations_card():
     """Card below Volume Estimates: nested Runoff Calculator and Watershed tabs."""
     return dbc.Card(
@@ -481,7 +823,6 @@ def create_water_source_info_tab():
                                                             value=water_source,
                                                             placeholder="Select water source...",
                                                         ),
-                                                        # Proximity distance control removed per request.
                                                     ],
                                                     width=12,
                                                 ),
@@ -492,18 +833,25 @@ def create_water_source_info_tab():
                                             target="water-source-dropdown",
                                             placement="top",
                                         ),
-                                        # Tooltip removed with proximity distance control.
-                                        # Tooltips removed with Water Ownership / Pumping Needed controls.
                                     ],
                                     className="p-3",
                                 ),
                             ],
-                            className="mb-3",
-                        )
+                            className="h-100 mb-3 mb-lg-0",
+                        ),
                     ],
-                    width=12,
+                    xs=12,
+                    lg=6,
+                ),
+                dbc.Col(
+                    [create_water_source_location_map_card()],
+                    xs=12,
+                    lg=6,
+                    className="mb-3 mb-lg-0",
+                    style={"minHeight": 0, "display": "flex", "flexDirection": "column"},
                 ),
             ],
+            className="mb-3 g-3 align-items-stretch",
         ),
         dbc.Row(
             [

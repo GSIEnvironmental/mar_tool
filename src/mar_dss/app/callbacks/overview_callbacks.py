@@ -4,7 +4,8 @@ Overview tab callbacks for MAR DSS dashboard.
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, html, dependencies
+from dash import Input, Output, State, html, dependencies
+from dash.dependencies import ClientsideFunction
 import mar_dss.app.utils.data_storage as dash_storage
 import mar_dss.app.utils.helpers as helpers
 import ast
@@ -29,7 +30,10 @@ try:
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
     )
-    from mar_dss.app.components.water_source_tab import create_location_map
+    from mar_dss.app.components.water_source_tab import (
+        create_location_map,
+        build_water_source_location_map_figure,
+    )
 except ImportError:
     from ..components.overview_tab import (
         create_overview_content,
@@ -38,7 +42,10 @@ except ImportError:
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
     )
-    from ..components.water_source_tab import create_location_map
+    from ..components.water_source_tab import (
+        create_location_map,
+        build_water_source_location_map_figure,
+    )
 
 
 def _extract_mapbox_view_from_relayout(relayout_data):
@@ -70,6 +77,75 @@ def _extract_mapbox_view_from_relayout(relayout_data):
         except (TypeError, ValueError):
             pass
     return lat, lon, zoom
+
+
+def _relayout_has_mapbox_camera(relayout_data):
+    """True when relayout reflects user map camera (not autosize/width churn)."""
+    if not relayout_data or not isinstance(relayout_data, dict):
+        return False
+    for key in relayout_data:
+        if key == "mapbox.zoom":
+            return True
+        if key.startswith("mapbox.center"):
+            return True
+    return False
+
+
+def _persist_shared_map_view_from_relayout(relayout_data):
+    """Write lat/lon/zoom/project_location labels from Plotly ``relayoutData``.
+
+    Returns ``(header_text, project_location_value)`` where *header_text*
+    is suitable for both map card headers after storage updates.
+
+    Used by Overview-only and Water Source-only callbacks so each callback
+    does not reference graphs that disappear when swapping top-level tabs.
+    """
+    old_lat = dash_storage.get_data("overview_map_lat")
+    old_lon = dash_storage.get_data("overview_map_lon")
+    stored_project_location = dash_storage.get_data("project_location") or ""
+
+    lat, lon, zoom = _extract_mapbox_view_from_relayout(relayout_data)
+    if lat is not None:
+        dash_storage.set_data("overview_map_lat", lat)
+    if lon is not None:
+        dash_storage.set_data("overview_map_lon", lon)
+    if zoom is not None:
+        dash_storage.set_data("overview_map_zoom", zoom)
+
+    center_changed = False
+    if lat is not None and lon is not None:
+        try:
+            ola = float(old_lat) if old_lat is not None else None
+            olo = float(old_lon) if old_lon is not None else None
+            center_changed = (
+                ola is None
+                or olo is None
+                or abs(ola - lat) > 0.002
+                or abs(olo - lon) > 0.002
+            )
+        except (TypeError, ValueError):
+            center_changed = True
+
+    location_name = None
+    if center_changed and lat is not None and lon is not None:
+        try:
+            from mar_dss.app.components.water_source_tab import get_location_details
+        except ImportError:
+            from ..components.water_source_tab import get_location_details
+
+        location_name = get_location_details(lat, lon)
+        dash_storage.set_data("project_location", location_name)
+        dash_storage.set_data(
+            "overview_map_location_label",
+            f"Project Location — {location_name}",
+        )
+
+    hdr = get_overview_map_header_text()
+
+    if location_name is not None:
+        return hdr, location_name
+
+    return hdr, stored_project_location
 
 
 def setup_overview_callbacks(app):
@@ -206,14 +282,18 @@ def setup_overview_callbacks(app):
         
         return current_selections
 
-    @app.callback(
-        Output("location-map", "figure"),
-        Input("overview-map-basemap", "value"),
-        prevent_initial_call=True,
-    )
-    def apply_overview_map_basemap(style):
-        """Rebuild map tiles only; center/zoom come from storage (last pan/zoom)."""
-        style = style if style in ALLOWED_OVERVIEW_BASEMAP_STYLES else DEFAULT_OVERVIEW_MAP_BASEMAP
+    def _overview_map_figure_with_style(
+        style_value,
+        uirevision="mar-overview-location-map",
+        *,
+        fill_container=False,
+    ):
+        """Shared basemap + figure build for Overview and Water Source maps."""
+        style = (
+            style_value
+            if style_value in ALLOWED_OVERVIEW_BASEMAP_STYLES
+            else DEFAULT_OVERVIEW_MAP_BASEMAP
+        )
         dash_storage.set_data("overview_map_basemap", style)
         lat, lon, zoom, marker_name, _ = get_overview_map_figure_params()
         return create_location_map(
@@ -222,9 +302,88 @@ def setup_overview_callbacks(app):
             location_name=marker_name,
             zoom=float(zoom),
             map_style=style,
+            uirevision=uirevision,
+            fill_container=fill_container,
         )
 
-    # Map pan/zoom: persist center & zoom, update header label, and (optionally) fill Project Location input
+    @app.callback(
+        Output("location-map", "figure"),
+        Input("overview-map-basemap", "value"),
+        prevent_initial_call=True,
+    )
+    def apply_overview_map_basemap_overview(style_overview):
+        return _overview_map_figure_with_style(style_overview)
+
+    @app.callback(
+        Output("water-source-location-map", "figure"),
+        Input("water-source-overview-map-basemap", "value"),
+        prevent_initial_call=True,
+    )
+    def apply_overview_map_basemap_water_source(style_ws):
+        style = (
+            style_ws
+            if style_ws in ALLOWED_OVERVIEW_BASEMAP_STYLES
+            else DEFAULT_OVERVIEW_MAP_BASEMAP
+        )
+        dash_storage.set_data("overview_map_basemap", style)
+        return build_water_source_location_map_figure(style)
+
+    app.clientside_callback(
+        ClientsideFunction(
+            namespace="clientside",
+            function_name="installWaterSourceMapClickRelay",
+        ),
+        Output("water-source-map-click-relay-hook", "children"),
+        [
+            Input("water-source-location-map", "figure"),
+            Input("top-tabs", "active_tab"),
+        ],
+    )
+
+    @app.callback(
+        Output("water-source-location-map", "figure", allow_duplicate=True),
+        Input("water-source-map-mapbox-click-store", "data"),
+        [
+            State("water-source-overview-map-basemap", "value"),
+            State("water-source-map-site-radio", "value"),
+        ],
+        prevent_initial_call=True,
+    )
+    def place_water_source_site_from_map_click(
+        picked,
+        basemap_dropdown_value,
+        map_site_radio_value,
+    ):
+        """Place Source / Recharge from map picks (relay fills ``picked`` lat/lon)."""
+        if not picked or not isinstance(picked, dict):
+            return dash.no_update
+
+        lat = picked.get("lat")
+        lon = picked.get("lon")
+        try:
+            lat_f = float(lat)
+            lon_f = float(lon)
+        except (TypeError, ValueError):
+            return dash.no_update
+
+        role = map_site_radio_value
+        if role not in ("source_site", "recharge_site"):
+            role = "source_site"
+
+        if role == "recharge_site":
+            dash_storage.set_data("water_map_recharge_lat", lat_f)
+            dash_storage.set_data("water_map_recharge_lon", lon_f)
+        else:
+            dash_storage.set_data("water_map_source_lat", lat_f)
+            dash_storage.set_data("water_map_source_lon", lon_f)
+
+        bm = basemap_dropdown_value
+        if bm not in ALLOWED_OVERVIEW_BASEMAP_STYLES:
+            bm = DEFAULT_OVERVIEW_MAP_BASEMAP
+
+        return build_water_source_location_map_figure(bm)
+
+    # Overview-map pan/zoom and Project Location (components exist only on Overview tab)
     @app.callback(
         Output("location-card-header", "children"),
         Output("project-location-input", "value"),
@@ -237,18 +396,14 @@ def setup_overview_callbacks(app):
         ],
         prevent_initial_call=False,
     )
-    def update_location_title_and_input(relayout_data, project_location_value, n_blur, n_submit, component_id):
-        """Persist overview map view (lat/lon/zoom) and keep Project Location in sync.
-
-        - When the user pans/zooms the map: reverse-geocode the center and fill the input.
-        - When the user edits the input: store it and update the header label.
-        """
+    def update_overview_location_card_and_project_place(
+        relayout_overview,
+        project_location_value,
+        n_blur,
+        n_submit,
+        component_id,
+    ):
         ctx = dash.callback_context
-
-        old_lat = dash_storage.get_data("overview_map_lat")
-        old_lon = dash_storage.get_data("overview_map_lon")
-
-        # Default to stored value on initial load
         stored_project_location = dash_storage.get_data("project_location") or ""
 
         trigger_id = None
@@ -257,48 +412,12 @@ def setup_overview_callbacks(app):
             trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
             trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
 
-        # 1) Map moved: update stored view + reverse-geocode (only when moved meaningfully)
         if trigger_id == "location-map":
-            lat, lon, zoom = _extract_mapbox_view_from_relayout(relayout_data)
-            if lat is not None:
-                dash_storage.set_data("overview_map_lat", lat)
-            if lon is not None:
-                dash_storage.set_data("overview_map_lon", lon)
-            if zoom is not None:
-                dash_storage.set_data("overview_map_zoom", zoom)
+            if not _relayout_has_mapbox_camera(relayout_overview):
+                return dash.no_update, dash.no_update
+            hdr, loc_inp = _persist_shared_map_view_from_relayout(relayout_overview)
+            return hdr, loc_inp
 
-            center_changed = False
-            if lat is not None and lon is not None:
-                try:
-                    ola = float(old_lat) if old_lat is not None else None
-                    olo = float(old_lon) if old_lon is not None else None
-                    center_changed = (
-                        ola is None
-                        or olo is None
-                        or abs(ola - lat) > 0.002
-                        or abs(olo - lon) > 0.002
-                    )
-                except (TypeError, ValueError):
-                    center_changed = True
-
-            if center_changed and lat is not None and lon is not None:
-                try:
-                    from mar_dss.app.components.water_source_tab import get_location_details
-                except ImportError:
-                    from ..components.water_source_tab import get_location_details
-
-                location_name = get_location_details(lat, lon)
-                dash_storage.set_data("project_location", location_name)
-                dash_storage.set_data(
-                    "overview_map_location_label",
-                    f"Project Location — {location_name}",
-                )
-                return get_overview_map_header_text(), location_name
-
-            # No meaningful change: keep current stored input
-            return get_overview_map_header_text(), stored_project_location
-
-        # 2) User edited the Project Location input: store it and update header
         if trigger_id == "project-location-input" and trigger_prop != "id":
             current_value = (project_location_value or "").strip()
             dash_storage.set_data("project_location", current_value)
@@ -309,8 +428,18 @@ def setup_overview_callbacks(app):
                 )
             return get_overview_map_header_text(), current_value
 
-        # Initial load / unrelated triggers: keep stored values
         return get_overview_map_header_text(), stored_project_location
+
+    @app.callback(
+        Output("water-source-location-card-header", "children"),
+        Input("water-source-location-map", "relayoutData"),
+        prevent_initial_call=True,
+    )
+    def update_water_source_location_card_only(relayout_water):
+        if not _relayout_has_mapbox_camera(relayout_water):
+            return dash.no_update
+        hdr, _ = _persist_shared_map_view_from_relayout(relayout_water)
+        return hdr
 
     # Combined project path (workspace + file name) — kept as two storage keys for save/load CSV
     @app.callback(

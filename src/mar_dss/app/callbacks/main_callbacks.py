@@ -916,6 +916,35 @@ def setup_main_callbacks(app, dashboard_instance):
         
         return current_selection
 
+    @app.callback(
+        Output("water-source-map-site-radio", "value"),
+        [
+            Input("water-source-map-site-radio", "value"),
+            Input("water-source-map-site-radio", "id"),
+        ],
+        prevent_initial_call=False,
+    )
+    def handle_water_source_map_site_selection(value, component_id):
+        """Persist Source vs Recharge site choice for the Water Source map card."""
+        ctx = dash.callback_context
+        valid = frozenset({"source_site", "recharge_site"})
+
+        if not ctx.triggered:
+            site = dash_storage.get_data("water_source_map_site") or "source_site"
+            if site not in valid:
+                site = "source_site"
+            dash_storage.set_data("water_source_map_site", site)
+            return site
+
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
+        if trigger_prop == "id":
+            site = dash_storage.get_data("water_source_map_site") or "source_site"
+            return site if site in valid else "source_site"
+
+        current = value if value in valid else "source_site"
+        dash_storage.set_data("water_source_map_site", current)
+        return current
+
     # Note: The Water Source tab no longer shows the "Proximity Distance" control, so
     # the callback for `proximity-distance-input` was removed. The storage key remains
     # initialized for backward compatibility / reporting.

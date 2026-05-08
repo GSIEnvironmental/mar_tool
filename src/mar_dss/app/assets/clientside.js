@@ -1,5 +1,115 @@
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
   clientside: {
+    /** Bind Mapbox GL `click` on Plotly Scattermapbox so Dash sees map-background picks. */
+    installWaterSourceMapClickRelay: function (_figure, _activeTab) {
+      var dc = window.dash_clientside;
+      try {
+        if (!dc || typeof dc.set_props !== "function") {
+          return dc.no_update;
+        }
+        var wrap = document.getElementById("water-source-location-map");
+        if (!wrap) {
+          return dc.no_update;
+        }
+        var gd =
+          wrap.getElementsByClassName("plotly-graph-div")[0] ||
+          wrap.querySelector(".js-plotly-plot");
+        if (!gd || !gd._fullLayout) {
+          return dc.no_update;
+        }
+
+        function isLikelyMapboxMap(obj) {
+          return (
+            obj &&
+            typeof obj.on === "function" &&
+            typeof obj.project === "function"
+          );
+        }
+
+        function findMapboxGlMap(plotDiv) {
+          try {
+            var layout = plotDiv._fullLayout || {};
+            var keys = Object.keys(layout).filter(function (k) {
+              var L = layout[k];
+              return L && L._subplot && k.slice(0, 7) === "mapbox";
+            });
+            if (layout.mapbox && keys.indexOf("mapbox") < 0) {
+              keys.unshift("mapbox");
+            }
+            var names = ["map", "mapboxMap", "_map", "mapbox"];
+            var i, j, mb, sp, m;
+            for (i = 0; i < keys.length; i++) {
+              mb = layout[keys[i]];
+              if (!mb || !mb._subplot) continue;
+              sp = mb._subplot;
+              for (j = 0; j < names.length; j++) {
+                m = sp[names[j]];
+                if (isLikelyMapboxMap(m)) return m;
+              }
+              if (isLikelyMapboxMap(sp)) return sp;
+            }
+          } catch (eFind) {}
+          return null;
+        }
+
+        function wireMap(map) {
+          if (!map) return;
+          if (map.__marWaterSourceClickRelay) {
+            try {
+              map.off("click", map.__marWaterSourceClickRelay);
+            } catch (eOff) {}
+          }
+          map.__marWaterSourceClickRelay = function (e) {
+            try {
+              if (!e || !e.lngLat) return;
+              dc.set_props("water-source-map-mapbox-click-store", {
+                data: {
+                  lat: e.lngLat.lat,
+                  lon: e.lngLat.lng,
+                  nonce: Date.now(),
+                },
+              });
+            } catch (eSet) {}
+          };
+          map.on("click", map.__marWaterSourceClickRelay);
+        }
+
+        function tryBind() {
+          var map = findMapboxGlMap(gd);
+          if (map) {
+            gd.__marWaterMapRelayTries = 0;
+            wireMap(map);
+            return true;
+          }
+          return false;
+        }
+
+        function scheduleBind() {
+          if (gd.__marWaterRelayTimer) clearTimeout(gd.__marWaterRelayTimer);
+          gd.__marWaterRelayTimer = setTimeout(function () {
+            if (tryBind()) return;
+            gd.__marWaterMapRelayTries = (gd.__marWaterMapRelayTries || 0) + 1;
+            if (gd.__marWaterMapRelayTries < 120) scheduleBind();
+          }, 120);
+        }
+
+        scheduleBind();
+
+        var afterKey = "__marWaterAfterPlotRelay";
+        if (gd[afterKey]) {
+          try {
+            gd.removeListener("plotly_afterplot", gd[afterKey]);
+          } catch (eRm) {}
+        }
+        gd[afterKey] = function () {
+          scheduleBind();
+        };
+        gd.on("plotly_afterplot", gd[afterKey]);
+      } catch (eOuter) {}
+
+      return window.dash_clientside.no_update;
+    },
+
     resizeMapOnTab: function(waterSourceActiveTab, optionalRunoffActiveTab) {
       if (waterSourceActiveTab === "water-source-info" && optionalRunoffActiveTab === "runoff-calculator") {
         // Defer to next tick so the tab is fully visible before resizing
