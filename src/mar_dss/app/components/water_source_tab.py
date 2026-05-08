@@ -599,23 +599,81 @@ def create_water_source_location_map_card():
                                         placement="top",
                                     ),
                                 ],
-                                className="d-flex flex-wrap align-items-center gap-2 flex-grow-1",
-                                style={
-                                    "flex": "1 1 auto",
-                                    "minWidth": "min(360px, 100%)",
-                                },
+                                className=(
+                                    "d-flex flex-wrap align-items-center gap-2 w-100"
+                                ),
                             ),
                             html.Div(
                                 [
-                                    dbc.RadioItems(
+                                    html.Div(
+                                        "Change Source and Recharge Sites",
+                                        className="fw-bold small mb-1 w-100 text-start",
+                                    ),
+                                    dcc.RadioItems(
                                         id="water-source-map-site-radio",
                                         options=[
                                             {
-                                                "label": "Source Site",
+                                                "label": html.Span(
+                                                    [
+                                                        html.Span(
+                                                            "Source Site",
+                                                            className="d-inline-flex align-items-center",
+                                                            style={
+                                                                "lineHeight": "2.7rem",
+                                                                "height": "2.7rem",
+                                                            },
+                                                        ),
+                                                        html.Span(
+                                                            "●",
+                                                            style={
+                                                                "color": "#dc3545",
+                                                                "fontSize": "2.7rem",
+                                                                "lineHeight": "2.7rem",
+                                                                "marginLeft": "6px",
+                                                                "display": "inline-flex",
+                                                                "alignItems": "center",
+                                                                "height": "2.7rem",
+                                                            },
+                                                            title="Red marker",
+                                                        ),
+                                                    ],
+                                                    className=(
+                                                        "d-inline-flex align-items-center "
+                                                        "flex-nowrap"
+                                                    ),
+                                                ),
                                                 "value": "source_site",
                                             },
                                             {
-                                                "label": "Recharge Site",
+                                                "label": html.Span(
+                                                    [
+                                                        html.Span(
+                                                            "Recharge Site",
+                                                            className="d-inline-flex align-items-center",
+                                                            style={
+                                                                "lineHeight": "2.7rem",
+                                                                "height": "2.7rem",
+                                                            },
+                                                        ),
+                                                        html.Span(
+                                                            "●",
+                                                            style={
+                                                                "color": "#0d6efd",
+                                                                "fontSize": "2.7rem",
+                                                                "lineHeight": "2.7rem",
+                                                                "marginLeft": "6px",
+                                                                "display": "inline-flex",
+                                                                "alignItems": "center",
+                                                                "height": "2.7rem",
+                                                            },
+                                                            title="Blue marker",
+                                                        ),
+                                                    ],
+                                                    className=(
+                                                        "d-inline-flex align-items-center "
+                                                        "flex-nowrap"
+                                                    ),
+                                                ),
                                                 "value": "recharge_site",
                                             },
                                         ],
@@ -625,8 +683,14 @@ def create_water_source_location_map_card():
                                             )
                                             or "source_site"
                                         ),
-                                        inline=True,
                                         className="mb-0",
+                                        labelStyle={
+                                            "display": "inline-flex",
+                                            "alignItems": "center",
+                                            "marginRight": "1.25rem",
+                                            "cursor": "pointer",
+                                        },
+                                        inputStyle={"marginRight": "6px"},
                                     ),
                                     dbc.Tooltip(
                                         "Choose which marker to move, then click the map "
@@ -635,15 +699,10 @@ def create_water_source_location_map_card():
                                         placement="top",
                                     ),
                                 ],
-                                className=(
-                                    "d-flex flex-column align-items-start "
-                                    "align-items-lg-end text-lg-end"
-                                ),
-                                style={"flex": "0 0 auto"},
+                                className="d-flex flex-column align-items-start w-100",
                             ),
                         ],
-                        className="d-flex flex-wrap justify-content-between "
-                        "align-items-end gap-3 pb-2",
+                        className="d-flex flex-column gap-2 pb-2",
                         style={"flexShrink": 0},
                     ),
                     html.Div(
