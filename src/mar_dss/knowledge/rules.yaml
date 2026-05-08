@@ -10,30 +10,7 @@ rules:
   #   certainty: 1.0
   #   group: "Aquifer Characteristics"
   #   leaf: false
-  
-  - id: "unconfined"
-    name: "Unconfined Aquifer"
-    #symbol: "unconfined"
-    description: "Branch for unconfined aquifer"
-    type: categorical 
-    module: "geohydro_rules"
-    function_name: "is_unconfined"
-    dependencies: [aq_type]
-    certainty: 1.0
-    group: "Aquifer Characteristics"
-    leaf: false
 
-  - id: "confined"
-    name: "Confined Aquifer"
-    #symbol: "confined"
-    description: "Branch for confined aquifer"
-    type: categorical 
-    module: "geohydro_rules"
-    function_name: "is_confined"
-    dependencies: [aq_type]
-    certainty: 1.0
-    group: "Aquifer Characteristics"
-    leaf: false
 
   - id: "strat_df"
     name: "Stratigraphy Dataframe"
@@ -46,6 +23,54 @@ rules:
     certainty: 1.0
     group: "Aquifer Characteristics"
     leaf: false
+  
+  - id: "target_layer_index"
+    name: "Target Layer Index"
+    #symbol: "stratigraphy_table"
+    description: "Get or retrieve the target layer index"
+    type: numeric
+    module: "geohydro_rules"
+    function_name: "recharge_target_layer_row_index"
+    dependencies: [stratigraphy_table]
+    certainty: 1.0
+    group: "Aquifer Characteristics"
+    leaf: false
+  
+  - id: "infer_aquifer_type"
+    name: "Infer Aquifer Type"
+    description: "Infer the aquifer type from the stratigraphy table"
+    type: categorical
+    module: "geohydro_rules"
+    function_name: "infer_aquifer_type"
+    dependencies: [strat_df, monthly_gw_depth]
+    certainty: 1.0
+    group: "Aquifer Characteristics"
+    leaf: false
+
+  - id: "unconfined"
+    name: "Unconfined Aquifer"
+    #symbol: "unconfined"
+    description: "Branch for unconfined aquifer"
+    type: categorical 
+    module: "geohydro_rules"
+    function_name: "is_unconfined"
+    dependencies: [strat_df, monthly_gw_depth]
+    certainty: 1.0
+    group: "Aquifer Characteristics"
+    leaf: false
+
+  - id: "confined"
+    name: "Confined Aquifer"
+    #symbol: "confined"
+    description: "Branch for confined aquifer"
+    type: categorical 
+    module: "geohydro_rules"
+    function_name: "is_confined"
+    dependencies: [strat_df, monthly_gw_depth]
+    certainty: 1.0
+    group: "Aquifer Characteristics"
+    leaf: false
+
 
 
   - id: "limiting_layer"

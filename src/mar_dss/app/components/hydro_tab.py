@@ -7,7 +7,22 @@ from dash import dcc, html
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
 
-columns=["parameter", "Depth/Thickness (ft)", "Hydraulic Conductivity", "Storage Term"]
+columns = ["parameter", "Depth/Thickness (ft)", "Hydraulic Conductivity", "Storage Term"]
+
+
+def normalize_stratigraphy_recharge_target(rows):
+    """Ensure exactly one row has recharge_target True; default to the first (top) layer."""
+    if not rows:
+        return rows
+    for row in rows:
+        if "recharge_target" not in row:
+            row["recharge_target"] = False
+    if sum(1 for r in rows if r.get("recharge_target")) != 1:
+        for row in rows:
+            row["recharge_target"] = False
+        rows[0]["recharge_target"] = True
+    return rows
+
 default_stratigraphy_unconfined = pd.DataFrame(columns=columns)
 parameters = ["Depth of No MAR Storage Zone", "MAR Storage Zone", "Max. Groundwater Table Elevation", "Average Groundwater Table Elevation", "Min Groundwater Table Elevation", "Bedrock Depth"]
 
@@ -16,13 +31,16 @@ def _get_stratigraphy_data():
     """Get stratigraphy data from dash_storage or return defaults."""
     stored_data = dash_storage.get_data("stratigraphy_data")
     if stored_data:
+        if isinstance(stored_data, list):
+            normalize_stratigraphy_recharge_target(stored_data)
+            dash_storage.set_data("stratigraphy_data", stored_data)
         return stored_data
-    # Return defaults and save them to storage
     default_data = [
-        {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},
-        {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False},
-        {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False}
+        {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False, "recharge_target": True},
+        {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False, "recharge_target": False},
+        {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False, "recharge_target": False},
     ]
+    normalize_stratigraphy_recharge_target(default_data)
     dash_storage.set_data("stratigraphy_data", default_data)
     return default_data
 
@@ -333,12 +351,13 @@ def _build_stratigraphy_tab():
                         [
                             html.Thead([
                                 html.Tr([
-                                    html.Th("Select", style={"width": "5%"}),
-                                    html.Th("Layer", style={"width": "20%"}),
-                                    html.Th("Thickness (ft)", style={"width": "15%"}),
-                                    html.Th("Hydraulic Conductivity (ft/day)", style={"width": "20%"}),
-                                    html.Th("Specific Storage (1/ft)", style={"width": "20%"}),
-                                    html.Th("Specific Yield", style={"width": "20%"})
+                                    html.Th("Select", style={"width": "4%"}),
+                                    html.Th("Layer", style={"width": "16%"}),
+                                    html.Th("Recharge Target Layer", style={"width": "12%"}, className="text-center"),
+                                    html.Th("Thickness (ft)", style={"width": "13%"}),
+                                    html.Th("Hydraulic Conductivity (ft/day)", style={"width": "18%"}),
+                                    html.Th("Specific Storage (1/ft)", style={"width": "17%"}),
+                                    html.Th("Specific Yield", style={"width": "16%"}),
                                 ])
                             ]),
                             html.Tbody(id="stratigraphy-table-body")

@@ -8,6 +8,7 @@ from dash import Input, Output, html
 import dash_bootstrap_components as dbc
 import mar_dss
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph, forward_run
 from mar_dss.base import DecisionGraph
 import pandas as pd
@@ -193,19 +194,29 @@ def get_graph_inputs():
             logger.warning(f"Invalid ground_surface_slope: {ground_surface_slope}, using 0.0")
             inputs["ground_surface_slope"] = 0.0
         
-        # Stratigraphy data with validation
+        # Stratigraphy data with validation (includes recharge target layer flag per row)
         start_table = dash_storage.get_data("stratigraphy_data")
         if start_table is None or len(start_table) == 0:
             raise ValueError("stratigraphy_data is missing or empty")
-        
+
+        if isinstance(start_table, list):
+            normalize_stratigraphy_recharge_target(start_table)
+
         start_df = pd.DataFrame(start_table)
         required_columns = ['thickness', 'conductivity', 'yield']
         missing_columns = [col for col in required_columns if col not in start_df.columns]
         if missing_columns:
             raise ValueError(f"Missing required columns in stratigraphy_data: {missing_columns}")
-        
-        start_stable = start_df[required_columns].values.tolist()
-        inputs["stratigraphy_table"] = start_stable
+
+        inputs["stratigraphy_table"] = [
+            [
+                row['thickness'],
+                row['conductivity'],
+                row['yield'],
+                bool(row.get('recharge_target', False)),
+            ]
+            for row in start_df.to_dict('records')
+        ]
         
         # Groundwater data with validation
         gw_data_raw = dash_storage.get_data("groundwater_data")

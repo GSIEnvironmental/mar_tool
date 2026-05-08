@@ -31,7 +31,10 @@ try:
     from mar_dss.app.components.dss_algorithm_tab import (
         create_dss_algorithm_content,
     )
-    from mar_dss.app.components.hydro_tab import create_hydro_tab_content
+    from mar_dss.app.components.hydro_tab import (
+        create_hydro_tab_content,
+        normalize_stratigraphy_recharge_target,
+    )
     from mar_dss.app.components.scenarios_comparison_tab import (
         create_scenarios_comparison_content,
     )
@@ -58,7 +61,10 @@ except ImportError:
         create_decision_sensitivity_content,
     )
     from .components.dss_algorithm_tab import create_dss_algorithm_content
-    from .components.hydro_tab import create_hydro_tab_content
+    from .components.hydro_tab import (
+        create_hydro_tab_content,
+        normalize_stratigraphy_recharge_target,
+    )
     from .components.scenarios_comparison_tab import (
         create_scenarios_comparison_content,
     )
@@ -262,13 +268,16 @@ def setup_main_callbacks(app, dashboard_instance):
         if active_tab == "hydrogeology":
             stored_data = dash_storage.get_data("stratigraphy_data")
             if stored_data:
+                if isinstance(stored_data, list):
+                    normalize_stratigraphy_recharge_target(stored_data)
                 return stored_data
-            # Return defaults if no stored data
-            return [
+            _fallback_strat = [
                 {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},
                 {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False},
-                {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False}
+                {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False},
             ]
+            normalize_stratigraphy_recharge_target(_fallback_strat)
+            return _fallback_strat
         return dash.no_update
     
     # Add callback to sync groundwater-data-store with dash_storage when hydrogeology tab is accessed
@@ -704,11 +713,13 @@ def setup_main_callbacks(app, dashboard_instance):
             # Reset hydrogeology data
             dash_storage.set_data("aq_type", "unconfined")
             dash_storage.set_data("max_allowed_head", 1.0)
-            dash_storage.set_data("stratigraphy_data", [
+            _strat_new = [
                 {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},
                 {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False},
-                {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False}
-            ])
+                {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False},
+            ]
+            normalize_stratigraphy_recharge_target(_strat_new)
+            dash_storage.set_data("stratigraphy_data", _strat_new)
             dash_storage.set_data("groundwater_data", [
                 {"month": "January", "elevation": 75.0, "selected": False},
                 {"month": "February", "elevation": 72.0, "selected": False},

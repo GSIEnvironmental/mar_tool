@@ -7,7 +7,10 @@ def benefits(option: MAROption) -> List[Dict[str, float]]:
 
     benefits_list = []
     graph = data_storage.get_data("decision_graph")
-    aquifer_type = graph.get_node_value('aq_type') # ['Unconfined', 'Confined', 'Semi-confined', 'Karstic', 'Fractured', 'Other']
+    if graph.get_node_value("confined"):
+        aquifer_type = "confined"
+    else:
+        aquifer_type = "unconfined" # ['Unconfined', 'Confined', 'Semi-confined', 'Karstic', 'Fractured', 'Other']
 
     # ==================================================================
     # 1. Volume of source water that can be recharged

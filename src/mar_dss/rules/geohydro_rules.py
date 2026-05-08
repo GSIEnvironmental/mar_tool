@@ -2,18 +2,97 @@ import numpy as np
 import pandas as pd
 from mar_dss.rules.analytical_solutions import compute_recharge_rate, theis_drawdown_or_Q
 from mar_dss.rules.defaults import defaults
-    
+
+
+def recharge_target_layer_row_index(strat_df):
+    """
+    Return the 0-based row index of the layer where recharge target is True.
+
+    Accepts either:
+    - **pandas.DataFrame** with column ``"Recharge Target Layer"`` (preferred), or
+    - **list** inputs (legacy / some graph pipelines):
+      - list of dicts with key ``"recharge_target"``
+      - list of lists where the 4th element is a boolean recharge flag
+
+    If no flag is present (or none are True), defaults to **0** (top layer),
+    matching the dashboard default.
+    """
+    if strat_df is None:
+        return 0
+
+    # DataFrame path
+    if isinstance(strat_df, pd.DataFrame):
+        col = "Recharge Target Layer"
+        if col not in strat_df.columns:
+            return 0
+        for i in range(len(strat_df)):
+            v = strat_df.iloc[i][col]
+            if pd.notna(v) and bool(v):
+                return i
+        return 0
+
+    # List paths
+    if isinstance(strat_df, list) and strat_df:
+        first = strat_df[0]
+
+        # list of dicts from dashboard storage
+        if isinstance(first, dict):
+            for i, row in enumerate(strat_df):
+                if bool(row.get("recharge_target", False)):
+                    return i
+            return 0
+
+        # list of lists from analysis inputs / knowledge graph
+        if isinstance(first, list):
+            for i, row in enumerate(strat_df):
+                if len(row) >= 4 and bool(row[3]):
+                    return i
+            return 0
+
+    return 0
+
+
+def infer_aquifer_type(strat_df, monthly_gw_depth):
+    """
+    Infer aquifer type based on where the (shallowest) water table sits relative to
+    the **top** of the selected recharge target layer.
+
+    Rule:
+    - If min(depth_to_gw) is **below** the top of the target layer -> unconfined
+    - Otherwise -> confined
+    """
+    min_gw_depth = float(np.min(monthly_gw_depth))
+    target_layer_idx = recharge_target_layer_row_index(strat_df)
+
+    # Get layer thicknesses from supported strat_df formats
+    thicknesses = None
+    if isinstance(strat_df, pd.DataFrame) and "thickness" in strat_df.columns:
+        thicknesses = strat_df["thickness"].astype(float).tolist()
+    elif isinstance(strat_df, list) and strat_df and isinstance(strat_df[0], dict):
+        thicknesses = [float(r.get("thickness", 0.0)) for r in strat_df]
+    elif isinstance(strat_df, list) and strat_df and isinstance(strat_df[0], list):
+        thicknesses = [float(r[0]) for r in strat_df]
+
+    if thicknesses and 0 <= target_layer_idx < len(thicknesses):
+        bottoms = np.cumsum(thicknesses)
+        top_of_target = float(bottoms[target_layer_idx] - thicknesses[target_layer_idx])
+        type_aqq = "unconfined" if min_gw_depth >= top_of_target else "confined"
+        return type_aqq
+
+    # Fallback if thicknesses are unavailable
+    return "unconfined"
 
 
 
-
-def is_unconfined(aq_type):
+def is_unconfined(strat_df, monthly_gw_depth):
+    aq_type = infer_aquifer_type(strat_df, monthly_gw_depth)
     if aq_type.lower() == "unconfined":
         return True
     else:
         return False
 
-def is_confined(aq_type):
+def is_confined(strat_df, monthly_gw_depth):
+    aq_type = infer_aquifer_type(strat_df, monthly_gw_depth)
     if aq_type.lower() == "confined":
         return True
     else:
@@ -516,18 +595,39 @@ def compute_surface_recharge_suitability(gs_slope_significance, inflitration_sig
     return surface_recharge_suitability
     
 def get_stratigraphy_table(stratigraphy_table):
-    """    
-    Convert the stratigraphy table to a pandas DataFrame.
-    Parameters:
-    - stratigraphy_table: Input stratigraphy table (list of lists)
-    Returns:
-    - stratigraphy_table: pandas DataFrame
     """
-    columns = ["thickness", "K", "sy/ss"]
-    if isinstance(stratigraphy_table, list):
-        if not all(len(row) == 3 for row in stratigraphy_table):
-            raise ValueError("Each row in stratigraphy table must contain exactly 3 columns (thickness, K, sy/ss).")
-        return pd.DataFrame(stratigraphy_table, columns=columns)
-    else:
-        raise ValueError("Invalid stratigraphy table format. Must be list of lists.")
+    Convert the stratigraphy table to a pandas DataFrame.
+
+    Each row may be 3 values (thickness, K, sy/ss) or 4 values, with the last being
+    a boolean for the recharge target layer (same meaning as the Hydrogeology UI column
+    "Recharge Target Layer").
+
+    Parameters
+    ----------
+    stratigraphy_table : list of list
+        Rows of [thickness, K, sy/ss] or [thickness, K, sy/ss, recharge_target_bool].
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns: thickness, K, sy/ss, and when 4 values are present, "Recharge Target Layer".
+    """
+    base_columns = ["thickness", "K", "sy/ss"]
+    if not isinstance(stratigraphy_table, list) or not stratigraphy_table:
+        raise ValueError("Invalid stratigraphy table format. Must be a non-empty list of lists.")
+
+    ncols = len(stratigraphy_table[0])
+    if ncols not in (3, 4):
+        raise ValueError(
+            "Each row must have 3 columns (thickness, K, sy/ss) or 4 when including "
+            "recharge target (boolean)."
+        )
+    if not all(len(row) == ncols for row in stratigraphy_table):
+        raise ValueError("All stratigraphy rows must have the same number of columns.")
+
+    if ncols == 3:
+        return pd.DataFrame(stratigraphy_table, columns=base_columns)
+
+    columns = base_columns + ["Recharge Target Layer"]
+    return pd.DataFrame(stratigraphy_table, columns=columns)
   

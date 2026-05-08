@@ -8,6 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, dcc, html, State, callback_context
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
 
 
 def setup_hydro_callbacks(app):
@@ -83,15 +84,16 @@ def setup_hydro_callbacks(app):
     def _set_confined_stratigraphy():
         """Set stratigraphy to 4 layers for confined aquifer."""
         confined_stratigraphy = [
-            {"layer": "Sand", "thickness": 100.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"], 
+            {"layer": "Sand", "thickness": 100.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
              "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-            {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"], 
+            {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
              "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
-            {"layer": "Sand", "thickness": 50.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"], 
+            {"layer": "Sand", "thickness": 50.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
              "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-            {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"], 
+            {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
              "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
         ]
+        normalize_stratigraphy_recharge_target(confined_stratigraphy)
         dash_storage.set_data("stratigraphy_data", confined_stratigraphy)
     
     # Callback to save max allowed head to data storage
@@ -149,6 +151,7 @@ def setup_hydro_callbacks(app):
     def save_stratigraphy_to_storage(data):
         """Save stratigraphy data to dash_storage when store updates."""
         if data:
+            normalize_stratigraphy_recharge_target(data)
             dash_storage.set_data("stratigraphy_data", data)
         return dash.no_update
     
@@ -419,7 +422,13 @@ def setup_hydro_callbacks(app):
                 value=row.get("selected", False),
                 className="form-check-input"
             )
-            
+
+            recharge_checkbox = dbc.Checkbox(
+                id={"type": "recharge-target-checkbox", "index": i},
+                value=bool(row.get("recharge_target", False)),
+                className="form-check-input",
+            )
+
             # Create layer dropdown
             layer_dropdown = dbc.Select(
                 id={"type": "layer-select", "index": i},
@@ -465,10 +474,16 @@ def setup_hydro_callbacks(app):
             rows.append(html.Tr([
                 html.Td(checkbox),
                 html.Td(layer_dropdown),
+                html.Td(
+                    html.Div(
+                        recharge_checkbox,
+                        className="d-flex justify-content-center align-items-center",
+                    )
+                ),
                 html.Td(thickness_input),
                 html.Td(conductivity_input),
                 html.Td(storage_input),
-                html.Td(yield_input)
+                html.Td(yield_input),
             ]))
         
         return rows
@@ -514,7 +529,8 @@ def setup_hydro_callbacks(app):
                 "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
                 "storage": SOIL_PROPERTIES["Sand"]["storage"],
                 "yield": SOIL_PROPERTIES["Sand"]["yield"],
-                "selected": False
+                "selected": False,
+                "recharge_target": False,
             }
             current_data.append(new_layer)
             
@@ -533,9 +549,53 @@ def setup_hydro_callbacks(app):
             for i in range(len(current_data)-2, -1, -1):
                 if current_data[i].get("selected", False) and not current_data[i+1].get("selected", False):
                     current_data[i], current_data[i+1] = current_data[i+1], current_data[i]
-        
+
+        normalize_stratigraphy_recharge_target(current_data)
         return current_data
-    
+
+    @app.callback(
+        Output("stratigraphy-data-store", "data", allow_duplicate=True),
+        [Input({"type": "recharge-target-checkbox", "index": dash.dependencies.ALL}, "value")],
+        [State("stratigraphy-data-store", "data")],
+        prevent_initial_call=True,
+    )
+    def apply_recharge_target_exclusive(rt_values, data):
+        """Only one recharge target row; checking one row clears the others."""
+        if not data or rt_values is None:
+            return dash.no_update
+        if len(rt_values) != len(data):
+            return dash.no_update
+
+        truths = [bool(v) for v in rt_values]
+        idx = None
+        if callback_context.triggered:
+            try:
+                import json as _json
+
+                tid = callback_context.triggered[0]["prop_id"].split(".")[0]
+                idx = int(_json.loads(tid)["index"])
+            except (ValueError, KeyError, TypeError):
+                idx = None
+
+        if idx is not None and 0 <= idx < len(data) and truths[idx]:
+            for i, row in enumerate(data):
+                row["recharge_target"] = i == idx
+            return data
+
+        selected = sum(truths)
+        if selected == 1:
+            k = truths.index(True)
+            for i, row in enumerate(data):
+                row["recharge_target"] = i == k
+            return data
+        if selected == 0:
+            normalize_stratigraphy_recharge_target(data)
+            return data
+        k = truths.index(True)
+        for i, row in enumerate(data):
+            row["recharge_target"] = i == k
+        return data
+
     @app.callback(
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
         [Input({"type": "layer-checkbox", "index": dash.dependencies.ALL}, "value"),
@@ -593,15 +653,16 @@ def setup_hydro_callbacks(app):
         """Update stratigraphy when aquifer type changes."""
         if aquifer_type == "confined":
             confined_stratigraphy = [
-                {"layer": "Sand", "thickness": 100.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"], 
+                {"layer": "Sand", "thickness": 100.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
                  "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-                {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"], 
+                {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
                  "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
-                {"layer": "Sand", "thickness": 50.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"], 
+                {"layer": "Sand", "thickness": 50.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
                  "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-                {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"], 
+                {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
                  "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
             ]
+            normalize_stratigraphy_recharge_target(confined_stratigraphy)
             dash_storage.set_data("stratigraphy_data", confined_stratigraphy)
             return confined_stratigraphy
         return dash.no_update

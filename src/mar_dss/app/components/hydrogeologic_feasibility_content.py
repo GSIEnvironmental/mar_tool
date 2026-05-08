@@ -111,6 +111,7 @@ def create_leaf_node_card(node_id, node_data, score_data):
 
 
 def create_hydrogeologic_feasibility_content_dynamic():
+    # todo: to be updated
     """Create dynamic content for Hydrogeologic Feasibility tab."""
     try:
         # Get graph and evaluate
@@ -124,6 +125,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
         node_values = graph.get_node_values()
         
         # Get aquifer type
+        # todo: now aquifer type is inferred from the decision graph
         aq_type = inputs.get('aq_type', '').lower() if inputs else ''
         is_unconfined = aq_type == 'unconfined'
         is_confined = aq_type == 'confined'
