@@ -33,6 +33,7 @@ try:
     from mar_dss.app.components.water_source_tab import (
         create_location_map,
         build_water_source_location_map_figure,
+        water_source_site_coordinates_summary_children,
     )
 except ImportError:
     from ..components.overview_tab import (
@@ -45,6 +46,7 @@ except ImportError:
     from ..components.water_source_tab import (
         create_location_map,
         build_water_source_location_map_figure,
+        water_source_site_coordinates_summary_children,
     )
 
 
@@ -382,6 +384,17 @@ def setup_overview_callbacks(app):
             bm = DEFAULT_OVERVIEW_MAP_BASEMAP
 
         return build_water_source_location_map_figure(bm)
+
+    @app.callback(
+        Output("water-source-site-coordinates-summary", "children"),
+        [
+            Input("water-source-location-map", "figure"),
+            Input("top-tabs", "active_tab"),
+        ],
+    )
+    def update_water_source_site_coordinates_summary(_figure, _active_tab):
+        """Refresh lat/lon/distance when map markers move or user switches tabs."""
+        return water_source_site_coordinates_summary_children()
 
     # Overview-map pan/zoom and Project Location (components exist only on Overview tab)
     @app.callback(

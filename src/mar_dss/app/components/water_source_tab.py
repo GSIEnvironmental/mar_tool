@@ -259,6 +259,69 @@ def ensure_water_source_site_coordinates():
     return float(proj_lat), float(proj_lon), rlat_def, rlon_def
 
 
+def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in statute miles (WGS84 mean Earth radius)."""
+    r_earth_mi = 3958.8
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlamb = math.radians(lon2 - lon1)
+    h = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(p1) * math.cos(p2) * math.sin(dlamb / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(h), math.sqrt(max(0.0, 1.0 - h)))
+    return r_earth_mi * c
+
+
+_SITE_COORD_VALUE_COLOR = "#fd7e14"
+
+
+def water_source_site_coordinates_summary_children():
+    """Layout children for Source / Recharge site lat-lon and straight-line distance (mi)."""
+    slat, slon, rlat, rlon = ensure_water_source_site_coordinates()
+    dist_mi = _haversine_miles(slat, slon, rlat, rlon)
+    num_style = {"color": _SITE_COORD_VALUE_COLOR}
+    return [
+        html.Label(
+            "Site Coordinates:",
+            className="fw-bold mb-2 text-primary",
+        ),
+        html.Div(
+            [
+                html.Span("Source Site Coordinate (LAT/LONG): "),
+                html.Span(
+                    f"{slat:.6f}, {slon:.6f}",
+                    className="fw-bold",
+                    style=num_style,
+                ),
+            ],
+            className="small mb-1",
+        ),
+        html.Div(
+            [
+                html.Span("Recharge Site Coordinate (LAT/LONG): "),
+                html.Span(
+                    f"{rlat:.6f}, {rlon:.6f}",
+                    className="fw-bold",
+                    style=num_style,
+                ),
+            ],
+            className="small mb-1",
+        ),
+        html.Div(
+            [
+                html.Span("Straight Line distance : "),
+                html.Span(
+                    f"{dist_mi:.2f} mi",
+                    className="fw-bold",
+                    style=num_style,
+                ),
+            ],
+            className="small mb-0",
+        ),
+    ]
+
+
 def create_water_source_sites_map(
     source_lat,
     source_lon,
@@ -843,13 +906,21 @@ def create_water_source_info_tab():
                                 ),
                                 dbc.CardBody(
                                     [
+                                        html.Div(
+                                            id="water-source-site-coordinates-summary",
+                                            children=(
+                                                water_source_site_coordinates_summary_children()
+                                            ),
+                                            className="mb-3",
+                                        ),
                                         dbc.Row(
                                             [
                                                 dbc.Col(
                                                     [
                                                         html.Label(
                                                             "Water Source:",
-                                                            className="fw-bold mb-2",
+                                                            className="fw-bold mb-2 "
+                                                            "text-primary",
                                                         ),
                                                         dcc.Dropdown(
                                                             id="water-source-dropdown",
