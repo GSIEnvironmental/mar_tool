@@ -7,8 +7,16 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, html, dependencies
 import mar_dss.app.utils.data_storage as dash_storage
 import mar_dss.app.utils.helpers as helpers
+import ast
+import json
 import os
+
 import pandas as pd
+
+try:
+    from mar_dss.app.utils.native_file_dialog import ask_open_project_path
+except ImportError:
+    from ..utils.native_file_dialog import ask_open_project_path
 
 # Import the overview content creation function
 try:
@@ -370,97 +378,159 @@ def setup_overview_callbacks(app):
         
         return current_value
 
-    # Callback for Open button - load project from file
+    def _load_project_rows_into_storage(df):
+        """Populate dash_storage from a key/value CSV export."""
+        for _, row in df.iterrows():
+            key = row["key"]
+            value = row["value"]
+
+            if isinstance(value, str):
+                if value.startswith("[") and value.endswith("]"):
+                    try:
+                        value = ast.literal_eval(value)
+                    except (ValueError, SyntaxError):
+                        pass
+                elif value.startswith("{") and value.endswith("}"):
+                    try:
+                        value = ast.literal_eval(value)
+                    except (ValueError, SyntaxError):
+                        pass
+
+            dash_storage.set_data(key, value)
+
+    # Callback for Open button - load project from file (native picker when available)
     @app.callback(
         Output("main-content", "children", allow_duplicate=True),
+        Output("workspace-input", "value", allow_duplicate=True),
+        Output("filename-input", "value", allow_duplicate=True),
         [Input("btn-open", "n_clicks")],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def handle_open_project(n_clicks):
-        """Handle opening a project from file."""
-        if n_clicks:
+        """Pick a CSV/JSON project file (Tk dialog) then load into storage."""
+        noop = dash.no_update, dash.no_update, dash.no_update
+        if not n_clicks:
+            return noop
+
+        picked = ask_open_project_path()
+
+        # User dismissed the native picker without choosing a path
+        if picked == "":
+            return noop
+
+        if isinstance(picked, str) and picked:
+            fn = picked
+            workspace_dir = os.path.dirname(fn) or ""
+            base_name = os.path.basename(fn)
+            dash_storage.set_data("workspace", workspace_dir)
+            dash_storage.set_data("filename", base_name)
+            workspace_out = workspace_dir
+            filename_out = base_name
+        else:
+            # Tk unavailable: use workspace + filename fields from storage
             data = dash_storage.get_data_storage()
-            if "workspace" in data.keys():
-                workspace = data["workspace"]
+            raw_ws = data.get("workspace")
+            workspace_dir = raw_ws.strip() if isinstance(raw_ws, str) else ""
+            raw_fn = data.get("filename")
+            base_name = raw_fn.strip() if isinstance(raw_fn, str) else ""
+            workspace_out = dash.no_update
+            filename_out = dash.no_update
+            if not workspace_dir:
+                ov = create_overview_content()
+                return (
+                    [
+                        dbc.Alert(
+                            "Native file picker is unavailable here. Enter a Workspace path, "
+                            "a File name, then click Load.",
+                            color="danger",
+                            className="mb-3",
+                        ),
+                    ]
+                    + ov,
+                    dash.no_update,
+                    dash.no_update,
+                )
+            if not base_name:
+                ov = create_overview_content()
+                return (
+                    [
+                        dbc.Alert(
+                            "Native file picker is unavailable here. Enter a File name, "
+                            "then click Load.",
+                            color="danger",
+                            className="mb-3",
+                        ),
+                    ]
+                    + ov,
+                    dash.no_update,
+                    dash.no_update,
+                )
+            fn = os.path.join(workspace_dir, base_name)
+
+        if not os.path.exists(fn):
+            ov = create_overview_content()
+            return (
+                [
+                    dbc.Alert(
+                        f"File does not exist: {fn}",
+                        color="danger",
+                        className="mb-3",
+                    ),
+                ]
+                + ov,
+                workspace_out,
+                filename_out,
+            )
+
+        try:
+            suffix = os.path.splitext(fn)[1].lower()
+            if suffix == ".json":
+                with open(fn, encoding="utf-8") as f:
+                    blob = json.load(f)
+                if isinstance(blob, dict):
+                    for key, value in blob.items():
+                        dash_storage.set_data(key, value)
+                else:
+                    raise ValueError("JSON project must contain an object at the root.")
             else:
-                print("No workspace found")
-                return [
-                    dbc.Alert(
-                        "No workspace found",
-                        color="danger",
-                        className="mb-3"
-                    )
-                ] + create_overview_content()
-            if "filename" in data.keys():
-                filename = data["filename"]
-            else:
-                print("No filename found")
-                return [
-                    dbc.Alert(
-                        "No filename found",
-                        color="danger",
-                        className="mb-3"
-                    )
-                ] + create_overview_content()
-            
-            fn = os.path.join(workspace, filename)
-            if not os.path.exists(fn):
-                print(f"File {fn} does not exist")
-                return [
-                    dbc.Alert(
-                        f"File {fn} does not exist",
-                        color="danger",
-                        className="mb-3"
-                    )
-                ] + create_overview_content()
-            try:
                 df = pd.read_csv(fn)
+                if not {"key", "value"} <= set(df.columns):
+                    raise ValueError(
+                        "CSV project must contain 'key' and 'value' columns."
+                    )
                 print(f"Loaded CSV with {len(df)} rows")
-                import ast
-                for index, row in df.iterrows():
-                    key = row["key"]
-                    value = row["value"]
-                    
-                    # Handle list and dict values that might be stored as strings in CSV
-                    if isinstance(value, str):
-                        if value.startswith('[') and value.endswith(']'):
-                            # Handle lists
-                            try:
-                                value = ast.literal_eval(value)
-                            except (ValueError, SyntaxError):
-                                pass  # Keep as string if parsing fails
-                        elif value.startswith('{') and value.endswith('}'):
-                            # Handle dictionaries (e.g., regulation_data)
-                            try:
-                                value = ast.literal_eval(value)
-                            except (ValueError, SyntaxError):
-                                pass  # Keep as string if parsing fails
-                    
-                    print(f"Setting data: {key} = {value}")
-                    dash_storage.set_data(key, value)
+                _load_project_rows_into_storage(df)
 
-                if dash_storage.get_data("overview_map_basemap") == "stamen-terrain":
-                    dash_storage.set_data("overview_map_basemap", "opentopomap")
+            if dash_storage.get_data("overview_map_basemap") == "stamen-terrain":
+                dash_storage.set_data("overview_map_basemap", "opentopomap")
 
-                # Return success message and overview content
-                overview_content = create_overview_content()
-                return [
+            ov = create_overview_content()
+            return (
+                [
                     dbc.Alert(
                         f"Project loaded successfully from {fn}",
                         color="success",
-                        className="mb-3"
-                    )
-                ] + overview_content
-            except Exception as e:
-                overview_content = create_overview_content()
-                return [
+                        className="mb-3",
+                    ),
+                ]
+                + ov,
+                workspace_out,
+                filename_out,
+            )
+        except Exception as e:
+            ov = create_overview_content()
+            return (
+                [
                     dbc.Alert(
                         f"Error loading project: {str(e)}",
                         color="danger",
-                        className="mb-3"
-                    )
-                ] + overview_content
-        return dash.no_update
+                        className="mb-3",
+                    ),
+                ]
+                + ov,
+                workspace_out,
+                filename_out,
+            )
 
     # Callback for ground surface slope input - saves to data storage
     @app.callback(

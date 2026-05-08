@@ -143,7 +143,9 @@ def create_mar_purpose_section():
                             id="btn-open",
                             color="outline-primary",
                             size="sm",
-                            title="Load an existing project file from the specified workspace",
+                            title="Open a native file picker to choose a CSV/JSON project file "
+                            "(updates Workspace and File name fields). Without a desktop UI, "
+                            "enter Workspace and File name and click Load.",
                             style={"padding": "4px 8px"},
                         )
                     ], style={"margin-bottom": "8px"})
