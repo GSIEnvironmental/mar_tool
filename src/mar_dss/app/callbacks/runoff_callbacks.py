@@ -1376,21 +1376,18 @@ def setup_runoff_callbacks(app):
         Output('rain-statistics-table-placeholder', 'children', allow_duplicate=True),
         [
             Input('top-tabs', 'active_tab'),
-            Input('water-source-tabs', 'active_tab'),
             Input('optional-runoff-tabs', 'active_tab'),
         ],
         prevent_initial_call=True
     )
-    def load_rain_statistics_from_storage(top_tab, water_source_tab, optional_runoff_tab):
+    def load_rain_statistics_from_storage(top_tab, optional_runoff_tab):
         """Load rain statistics table from storage when tab is accessed."""
-        ctx = dash.callback_context
-        
         # Only load if we're on the water source tab
         if top_tab != "water-source":
             return dash.no_update
         
-        # Only load when on Water Source tab and Curve Number nested tab (where the table lives)
-        if water_source_tab != "water-source-info" or optional_runoff_tab != "curve-number":
+        # Only load when Curve Number nested tab is active (where the table lives)
+        if optional_runoff_tab != "curve-number":
             return dash.no_update
         
         # Get saved rain statistics data
@@ -1545,19 +1542,18 @@ def setup_runoff_callbacks(app):
         Output('monthly-runoff-estimation-content', 'children', allow_duplicate=True),
         [
             Input('top-tabs', 'active_tab'),
-            Input('water-source-tabs', 'active_tab'),
             Input('optional-runoff-tabs', 'active_tab'),
         ],
         prevent_initial_call=True
     )
-    def load_monthly_runoff_from_storage(top_tab, water_source_tab, optional_runoff_tab):
+    def load_monthly_runoff_from_storage(top_tab, optional_runoff_tab):
         """Load monthly runoff table from storage when tab is accessed."""
         # Only load if we're on the water source tab
         if top_tab != "water-source":
             return dash.no_update
         
-        # Only load when on Water Source tab and Curve Number nested tab (where the table lives)
-        if water_source_tab != "water-source-info" or optional_runoff_tab != "curve-number":
+        # Only load when Curve Number nested tab is active (where the table lives)
+        if optional_runoff_tab != "curve-number":
             return dash.no_update
         
         # Get saved monthly runoff data

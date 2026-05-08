@@ -1057,30 +1057,7 @@ def create_water_source_info_tab():
 
 
 def create_general_tab_content():
-    """Create the main tab structure with Water Source Information (includes optional runoff)."""
-    return [
-        dbc.Tabs(
-            [
-                dbc.Tab(
-                    label="Water Source Information",
-                    tab_id="water-source-info",
-                    children=create_water_source_info_tab(),
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#2c5aa0",
-                        "border": "1px solid #2c5aa0"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#1e3d72",
-                        "border": "1px solid #1e3d72"
-                    },
-                ),
-            ],
-            id="water-source-tabs",
-            active_tab="water-source-info",
-        )
-    ]
+    """Water Source main tab body (cards only; no nested tab bar)."""
+    return create_water_source_info_tab()
 
 
