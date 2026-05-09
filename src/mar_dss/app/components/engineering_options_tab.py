@@ -70,6 +70,7 @@ def create_engineering_elements_content():
                                             type="number",
                                             value=0.0,
                                             id="peak-flow-available-input",
+                                            debounce=True,
                                             min=0,
                                             step=0.1,
                                             className="mb-2"
@@ -82,6 +83,7 @@ def create_engineering_elements_content():
                                             type="number",
                                             value=0.0,
                                             id="fraction-flow-capture-input",
+                                            debounce=True,
                                             min=0,
                                             max=1,
                                             step=0.01,

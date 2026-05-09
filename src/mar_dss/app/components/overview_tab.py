@@ -121,6 +121,7 @@ def create_mar_purpose_section():
                 type="text",
                 placeholder="Enter your MAR project name...",
                 value=project_name or "",
+                debounce=True,
                 style={"margin-bottom": "8px"},
             ),
             html.Label("Project file path:", className="fw-bold small mb-1"),
@@ -134,6 +135,7 @@ def create_mar_purpose_section():
                             "(folder + file name)"
                         ),
                         value=project_file_path_initial,
+                        debounce=True,
                     ),
                     dbc.Button(
                         [html.I(className="fas fa-upload me-1"), "Load"],
@@ -150,6 +152,7 @@ def create_mar_purpose_section():
             dbc.Input(
                 id="analysis-date-input",
                 type="date",
+                debounce=True,
                 style={"margin-bottom": "8px"},
             ),
             html.Label("Project Location:", className="fw-bold small mb-1"),
@@ -158,6 +161,7 @@ def create_mar_purpose_section():
                 type="text",
                 placeholder="Enter project location (e.g., Sacramento, CA)...",
                 value=project_location,
+                debounce=True,
                 style={"margin-bottom": "8px"},
             ),
             html.Hr(className="my-2"),
@@ -202,6 +206,7 @@ def create_mar_purpose_section():
                 type="number",
                 placeholder="Enter ground surface slope percentage...",
                 value=ground_slope,
+                debounce=True,
                 min=0,
                 step=0.1,
                 style={"margin-bottom": "8px"},
@@ -216,6 +221,7 @@ def create_mar_purpose_section():
                 type="number",
                 placeholder="Enter maximum available area...",
                 value=max_area,
+                debounce=True,
                 min=0,
                 step=0.1,
                 style={"margin-bottom": "8px"},

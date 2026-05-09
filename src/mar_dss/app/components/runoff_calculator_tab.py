@@ -68,6 +68,7 @@ def create_coordinate_inputs():
             id="selected-latitude",
             type="number",
             placeholder="Click map to set latitude",
+            debounce=True,
             step=0.000001,
             style={"margin-bottom": "10px"}
         ),
@@ -76,6 +77,7 @@ def create_coordinate_inputs():
             id="selected-longitude",
             type="number",
             placeholder="Click map to set longitude",
+            debounce=True,
             step=0.000001,
             style={"margin-bottom": "15px"}
         ),
@@ -329,6 +331,7 @@ def create_curve_number_tab():
                                                 id="runoff-single-storm-latitude",
                                                 type="number",
                                                 value=38.5816,
+                                                debounce=True,
                                                 placeholder="Enter latitude",
                                                 className="mb-3"
                                             )
@@ -339,6 +342,7 @@ def create_curve_number_tab():
                                                 id="runoff-single-storm-longitude",
                                                 type="number",
                                                 value=-121.4944,
+                                                debounce=True,
                                                 placeholder="Enter longitude",
                                                 className="mb-3"
                                             )

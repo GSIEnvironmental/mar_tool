@@ -669,6 +669,7 @@ def create_environmental_considerations_content():
                                             type="password",
                                             value=gemini_api_key,
                                             placeholder="Enter your Gemini API key",
+                                            debounce=True,
                                             className="mb-2"
                                         ),
                                         html.Small(
@@ -686,6 +687,7 @@ def create_environmental_considerations_content():
                                             type="text",
                                             value=gemini_api_file,
                                             placeholder=r"C:\workspace\api\gemini.txt",
+                                            debounce=True,
                                             className="mb-2"
                                         ),
                                         html.Small(
@@ -781,6 +783,7 @@ def create_environmental_considerations_content():
                                     type="text",
                                     value="China Lake, CA",
                                     placeholder="Enter location (e.g., City, State or City, Country)",
+                                    debounce=True,
                                     className="mb-3"
                                 ),
                             ], width=12, md=6),

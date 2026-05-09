@@ -113,7 +113,7 @@ def create_hydro_tab_content():
 
 
 def _build_hydro_tab_header():
-    """Build the hydrogeology tab header."""
+    """Build the Hydrogeologic Settings top cards."""
     # Get existing values from data storage if available
     max_allowed_head = dash_storage.get_data("max_allowed_head")
     # Ensure max_allowed_head is a float, default to 1.0
@@ -140,70 +140,127 @@ def _build_hydro_tab_header():
         aq_display = "Unconfined"
 
     return [
-        _build_aquifer_type_notice(),
-        html.Label(
-            "Aquitard conductivity (ft/day):",
-            className="fw-bold mb-2",
-        ),
-        html.Small(
-            (
-                "Layers with hydraulic conductivity at or below this value are treated "
-                "as aquitards when inferring confined vs unconfined aquifer geometry."
-            ),
-            className="text-muted d-block mb-1",
-        ),
-        dbc.Input(
-            id="aquitard-conductivity-input",
-            type="text",
-            placeholder="e.g. 0.001",
-            autoComplete="off",
-            value=(
-                f"{float(aquitard_k):.12f}".rstrip("0").rstrip(".")
-                if isinstance(aquitard_k, (int, float))
-                else str(aquitard_k)
-            ),
-            className="mb-3",
-        ),
-        dbc.Tooltip(
-            "Maximum hydraulic conductivity (ft/day) for classifying a stratigraphy "
-            "layer as an aquitard in dashboard inference.",
-            target="aquitard-conductivity-input",
-            placement="top",
-        ),
-        dcc.Store(id="aq-type-inferred-store", data="unconfined"),
-        html.Div(
-            id="aquifer-type-display",
-            children=f"Aquifer Type: {aq_display}",
-            className="fw-bold mb-2",
-            style={"color": "#fd7e14"},
-        ),
-        html.Div(
-            id="confined-head-input-container",
-            style={
-                "display": (
-                    "block"
-                    if str(aq_label).lower() == "confined"
-                    else "none"
-                )
-            },
-            children=[
-                html.Label("Maximum Allowed Head (Pressure) (ft/foot of depth to the top of the confining layer):", className="fw-bold mb-2"),
-                dbc.Input(
-                    id="max-allowed-head-input",
-                    type="number",
-                    placeholder="Enter maximum allowed head",
-                    step=0.1,
-                    value=max_allowed_head,
-                    className="mb-3"
-                )
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardHeader(
+                                    "Hydrogeologic Parameters",
+                                    className="fw-bold bg-primary text-white py-2",
+                                ),
+                                dbc.CardBody(
+                                    [
+                                        _build_aquifer_type_notice(),
+                                        html.Label(
+                                            "Aquitard conductivity (ft/day):",
+                                            className="fw-bold mb-2",
+                                        ),
+                                        html.Small(
+                                            (
+                                                "Layers with hydraulic conductivity at or below this value are treated "
+                                                "as aquitards when inferring confined vs unconfined aquifer geometry."
+                                            ),
+                                            className="text-muted d-block mb-1",
+                                        ),
+                                        dbc.Input(
+                                            id="aquitard-conductivity-input",
+                                            type="text",
+                                            placeholder="e.g. 0.001",
+                                            autoComplete="off",
+                                            debounce=True,
+                                            value=(
+                                                f"{float(aquitard_k):.12f}".rstrip("0").rstrip(".")
+                                                if isinstance(aquitard_k, (int, float))
+                                                else str(aquitard_k)
+                                            ),
+                                            className="mb-3",
+                                        ),
+                                        dbc.Tooltip(
+                                            "Maximum hydraulic conductivity (ft/day) for classifying a stratigraphy "
+                                            "layer as an aquitard in dashboard inference.",
+                                            target="aquitard-conductivity-input",
+                                            placement="top",
+                                        ),
+                                        dcc.Store(
+                                            id="aq-type-inferred-store",
+                                            data="unconfined",
+                                        ),
+                                        html.Div(
+                                            id="aquifer-type-display",
+                                            children=f"Aquifer Type: {aq_display}",
+                                            className="fw-bold mb-2",
+                                            style={"color": "#fd7e14"},
+                                        ),
+                                        html.Div(
+                                            id="confined-head-input-container",
+                                            style={
+                                                "display": (
+                                                    "block"
+                                                    if str(aq_label).lower()
+                                                    == "confined"
+                                                    else "none"
+                                                )
+                                            },
+                                            children=[
+                                                html.Label(
+                                                    "Maximum Allowed Head (Pressure) (ft/foot of depth to the top of the confining layer):",
+                                                    className="fw-bold mb-2",
+                                                ),
+                                                dbc.Input(
+                                                    id="max-allowed-head-input",
+                                                    type="number",
+                                                    placeholder="Enter maximum allowed head",
+                                                    step=0.1,
+                                                    value=max_allowed_head,
+                                                    debounce=True,
+                                                    className="mb-3",
+                                                ),
+                                            ],
+                                            className="mb-0",
+                                        ),
+                                        dbc.Tooltip(
+                                            "Pressure head limit applied when the inferred aquifer type is confined",
+                                            target="max-allowed-head-input",
+                                            placement="top",
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            className="h-100",
+                        )
+                    ],
+                    xs=12,
+                    lg=6,
+                    className="mb-3 mb-lg-0",
+                ),
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardHeader(
+                                    "Initial Hydrologic Feasability",
+                                    className="fw-bold bg-primary text-white py-2",
+                                ),
+                                dbc.CardBody(
+                                    [
+                                        html.P(
+                                            "Coming soon.",
+                                            className="text-muted mb-0",
+                                        )
+                                    ],
+                                ),
+                            ],
+                            className="h-100",
+                        )
+                    ],
+                    xs=12,
+                    lg=6,
+                ),
             ],
-            className="mb-3"
-        ),
-        dbc.Tooltip(
-            "Pressure head limit applied when the inferred aquifer type is confined",
-            target="max-allowed-head-input",
-            placement="top",
-        ),
+            className="g-3 align-items-stretch mb-3",
+        )
     ]
 
 
@@ -254,6 +311,7 @@ def _build_stratigraphy_table_row(parameter, depth_id, conductivity_id, storage_
                     type="number",
                     placeholder="0.0",
                     size="sm",
+                    debounce=True,
                     className="border-0"
                 ),
                 style=style
@@ -264,6 +322,7 @@ def _build_stratigraphy_table_row(parameter, depth_id, conductivity_id, storage_
                     type="number",
                     placeholder="0.0",
                     size="sm",
+                    debounce=True,
                     className="border-0"
                 ),
                 style=style
@@ -274,6 +333,7 @@ def _build_stratigraphy_table_row(parameter, depth_id, conductivity_id, storage_
                     type="number",
                     placeholder="0.0",
                     size="sm",
+                    debounce=True,
                     className="border-0"
                 ),
                 style=style
@@ -461,6 +521,7 @@ def _build_groundwater_level_tab():
                                 id="ground-surface-elevation",
                                 type="number",
                                 value=dash_storage.get_data("ground_surface_elevation") or 120.0,
+                                debounce=True,
                                 step=0.1,
                                 placeholder="Enter elevation",
                                 size="sm",
@@ -471,6 +532,7 @@ def _build_groundwater_level_tab():
                                 id="max-mar-storage-depth",
                                 type="number",
                                 value=dash_storage.get_data("max_mar_storage_depth") or 20.0,
+                                debounce=True,
                                 step=0.1,
                                 placeholder="Enter storage depth",
                                 size="sm"
@@ -547,6 +609,7 @@ def _build_horizontal_extension_tab():
                                 id="extension-length",
                                 type="number",
                                 value=dash_storage.get_data("extension_length") or 100.0,
+                                debounce=True,
                                 step=0.1,
                                 placeholder="Enter length"
                             )
@@ -557,6 +620,7 @@ def _build_horizontal_extension_tab():
                                 id="extension-width",
                                 type="number",
                                 value=dash_storage.get_data("extension_width") or 50.0,
+                                debounce=True,
                                 step=0.1,
                                 placeholder="Enter width"
                             )
@@ -570,6 +634,7 @@ def _build_horizontal_extension_tab():
                                 id="extension-rotation",
                                 type="number",
                                 value=dash_storage.get_data("extension_rotation") or 0.0,
+                                debounce=True,
                                 step=1.0,
                                 placeholder="Enter rotation angle"
                             )
@@ -580,6 +645,7 @@ def _build_horizontal_extension_tab():
                                 id="upstream-head",
                                 type="number",
                                 value=dash_storage.get_data("upstream_head") or 10.0,
+                                debounce=True,
                                 step=0.1,
                                 placeholder="Enter upstream head"
                             )
@@ -593,6 +659,7 @@ def _build_horizontal_extension_tab():
                                 id="downstream-head",
                                 type="number",
                                 value=dash_storage.get_data("downstream_head") or 5.0,
+                                debounce=True,
                                 step=0.1,
                                 placeholder="Enter downstream head"
                             )

@@ -115,15 +115,15 @@ def setup_hydro_callbacks(app):
     @app.callback(
         Output("max-allowed-head-input", "value"),
         [
-            Input("max-allowed-head-input", "value"),
             Input("max-allowed-head-input", "n_blur"),
             Input("max-allowed-head-input", "n_submit"),
             Input("max-allowed-head-input", "id")
         ],
+        State("max-allowed-head-input", "value"),
         prevent_initial_call=False
     )
-    def handle_max_allowed_head_input(value, n_blur, n_submit, component_id):
-        """Handle max allowed head input and save to data storage."""
+    def handle_max_allowed_head_input(n_blur, n_submit, component_id, value):
+        """Persist max allowed head on blur/submit so the field can be cleared while editing."""
         ctx = dash.callback_context
         
         if not ctx.triggered:
@@ -138,37 +138,48 @@ def setup_hydro_callbacks(app):
                 max_head = 1.0
             dash_storage.set_data("max_allowed_head", max_head)
             return max_head
-        
-        # Get the current value and convert to float
-        if value is not None:
+
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
+
+        # id trigger: just return stored value (or default) without forcing edits mid-typing
+        if trigger_prop == "id":
+            max_head = dash_storage.get_data("max_allowed_head")
+            if max_head is not None:
+                try:
+                    max_head = float(max_head)
+                except (ValueError, TypeError):
+                    max_head = 1.0
+            else:
+                max_head = 1.0
+            dash_storage.set_data("max_allowed_head", max_head)
+            return max_head
+
+        # Blur or Enter: commit current text/number from State
+        if value is not None and str(value).strip() != "":
             try:
-                current_value = float(value)
+                current_value = float(str(value).strip())
+                if not math.isfinite(current_value):
+                    current_value = 1.0
             except (ValueError, TypeError):
                 current_value = 1.0
         else:
             current_value = 1.0
-        
-        # Determine which trigger caused the callback
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
-        # Save for all triggers except initial load (ensure it's saved as float)
-        if trigger_prop != "id":
-            dash_storage.set_data("max_allowed_head", current_value)
-        
+
+        dash_storage.set_data("max_allowed_head", current_value)
         return current_value
 
     @app.callback(
         Output("aquitard-conductivity-input", "value"),
         [
-            Input("aquitard-conductivity-input", "value"),
             Input("aquitard-conductivity-input", "n_blur"),
             Input("aquitard-conductivity-input", "n_submit"),
             Input("aquitard-conductivity-input", "id"),
         ],
+        State("aquitard-conductivity-input", "value"),
         prevent_initial_call=False,
     )
-    def handle_aquitard_conductivity_input(value, n_blur, n_submit, component_id):
-        """Persist aquitard K threshold (ft/day); default matches inference default."""
+    def handle_aquitard_conductivity_input(n_blur, n_submit, component_id, value):
+        """Persist aquitard K on blur/submit only so the field can be cleared while editing."""
         ctx = dash.callback_context
 
         if not ctx.triggered:
@@ -186,21 +197,37 @@ def setup_hydro_callbacks(app):
             )
             return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
 
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
+
+        if trigger_prop == "id":
+            aq = dash_storage.get_data("aquitard_conductivity_ft_day")
+            if aq is not None:
+                try:
+                    aq = float(aq)
+                    if math.isfinite(aq) and aq > 0.0:
+                        dash_storage.set_data("aquitard_conductivity_ft_day", aq)
+                        return _aquitard_k_input_str(aq)
+                except (TypeError, ValueError):
+                    pass
+            dash_storage.set_data(
+                "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
+            )
+            return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
+
+        # Blur or Enter: commit current text from State
         if value is not None and str(value).strip() != "":
             try:
                 current = float(str(value).strip())
-                if not math.isfinite(current) or current <= 0.0:
-                    current = DEFAULT_AQUITARD_K_MAX_FT_DAY
+                if math.isfinite(current) and current > 0.0:
+                    dash_storage.set_data("aquitard_conductivity_ft_day", current)
+                    return _aquitard_k_input_str(current)
             except (TypeError, ValueError):
-                current = DEFAULT_AQUITARD_K_MAX_FT_DAY
-        else:
-            current = DEFAULT_AQUITARD_K_MAX_FT_DAY
+                pass
 
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        if trigger_prop != "id":
-            dash_storage.set_data("aquitard_conductivity_ft_day", current)
-
-        return _aquitard_k_input_str(current)
+        dash_storage.set_data(
+            "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
+        )
+        return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
 
     # Callback to save stratigraphy data to dash_storage when store updates
     @app.callback(
