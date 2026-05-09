@@ -121,14 +121,15 @@ def create_hydrogeologic_feasibility_content_dynamic():
         
         inputs = get_graph_inputs()
         evaluate_and_store_decision_graph(graph, inputs)
-        graph.plotly()
-        node_values = graph.get_node_values()
-        
-        # Get aquifer type
-        # todo: now aquifer type is inferred from the decision graph
-        aq_type = inputs.get('aq_type', '').lower() if inputs else ''
-        is_unconfined = aq_type == 'unconfined'
-        is_confined = aq_type == 'confined'
+        #graph.plotly()
+        node_values = graph.get_node_values()        
+      
+        is_confined = graph.get_node_value("confined")
+        is_unconfined =graph.get_node_value("unconfined")   
+        if is_confined:
+            aq_type = "confined"
+        else:
+            aq_type = "unconfined"
         
         # Calculate feasibility score
         score_data = calculate_hydrogeological_feasibility_score(graph, node_values)

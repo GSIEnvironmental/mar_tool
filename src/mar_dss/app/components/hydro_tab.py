@@ -245,10 +245,24 @@ def _build_hydro_tab_header():
                                 ),
                                 dbc.CardBody(
                                     [
-                                        html.P(
-                                            "Coming soon.",
-                                            className="text-muted mb-0",
-                                        )
+                                        dbc.Alert(
+                                            [
+                                                html.Strong("Note: ", className="me-1"),
+                                                (
+                                                    "This is initial feasibility. Final feasibility "
+                                                    "depends on multiple other factors in other tabs."
+                                                ),
+                                            ],
+                                            color="warning",
+                                            className="mb-3 small",
+                                        ),
+                                        dbc.Button(
+                                            "Check Initial Feasibility",
+                                            id="check-initial-feasibility-btn",
+                                            color="primary",
+                                            className="w-100",
+                                            n_clicks=0,
+                                        ),
                                     ],
                                 ),
                             ],
