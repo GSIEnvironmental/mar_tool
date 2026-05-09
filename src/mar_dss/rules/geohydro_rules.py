@@ -83,12 +83,17 @@ def infer_aquifer_type(strat_df, monthly_gw_depth):
     return "unconfined"
 
 
-# Hydraulic conductivity at or below this (ft/day) treats the layer as an aquitard for
-# dashboard confined/unconfined inference (Clay/Silt typical defaults vs Sand/Gravel).
-_DASHBOARD_AQUITARD_K_MAX_FT_DAY = 0.1
+# Default max *K* (ft/day) for classifying a dashboard layer as an aquitard when the user
+# does not supply ``aquitard_k_max_ft_day``.
+DEFAULT_AQUITARD_K_MAX_FT_DAY = 1e-3
 
 
-def infer_dashboard_aquifer_type(stratigraphy_rows, groundwater_rows, ground_surface_elevation):
+def infer_dashboard_aquifer_type(
+    stratigraphy_rows,
+    groundwater_rows,
+    ground_surface_elevation,
+    aquitard_k_max_ft_day=DEFAULT_AQUITARD_K_MAX_FT_DAY,
+):
     """Infer *confined* vs *unconfined* from stratigraphy + monthly water-table elevations.
 
     **Confined** when all apply:
@@ -111,7 +116,15 @@ def infer_dashboard_aquifer_type(stratigraphy_rows, groundwater_rows, ground_sur
         Dashboard ``groundwater_data`` rows with numeric ``elevation`` (ft AMSL).
     ground_surface_elevation : float | None
         Ground surface elevation (ft AMSL), same datum as water-table elevations.
+    aquitard_k_max_ft_day : float
+        Layers with conductivity at or below this value (ft/day) are treated as aquitards.
     """
+    try:
+        k_max = float(aquitard_k_max_ft_day)
+        if not np.isfinite(k_max) or k_max <= 0.0:
+            k_max = DEFAULT_AQUITARD_K_MAX_FT_DAY
+    except (TypeError, ValueError):
+        k_max = DEFAULT_AQUITARD_K_MAX_FT_DAY
 
     def _is_aquitard(row):
         if not isinstance(row, dict):
@@ -120,7 +133,7 @@ def infer_dashboard_aquifer_type(stratigraphy_rows, groundwater_rows, ground_sur
             k = float(row.get("conductivity", row.get("K", 0.0)))
         except (TypeError, ValueError):
             return False
-        return k <= _DASHBOARD_AQUITARD_K_MAX_FT_DAY
+        return k <= k_max
 
     try:
         gs = float(ground_surface_elevation)

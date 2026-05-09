@@ -125,6 +125,14 @@ def _build_hydro_tab_header():
     else:
         max_allowed_head = 1.0
 
+    aq_k_raw = dash_storage.get_data("aquitard_conductivity_ft_day")
+    try:
+        aquitard_k = float(aq_k_raw) if aq_k_raw is not None else 1e-3
+        if aquitard_k <= 0:
+            aquitard_k = 1e-3
+    except (TypeError, ValueError):
+        aquitard_k = 1e-3
+
     aq_label = dash_storage.get_data("aq_type") or "unconfined"
     try:
         aq_display = str(aq_label).replace("-", " ").title()
@@ -132,11 +140,36 @@ def _build_hydro_tab_header():
         aq_display = "Unconfined"
 
     return [
-        html.H3("Hydrogeology"),
-        html.P(
-            "Configure hydrogeological parameters for MAR project analysis."
-        ),
         _build_aquifer_type_notice(),
+        html.Label(
+            "Aquitard conductivity (ft/day):",
+            className="fw-bold mb-2",
+        ),
+        html.Small(
+            (
+                "Layers with hydraulic conductivity at or below this value are treated "
+                "as aquitards when inferring confined vs unconfined aquifer geometry."
+            ),
+            className="text-muted d-block mb-1",
+        ),
+        dbc.Input(
+            id="aquitard-conductivity-input",
+            type="text",
+            placeholder="e.g. 0.001",
+            autoComplete="off",
+            value=(
+                f"{float(aquitard_k):.12f}".rstrip("0").rstrip(".")
+                if isinstance(aquitard_k, (int, float))
+                else str(aquitard_k)
+            ),
+            className="mb-3",
+        ),
+        dbc.Tooltip(
+            "Maximum hydraulic conductivity (ft/day) for classifying a stratigraphy "
+            "layer as an aquitard in dashboard inference.",
+            target="aquitard-conductivity-input",
+            placement="top",
+        ),
         dcc.Store(id="aq-type-inferred-store", data="unconfined"),
         html.Div(
             id="aquifer-type-display",
@@ -146,7 +179,13 @@ def _build_hydro_tab_header():
         ),
         html.Div(
             id="confined-head-input-container",
-            style={"display": "block"},
+            style={
+                "display": (
+                    "block"
+                    if str(aq_label).lower() == "confined"
+                    else "none"
+                )
+            },
             children=[
                 html.Label("Maximum Allowed Head (Pressure) (ft/foot of depth to the top of the confining layer):", className="fw-bold mb-2"),
                 dbc.Input(

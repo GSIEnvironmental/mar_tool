@@ -713,6 +713,7 @@ def setup_main_callbacks(app, dashboard_instance):
             # Reset hydrogeology data
             dash_storage.set_data("aq_type", "unconfined")
             dash_storage.set_data("max_allowed_head", 1.0)
+            dash_storage.set_data("aquitard_conductivity_ft_day", 1e-3)
             _strat_new = [
                 {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},
                 {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False},

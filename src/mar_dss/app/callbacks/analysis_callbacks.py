@@ -9,7 +9,10 @@ import dash_bootstrap_components as dbc
 import mar_dss
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
-from mar_dss.rules.geohydro_rules import infer_dashboard_aquifer_type
+from mar_dss.rules.geohydro_rules import (
+    DEFAULT_AQUITARD_K_MAX_FT_DAY,
+    infer_dashboard_aquifer_type,
+)
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph, forward_run
 from mar_dss.base import DecisionGraph
 import pandas as pd
@@ -238,7 +241,22 @@ def get_graph_inputs():
         depth_to_gw = gs_elevation - gw_data['elevation'].values
         inputs["monthly_gw_depth"] = depth_to_gw
 
-        aq_inferred = infer_dashboard_aquifer_type(start_table, gw_data_raw, gs_elevation)
+        aq_k = DEFAULT_AQUITARD_K_MAX_FT_DAY
+        aq_k_raw = dash_storage.get_data("aquitard_conductivity_ft_day")
+        if aq_k_raw is not None:
+            try:
+                v = float(aq_k_raw)
+                if np.isfinite(v) and v > 0.0:
+                    aq_k = v
+            except (TypeError, ValueError):
+                pass
+
+        aq_inferred = infer_dashboard_aquifer_type(
+            start_table,
+            gw_data_raw,
+            gs_elevation,
+            aquitard_k_max_ft_day=aq_k,
+        )
         inputs["aq_type"] = aq_inferred
         dash_storage.set_data("aq_type", aq_inferred)
         

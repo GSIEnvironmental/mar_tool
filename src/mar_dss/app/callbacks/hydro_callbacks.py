@@ -2,6 +2,8 @@
 Hydrogeology tab callbacks for MAR DSS dashboard.
 """
 
+import math
+
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -10,7 +12,38 @@ from dash import Input, Output, dcc, html, State, callback_context
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
 
-from mar_dss.rules.geohydro_rules import infer_dashboard_aquifer_type
+from mar_dss.rules.geohydro_rules import (
+    DEFAULT_AQUITARD_K_MAX_FT_DAY,
+    infer_dashboard_aquifer_type,
+)
+
+
+def _coerce_aquitard_k_ft_day(val):
+    """Positive finite K threshold (ft/day) for aquitard classification; else default."""
+    if val is not None and str(val).strip() != "":
+        try:
+            v = float(str(val).strip())
+            if math.isfinite(v) and v > 0.0:
+                return v
+        except (TypeError, ValueError):
+            pass
+    raw = dash_storage.get_data("aquitard_conductivity_ft_day")
+    if raw is not None:
+        try:
+            v = float(raw)
+            if math.isfinite(v) and v > 0.0:
+                return v
+        except (TypeError, ValueError):
+            pass
+    return DEFAULT_AQUITARD_K_MAX_FT_DAY
+
+
+def _aquitard_k_input_str(k: float) -> str:
+    """Plain-text field display for aquitard K (no scientific spinners); trim trailing zeros."""
+    if k is None or not math.isfinite(k) or k <= 0.0:
+        k = DEFAULT_AQUITARD_K_MAX_FT_DAY
+    text = f"{k:.12f}".rstrip("0").rstrip(".")
+    return text if text else str(k)
 
 
 def setup_hydro_callbacks(app):
@@ -29,23 +62,36 @@ def setup_hydro_callbacks(app):
     @app.callback(
         Output("aq-type-inferred-store", "data"),
         Output("aquifer-type-display", "children"),
+        Output("confined-head-input-container", "style"),
         [
             Input("stratigraphy-data-store", "data"),
             Input("groundwater-data-store", "data"),
             Input("ground-surface-elevation", "value"),
+            Input("aquitard-conductivity-input", "value"),
         ],
         prevent_initial_call=False,
     )
-    def refresh_inferred_aquifer_type(strat, gw, gs_elev):
+    def refresh_inferred_aquifer_type(strat, gw, gs_elev, aq_k_input):
         """Infer confined vs unconfined from stratigraphy + WT + ground surface."""
         strat = strat if strat is not None else dash_storage.get_data("stratigraphy_data")
         gw = gw if gw is not None else dash_storage.get_data("groundwater_data")
         if gs_elev is None:
             gs_elev = dash_storage.get_data("ground_surface_elevation")
-        inferred = infer_dashboard_aquifer_type(strat or [], gw or [], gs_elev)
+        aq_k = _coerce_aquitard_k_ft_day(aq_k_input)
+        inferred = infer_dashboard_aquifer_type(
+            strat or [],
+            gw or [],
+            gs_elev,
+            aquitard_k_max_ft_day=aq_k,
+        )
         dash_storage.set_data("aq_type", inferred)
         aq_text = str(inferred).replace("-", " ").title()
-        return inferred, f"Aquifer Type: {aq_text}"
+        head_style = (
+            {"display": "block"}
+            if str(inferred).lower() == "confined"
+            else {"display": "none"}
+        )
+        return inferred, f"Aquifer Type: {aq_text}", head_style
 
     # Callback to synchronize geometry tabs with view tabs
     @app.callback(
@@ -110,7 +156,52 @@ def setup_hydro_callbacks(app):
             dash_storage.set_data("max_allowed_head", current_value)
         
         return current_value
-    
+
+    @app.callback(
+        Output("aquitard-conductivity-input", "value"),
+        [
+            Input("aquitard-conductivity-input", "value"),
+            Input("aquitard-conductivity-input", "n_blur"),
+            Input("aquitard-conductivity-input", "n_submit"),
+            Input("aquitard-conductivity-input", "id"),
+        ],
+        prevent_initial_call=False,
+    )
+    def handle_aquitard_conductivity_input(value, n_blur, n_submit, component_id):
+        """Persist aquitard K threshold (ft/day); default matches inference default."""
+        ctx = dash.callback_context
+
+        if not ctx.triggered:
+            aq = dash_storage.get_data("aquitard_conductivity_ft_day")
+            if aq is not None:
+                try:
+                    aq = float(aq)
+                    if math.isfinite(aq) and aq > 0.0:
+                        dash_storage.set_data("aquitard_conductivity_ft_day", aq)
+                        return _aquitard_k_input_str(aq)
+                except (TypeError, ValueError):
+                    pass
+            dash_storage.set_data(
+                "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
+            )
+            return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
+
+        if value is not None and str(value).strip() != "":
+            try:
+                current = float(str(value).strip())
+                if not math.isfinite(current) or current <= 0.0:
+                    current = DEFAULT_AQUITARD_K_MAX_FT_DAY
+            except (TypeError, ValueError):
+                current = DEFAULT_AQUITARD_K_MAX_FT_DAY
+        else:
+            current = DEFAULT_AQUITARD_K_MAX_FT_DAY
+
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
+        if trigger_prop != "id":
+            dash_storage.set_data("aquitard_conductivity_ft_day", current)
+
+        return _aquitard_k_input_str(current)
+
     # Callback to save stratigraphy data to dash_storage when store updates
     @app.callback(
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
@@ -929,33 +1020,60 @@ def setup_hydro_callbacks(app):
         layer_names = []
         layer_depths = []
         layer_colors_list = []
-        
+        recharge_target_mid_depth = None
+        recharge_target_layer_name = None
+
         for i, row in enumerate(strat_rows):
             layer_name = row["layer"]
             thickness = row["thickness"]
-            
+            try:
+                thick_f = float(thickness)
+            except (TypeError, ValueError):
+                thick_f = 0.0
+
+            if row.get("recharge_target") and recharge_target_mid_depth is None:
+                recharge_target_mid_depth = cumulative_depth + thick_f / 2.0
+                recharge_target_layer_name = layer_name
+
             # Add layer rectangle
             fig.add_trace(go.Scatter(
                 x=[0, 1, 1, 0, 0],  # Rectangle coordinates
-                y=[cumulative_depth, cumulative_depth, cumulative_depth + thickness, cumulative_depth + thickness, cumulative_depth],
+                y=[
+                    cumulative_depth,
+                    cumulative_depth,
+                    cumulative_depth + thick_f,
+                    cumulative_depth + thick_f,
+                    cumulative_depth,
+                ],
                 fill='toself',
                 fillcolor=layer_colors.get(layer_name, "#808080"),  # Default gray if layer not found
                 line=dict(color='black', width=1),
                 name=layer_name,
-                hovertemplate=f'<b>{layer_name}</b><br>Thickness: {thickness:.1f} ft<br>Depth: {cumulative_depth:.1f} - {cumulative_depth + thickness:.1f} ft<extra></extra>',
+                hovertemplate=(
+                    f'<b>{layer_name}</b><br>Thickness: {thick_f:.1f} ft<br>'
+                    f'Depth: {cumulative_depth:.1f} - {cumulative_depth + thick_f:.1f} ft<extra></extra>'
+                ),
                 showlegend=True
             ))
             
             # Add layer label in the middle of the layer
             fig.add_annotation(
                 x=0.5,
-                y=cumulative_depth + thickness/2,
+                y=cumulative_depth + thick_f / 2.0,
                 text=layer_name,
                 showarrow=False,
                 font=dict(size=12, color="black")
             )
-            
-            cumulative_depth += thickness
+
+            cumulative_depth += thick_f
+
+        if recharge_target_mid_depth is None and strat_rows:
+            try:
+                t0 = float(strat_rows[0].get("thickness", 0.0))
+            except (TypeError, ValueError):
+                t0 = 0.0
+            recharge_target_mid_depth = t0 / 2.0
+            recharge_target_layer_name = strat_rows[0].get("layer", "")
 
         total_depth = cumulative_depth
         wt_depth_plot = gw_depth_ft if gw_depth_ft is not None else total_depth
@@ -979,6 +1097,29 @@ def setup_hydro_callbacks(app):
                 ),
             )
         )
+
+        if recharge_target_mid_depth is not None:
+            fig.add_trace(
+                go.Scatter(
+                    x=[0.18],
+                    y=[recharge_target_mid_depth],
+                    mode="markers",
+                    name="Recharge target",
+                    marker=dict(
+                        symbol="circle",
+                        size=18,
+                        color="#22c55e",
+                        line=dict(width=2, color="#15803d"),
+                    ),
+                    hovertemplate=(
+                        "<b>Recharge target layer</b><br>"
+                        f"{recharge_target_layer_name or ''}<br>"
+                        f"Depth at layer midpoint: {recharge_target_mid_depth:.1f} ft bgs"
+                        "<extra></extra>"
+                    ),
+                    showlegend=True,
+                )
+            )
 
         # Update layout
         fig.update_layout(
@@ -1233,11 +1374,18 @@ def setup_hydro_callbacks(app):
             Input("stratigraphy-data-store", "data"),
             Input("groundwater-data-store", "data"),
             Input("aq-type-inferred-store", "data"),
+            Input("aquitard-conductivity-input", "value"),
             Input("hydrogeology-subtabs", "active_tab"),
         ],
         prevent_initial_call=False
     )
-    def update_hydrogeologic_feasibility_content(strat_data, gw_data, _aq_inferred, active_tab):
+    def update_hydrogeologic_feasibility_content(
+        strat_data,
+        gw_data,
+        _aq_inferred,
+        aq_k_input,
+        active_tab,
+    ):
         """Update the Hydrogeologic Feasibility tab content when data changes."""
         from mar_dss.app.components.hydrogeologic_feasibility_content import (
             create_hydrogeologic_feasibility_content_dynamic,
@@ -1252,7 +1400,13 @@ def setup_hydro_callbacks(app):
             strat = strat_data if strat_data is not None else dash_storage.get_data("stratigraphy_data")
             gw = gw_data if gw_data is not None else dash_storage.get_data("groundwater_data")
             gs_elev = dash_storage.get_data("ground_surface_elevation")
-            inferred = infer_dashboard_aquifer_type(strat or [], gw or [], gs_elev)
+            aq_k = _coerce_aquitard_k_ft_day(aq_k_input)
+            inferred = infer_dashboard_aquifer_type(
+                strat or [],
+                gw or [],
+                gs_elev,
+                aquitard_k_max_ft_day=aq_k,
+            )
             dash_storage.set_data("aq_type", inferred)
 
             # Generate dynamic content
