@@ -83,6 +83,106 @@ def infer_aquifer_type(strat_df, monthly_gw_depth):
     return "unconfined"
 
 
+# Hydraulic conductivity at or below this (ft/day) treats the layer as an aquitard for
+# dashboard confined/unconfined inference (Clay/Silt typical defaults vs Sand/Gravel).
+_DASHBOARD_AQUITARD_K_MAX_FT_DAY = 0.1
+
+
+def infer_dashboard_aquifer_type(stratigraphy_rows, groundwater_rows, ground_surface_elevation):
+    """Infer *confined* vs *unconfined* from stratigraphy + monthly water-table elevations.
+
+    **Confined** when all apply:
+
+    - **Aquifer geometry:** *(i)* If the target is **not** the bottom layer, an aquitard
+      (low *K*) must lie immediately **above and below** the target. *(ii)* If the target
+      is the **lowest** layer, only an aquitard **above** is required (base of column =
+      lower boundary; no layer beneath the target).
+    - **Hydraulic position:** The **top** of the recharge-target layer has an elevation
+      **strictly below** the **minimum** monthly water-table elevation.
+
+    Otherwise returns **unconfined**. Semi-confined is not inferred here.
+
+    Parameters
+    ----------
+    stratigraphy_rows : list[dict]
+        Dashboard ``stratigraphy_data`` rows with ``thickness``, ``conductivity``, and
+        ``recharge_target`` keys.
+    groundwater_rows : list[dict]
+        Dashboard ``groundwater_data`` rows with numeric ``elevation`` (ft AMSL).
+    ground_surface_elevation : float | None
+        Ground surface elevation (ft AMSL), same datum as water-table elevations.
+    """
+
+    def _is_aquitard(row):
+        if not isinstance(row, dict):
+            return False
+        try:
+            k = float(row.get("conductivity", row.get("K", 0.0)))
+        except (TypeError, ValueError):
+            return False
+        return k <= _DASHBOARD_AQUITARD_K_MAX_FT_DAY
+
+    try:
+        gs = float(ground_surface_elevation)
+    except (TypeError, ValueError):
+        return "unconfined"
+
+    if stratigraphy_rows is None or groundwater_rows is None:
+        return "unconfined"
+
+    rows = (
+        list(stratigraphy_rows)
+        if isinstance(stratigraphy_rows, list)
+        else []
+    )
+    if len(rows) < 2:
+        return "unconfined"
+
+    ti = None
+    for i, r in enumerate(rows):
+        if isinstance(r, dict) and r.get("recharge_target"):
+            ti = i
+            break
+    if ti is None:
+        ti = 0
+
+    # Top layer: no unit above → cannot satisfy upper aquitard rule.
+    if ti < 1:
+        return "unconfined"
+
+    if not _is_aquitard(rows[ti - 1]):
+        return "unconfined"
+
+    is_bottom_target = ti >= len(rows) - 1
+    if not is_bottom_target:
+        # Interior target: need lower aquitard as well.
+        if not _is_aquitard(rows[ti + 1]):
+            return "unconfined"
+
+    try:
+        thicknesses = [float(r.get("thickness", 0.0)) for r in rows]
+    except (TypeError, ValueError):
+        return "unconfined"
+
+    depth_top_target = float(np.sum(thicknesses[:ti]))
+    elev_top_target = gs - depth_top_target
+
+    elevs = []
+    for r in groundwater_rows:
+        if isinstance(r, dict) and r.get("elevation") is not None:
+            try:
+                elevs.append(float(r["elevation"]))
+            except (TypeError, ValueError):
+                continue
+    if not elevs:
+        return "unconfined"
+
+    min_wt_elev = float(np.min(elevs))
+
+    if elev_top_target < min_wt_elev:
+        return "confined"
+    return "unconfined"
+
 
 def is_unconfined(strat_df, monthly_gw_depth):
     aq_type = infer_aquifer_type(strat_df, monthly_gw_depth)

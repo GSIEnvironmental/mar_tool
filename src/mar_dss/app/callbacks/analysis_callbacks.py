@@ -9,6 +9,7 @@ import dash_bootstrap_components as dbc
 import mar_dss
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
+from mar_dss.rules.geohydro_rules import infer_dashboard_aquifer_type
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph, forward_run
 from mar_dss.base import DecisionGraph
 import pandas as pd
@@ -165,8 +166,6 @@ def get_graph_inputs():
     inputs = {}
     
     try:
-        inputs["aq_type"] = dash_storage.get_data("aq_type")
-        
         # Max infiltration area with validation
         max_infiltration_area_percent = dash_storage.get_data("max_infiltration_area")
         max_available_area = dash_storage.get_data("max_available_area")
@@ -238,6 +237,10 @@ def get_graph_inputs():
         
         depth_to_gw = gs_elevation - gw_data['elevation'].values
         inputs["monthly_gw_depth"] = depth_to_gw
+
+        aq_inferred = infer_dashboard_aquifer_type(start_table, gw_data_raw, gs_elevation)
+        inputs["aq_type"] = aq_inferred
+        dash_storage.set_data("aq_type", aq_inferred)
         
         # Source water volume
         source_water_volume = dash_storage.get_data("monthly_flow")

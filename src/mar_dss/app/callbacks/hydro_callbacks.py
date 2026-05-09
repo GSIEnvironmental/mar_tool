@@ -10,6 +10,8 @@ from dash import Input, Output, dcc, html, State, callback_context
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
 
+from mar_dss.rules.geohydro_rules import infer_dashboard_aquifer_type
+
 
 def setup_hydro_callbacks(app):
     """Set up all hydrogeology-related callbacks."""
@@ -23,19 +25,28 @@ def setup_hydro_callbacks(app):
         "Clay": {"conductivity": 0.0001, "storage": 0.0001, "yield": 0.01}
     }
     
-    # Callback to show/hide maximum allowed head input for confined aquifers
+    # Persist inferred aquifer type (no manual aquifer-type control)
     @app.callback(
-        Output("confined-head-input-container", "style"),
-        [Input("aquifer-type-radio", "value")],
-        prevent_initial_call=False
+        Output("aq-type-inferred-store", "data"),
+        Output("aquifer-type-display", "children"),
+        [
+            Input("stratigraphy-data-store", "data"),
+            Input("groundwater-data-store", "data"),
+            Input("ground-surface-elevation", "value"),
+        ],
+        prevent_initial_call=False,
     )
-    def toggle_confined_head_input(aquifer_type):
-        """Show maximum allowed head input only when confined aquifer is selected."""
-        if aquifer_type == "confined":
-            return {"display": "block"}
-        else:
-            return {"display": "none"}
-    
+    def refresh_inferred_aquifer_type(strat, gw, gs_elev):
+        """Infer confined vs unconfined from stratigraphy + WT + ground surface."""
+        strat = strat if strat is not None else dash_storage.get_data("stratigraphy_data")
+        gw = gw if gw is not None else dash_storage.get_data("groundwater_data")
+        if gs_elev is None:
+            gs_elev = dash_storage.get_data("ground_surface_elevation")
+        inferred = infer_dashboard_aquifer_type(strat or [], gw or [], gs_elev)
+        dash_storage.set_data("aq_type", inferred)
+        aq_text = str(inferred).replace("-", " ").title()
+        return inferred, f"Aquifer Type: {aq_text}"
+
     # Callback to synchronize geometry tabs with view tabs
     @app.callback(
         Output("view-tabs", "active_tab"),
@@ -53,48 +64,6 @@ def setup_hydro_callbacks(app):
         
         # Return the corresponding view tab, or default to stratigraphy-cross-section
         return tab_mapping.get(active_geometry_tab, "stratigraphy-cross-section")
-    
-    # Callback to save aquifer type to data storage
-    @app.callback(
-        Output("aquifer-type-radio", "value"),
-        [
-            Input("aquifer-type-radio", "value"),
-            Input("aquifer-type-radio", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_aquifer_type_selection(value, component_id):
-        """Handle aquifer type selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved aquifer type or use default, and save it
-            aquifer_type = dash_storage.get_data("aq_type") or "unconfined"
-            dash_storage.set_data("aq_type", aquifer_type)
-            return aquifer_type
-        
-        # Get the current selection
-        current_selection = value if value else "unconfined"
-        
-        # Save aquifer type to data storage
-        dash_storage.set_data("aq_type", current_selection)
-        
-        return current_selection
-    
-    def _set_confined_stratigraphy():
-        """Set stratigraphy to 4 layers for confined aquifer."""
-        confined_stratigraphy = [
-            {"layer": "Sand", "thickness": 100.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
-             "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-            {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
-             "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
-            {"layer": "Sand", "thickness": 50.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
-             "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-            {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
-             "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
-        ]
-        normalize_stratigraphy_recharge_target(confined_stratigraphy)
-        dash_storage.set_data("stratigraphy_data", confined_stratigraphy)
     
     # Callback to save max allowed head to data storage
     @app.callback(
@@ -503,24 +472,10 @@ def setup_hydro_callbacks(app):
         if not ctx.triggered:
             return data
         
-        # Check if confined aquifer is selected
-        aquifer_type = dash_storage.get_data("aq_type") or "unconfined"
         current_data = data or []
         
         button_id = ctx.triggered[0]["prop_id"].split(".")[0]
         
-        # For confined aquifers, prevent adding or deleting layers
-        if aquifer_type == "confined":
-            if button_id == "add-layer-btn":
-                # Don't add layer, return current data unchanged
-                # Error message will be shown by another callback
-                return dash.no_update
-            elif button_id == "delete-layer-btn":
-                # Don't delete layers, return current data unchanged
-                # Error message will be shown by another callback
-                return dash.no_update
-        
-        # For non-confined or move operations, proceed normally
         if button_id == "add-layer-btn":
             # Add new layer (default to Sand)
             new_layer = {
@@ -612,14 +567,6 @@ def setup_hydro_callbacks(app):
         if not data:
             return data
         
-        # Check if confined aquifer is selected
-        aquifer_type = dash_storage.get_data("aq_type") or "unconfined"
-        
-        # For confined aquifers, ensure exactly 4 layers
-        if aquifer_type == "confined" and len(data) != 4:
-            # Don't update if layer count is wrong - error will be shown
-            return dash.no_update
-        
         # Update data with new values
         for i, row in enumerate(data):
             if i < len(checkbox_values):
@@ -642,59 +589,6 @@ def setup_hydro_callbacks(app):
                 row["yield"] = float(yield_values[i])
         
         return data
-    
-    # Callback to update stratigraphy store when aquifer type changes to confined
-    @app.callback(
-        Output("stratigraphy-data-store", "data", allow_duplicate=True),
-        [Input("aquifer-type-radio", "value")],
-        prevent_initial_call=True
-    )
-    def update_stratigraphy_for_aquifer_type(aquifer_type):
-        """Update stratigraphy when aquifer type changes."""
-        if aquifer_type == "confined":
-            confined_stratigraphy = [
-                {"layer": "Sand", "thickness": 100.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
-                 "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-                {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
-                 "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
-                {"layer": "Sand", "thickness": 50.0, "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
-                 "storage": SOIL_PROPERTIES["Sand"]["storage"], "yield": SOIL_PROPERTIES["Sand"]["yield"], "selected": False},
-                {"layer": "Clay", "thickness": 10.0, "conductivity": SOIL_PROPERTIES["Clay"]["conductivity"],
-                 "storage": SOIL_PROPERTIES["Clay"]["storage"], "yield": SOIL_PROPERTIES["Clay"]["yield"], "selected": False},
-            ]
-            normalize_stratigraphy_recharge_target(confined_stratigraphy)
-            dash_storage.set_data("stratigraphy_data", confined_stratigraphy)
-            return confined_stratigraphy
-        return dash.no_update
-    
-    # Callback to show error message for confined aquifer layer restrictions
-    @app.callback(
-        Output("stratigraphy-error-message", "children"),
-        [
-            Input("aquifer-type-radio", "value"),
-            Input("stratigraphy-data-store", "data"),
-            Input("add-layer-btn", "n_clicks"),
-            Input("delete-layer-btn", "n_clicks"),
-        ],
-        prevent_initial_call=False
-    )
-    def show_stratigraphy_error_message(aquifer_type, stratigraphy_data, add_clicks, delete_clicks):
-        """Show error message if user tries to change layer count for confined aquifer."""
-        if aquifer_type == "confined":
-            num_layers = len(stratigraphy_data) if stratigraphy_data else 0
-            if num_layers != 4:
-                return dbc.Alert(
-                    "Error: Confined aquifer must have exactly 4 layers. The stratigraphy has been reset to the required configuration.",
-                    color="danger",
-                    className="mb-2"
-                )
-            else:
-                return dbc.Alert(
-                    "Note: Confined aquifer requires exactly 4 layers. Adding or deleting layers is not allowed.",
-                    color="info",
-                    className="mb-2"
-                )
-        return html.Div()  # No message for non-confined aquifers
     
     # Groundwater Level Table Callbacks
     @app.callback(
@@ -969,14 +863,55 @@ def setup_hydro_callbacks(app):
     # Stratigraphy Cross Section Plot Callback
     @app.callback(
         Output("stratigraphy-cross-section-plot", "figure"),
-        [Input("stratigraphy-data-store", "data")],
+        [
+            Input("stratigraphy-data-store", "data"),
+            Input("groundwater-data-store", "data"),
+            Input("ground-surface-elevation", "value"),
+        ],
         prevent_initial_call=False
     )
-    def update_stratigraphy_cross_section(data):
+    def update_stratigraphy_cross_section(data, gw_data, gs_elevation):
         """Update the stratigraphy cross-section plot based on table data."""
         if not data:
             return go.Figure()
-        
+
+        def _deepest_gw_depth_bgs(gs_val, groundwater_rows):
+            """Depth below ground surface (ft) at minimum monthly WT elevation.
+
+            Minimum water-table **elevation** (lowest head) ⇒ **deepest** water ⇒
+            **maximum** depth b.g.s. Aligns with other hydro inference using min WT elev.
+            """
+            if gs_val is None or not groundwater_rows:
+                return None
+            try:
+                gs_f = float(gs_val)
+            except (TypeError, ValueError):
+                return None
+            elevs = []
+            for r in groundwater_rows:
+                if not isinstance(r, dict) or r.get("elevation") is None:
+                    continue
+                try:
+                    elevs.append(float(r["elevation"]))
+                except (TypeError, ValueError):
+                    continue
+            if not elevs:
+                return None
+            min_elev = min(elevs)
+            return float(gs_f - min_elev)
+
+        strat_rows = data
+        gw_rows = (
+            gw_data
+            if gw_data is not None
+            else dash_storage.get_data("groundwater_data")
+        )
+        gs_use = gs_elevation
+        if gs_use is None:
+            gs_use = dash_storage.get_data("ground_surface_elevation")
+
+        gw_depth_ft = _deepest_gw_depth_bgs(gs_use, gw_rows or [])
+
         # Define colors for different layer types
         layer_colors = {
             "Gravel": "#8B4513",      # Brown
@@ -995,7 +930,7 @@ def setup_hydro_callbacks(app):
         layer_depths = []
         layer_colors_list = []
         
-        for i, row in enumerate(data):
+        for i, row in enumerate(strat_rows):
             layer_name = row["layer"]
             thickness = row["thickness"]
             
@@ -1021,7 +956,30 @@ def setup_hydro_callbacks(app):
             )
             
             cumulative_depth += thickness
-        
+
+        total_depth = cumulative_depth
+        wt_depth_plot = gw_depth_ft if gw_depth_ft is not None else total_depth
+        if wt_depth_plot < 0:
+            wt_depth_plot = 0.0
+
+        fig.add_trace(
+            go.Scatter(
+                x=[0, 1],
+                y=[wt_depth_plot, wt_depth_plot],
+                mode="lines",
+                name=(
+                    "GW at min WT elev "
+                    + (f'({gw_depth_ft:.1f} ft bgs)' if gw_depth_ft is not None else "(profile bottom)")
+                ),
+                line=dict(color="#0d6efd", width=2, dash="dash"),
+                hovertemplate=(
+                    "<b>Water table (min monthly elev)</b><br>"
+                    f"Depth: {wt_depth_plot:.1f} ft bgs<br>"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
         # Update layout
         fig.update_layout(
             title={
@@ -1274,12 +1232,12 @@ def setup_hydro_callbacks(app):
         [
             Input("stratigraphy-data-store", "data"),
             Input("groundwater-data-store", "data"),
-            Input("aquifer-type-radio", "value"),
+            Input("aq-type-inferred-store", "data"),
             Input("hydrogeology-subtabs", "active_tab"),
         ],
         prevent_initial_call=False
     )
-    def update_hydrogeologic_feasibility_content(strat_data, gw_data, aquifer_type, active_tab):
+    def update_hydrogeologic_feasibility_content(strat_data, gw_data, _aq_inferred, active_tab):
         """Update the Hydrogeologic Feasibility tab content when data changes."""
         from mar_dss.app.components.hydrogeologic_feasibility_content import (
             create_hydrogeologic_feasibility_content_dynamic,
@@ -1291,10 +1249,12 @@ def setup_hydro_callbacks(app):
             return dash.no_update
         
         try:
-            # Store aquifer type
-            if aquifer_type:
-                dash_storage.set_data("aq_type", aquifer_type)
-            
+            strat = strat_data if strat_data is not None else dash_storage.get_data("stratigraphy_data")
+            gw = gw_data if gw_data is not None else dash_storage.get_data("groundwater_data")
+            gs_elev = dash_storage.get_data("ground_surface_elevation")
+            inferred = infer_dashboard_aquifer_type(strat or [], gw or [], gs_elev)
+            dash_storage.set_data("aq_type", inferred)
+
             # Generate dynamic content
             content = create_hydrogeologic_feasibility_content_dynamic()
             return content

@@ -115,7 +115,6 @@ def create_hydro_tab_content():
 def _build_hydro_tab_header():
     """Build the hydrogeology tab header."""
     # Get existing values from data storage if available
-    aquifer_type = dash_storage.get_data("aq_type") or "unconfined"
     max_allowed_head = dash_storage.get_data("max_allowed_head")
     # Ensure max_allowed_head is a float, default to 1.0
     if max_allowed_head is not None:
@@ -125,16 +124,29 @@ def _build_hydro_tab_header():
             max_allowed_head = 1.0
     else:
         max_allowed_head = 1.0
-    
+
+    aq_label = dash_storage.get_data("aq_type") or "unconfined"
+    try:
+        aq_display = str(aq_label).replace("-", " ").title()
+    except Exception:
+        aq_display = "Unconfined"
+
     return [
         html.H3("Hydrogeology"),
         html.P(
             "Configure hydrogeological parameters for MAR project analysis."
         ),
-        _build_aquifer_type_selector(aquifer_type),
+        _build_aquifer_type_notice(),
+        dcc.Store(id="aq-type-inferred-store", data="unconfined"),
+        html.Div(
+            id="aquifer-type-display",
+            children=f"Aquifer Type: {aq_display}",
+            className="fw-bold mb-2",
+            style={"color": "#fd7e14"},
+        ),
         html.Div(
             id="confined-head-input-container",
-            style={"display": "none"},
+            style={"display": "block"},
             children=[
                 html.Label("Maximum Allowed Head (Pressure) (ft/foot of depth to the top of the confining layer):", className="fw-bold mb-2"),
                 dbc.Input(
@@ -149,36 +161,28 @@ def _build_hydro_tab_header():
             className="mb-3"
         ),
         dbc.Tooltip(
-            "Unconfined, confined, or semi-confined aquifer affects geometry checks and feasibility logic",
-            target="aquifer-type-radio",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Pressure head limit used when aquifer type is confined or semi-confined",
+            "Pressure head limit applied when the inferred aquifer type is confined",
             target="max-allowed-head-input",
             placement="top",
         ),
     ]
 
 
-def _build_aquifer_type_selector(default_value="unconfined"):
-    """Build the aquifer type radio button selector."""
+def _build_aquifer_type_notice():
+    """Static note: aquifer type is inferred from stratigraphy and water-table inputs."""
     return html.Div(
         [
-            html.Label("Aquifer Type:", className="fw-bold mb-2"),
-            dbc.RadioItems(
-                id="aquifer-type-radio",
-                options=[
-                    {"label": "Unconfined", "value": "unconfined"},
-                    {"label": "Confined", "value": "confined"},
-                    {"label": "Semi-Confined", "value": "semi-confined"},
-                ],
-                value=default_value,
-                inline=True,
-                className="mb-3"
-            )
+            html.P(
+                (
+                    "Aquifer type will be inferred from stratigraphy and water table. "
+                    "If the top of the target recharge geological unit is below minimum "
+                    "water table elevation, and an aquitard is above and below the target "
+                    "unit, the aquifer will be treated as confined."
+                ),
+                className="mb-3 text-muted",
+            ),
         ],
-        className="mb-3"
+        className="mb-3",
     )
 
 
@@ -328,8 +332,7 @@ def _build_stratigraphy_tab():
                     html.H5("Stratigraphy Configuration", className="mb-3"),
                     html.P("Configure soil layers and their hydrogeological properties.", className="mb-4"),
                     
-                    # Error message for confined aquifer
-                    html.Div(id="stratigraphy-error-message", className="mb-3"),
+                    html.Div(id="stratigraphy-error-message", className="mb-3", children=[]),
                     
                     # Table controls
                     dbc.Row([
