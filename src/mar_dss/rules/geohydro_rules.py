@@ -473,7 +473,7 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
                                          b=saturated_thickness, 
                                          sy=sy_mean)
         if infl_rate <= k_min_vadose:
-            #infl_rate = k_min_vadose
+            infl_rate = k_min_vadose
             break
         else:
             vol_possiblee = vol_possiblee * 0.99
@@ -601,7 +601,20 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
                                         
         return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
     else:
-        return {"number_of_dry_wells": 0, "Q_per_dry_well": 0}
+        # get target recharge layer
+        target_layer_index = recharge_target_layer_row_index(strat_df)
+        depth_of_confined_unit = strat_df.iloc[0:target_layer_index]["thickness"].sum()
+        Hmax = 0.20 * depth_of_confined_unit
+        transmissivity = strat_df.iloc[target_layer_index]["K"] * strat_df.iloc[target_layer_index]["thickness"]
+        Ss = strat_df.iloc[target_layer_index]["sy/ss"] * strat_df.iloc[target_layer_index]["thickness"]
+        max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=Hmax, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
+        Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
+        Q_per_well = min(Qmax, max_Q_per_well)     
+        number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)       
+        number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
+        return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
+
+      
     
 
 def compute_annual_recharge_volume(design_sizing_result, source_water_volume):

@@ -18,6 +18,40 @@ from mar_dss.app.components.environmental_impact_tab import (
 from mar_dss.app.callbacks.ai_environment import get_mar_factors
 import mar_dss.app.utils.data_storage as dash_storage
 
+_RISK_LEVEL_CANONICAL = frozenset({"LOW RISK", "MODERATE RISK", "HIGH RISK"})
+
+
+def _normalize_water_quality_risk(raw):
+    """
+    Map dashboard / CSV / JSON variants to the strings used in DECISION_LOGIC and soft_constraints.
+
+    Users may see labels like "Low Risk" while storage still has legacy lowercase or shortened values.
+    """
+    if raw is None:
+        return "LOW RISK"
+    s = str(raw).strip()
+    if not s:
+        return "LOW RISK"
+    u = " ".join(s.upper().split())
+    if u in _RISK_LEVEL_CANONICAL:
+        return u
+    if "HIGH" in u:
+        return "HIGH RISK"
+    if "MODERATE" in u:
+        return "MODERATE RISK"
+    if "LOW" in u:
+        return "LOW RISK"
+    return "LOW RISK"
+
+
+def _persist_water_quality_risk(storage_key: str, value):
+    """Write RadioItems selection to dash_storage using canonical risk strings."""
+    fallback = dash_storage.get_data(storage_key)
+    raw = value if value is not None else fallback
+    choice = _normalize_water_quality_risk(raw if raw not in (None, "") else "LOW RISK")
+    dash_storage.set_data(storage_key, choice)
+    return choice
+
 
 def calculate_cost_score(risks_and_treatments):
     """
@@ -478,201 +512,89 @@ def setup_environmental_impact_callbacks(app):
     # Callbacks to save water quality inputs to data storage
     @app.callback(
         Output("env-step1-input", "value"),
-        [
-            Input("env-step1-input", "value"),
-            Input("env-step1-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step1-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_tss_turbidity_risk(value, component_id):
+    def handle_tss_turbidity_risk(value):
         """Handle TSS/Turbidity risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            tss_risk = dash_storage.get_data("tss_turbidity_risk") or "LOW RISK"
-            dash_storage.set_data("tss_turbidity_risk", tss_risk)
-            return tss_risk
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("tss_turbidity_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("tss_turbidity_risk", value)
+
     @app.callback(
         Output("env-step2a-input", "value"),
-        [
-            Input("env-step2a-input", "value"),
-            Input("env-step2a-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step2a-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_doc_toc_risk(value, component_id):
+    def handle_doc_toc_risk(value):
         """Handle DOC/TOC risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            doc_risk = dash_storage.get_data("doc_toc_risk") or "LOW RISK"
-            dash_storage.set_data("doc_toc_risk", doc_risk)
-            return doc_risk
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("doc_toc_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("doc_toc_risk", value)
+
     @app.callback(
         Output("env-step2b-input", "value"),
-        [
-            Input("env-step2b-input", "value"),
-            Input("env-step2b-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step2b-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_ph_alkalinity_risk(value, component_id):
+    def handle_ph_alkalinity_risk(value):
         """Handle pH/Alkalinity risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            ph_risk = dash_storage.get_data("ph_alkalinity_risk") or "LOW RISK"
-            dash_storage.set_data("ph_alkalinity_risk", ph_risk)
-            return ph_risk
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("ph_alkalinity_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("ph_alkalinity_risk", value)
+
     @app.callback(
         Output("env-step3-input", "value"),
-        [
-            Input("env-step3-input", "value"),
-            Input("env-step3-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step3-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_tds_salinity_risk(value, component_id):
+    def handle_tds_salinity_risk(value):
         """Handle TDS/Salinity risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            tds_risk = dash_storage.get_data("tds_salinity_risk") or "LOW RISK"
-            dash_storage.set_data("tds_salinity_risk", tds_risk)
-            return tds_risk
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("tds_salinity_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("tds_salinity_risk", value)
+
     @app.callback(
         Output("env-step4-input", "value"),
-        [
-            Input("env-step4-input", "value"),
-            Input("env-step4-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step4-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_inorganic_contaminants_risk(value, component_id):
+    def handle_inorganic_contaminants_risk(value):
         """Handle Inorganic Contaminants risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            inorganic_risk = dash_storage.get_data("inorganic_contaminants_risk") or "LOW RISK"
-            dash_storage.set_data("inorganic_contaminants_risk", inorganic_risk)
-            return inorganic_risk
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("inorganic_contaminants_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("inorganic_contaminants_risk", value)
+
     @app.callback(
         Output("env-step5a-input", "value"),
-        [
-            Input("env-step5a-input", "value"),
-            Input("env-step5a-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step5a-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_emerging_contaminants_risk(value, component_id):
+    def handle_emerging_contaminants_risk(value):
         """Handle Emerging Contaminants risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            emerging_risk = dash_storage.get_data("emerging_contaminants_risk") or "LOW RISK"
-            dash_storage.set_data("emerging_contaminants_risk", emerging_risk)
-            return emerging_risk
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("emerging_contaminants_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("emerging_contaminants_risk", value)
+
     @app.callback(
         Output("env-step5b-input", "value"),
-        [
-            Input("env-step5b-input", "value"),
-            Input("env-step5b-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step5b-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_redox_compatibility_risk(value, component_id):
+    def handle_redox_compatibility_risk(value):
         """Handle Redox Compatibility risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            redox_risk = dash_storage.get_data("redox_compatibility_risk") or "LOW RISK"
-            dash_storage.set_data("redox_compatibility_risk", redox_risk)
-            return redox_risk
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("redox_compatibility_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("redox_compatibility_risk", value)
+
     @app.callback(
         Output("env-step6-input", "value"),
-        [
-            Input("env-step6-input", "value"),
-            Input("env-step6-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step6-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_pathogen_risk(value, component_id):
+    def handle_pathogen_risk(value):
         """Handle Pathogen risk selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            pathogen_risk_val = dash_storage.get_data("pathogen_risk") or "LOW RISK"
-            dash_storage.set_data("pathogen_risk", pathogen_risk_val)
-            return pathogen_risk_val
-        
-        current_selection = value if value else "LOW RISK"
-        dash_storage.set_data("pathogen_risk", current_selection)
-        return current_selection
-    
+        return _persist_water_quality_risk("pathogen_risk", value)
+
     @app.callback(
         Output("env-step7-input", "value"),
-        [
-            Input("env-step7-input", "value"),
-            Input("env-step7-input", "id")
-        ],
-        prevent_initial_call=False
+        Input("env-step7-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_vadose_zone_pollution(value, component_id):
+    def handle_vadose_zone_pollution(value):
         """Handle Vadose Zone Pollution selection and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            vadose_pollution = dash_storage.get_data("vadose_zone_pollution") or "None"
-            dash_storage.set_data("vadose_zone_pollution", vadose_pollution)
-            return vadose_pollution
-        
-        current_selection = value if value else "None"
-        dash_storage.set_data("vadose_zone_pollution", current_selection)
-        return current_selection
+        fallback = dash_storage.get_data("vadose_zone_pollution") or "None"
+        choice = value if value is not None else fallback
+        if choice is None or str(choice).strip() == "":
+            choice = "None"
+        dash_storage.set_data("vadose_zone_pollution", choice)
+        return choice
 
     # Callback to load and auto-save Gemini API key
     @app.callback(
