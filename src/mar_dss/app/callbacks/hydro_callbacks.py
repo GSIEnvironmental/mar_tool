@@ -16,6 +16,12 @@ from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
     infer_dashboard_aquifer_type,
 )
+from mar_dss.mar import hard_constraints as hc_module
+from mar_dss.mar import soft_constraints as sc_module
+from mar_dss.mar.options import mar_options
+from mar_dss.mar.forward_run import evaluate_and_store_decision_graph
+from mar_dss.app.callbacks.analysis_callbacks import get_session_graph, get_graph_inputs
+from mar_dss.app.utils.initial_hydro_feasibility import evaluate_option_traffic_light
 
 
 def _coerce_aquitard_k_ft_day(val):
@@ -1393,7 +1399,114 @@ def setup_hydro_callbacks(app):
         # No grid lines for cleaner appearance
         
         return fig
-    
+
+    _TRAFFIC_DOT = {"green": "#198754", "orange": "#fd7e14", "red": "#dc3545"}
+
+    @app.callback(
+        Output("initial-feasibility-traffic-output", "children"),
+        Input("check-initial-feasibility-btn", "n_clicks"),
+        [
+            State("stratigraphy-data-store", "data"),
+            State("groundwater-data-store", "data"),
+            State("ground-surface-elevation", "value"),
+            State("aquitard-conductivity-input", "value"),
+        ],
+        prevent_initial_call=True,
+    )
+    def update_initial_feasibility_traffic(
+        _n_clicks,
+        strat_store,
+        gw_store,
+        gs_elev,
+        aq_k_input,
+    ):
+        """Evaluate the decision graph and show per-option traffic lights from MAR constraints."""
+        try:
+            if strat_store is not None:
+                rows = list(strat_store)
+                normalize_stratigraphy_recharge_target(rows)
+                dash_storage.set_data("stratigraphy_data", rows)
+            if gw_store is not None:
+                dash_storage.set_data("groundwater_data", gw_store)
+            if gs_elev is not None and str(gs_elev).strip() != "":
+                try:
+                    dash_storage.set_data(
+                        "ground_surface_elevation", float(gs_elev)
+                    )
+                except (TypeError, ValueError):
+                    pass
+            aq_k = _coerce_aquitard_k_ft_day(aq_k_input)
+            dash_storage.set_data("aquitard_conductivity_ft_day", aq_k)
+
+            inputs = get_graph_inputs()
+            graph = get_session_graph()
+            if graph is None:
+                return dbc.Alert(
+                    "Decision graph is not available.",
+                    color="warning",
+                    className="mb-0 small",
+                )
+            evaluate_and_store_decision_graph(graph, inputs)
+
+            rows_out = []
+            for option in mar_options():
+                color, status_line = evaluate_option_traffic_light(
+                    option,
+                    hc_module.hard_constraints,
+                    sc_module.soft_constraints,
+                )
+                dot = _TRAFFIC_DOT[color]
+                rows_out.append(
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                html.Span(
+                                    className="rounded-circle d-inline-block flex-shrink-0",
+                                    style={
+                                        "width": "14px",
+                                        "height": "14px",
+                                        "backgroundColor": dot,
+                                        "verticalAlign": "middle",
+                                    },
+                                ),
+                                width="auto",
+                                className="d-flex align-items-start pt-1",
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Div(
+                                        option.name,
+                                        className="fw-semibold small",
+                                    ),
+                                    html.Div(
+                                        status_line,
+                                        className="small text-muted",
+                                    ),
+                                ],
+                                className="ps-0",
+                            ),
+                        ],
+                        className="mb-2 align-items-start gx-2",
+                    )
+                )
+
+            return html.Div(rows_out, className="initial-feasibility-traffic mt-1")
+        except ValueError as err:
+            return dbc.Alert(
+                f"Cannot evaluate feasibility: {err}",
+                color="warning",
+                className="mb-0 small",
+            )
+        except Exception as err:
+            import traceback
+
+            traceback.print_exc()
+            return dbc.Alert(
+                f"Error: {err}",
+                color="danger",
+                className="mb-0 small",
+            )
+
     # Callback to update Hydrogeologic Feasibility content
     @app.callback(
         Output("hydrogeologic-feasibility-content", "children"),

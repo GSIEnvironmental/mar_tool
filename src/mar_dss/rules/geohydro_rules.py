@@ -436,12 +436,21 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
 
 def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df, gw_depth, Hmax, confined, unconfined):
     if confined:
-        if len(strat_df) != 4:
-            raise ValueError("Stratigraphy table must have four layers for confined aquifer")
-        
-        kaq = strat_df.iloc[2]["K"]
-        B = strat_df.iloc[2]["thickness"]
-        Ss = strat_df.iloc[2]["sy/ss"]
+        target_layer_index = recharge_target_layer_row_index(strat_df)
+        depth_of_confined_unit = strat_df.iloc[0:target_layer_index]["thickness"].sum()
+        # if len(strat_df) != 4:
+        #     raise ValueError("Stratigraphy table must have four layers for confined aquifer")
+        txt = '==========================================================='
+        txt = txt+"\n* Compute maximum allowed head change in the confined aquifer"
+        txt = txt+"\n   - Maximum allowable head change is the fracture head"
+        txt = txt+"\n   - The fractured gradient is 0.6 psi/ft"
+        Hmax = depth_of_confined_unit * 0.6 * 2.31 # convert psi to feet
+        txt = txt+f"\n  - For a depth of {depth_of_confined_unit} ft, the maximum allowable head change is {Hmax} ft"
+        txt = txt+"\n   - Fracture head is the head at the fracture zone"
+
+        kaq = strat_df.iloc[target_layer_index]["K"]
+        B = strat_df.iloc[target_layer_index]["thickness"]
+        Ss = strat_df.iloc[target_layer_index]["sy/ss"]
         transmissivity = kaq * B
         Ss = Ss * B
         Qmax = defaults["max_injection_Q_per_well"] 
@@ -469,6 +478,8 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
         k_mean = (k_s.values * sat_thks.values).sum() / sat_thks.values.sum()
         sy_mean = (sy_s.values * sat_thks.values).sum() / sat_thks.values.sum()
         dh = avg_gw_depth - op_gw_depth
+        if dh < 0:
+            dh = 0
 
         # corrected drawdown for unconfined aquifer
         dh_corrected = dh - dh*dh/(2.0*saturated_thickness)
@@ -607,9 +618,14 @@ def compute_confined_storage_volume(confined, strat_df, Hmax, injection_wells_re
         if len(strat_df) != 4:
             raise ValueError("Stratigraphy table must have four layers for confined aquifer")
         
-        kaq = strat_df.iloc[2]["K"]
-        B = strat_df.iloc[2]["thickness"]
-        Ss = strat_df.iloc[2]["sy/ss"]
+        target_layer_index = recharge_target_layer_row_index(strat_df)
+        depth_of_confined_unit = strat_df.iloc[0:target_layer_index]["thickness"].sum()       
+        Hmax = depth_of_confined_unit * 0.6 * 2.31 # convert psi to feet
+
+        
+        kaq = strat_df.iloc[target_layer_index]["K"]
+        B = strat_df.iloc[target_layer_index]["thickness"]
+        Ss = strat_df.iloc[target_layer_index]["sy/ss"]
         transmissivity = kaq * B
         Ss = Ss * B      
 

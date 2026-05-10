@@ -245,23 +245,22 @@ def _build_hydro_tab_header():
                                 ),
                                 dbc.CardBody(
                                     [
-                                        dbc.Alert(
-                                            [
-                                                html.Strong("Note: ", className="me-1"),
-                                                (
-                                                    "This is initial feasibility. Final feasibility "
-                                                    "depends on multiple other factors in other tabs."
-                                                ),
-                                            ],
-                                            color="warning",
-                                            className="mb-3 small",
-                                        ),
                                         dbc.Button(
                                             "Check Initial Feasibility",
                                             id="check-initial-feasibility-btn",
                                             color="primary",
-                                            className="w-100",
+                                            className="w-100 mb-3",
                                             n_clicks=0,
+                                        ),
+                                        html.Div(
+                                            id="initial-feasibility-traffic-output",
+                                            children=html.P(
+                                                (
+                                                    "Click the button to evaluate each engineering "
+                                                    "option using hard and soft hydrogeologic constraints."
+                                                ),
+                                                className="text-muted small mb-0",
+                                            ),
                                         ),
                                     ],
                                 ),
