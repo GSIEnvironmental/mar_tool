@@ -165,47 +165,10 @@ def create_hydro_tab_content():
 
 
 def _build_hydro_tab_header():
-    """Build the Hydrogeologic Settings top cards."""
-    aq_label = dash_storage.get_data("aq_type") or "unconfined"
-    try:
-        aq_display = str(aq_label).replace("-", " ").title()
-    except Exception:
-        aq_display = "Unconfined"
-
+    """Build the Hydrogeologic Settings top row (initial feasibility card)."""
     return [
         dbc.Row(
             [
-                dbc.Col(
-                    [
-                        dbc.Card(
-                            [
-                                dbc.CardHeader(
-                                    "Hydrogeologic Parameters",
-                                    className="fw-bold bg-primary text-white py-2",
-                                ),
-                                dbc.CardBody(
-                                    [
-                                        _build_aquifer_type_notice(),
-                                        dcc.Store(
-                                            id="aq-type-inferred-store",
-                                            data="unconfined",
-                                        ),
-                                        html.Div(
-                                            id="aquifer-type-display",
-                                            children=f"Aquifer Type: {aq_display}",
-                                            className="fw-bold mb-2",
-                                            style={"color": "#fd7e14"},
-                                        ),
-                                    ],
-                                ),
-                            ],
-                            className="h-100",
-                        )
-                    ],
-                    xs=12,
-                    lg=6,
-                    className="mb-3 mb-lg-0",
-                ),
                 dbc.Col(
                     [
                         dbc.Card(
@@ -240,7 +203,6 @@ def _build_hydro_tab_header():
                         )
                     ],
                     xs=12,
-                    lg=6,
                 ),
             ],
             className="g-3 align-items-stretch mb-3",
@@ -250,19 +212,9 @@ def _build_hydro_tab_header():
 
 def _build_aquifer_type_notice():
     """Static note: aquifer type is inferred from stratigraphy and water-table inputs."""
-    return html.Div(
-        [
-            html.P(
-                (
-                    "Aquifer type will be inferred from stratigraphy and water table. "
-                    "If the top of the target recharge geological unit is below minimum "
-                    "water table elevation, and an aquitard is above and below the target "
-                    "unit, the aquifer will be treated as confined."
-                ),
-                className="mb-3 text-muted",
-            ),
-        ],
-        className="mb-3",
+    return html.P(
+        "Aquifer type will be inferred from stratigraphy and water table",
+        className="mb-0 small text-muted",
     )
 
 
@@ -689,6 +641,12 @@ def _build_geometry_tabs():
 
 def _build_geometry_card():
     """Build the Geometry card."""
+    aq_label = dash_storage.get_data("aq_type") or "unconfined"
+    try:
+        aq_display = str(aq_label).replace("-", " ").title()
+    except Exception:
+        aq_display = "Unconfined"
+
     return dbc.Card(
         [
             dbc.CardHeader(
@@ -697,6 +655,22 @@ def _build_geometry_card():
             ),
             dbc.CardBody(
                 [
+                    html.Div(
+                        [
+                            dcc.Store(
+                                id="aq-type-inferred-store",
+                                data="unconfined",
+                            ),
+                            html.Div(
+                                id="aquifer-type-display",
+                                children=f"Aquifer Type: {aq_display}",
+                                className="fw-bold mb-2",
+                                style={"color": "#fd7e14"},
+                            ),
+                            _build_aquifer_type_notice(),
+                        ],
+                        className="mb-3 pb-3 border-bottom",
+                    ),
                     _build_geometry_tabs(),
                 ]
             ),
