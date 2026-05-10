@@ -8,11 +8,12 @@ import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, dcc, html, State, callback_context
+from dash import Input, Output, callback_context, dcc, html, State
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.components.hydro_tab import (
     GROUNDWATER_MONTH_NAMES,
     RULE_DEFAULT_SCALAR_ROWS,
+    _build_initial_feasibility_traffic_placeholder,
     _rule_def_input_id,
     normalize_groundwater_data,
     normalize_stratigraphy_recharge_target,
@@ -1205,6 +1206,15 @@ def setup_hydro_callbacks(app):
         
         return fig
 
+    @app.callback(
+        Output("xy-view-show-contours-btn", "n_clicks"),
+        Input("stratigraphy-data-store", "data"),
+        prevent_initial_call=True,
+    )
+    def reset_xy_view_contours_on_stratigraphy_change(_strat):
+        """CSV / stratigraphy reload: contours are stale until the user clicks Show Contour Lines again."""
+        return 0
+
     # XY View Plot Callback
     @app.callback(
         Output("xy-view-plot", "figure"),
@@ -1213,11 +1223,18 @@ def setup_hydro_callbacks(app):
             Input("extension-width", "value"),
             Input("extension-rotation", "value"),
             Input("xy-view-show-contours-btn", "n_clicks"),
+            Input("stratigraphy-data-store", "data"),
         ],
         prevent_initial_call=False,
     )
-    def update_xy_view_plot(length, width, rotation, n_clicks):
+    def update_xy_view_plot(length, width, rotation, n_clicks, _strat_data):
         """Update the XY view plot with rectangle and contour lines."""
+        ctx = callback_context
+        tid = getattr(ctx, "triggered_id", None)
+        if tid is None and ctx.triggered:
+            tid = ctx.triggered[0]["prop_id"].split(".")[0]
+        if isinstance(tid, str) and tid == "stratigraphy-data-store":
+            return _xy_view_empty_figure()
         if not n_clicks:
             return _xy_view_empty_figure()
 
@@ -1421,9 +1438,11 @@ def setup_hydro_callbacks(app):
 
     @app.callback(
         Output("initial-feasibility-traffic-output", "children"),
-        Input("check-initial-feasibility-btn", "n_clicks"),
         [
-            State("stratigraphy-data-store", "data"),
+            Input("check-initial-feasibility-btn", "n_clicks"),
+            Input("stratigraphy-data-store", "data"),
+        ],
+        [
             State("groundwater-data-store", "data"),
             State("ground-surface-elevation", "value"),
             State("aquitard-conductivity-input", "value"),
@@ -1437,7 +1456,14 @@ def setup_hydro_callbacks(app):
         gs_elev,
         aq_k_input,
     ):
-        """Evaluate the decision graph and show per-option traffic lights from MAR constraints."""
+        """Evaluate feasibility on button click; reset to pending when stratigraphy changes (e.g. new CSV)."""
+        ctx = callback_context
+        tid = getattr(ctx, "triggered_id", None)
+        if tid is None and ctx.triggered:
+            tid = ctx.triggered[0]["prop_id"].split(".")[0]
+        if isinstance(tid, str) and tid == "stratigraphy-data-store":
+            return _build_initial_feasibility_traffic_placeholder()
+
         try:
             if strat_store is not None:
                 rows = list(strat_store)
