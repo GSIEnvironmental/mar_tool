@@ -9,6 +9,11 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.cost_storage import (
+    CAPITAL_COST_TOTAL_KEYS,
+    MAINTENANCE_COST_TOTAL_KEYS,
+    coerce_storage_cost_totals,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,9 +36,13 @@ def _get_decision_matrix(dss_results):
     if not scores:
         return pd.DataFrame()
     
-    # Get cost data
-    capital_cost_num = dash_storage.get_data("capital_cost_num")
-    maintenance_cost_num = dash_storage.get_data("maintenance_cost_num")
+    # Get cost data (dict or Series from storage → aligned Series)
+    capital_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
+    )
+    maintenance_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+    )
     net_val_dict = dash_storage.get_data("net_val") or {}
     
     # Map option names to cost column names

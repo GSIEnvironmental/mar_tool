@@ -8,6 +8,11 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.cost_storage import (
+    CAPITAL_COST_TOTAL_KEYS,
+    MAINTENANCE_COST_TOTAL_KEYS,
+    totals_series_to_storage_dict,
+)
 
 
 try:
@@ -735,11 +740,17 @@ def setup_cost_callbacks(app):
             cols = ['Spreading Pond Cost ($)', 'Injection Wells Cost ($)', 'Dry Wells Cost ($)']
             capital_cost_num = cost_calculator.capital_costs_calculations.loc['Capital Total Cost',
              cols]
-            dash_storage.set_data("capital_cost_num",capital_cost_num)
+            dash_storage.set_data(
+                "capital_cost_num",
+                totals_series_to_storage_dict(capital_cost_num, CAPITAL_COST_TOTAL_KEYS),
+            )
 
             cols = [ 'Spreading Pond Maintenance Cost ($)', 'Injection Wells Maintenance Cost ($)', 'Dry Wells Maintenance Cost ($)']
             maintenance_cost_num = cost_calculator.maintenance_costs_calculations.loc['Annual Grand Maintenance Cost', cols]
-            dash_storage.set_data("maintenance_cost_num",maintenance_cost_num)
+            dash_storage.set_data(
+                "maintenance_cost_num",
+                totals_series_to_storage_dict(maintenance_cost_num, MAINTENANCE_COST_TOTAL_KEYS),
+            )
             cols =['Spreading Pond Net Present Value ($)',
            'Injection Wells Net Present Value ($)',
            'Dry Wells Net Present Value ($)']
@@ -763,7 +774,10 @@ def setup_cost_callbacks(app):
             """Format cost display to show 3 values or 1 based on selection."""
             if cost_data is None:
                 return "$0"
-            
+
+            if isinstance(cost_data, dict):
+                cost_data = pd.Series(cost_data)
+
             if isinstance(cost_data, pd.Series):
                 # We have three cost values
                 # Get column names based on cost type

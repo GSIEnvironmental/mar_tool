@@ -2,16 +2,72 @@
 Callbacks for the Feasibilities tab.
 """
 
+import json
+
 import dash
 from dash import Input, Output, html, dcc
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.cost_storage import (
+    CAPITAL_COST_TOTAL_KEYS,
+    MAINTENANCE_COST_TOTAL_KEYS,
+    coerce_storage_cost_totals,
+)
 import logging
 import math
 
 logger = logging.getLogger(__name__)
+
+_NPV_VALUE_COLS = (
+    "Spreading Pond Net Present Value ($)",
+    "Injection Wells Net Present Value ($)",
+    "Dry Wells Net Present Value ($)",
+)
+
+
+def _normalize_net_val_dict(raw):
+    """Coerce dash_storage ``net_val`` to a dict keyed by NPV column names."""
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, pd.Series):
+        out = {}
+        for c in _NPV_VALUE_COLS:
+            if c in raw.index:
+                out[c] = raw[c]
+        return out
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return {}
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+        return {}
+    if isinstance(raw, (list, tuple)):
+        vals = list(raw)
+        cols = list(_NPV_VALUE_COLS)
+        if len(vals) == len(cols):
+            return {cols[i]: vals[i] for i in range(len(cols))}
+        return {}
+    try:
+        arr = getattr(raw, "flatten", lambda: None)()
+        if arr is None:
+            return {}
+        size = getattr(arr, "size", len(arr) if hasattr(arr, "__len__") else 0)
+        cols = list(_NPV_VALUE_COLS)
+        if size == len(cols):
+            flat = arr.tolist() if hasattr(arr, "tolist") else list(arr)
+            return {cols[i]: flat[i] for i in range(len(cols))}
+    except (TypeError, ValueError):
+        pass
+    return {}
 
 
 def _ensure_dss_results_available():
@@ -765,9 +821,13 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
 
 def _extract_cost_data():
     """Extract cost data from storage and return mapped values."""
-    capital_cost_num = dash_storage.get_data("capital_cost_num")
-    maintenance_cost_num = dash_storage.get_data("maintenance_cost_num")
-    net_val_dict = dash_storage.get_data("net_val") or {}
+    capital_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
+    )
+    maintenance_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+    )
+    net_val_dict = _normalize_net_val_dict(dash_storage.get_data("net_val"))
     
     if capital_cost_num is None or maintenance_cost_num is None:
         return None, None, None, None
@@ -996,9 +1056,13 @@ def _create_spider_plots(dss_results):
     
     # Get scores and cost data
     scores = getattr(dss_results, 'scores', {})
-    capital_cost_num = dash_storage.get_data("capital_cost_num")
-    maintenance_cost_num = dash_storage.get_data("maintenance_cost_num")
-    net_val_dict = dash_storage.get_data("net_val") or {}
+    capital_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
+    )
+    maintenance_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+    )
+    net_val_dict = _normalize_net_val_dict(dash_storage.get_data("net_val"))
     
     if not scores:
         return html.Div(

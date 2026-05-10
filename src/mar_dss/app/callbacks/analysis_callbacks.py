@@ -8,6 +8,12 @@ from dash import Input, Output, html
 import dash_bootstrap_components as dbc
 import mar_dss
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.cost_storage import (
+    CAPITAL_COST_TOTAL_KEYS,
+    MAINTENANCE_COST_TOTAL_KEYS,
+    coerce_storage_cost_totals,
+    totals_series_to_storage_dict,
+)
 from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
 from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
@@ -414,22 +420,24 @@ def calculate_legal_feasibility():
 
 def calculate_cost_feasibility(selected_technology):
     """Calculate cost feasibility score based on capital costs."""
-    capital_cost = dash_storage.get_data("capital_cost_num")
-    
-    if capital_cost is None:
+    raw = dash_storage.get_data("capital_cost_num")
+
+    if raw is None:
         return DEFAULT_COST_SCORES.get(selected_technology, 50)
-    
+
     try:
-        if isinstance(capital_cost, pd.Series):
-            cost_column = _get_cost_column_name(selected_technology)
-            if cost_column and cost_column in capital_cost.index:
-                cost_value = float(capital_cost[cost_column])
-                return _calculate_cost_score_from_value(cost_value)
-            else:
-                return 50  # Default
-        else:
-            cost_value = float(capital_cost)
+        if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+            return _calculate_cost_score_from_value(float(raw))
+
+        capital_cost = coerce_storage_cost_totals(raw, CAPITAL_COST_TOTAL_KEYS)
+        if capital_cost is None:
+            return 50
+
+        cost_column = _get_cost_column_name(selected_technology)
+        if cost_column and cost_column in capital_cost.index:
+            cost_value = float(capital_cost[cost_column])
             return _calculate_cost_score_from_value(cost_value)
+        return 50
     except Exception as e:
         logger.warning(f"Could not calculate cost score: {e}")
         return 50  # Default
@@ -553,12 +561,22 @@ def calculate_project_cost_range(selected_technology):
     """
     try:
         # Get stored cost data if available
-        capital_cost = dash_storage.get_data("capital_cost_num")
-        
-        if capital_cost is not None:
-            # Check if it's a pandas Series (multiple values) or single value
+        raw_capital = dash_storage.get_data("capital_cost_num")
+        capital_cost = (
+            coerce_storage_cost_totals(raw_capital, CAPITAL_COST_TOTAL_KEYS)
+            if raw_capital is not None
+            else None
+        )
+
+        if raw_capital is not None:
             import pandas as pd
-            if isinstance(capital_cost, pd.Series):
+            if isinstance(raw_capital, (int, float)) and not isinstance(raw_capital, bool):
+                low_cost = float(raw_capital) * COST_RANGE_MULTIPLIER["low"]
+                high_cost = float(raw_capital) * COST_RANGE_MULTIPLIER["high"]
+                low_str = _format_cost_value(low_cost)
+                high_str = _format_cost_value(high_cost)
+                return f"{low_str} - {high_str}"
+            if capital_cost is not None and isinstance(capital_cost, pd.Series):
                 # We have three cost values
                 if selected_technology is None:
                     # Show all three values
@@ -583,12 +601,14 @@ def calculate_project_cost_range(selected_technology):
                         dry_well = _format_cost_value(capital_cost.get("Dry Wells Cost ($)", 0))
                         return f"Spreading: {spreading} | Injection: {injection} | Dry Well: {dry_well}"
             else:
-                # Single value (old format)
-                low_cost = float(capital_cost) * COST_RANGE_MULTIPLIER['low']
-                high_cost = float(capital_cost) * COST_RANGE_MULTIPLIER['high']
-                low_str = _format_cost_value(low_cost)
-                high_str = _format_cost_value(high_cost)
-                return f"{low_str} - {high_str}"
+                try:
+                    low_cost = float(raw_capital) * COST_RANGE_MULTIPLIER["low"]
+                    high_cost = float(raw_capital) * COST_RANGE_MULTIPLIER["high"]
+                    low_str = _format_cost_value(low_cost)
+                    high_str = _format_cost_value(high_cost)
+                    return f"{low_str} - {high_str}"
+                except (TypeError, ValueError):
+                    pass
         
         # Default cost ranges by technology type (if no calculation available)
         default_costs = {
@@ -789,9 +809,15 @@ def run_integrated_analysis():
         cost_mapping = map_costs_to_options(capital_costs, maintenance_cost_num)
         logger.debug(f"Cost mapping: {cost_mapping}")
         
-        # Store cost data in dash_storage for UI display
-        dash_storage.set_data("capital_cost_num", capital_costs)
-        dash_storage.set_data("maintenance_cost_num", maintenance_cost_num)
+        # Store cost data in dash_storage for UI display (dict keys = calculator columns)
+        dash_storage.set_data(
+            "capital_cost_num",
+            totals_series_to_storage_dict(capital_costs, CAPITAL_COST_TOTAL_KEYS),
+        )
+        dash_storage.set_data(
+            "maintenance_cost_num",
+            totals_series_to_storage_dict(maintenance_cost_num, MAINTENANCE_COST_TOTAL_KEYS),
+        )
         
         # Store NPV
         cols = ['Spreading Pond Net Present Value ($)', 'Injection Wells Net Present Value ($)', 'Dry Wells Net Present Value ($)']

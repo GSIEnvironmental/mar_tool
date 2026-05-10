@@ -593,7 +593,9 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
         number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
                                         
-        return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well} 
+        return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
+    else:
+        return {"number_of_dry_wells": 0, "Q_per_dry_well": 0}
     
 
 def compute_annual_recharge_volume(design_sizing_result, source_water_volume):
