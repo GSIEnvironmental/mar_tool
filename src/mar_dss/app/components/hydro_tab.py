@@ -48,28 +48,77 @@ def _get_stratigraphy_data():
     return default_data
 
 
+# Calendar order for the groundwater level table (always 12 rows).
+GROUNDWATER_MONTH_NAMES = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+_DEFAULT_GROUNDWATER_ELEVATIONS_FT = {
+    "January": 75.0,
+    "February": 72.0,
+    "March": 78.0,
+    "April": 82.0,
+    "May": 85.0,
+    "June": 88.0,
+    "July": 90.0,
+    "August": 89.0,
+    "September": 86.0,
+    "October": 83.0,
+    "November": 79.0,
+    "December": 76.0,
+}
+
+
+def normalize_groundwater_data(raw):
+    """Return exactly 12 rows (January–December) with elevations merged from ``raw``."""
+    by_month = {}
+    if isinstance(raw, list):
+        for row in raw:
+            if not isinstance(row, dict):
+                continue
+            m = row.get("month")
+            if m is None:
+                continue
+            key = str(m).strip()
+            if key not in _DEFAULT_GROUNDWATER_ELEVATIONS_FT:
+                continue
+            ev = row.get("elevation")
+            try:
+                by_month[key] = float(ev)
+            except (TypeError, ValueError):
+                by_month[key] = _DEFAULT_GROUNDWATER_ELEVATIONS_FT[key]
+    out = []
+    for name in GROUNDWATER_MONTH_NAMES:
+        ev = by_month.get(name)
+        if ev is None:
+            ev = _DEFAULT_GROUNDWATER_ELEVATIONS_FT[name]
+        try:
+            ev = float(ev)
+            if not math.isfinite(ev):
+                ev = _DEFAULT_GROUNDWATER_ELEVATIONS_FT[name]
+        except (TypeError, ValueError):
+            ev = _DEFAULT_GROUNDWATER_ELEVATIONS_FT[name]
+        out.append({"month": name, "elevation": ev})
+    return out
+
+
 def _get_groundwater_data():
-    """Get groundwater data from dash_storage or return defaults."""
+    """Get groundwater data from dash_storage or return defaults (always 12 months)."""
     stored_data = dash_storage.get_data("groundwater_data")
-    if stored_data:
-        return stored_data
-    # Return defaults and save them to storage
-    default_data = [
-        {"month": "January", "elevation": 75.0, "selected": False},
-        {"month": "February", "elevation": 72.0, "selected": False},
-        {"month": "March", "elevation": 78.0, "selected": False},
-        {"month": "April", "elevation": 82.0, "selected": False},
-        {"month": "May", "elevation": 85.0, "selected": False},
-        {"month": "June", "elevation": 88.0, "selected": False},
-        {"month": "July", "elevation": 90.0, "selected": False},
-        {"month": "August", "elevation": 89.0, "selected": False},
-        {"month": "September", "elevation": 86.0, "selected": False},
-        {"month": "October", "elevation": 83.0, "selected": False},
-        {"month": "November", "elevation": 79.0, "selected": False},
-        {"month": "December", "elevation": 76.0, "selected": False}
-    ]
-    dash_storage.set_data("groundwater_data", default_data)
-    return default_data
+    norm = normalize_groundwater_data(stored_data if stored_data else [])
+    dash_storage.set_data("groundwater_data", norm)
+    return norm
 
 
 def create_hydrogeologic_settings_content():
@@ -473,19 +522,10 @@ def _build_groundwater_level_tab():
             html.Div(
                 [
                     html.H5("Groundwater Level Configuration", className="mb-3"),
-                    html.P("Configure monthly groundwater level variations.", className="mb-4"),
-                    
-                    # Table controls
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.ButtonGroup([
-                                dbc.Button("Add Month", id="add-month-btn", color="success", size="sm", title="Add a month row to the groundwater table"),
-                                dbc.Button("Delete Selected", id="delete-month-btn", color="danger", size="sm", title="Delete selected month rows"),
-                                dbc.Button("Reset to Default", id="reset-gw-btn", color="info", size="sm", title="Restore default monthly groundwater elevations"),
-                            ])
-                        ], width=12)
-                    ], className="mb-3"),
-                    
+                    html.P(
+                        "Monthly groundwater elevations (ft); one row per calendar month.",
+                        className="mb-4",
+                    ),
                     # Input fields for elevation and storage depth
                     dbc.Row([
                         dbc.Col([
@@ -517,9 +557,8 @@ def _build_groundwater_level_tab():
                                 [
                                     html.Thead([
                                         html.Tr([
-                                            html.Th("Select", style={"width": "15%"}),
-                                            html.Th("Month", style={"width": "35%"}),
-                                            html.Th("Elevation (ft)", style={"width": "50%"})
+                                            html.Th("Month", style={"width": "45%"}),
+                                            html.Th("Elevation (ft)", style={"width": "55%"}),
                                         ])
                                     ]),
                                     html.Tbody(id="groundwater-table-body")

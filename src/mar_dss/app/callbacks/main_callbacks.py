@@ -33,6 +33,7 @@ try:
     )
     from mar_dss.app.components.hydro_tab import (
         create_hydro_tab_content,
+        normalize_groundwater_data,
         normalize_stratigraphy_recharge_target,
     )
     from mar_dss.app.components.scenarios_comparison_tab import (
@@ -64,6 +65,7 @@ except ImportError:
     from .components.dss_algorithm_tab import create_dss_algorithm_content
     from .components.hydro_tab import (
         create_hydro_tab_content,
+        normalize_groundwater_data,
         normalize_stratigraphy_recharge_target,
     )
     from .components.scenarios_comparison_tab import (
@@ -330,23 +332,7 @@ def setup_main_callbacks(app, dashboard_instance):
         """Sync groundwater-data-store with dash_storage when hydrogeology tab is accessed."""
         if active_tab == "hydrogeology":
             stored_data = dash_storage.get_data("groundwater_data")
-            if stored_data:
-                return stored_data
-            # Return defaults if no stored data
-            return [
-                {"month": "January", "elevation": 75.0, "selected": False},
-                {"month": "February", "elevation": 72.0, "selected": False},
-                {"month": "March", "elevation": 78.0, "selected": False},
-                {"month": "April", "elevation": 82.0, "selected": False},
-                {"month": "May", "elevation": 85.0, "selected": False},
-                {"month": "June", "elevation": 88.0, "selected": False},
-                {"month": "July", "elevation": 90.0, "selected": False},
-                {"month": "August", "elevation": 89.0, "selected": False},
-                {"month": "September", "elevation": 86.0, "selected": False},
-                {"month": "October", "elevation": 83.0, "selected": False},
-                {"month": "November", "elevation": 79.0, "selected": False},
-                {"month": "December", "elevation": 76.0, "selected": False}
-            ]
+            return normalize_groundwater_data(stored_data if stored_data else [])
         return dash.no_update
 
     # Add callback to create the editable table
@@ -774,20 +760,9 @@ def setup_main_callbacks(app, dashboard_instance):
             ]
             normalize_stratigraphy_recharge_target(_strat_new)
             dash_storage.set_data("stratigraphy_data", _strat_new)
-            dash_storage.set_data("groundwater_data", [
-                {"month": "January", "elevation": 75.0, "selected": False},
-                {"month": "February", "elevation": 72.0, "selected": False},
-                {"month": "March", "elevation": 78.0, "selected": False},
-                {"month": "April", "elevation": 82.0, "selected": False},
-                {"month": "May", "elevation": 85.0, "selected": False},
-                {"month": "June", "elevation": 88.0, "selected": False},
-                {"month": "July", "elevation": 90.0, "selected": False},
-                {"month": "August", "elevation": 89.0, "selected": False},
-                {"month": "September", "elevation": 86.0, "selected": False},
-                {"month": "October", "elevation": 83.0, "selected": False},
-                {"month": "November", "elevation": 79.0, "selected": False},
-                {"month": "December", "elevation": 76.0, "selected": False}
-            ])
+            dash_storage.set_data(
+                "groundwater_data", normalize_groundwater_data([])
+            )
             dash_storage.set_data("ground_surface_elevation", 120.0)
             dash_storage.set_data("max_mar_storage_depth", 20.0)
             dash_storage.set_data("extension_length", 100.0)

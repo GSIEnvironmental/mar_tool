@@ -11,8 +11,10 @@ import plotly.graph_objects as go
 from dash import Input, Output, dcc, html, State, callback_context
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.components.hydro_tab import (
+    GROUNDWATER_MONTH_NAMES,
     RULE_DEFAULT_SCALAR_ROWS,
     _rule_def_input_id,
+    normalize_groundwater_data,
     normalize_stratigraphy_recharge_target,
 )
 
@@ -816,128 +818,48 @@ def setup_hydro_callbacks(app):
     )
     def update_groundwater_table(data):
         """Update the groundwater level table based on stored data."""
-        if not data:
-            return []
-        
-        rows = []
-        for i, row in enumerate(data):
-            # Create checkbox for selection
-            checkbox = dbc.Checkbox(
-                id={"type": "gw-checkbox", "index": i},
-                value=row.get("selected", False),
-                className="form-check-input"
-            )
-            
-            # Create month dropdown
-            month_dropdown = dbc.Select(
-                id={"type": "month-select", "index": i},
-                value=row["month"],
-                options=[
-                    {"label": "January", "value": "January"},
-                    {"label": "February", "value": "February"},
-                    {"label": "March", "value": "March"},
-                    {"label": "April", "value": "April"},
-                    {"label": "May", "value": "May"},
-                    {"label": "June", "value": "June"},
-                    {"label": "July", "value": "July"},
-                    {"label": "August", "value": "August"},
-                    {"label": "September", "value": "September"},
-                    {"label": "October", "value": "October"},
-                    {"label": "November", "value": "November"},
-                    {"label": "December", "value": "December"}
-                ],
-                size="sm"
-            )
-            
-            # Create elevation input
+        rows_data = normalize_groundwater_data(data or [])
+        rows_out = []
+        for i, row in enumerate(rows_data):
             elevation_input = dbc.Input(
                 id={"type": "elevation-input", "index": i},
                 value=row["elevation"],
                 type="number",
                 step="0.1",
-                size="sm"
+                size="sm",
             )
-            
-            rows.append(html.Tr([
-                html.Td(checkbox),
-                html.Td(month_dropdown),
-                html.Td(elevation_input)
-            ]))
-        
-        return rows
-    
+            rows_out.append(
+                html.Tr(
+                    [
+                        html.Td(
+                            row["month"],
+                            className="align-middle small text-muted fw-semibold",
+                        ),
+                        html.Td(elevation_input),
+                    ]
+                )
+            )
+        return rows_out
+
     @app.callback(
         Output("groundwater-data-store", "data"),
-        [Input("add-month-btn", "n_clicks"),
-         Input("delete-month-btn", "n_clicks"),
-         Input("reset-gw-btn", "n_clicks")],
+        [Input({"type": "elevation-input", "index": dash.dependencies.ALL}, "value")],
         [State("groundwater-data-store", "data")],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
-    def handle_groundwater_actions(add_clicks, delete_clicks, reset_clicks, data):
-        """Handle groundwater table actions."""
-        ctx = callback_context
-        if not ctx.triggered:
-            return data
-        
-        button_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        current_data = data or []
-        
-        if button_id == "add-month-btn":
-            # Add new month (default to January)
-            new_month = {
-                "month": "January",
-                "elevation": 75.0,
-                "selected": False
-            }
-            current_data.append(new_month)
-            
-        elif button_id == "delete-month-btn":
-            # Delete selected months
-            current_data = [row for row in current_data if not row.get("selected", False)]
-            
-        elif button_id == "reset-gw-btn":
-            # Reset to default values
-            current_data = [
-                {"month": "January", "elevation": 75.0, "selected": False},
-                {"month": "February", "elevation": 72.0, "selected": False},
-                {"month": "March", "elevation": 78.0, "selected": False},
-                {"month": "April", "elevation": 82.0, "selected": False},
-                {"month": "May", "elevation": 85.0, "selected": False},
-                {"month": "June", "elevation": 88.0, "selected": False},
-                {"month": "July", "elevation": 90.0, "selected": False},
-                {"month": "August", "elevation": 89.0, "selected": False},
-                {"month": "September", "elevation": 86.0, "selected": False},
-                {"month": "October", "elevation": 83.0, "selected": False},
-                {"month": "November", "elevation": 79.0, "selected": False},
-                {"month": "December", "elevation": 76.0, "selected": False}
-            ]
-        
-        return current_data
-    
-    @app.callback(
-        Output("groundwater-data-store", "data", allow_duplicate=True),
-        [Input({"type": "gw-checkbox", "index": dash.dependencies.ALL}, "value"),
-         Input({"type": "month-select", "index": dash.dependencies.ALL}, "value"),
-         Input({"type": "elevation-input", "index": dash.dependencies.ALL}, "value")],
-        [State("groundwater-data-store", "data")],
-        prevent_initial_call=True
-    )
-    def update_groundwater_data(checkbox_values, month_values, elevation_values, data):
-        """Update groundwater data when inputs change."""
-        if not data:
-            return data
-        
-        # Update data with new values
-        for i, row in enumerate(data):
-            if i < len(checkbox_values):
-                row["selected"] = checkbox_values[i] or False
-            if i < len(month_values):
-                row["month"] = month_values[i]
+    def update_groundwater_data(elevation_values, data):
+        """Update groundwater elevations; months are fixed January–December."""
+        base = normalize_groundwater_data(data or [])
+        for i, name in enumerate(GROUNDWATER_MONTH_NAMES):
+            if i >= len(base):
+                break
             if i < len(elevation_values) and elevation_values[i] is not None:
-                row["elevation"] = float(elevation_values[i])
-        
-        return data
+                try:
+                    base[i]["elevation"] = float(elevation_values[i])
+                except (TypeError, ValueError):
+                    pass
+            base[i]["month"] = name
+        return base
     
     # Groundwater Level Plot Callback
     @app.callback(
