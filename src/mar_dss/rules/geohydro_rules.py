@@ -511,6 +511,7 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         k_s = strat_df.iloc[-(len(sat_thks)):]['K']
         k_mean = (k_s.values * sat_thks.values).sum() / sat_thks.values.sum()
         sy_mean = (sy_s.values * sat_thks.values).sum() / sat_thks.values.sum()
+
         dh = avg_gw_depth - max(op_gw_depth, defaults["max_drywell_depth_ft"])
         if dh <=0:
             return {"number_of_dry_wells": 0, "Q_per_dry_well": 0}
@@ -527,8 +528,7 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         number_of_wells =min(defaults["max_number_of_injection_wells"], number_of_wells)
                                         
         return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well} 
-    else: # confined aquifer
-        return {"number_of_dry_wells": 0, "Q_per_dry_well": 0}
+    
 
 def compute_annual_recharge_volume(design_sizing_result, source_water_volume):
     if design_sizing_result is None:

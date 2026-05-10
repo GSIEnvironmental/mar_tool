@@ -44,6 +44,35 @@ def _coerce_aquitard_k_ft_day(val):
     return DEFAULT_AQUITARD_K_MAX_FT_DAY
 
 
+def _render_initial_feasibility_status(status_line: str):
+    """Bold green 'Pass' / bold red 'Fail' for Initial Hydrologic Feasibility rows."""
+    if not status_line:
+        return ""
+    if status_line == "Pass":
+        return html.Span("Pass", className="fw-bold text-success small")
+    prefix_pw = "Pass with Warnings - "
+    if status_line.startswith(prefix_pw):
+        rest = status_line[len(prefix_pw):]
+        return html.Span(
+            [
+                html.Span("Pass", className="fw-bold text-success"),
+                html.Span(f" with Warnings - {rest}", className="text-muted"),
+            ],
+            className="small",
+        )
+    prefix_fail = "Fail - "
+    if status_line.startswith(prefix_fail):
+        rest = status_line[len(prefix_fail):]
+        return html.Span(
+            [
+                html.Span("Fail", className="fw-bold text-danger"),
+                html.Span(f" - {rest}", className="text-muted"),
+            ],
+            className="small",
+        )
+    return html.Span(status_line, className="small text-muted")
+
+
 def _aquitard_k_input_str(k: float) -> str:
     """Plain-text field display for aquitard K (no scientific spinners); trim trailing zeros."""
     if k is None or not math.isfinite(k) or k <= 0.0:
@@ -1456,6 +1485,11 @@ def setup_hydro_callbacks(app):
                     sc_module.soft_constraints,
                 )
                 dot = _TRAFFIC_DOT[color]
+                name_cls = (
+                    "fw-semibold small text-success"
+                    if color in ("green", "orange")
+                    else "fw-semibold small text-danger"
+                )
                 rows_out.append(
                     dbc.Row(
                         [
@@ -1476,11 +1510,11 @@ def setup_hydro_callbacks(app):
                                 [
                                     html.Div(
                                         option.name,
-                                        className="fw-semibold small",
+                                        className=name_cls,
                                     ),
                                     html.Div(
-                                        status_line,
-                                        className="small text-muted",
+                                        _render_initial_feasibility_status(status_line),
+                                        className="small",
                                     ),
                                 ],
                                 className="ps-0",
