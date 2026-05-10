@@ -122,6 +122,45 @@ def _xy_view_empty_figure():
     return fig
 
 
+def _extent_for_radial_contour_z(z, x1d, y1d, *, rel_floor=0.01, pad_ratio=0.06):
+    """
+    Symmetric axis limits centered on the well: zoom to where Z differs from far-field.
+
+    Cells with (Z − Z_min) / (Z_max − Z_min) >= rel_floor set the radial extent; padding is
+    added; half-width is clamped between ~2% of the grid radius and the grid edge.
+    """
+    import numpy as np
+
+    z = np.asarray(z, dtype=float)
+    x1d = np.asarray(x1d, dtype=float)
+    y1d = np.asarray(y1d, dtype=float)
+    grid_half = float(max(np.max(np.abs(x1d)), np.max(np.abs(y1d)), 1e-9))
+    zmin = float(np.nanmin(z))
+    zmax = float(np.nanmax(z))
+    span = zmax - zmin
+    if not np.isfinite(span) or span <= 1e-15:
+        h = grid_half * (1.0 + pad_ratio)
+        return (-h, h), (-h, h)
+
+    Xg, Yg = np.meshgrid(x1d, y1d, indexing="xy")
+    rel = (z - zmin) / span
+    mask = rel >= rel_floor
+    if not np.any(mask):
+        h = grid_half * (1.0 + pad_ratio)
+        return (-h, h), (-h, h)
+
+    r_mask = float(np.nanmax(np.sqrt(Xg[mask] ** 2 + Yg[mask] ** 2)))
+    pad = pad_ratio * max(r_mask, 1e-9)
+    half = r_mask + pad
+    half_min = max(0.02 * grid_half, 1.0)
+    half = float(np.clip(half, half_min, grid_half * (1.0 + pad_ratio)))
+    return (-half, half), (-half, half)
+
+
+# Regional saturated-zone slope (dh/ds) along XY local +x: downstream is +x; head falls downstream.
+XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT = 0.02  # 2% (ft/ft)
+
+
 def setup_hydro_callbacks(app):
     """Set up all hydrogeology-related callbacks."""
     
@@ -552,64 +591,6 @@ def setup_hydro_callbacks(app):
         
         if trigger_prop != "id":
             dash_storage.set_data("extension_rotation", current_value)
-        
-        return current_value
-    
-    # Callback to save upstream head to data storage
-    @app.callback(
-        Output("upstream-head", "value"),
-        [
-            Input("upstream-head", "value"),
-            Input("upstream-head", "n_blur"),
-            Input("upstream-head", "n_submit"),
-            Input("upstream-head", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_upstream_head_input(value, n_blur, n_submit, component_id):
-        """Handle upstream head input and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            head = dash_storage.get_data("upstream_head") or 10.0
-            dash_storage.set_data("upstream_head", head)
-            return head
-        
-        current_value = value if value is not None else 10.0
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
-        if trigger_prop != "id":
-            dash_storage.set_data("upstream_head", current_value)
-        
-        return current_value
-    
-    # Callback to save downstream head to data storage
-    @app.callback(
-        Output("downstream-head", "value"),
-        [
-            Input("downstream-head", "value"),
-            Input("downstream-head", "n_blur"),
-            Input("downstream-head", "n_submit"),
-            Input("downstream-head", "id")
-        ],
-        prevent_initial_call=False
-    )
-    def handle_downstream_head_input(value, n_blur, n_submit, component_id):
-        """Handle downstream head input and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            head = dash_storage.get_data("downstream_head") or 5.0
-            dash_storage.set_data("downstream_head", head)
-            return head
-        
-        current_value = value if value is not None else 5.0
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
-        if trigger_prop != "id":
-            dash_storage.set_data("downstream_head", current_value)
         
         return current_value
     
@@ -1231,15 +1212,11 @@ def setup_hydro_callbacks(app):
             Input("extension-length", "value"),
             Input("extension-width", "value"),
             Input("extension-rotation", "value"),
-            Input("upstream-head", "value"),
-            Input("downstream-head", "value"),
             Input("xy-view-show-contours-btn", "n_clicks"),
         ],
         prevent_initial_call=False,
     )
-    def update_xy_view_plot(
-        length, width, rotation, upstream_head, downstream_head, n_clicks
-    ):
+    def update_xy_view_plot(length, width, rotation, n_clicks):
         """Update the XY view plot with rectangle and contour lines."""
         if not n_clicks:
             return _xy_view_empty_figure()
@@ -1270,27 +1247,11 @@ def setup_hydro_callbacks(app):
                 rotation = float(rotation)
             except (ValueError, TypeError):
                 rotation = 0.0
-        
-        if upstream_head is None:
-            upstream_head = 10.0
-        else:
-            try:
-                upstream_head = float(upstream_head)
-            except (ValueError, TypeError):
-                upstream_head = 10.0
-        
-        if downstream_head is None:
-            downstream_head = 5.0
-        else:
-            try:
-                downstream_head = float(downstream_head)
-            except (ValueError, TypeError):
-                downstream_head = 5.0
 
         aq_type_raw = dash_storage.get_data("aq_type") or "unconfined"
         aq_type_l = str(aq_type_raw).strip().lower()
         is_confined = aq_type_l == "confined"
-        
+
         # Create the plot
         fig = go.Figure()
         
@@ -1301,6 +1262,10 @@ def setup_hydro_callbacks(app):
 
         half_length = length / 2
         half_width = width / 2
+        fallback_half = max(half_length, half_width) * 1.02
+        xy_range_fallback = ((-fallback_half, fallback_half), (-fallback_half, fallback_half))
+        plan_x_range = None
+        plan_y_range = None
 
         if is_confined:
             strat_in = dash_storage.get_data("stratigraphy_data")
@@ -1315,18 +1280,23 @@ def setup_hydro_callbacks(app):
                 Z = np.asarray(theis_pack["drawdown_ft"], dtype=float)
                 x1d = np.asarray(theis_pack["x"], dtype=float)
                 y1d = np.asarray(theis_pack["y"], dtype=float)
+                Xg, _Yg = np.meshgrid(x1d, y1d, indexing="xy")
+                # Linear head change along flow: dh = −(gradient) × distance along x (ft); ref. at x = 0.
+                Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xg
+                Z = Z + Z_background
+                plan_x_range, plan_y_range = _extent_for_radial_contour_z(Z, x1d, y1d)
                 fig.add_trace(
                     go.Contour(
                         x=x1d,
                         y=y1d,
                         z=Z,
                         colorscale="Jet",
-                        name="Mound (Theis)",
-                        colorbar=dict(title="Mound (ft)"),
+                        name="Mound + 2% regional gradient",
+                        colorbar=dict(title="Mound + gradient (ft)"),
                         opacity=0.82,
                         contours=dict(showlines=True, coloring="fill"),
                         hovertemplate=(
-                            "<b>Theis mound</b><br>%{z:.2f} ft<br>"
+                            "<b>Theis + regional gradient</b><br>%{z:.2f} ft<br>"
                             "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
                         ),
                         uirevision=str(n_clicks or 0),
@@ -1409,6 +1379,11 @@ def setup_hydro_callbacks(app):
             if is_confined
             else "XY View — MAR project area"
         )
+        xr, yr = (
+            (plan_x_range, plan_y_range)
+            if plan_x_range is not None and plan_y_range is not None
+            else xy_range_fallback
+        )
         fig.update_layout(
             title={
                 "text": xy_title,
@@ -1429,8 +1404,13 @@ def setup_hydro_callbacks(app):
                 xanchor="center",
                 x=0.5
             ),
-            xaxis=dict(scaleanchor="y", scaleratio=1),  # Equal aspect ratio
-            yaxis=dict(scaleanchor="x", scaleratio=1)
+            xaxis=dict(
+                scaleanchor="y",
+                scaleratio=1,
+                range=list(xr),
+                autorange=False,
+            ),
+            yaxis=dict(scaleanchor="x", scaleratio=1, range=list(yr), autorange=False),
         )
         
         # No grid lines for cleaner appearance

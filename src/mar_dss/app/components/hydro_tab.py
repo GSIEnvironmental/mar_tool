@@ -667,34 +667,6 @@ def _build_horizontal_extension_tab():
                                 placeholder="Enter rotation angle"
                             )
                         ], width=6),
-                        dbc.Col([
-                            html.Label("Upstream Head (ft):", className="fw-bold mb-2"),
-                            dbc.Input(
-                                id="upstream-head",
-                                type="number",
-                                value=dash_storage.get_data("upstream_head") or 10.0,
-                                debounce=True,
-                                step=0.1,
-                                placeholder="Enter upstream head"
-                            )
-                        ], width=6)
-                    ], className="mb-3"),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Downstream Head (ft):", className="fw-bold mb-2"),
-                            dbc.Input(
-                                id="downstream-head",
-                                type="number",
-                                value=dash_storage.get_data("downstream_head") or 5.0,
-                                debounce=True,
-                                step=0.1,
-                                placeholder="Enter downstream head"
-                            )
-                        ], width=6),
-                        dbc.Col([
-                            # Empty column for spacing
-                        ], width=6)
                     ], className="mb-3"),
                     dbc.Tooltip(
                         "MAR footprint length for horizontal extent analysis (feet)",
@@ -709,16 +681,6 @@ def _build_horizontal_extension_tab():
                     dbc.Tooltip(
                         "Rotation of the MAR area from north (degrees)",
                         target="extension-rotation",
-                        placement="top",
-                    ),
-                    dbc.Tooltip(
-                        "Hydraulic or specified head at the upstream boundary (feet)",
-                        target="upstream-head",
-                        placement="top",
-                    ),
-                    dbc.Tooltip(
-                        "Hydraulic or specified head at the downstream boundary (feet)",
-                        target="downstream-head",
                         placement="top",
                     ),
                 ],
