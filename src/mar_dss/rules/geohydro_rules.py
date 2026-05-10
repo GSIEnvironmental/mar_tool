@@ -52,47 +52,116 @@ def recharge_target_layer_row_index(strat_df):
     return 0
 
 
+_GW_MONTH_ORDER = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+
+def _strat_df_to_dashboard_rows(strat_df):
+    """Convert graph ``strat_df`` (DataFrame from ``get_stratigraphy_table``) to dashboard row dicts."""
+    if isinstance(strat_df, pd.DataFrame):
+        rows = []
+        for _, row in strat_df.iterrows():
+            rt = row.get("Recharge Target Layer", False)
+            if pd.isna(rt):
+                rt = False
+            rows.append(
+                {
+                    "thickness": float(row["thickness"]),
+                    "conductivity": float(row["K"]),
+                    "recharge_target": bool(rt),
+                }
+            )
+        return rows
+    if isinstance(strat_df, list) and strat_df:
+        if isinstance(strat_df[0], dict):
+            return list(strat_df)
+        if isinstance(strat_df[0], list):
+            out = []
+            for r in strat_df:
+                t, k = float(r[0]), float(r[1])
+                rt = bool(r[3]) if len(r) >= 4 else False
+                out.append(
+                    {"thickness": t, "conductivity": k, "recharge_target": rt}
+                )
+            return out
+    return []
+
+
+def _monthly_depths_to_gw_rows(monthly_gw_depth):
+    """Build dashboard-style groundwater rows; use datum ``gs=0`` so ``elevation = -depth`` (see ``infer_aquifer_type``)."""
+    d = np.asarray(monthly_gw_depth, dtype=float).reshape(-1)
+    if d.size == 0:
+        return []
+    if d.size < 12:
+        d = np.pad(d, (0, 12 - int(d.size)), mode="edge")
+    elif d.size > 12:
+        d = d[:12]
+    return [
+        {"month": _GW_MONTH_ORDER[i], "elevation": -float(d[i])}
+        for i in range(12)
+    ]
+
+
 def infer_aquifer_type(strat_df, monthly_gw_depth):
     """
-    Infer aquifer type based on where the (shallowest) water table sits relative to
-    the **top** of the selected recharge target layer.
+    Decision-graph entry point: same inference as :func:`infer_dashboard_aquifer_type`.
 
-    Rule:
-    - If min(depth_to_gw) is **below** the top of the target layer -> unconfined
-    - Otherwise -> confined
+    Uses monthly **depths** (ft below ground) with a fixed datum ``gs = 0`` so that
+    ``elevation = -depth``; confined vs unconfined depends only on thicknesses and
+    depths, matching the dashboard rule for identical stratigraphy and depths.
     """
-    min_gw_depth = float(np.min(monthly_gw_depth))
-    target_layer_idx = recharge_target_layer_row_index(strat_df)
-
-    # Get layer thicknesses from supported strat_df formats
-    thicknesses = None
-    if isinstance(strat_df, pd.DataFrame) and "thickness" in strat_df.columns:
-        thicknesses = strat_df["thickness"].astype(float).tolist()
-    elif isinstance(strat_df, list) and strat_df and isinstance(strat_df[0], dict):
-        thicknesses = [float(r.get("thickness", 0.0)) for r in strat_df]
-    elif isinstance(strat_df, list) and strat_df and isinstance(strat_df[0], list):
-        thicknesses = [float(r[0]) for r in strat_df]
-
-    if thicknesses and 0 <= target_layer_idx < len(thicknesses):
-        bottoms = np.cumsum(thicknesses)
-        top_of_target = float(bottoms[target_layer_idx] - thicknesses[target_layer_idx])
-        type_aqq = "unconfined" if min_gw_depth >= top_of_target else "confined"
-        return type_aqq
-
-    # Fallback if thicknesses are unavailable
-    return "unconfined"
+    strat_rows = _strat_df_to_dashboard_rows(strat_df)
+    gw_rows = _monthly_depths_to_gw_rows(monthly_gw_depth)
+    return infer_dashboard_aquifer_type(strat_rows, gw_rows, 0.0)
 
 
 # Default max *K* (ft/day) for classifying a dashboard layer as an aquitard when the user
-# does not supply ``aquitard_k_max_ft_day``.
+# does not supply ``aquitard_k_max_ft_day`` and dashboard storage has no value.
 DEFAULT_AQUITARD_K_MAX_FT_DAY = 1e-3
+
+
+def _resolve_aquitard_k_max_ft_day(explicit):
+    """Match Hydrogeology tab + callbacks: explicit value, else ``aquitard_conductivity_ft_day``."""
+    if explicit is not None and str(explicit).strip() != "":
+        try:
+            v = float(str(explicit).strip())
+            if np.isfinite(v) and v > 0.0:
+                return v
+        except (TypeError, ValueError):
+            pass
+    try:
+        from mar_dss.app.utils import data_storage as dash_storage
+
+        raw = dash_storage.get_data("aquitard_conductivity_ft_day")
+        if raw is not None:
+            try:
+                v = float(raw)
+                if np.isfinite(v) and v > 0.0:
+                    return v
+            except (TypeError, ValueError):
+                pass
+    except Exception:
+        pass
+    return DEFAULT_AQUITARD_K_MAX_FT_DAY
 
 
 def infer_dashboard_aquifer_type(
     stratigraphy_rows,
     groundwater_rows,
     ground_surface_elevation,
-    aquitard_k_max_ft_day=DEFAULT_AQUITARD_K_MAX_FT_DAY,
+    aquitard_k_max_ft_day=None,
 ):
     """Infer *confined* vs *unconfined* from stratigraphy + monthly water-table elevations.
 
@@ -116,15 +185,12 @@ def infer_dashboard_aquifer_type(
         Dashboard ``groundwater_data`` rows with numeric ``elevation`` (ft AMSL).
     ground_surface_elevation : float | None
         Ground surface elevation (ft AMSL), same datum as water-table elevations.
-    aquitard_k_max_ft_day : float
+    aquitard_k_max_ft_day : float | None
         Layers with conductivity at or below this value (ft/day) are treated as aquitards.
+        If omitted or invalid, uses dashboard ``aquitard_conductivity_ft_day`` (Hydrogeology:
+        "Aquitard conductivity (ft/day):"), then ``DEFAULT_AQUITARD_K_MAX_FT_DAY``.
     """
-    try:
-        k_max = float(aquitard_k_max_ft_day)
-        if not np.isfinite(k_max) or k_max <= 0.0:
-            k_max = DEFAULT_AQUITARD_K_MAX_FT_DAY
-    except (TypeError, ValueError):
-        k_max = DEFAULT_AQUITARD_K_MAX_FT_DAY
+    k_max = _resolve_aquitard_k_max_ft_day(aquitard_k_max_ft_day)
 
     def _is_aquitard(row):
         if not isinstance(row, dict):
@@ -384,7 +450,7 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
 
     t = 50 # long time for near steady state
 
-    # todo: Talk to run to check if the average is the best way to estimate the spread area.
+    # todo: check if the average is the best way to estimate the spread area.
     vol_max_available = (np.max(source_water_volume)/30.25)
     vol_possiblee = vol_max_available
     spread_area =  vol_max_available / (k_min_vadose)

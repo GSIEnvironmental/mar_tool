@@ -31,39 +31,45 @@ def compute_integral(alpha, beta):
     return result
 
 def compute_mounding_grid(Lx, Ly, N, l, a, t, b, w, k, sy, h0):
+    """
+    Hantush-type rectangular recharge mounding on a quarter grid, mirrored to full domain.
 
+    Returns ``x, y, h`` all with shape ``(2*N, 2*N)`` suitable for ``matplotlib.contour``.
+    """
     if N is None:
         N = 20
 
-    v = 4*t*k*b/sy
-    x = np.linspace(0, Lx, N)
-    y = np.linspace(0, Ly, N)
-    x, y = np.meshgrid(x, y)
+    v = 4 * t * k * b / sy
+    x1 = np.linspace(0, Lx, N)
+    y1 = np.linspace(0, Ly, N)
+    x_q, y_q = np.meshgrid(x1, y1)
 
-    p1 = (l+x)/np.sqrt(v)
-    p2 = (a+y)/np.sqrt(v)
+    p1 = (l + x_q) / np.sqrt(v)
+    p2 = (a + y_q) / np.sqrt(v)
     s1 = compute_integral(p1, p2)
 
-    p1 = (l+x)/np.sqrt(v)
-    p2 = (a-y)/np.sqrt(v)
+    p1 = (l + x_q) / np.sqrt(v)
+    p2 = (a - y_q) / np.sqrt(v)
     s2 = compute_integral(p1, p2)
 
-    p1 = (l-x)/np.sqrt(v)
-    p2 = (a+y)/np.sqrt(v)
+    p1 = (l - x_q) / np.sqrt(v)
+    p2 = (a + y_q) / np.sqrt(v)
     s3 = compute_integral(p1, p2)
 
-    p1 = (l-x)/np.sqrt(v)
-    p2 = (a-y)/np.sqrt(v)
+    p1 = (l - x_q) / np.sqrt(v)
+    p2 = (a - y_q) / np.sqrt(v)
     s4 = compute_integral(p1, p2)
 
-    s = s1+s2+s3+s4
+    s = s1 + s2 + s3 + s4
 
-    v1 =k*b/sy
-    dh = (w/(2*k)) * (v1 * t) * s
+    v1 = k * b / sy
+    dh = (w / (2 * k)) * (v1 * t) * s
 
     dh = concat(dh)
-    gw_grad = mirror(gw_grad, y_axis=True)
-    dh = h0 + dh 
+    x = concat(x_q)
+    y = concat(y_q)
+    h = h0 + dh
+    return x, y, h
 
 def compute_recharge_rate(x,y,t,del_h, spread_area, k,b,sy):
 
