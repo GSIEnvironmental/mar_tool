@@ -524,7 +524,8 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
         Q_per_well = min(Qmax, max_Q_per_well)     
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)       
         number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
-        return {"number_of_wells": number_of_wells, "Q_per_well": Q_per_well} 
+        return {"number_of_wells": number_of_wells, "Q_per_well": Q_per_well,
+         'transmissivity':transmissivity, 'Ss':Ss, 'Hmax':Hmax, 'time':50, 'r':1} 
 
         
       
@@ -828,4 +829,134 @@ def get_stratigraphy_table(stratigraphy_table):
 
     columns = base_columns + ["Recharge Target Layer"]
     return pd.DataFrame(stratigraphy_table, columns=columns)
+
+
+def dashboard_stratigraphy_to_dataframe(stratigraphy_data):
+    """
+    Convert Hydro tab ``stratigraphy_data`` (list of dicts) into a DataFrame with
+    columns ``thickness``, ``K``, ``sy/ss``, and ``Recharge Target Layer`` where applicable.
+    """
+    if stratigraphy_data is None:
+        return None
+    if isinstance(stratigraphy_data, pd.DataFrame):
+        df = stratigraphy_data.copy()
+        if "conductivity" in df.columns and "K" not in df.columns:
+            df = df.rename(columns={"conductivity": "K"})
+        if "storage" in df.columns and "sy/ss" not in df.columns:
+            df = df.rename(columns={"storage": "sy/ss"})
+        if "Recharge Target Layer" not in df.columns:
+            if "recharge_target" in df.columns:
+                df["Recharge Target Layer"] = df["recharge_target"].fillna(False).astype(bool)
+            else:
+                df["Recharge Target Layer"] = False
+        return df
+    if not isinstance(stratigraphy_data, list) or not stratigraphy_data:
+        return None
+    rows = []
+    for r in stratigraphy_data:
+        if not isinstance(r, dict):
+            continue
+        rows.append(
+            {
+                "thickness": float(r.get("thickness") or 0.0),
+                "K": float(r.get("conductivity", r.get("K")) or 0.0),
+                "sy/ss": float(r.get("storage", r.get("sy/ss")) or 0.0001),
+                "Recharge Target Layer": bool(r.get("recharge_target", False)),
+            }
+        )
+    if not rows:
+        return None
+    return pd.DataFrame(rows)
+
+
+def build_confined_theis_xy_plot_dict(
+    stratigraphy_input,
+    half_length_ft,
+    half_width_ft,
+    nx=48,
+    ny=48,
+    t_days=50.0,
+    well_r_ft=1.0,
+):
+    """
+    Build a dictionary of confined-aquifer drawdown on a grid using the Theis solution
+    (:func:`theis_drawdown_or_Q` at each radius). Suitable for ``go.Contour`` in the XY view.
+
+    Returns
+    -------
+    dict
+        ``ok`` (bool), and on success: ``x``, ``y`` (1-D, ft), ``drawdown_ft`` (2-D), ``Q_ft3_per_day``,
+        ``transmissivity_ft2_per_day``, ``storativity``, ``time_days``, ``Hmax_ft``,
+        ``reference_radius_ft``, plus values passed through from the confined injection-well sizing logic.
+    """
+    out: dict = {"ok": False}
+    strat_df = dashboard_stratigraphy_to_dataframe(stratigraphy_input)
+    if strat_df is None or len(strat_df) == 0:
+        out["error"] = "No stratigraphy data."
+        return out
+
+    try:
+        ti = recharge_target_layer_row_index(strat_df)
+        depth_of_confined_unit = float(strat_df.iloc[0:ti]["thickness"].sum())
+        Hmax = depth_of_confined_unit * 0.6 * 2.31
+        kaq = float(strat_df.iloc[ti]["K"])
+        B = float(strat_df.iloc[ti]["thickness"])
+        Ss_col = float(strat_df.iloc[ti]["sy/ss"])
+        transmissivity = kaq * B
+        S = Ss_col * B
+        if transmissivity <= 0 or S <= 0:
+            out["error"] = "Transmissivity or storativity must be positive."
+            return out
+
+        Qmax = float(get_default("max_injection_Q_per_well"))
+        q_cap = theis_drawdown_or_Q(
+            Q_or_dh=Hmax,
+            T=transmissivity,
+            S=S,
+            r=well_r_ft,
+            t=t_days,
+            compute_Q=True,
+        )
+        Q = float(min(Qmax, q_cap))
+
+        x = np.linspace(-float(half_length_ft), float(half_length_ft), int(nx))
+        y = np.linspace(-float(half_width_ft), float(half_width_ft), int(ny))
+        X, Y = np.meshgrid(x, y, indexing="xy")
+        R = np.sqrt(X**2 + Y**2)
+        R = np.maximum(R, 0.1)
+
+        def _dh(rr):
+            return float(
+                theis_drawdown_or_Q(
+                    Q_or_dh=Q,
+                    T=transmissivity,
+                    S=S,
+                    r=float(rr),
+                    t=t_days,
+                    compute_Q=False,
+                )
+            )
+
+        drawdown = np.vectorize(_dh)(R)
+
+        out.update(
+            {
+                "ok": True,
+                "x": x,
+                "y": y,
+                "drawdown_ft": drawdown,
+                "Q_ft3_per_day": Q,
+                "transmissivity_ft2_per_day": transmissivity,
+                "storativity": S,
+                "time_days": float(t_days),
+                "Hmax_ft": float(Hmax),
+                "reference_radius_ft": float(well_r_ft),
+                "confined_unit_thickness_above_target_ft": float(depth_of_confined_unit),
+                "recharge_target_row_index": int(ti),
+            }
+        )
+        return out
+    except Exception as ex:
+        out["error"] = str(ex)
+        return out
   

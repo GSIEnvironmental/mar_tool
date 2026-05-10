@@ -20,6 +20,7 @@ from mar_dss.app.components.hydro_tab import (
 
 from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
+    build_confined_theis_xy_plot_dict,
     infer_dashboard_aquifer_type,
 )
 from mar_dss.rules.defaults import (
@@ -92,6 +93,33 @@ def _aquitard_k_input_str(k: float) -> str:
         k = DEFAULT_AQUITARD_K_MAX_FT_DAY
     text = f"{k:.12f}".rstrip("0").rstrip(".")
     return text if text else str(k)
+
+
+def _xy_view_empty_figure():
+    """No geometry or contours until the user clicks *Show Contour Lines*."""
+    fig = go.Figure()
+    fig.update_layout(
+        title=dict(text="XY View", x=0.5, xanchor="center", font=dict(size=16)),
+        template="plotly_white",
+        height=500,
+        margin=dict(l=50, r=50, t=60, b=50),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        annotations=[
+            dict(
+                x=0.5,
+                y=0.5,
+                xref="paper",
+                yref="paper",
+                text='Click "Show Contour Lines" to display the plan view with head contours.',
+                showarrow=False,
+                font=dict(size=14, color="#6c757d"),
+                xanchor="center",
+                yanchor="middle",
+            )
+        ],
+    )
+    return fig
 
 
 def setup_hydro_callbacks(app):
@@ -1195,21 +1223,29 @@ def setup_hydro_callbacks(app):
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
         
         return fig
-    
+
     # XY View Plot Callback
     @app.callback(
         Output("xy-view-plot", "figure"),
-        [Input("extension-length", "value"),
-         Input("extension-width", "value"),
-         Input("extension-rotation", "value"),
-         Input("upstream-head", "value"),
-         Input("downstream-head", "value")],
-        prevent_initial_call=False
+        [
+            Input("extension-length", "value"),
+            Input("extension-width", "value"),
+            Input("extension-rotation", "value"),
+            Input("upstream-head", "value"),
+            Input("downstream-head", "value"),
+            Input("xy-view-show-contours-btn", "n_clicks"),
+        ],
+        prevent_initial_call=False,
     )
-    def update_xy_view_plot(length, width, rotation, upstream_head, downstream_head):
+    def update_xy_view_plot(
+        length, width, rotation, upstream_head, downstream_head, n_clicks
+    ):
         """Update the XY view plot with rectangle and contour lines."""
+        if not n_clicks:
+            return _xy_view_empty_figure()
+
         import numpy as np
-        
+
         # Default values if inputs are None, and convert to float
         if length is None:
             length = 100.0
@@ -1250,142 +1286,135 @@ def setup_hydro_callbacks(app):
                 downstream_head = float(downstream_head)
             except (ValueError, TypeError):
                 downstream_head = 5.0
+
+        aq_type_raw = dash_storage.get_data("aq_type") or "unconfined"
+        aq_type_l = str(aq_type_raw).strip().lower()
+        is_confined = aq_type_l == "confined"
         
         # Create the plot
         fig = go.Figure()
         
-        # Convert rotation to radians
         rotation_rad = np.radians(rotation)
-        
-        # Define rectangle corners (centered at origin, then rotated)
-        half_length = length / 2
-        half_width = width / 2
-        
-        # Original rectangle corners (before rotation)
-        corners = np.array([
-            [-half_length, -half_width],
-            [half_length, -half_width],
-            [half_length, half_width],
-            [-half_length, half_width],
-            [-half_length, -half_width]  # Close the rectangle
-        ])
-        
-        # Rotation matrix
         cos_rot = np.cos(rotation_rad)
         sin_rot = np.sin(rotation_rad)
         rotation_matrix = np.array([[cos_rot, -sin_rot], [sin_rot, cos_rot]])
-        
-        # Rotate the rectangle
-        rotated_corners = corners @ rotation_matrix.T
-        
-        # Add rectangle outline
-        fig.add_trace(go.Scatter(
-            x=rotated_corners[:, 0],
-            y=rotated_corners[:, 1],
-            mode='lines',
-            line=dict(color='black', width=3),
-            name='MAR Project Area',
-            hovertemplate='<b>MAR Project Area</b><br>Length: %{x:.1f} ft<br>Width: %{y:.1f} ft<extra></extra>',
-            showlegend=True
-        ))
-        
-        # Add filled rectangle
-        fig.add_trace(go.Scatter(
-            x=rotated_corners[:, 0],
-            y=rotated_corners[:, 1],
-            fill='toself',
-            fillcolor='rgba(0, 123, 255, 0.3)',
-            line=dict(color='rgba(255,255,255,0)'),
-            name='Project Area',
-            showlegend=False,
-            hoverinfo='skip'
-        ))
-        
-        # Create contour lines (10 lines parallel to width, from upstream to downstream)
-        n_contours = 10
-        head_values = np.linspace(upstream_head, downstream_head, n_contours)
-        
-        # Define color scale from blue (high head) to red (low head)
-        colors = ['#0000FF', '#0080FF', '#00FFFF', '#00FF80', '#00FF00', 
-                 '#80FF00', '#FFFF00', '#FF8000', '#FF4000', '#FF0000']
-        
-        for i, head in enumerate(head_values):
-            # Create contour line parallel to the width (perpendicular to length)
-            # The contour lines run from one width side to the other
-            t = np.linspace(-half_width, half_width, 50)
-            
-            # Create points along the width at different positions along the length
-            # Position varies from -half_length to +half_length
-            length_position = (i / (n_contours - 1) - 0.5) * 2 * half_length
-            
-            # Create points along the width
-            contour_x = np.full_like(t, length_position)
-            contour_y = t
-            
-            # Rotate the contour line
-            contour_points = np.column_stack([contour_x, contour_y])
-            rotated_contour = contour_points @ rotation_matrix.T
-            
-            # Add contour line with color based on head value
-            fig.add_trace(go.Scatter(
-                x=rotated_contour[:, 0],
-                y=rotated_contour[:, 1],
-                mode='lines',
-                line=dict(color=colors[i], width=2, dash='dash'),
-                name=f'Head: {head:.1f} ft',
-                hovertemplate=f'<b>Head: {head:.1f} ft</b><extra></extra>',
-                showlegend=False
-            ))
-            
-            # Add label for contour line (at the middle of the line)
-            label_position = np.array([length_position, 0]) @ rotation_matrix.T
-            fig.add_annotation(
-                x=label_position[0],
-                y=label_position[1],
-                text=f'{head:.1f}',
-                showarrow=False,
-                font=dict(size=10, color='black', family="Arial Black"),
-                bgcolor="rgba(255,255,255,0.8)",
-                bordercolor="black",
-                borderwidth=1
+
+        half_length = length / 2
+        half_width = width / 2
+
+        if is_confined:
+            strat_in = dash_storage.get_data("stratigraphy_data")
+            theis_pack = build_confined_theis_xy_plot_dict(
+                strat_in,
+                half_length,
+                half_width,
             )
-        
-        # Add upstream and downstream labels
-        # Upstream (higher head)
-        upstream_center = np.array([-half_length, 0]) @ rotation_matrix.T
-        fig.add_annotation(
-            x=upstream_center[0],
-            y=upstream_center[1],
-            text=f"Upstream<br>{upstream_head:.1f} ft",
-            showarrow=True,
-            arrowhead=2,
-            arrowcolor="green",
-            font=dict(size=10, color="green"),
-            bgcolor="rgba(255,255,255,0.8)",
-            bordercolor="green"
-        )
-        
-        # Downstream (lower head)
-        downstream_center = np.array([half_length, 0]) @ rotation_matrix.T
-        fig.add_annotation(
-            x=downstream_center[0],
-            y=downstream_center[1],
-            text=f"Downstream<br>{downstream_head:.1f} ft",
-            showarrow=True,
-            arrowhead=2,
-            arrowcolor="red",
-            font=dict(size=10, color="red"),
-            bgcolor="rgba(255,255,255,0.8)",
-            bordercolor="red"
-        )
-        
+            if theis_pack.get("ok"):
+                # Standard rectilinear Contour: 1-D x/y, 2-D z (same shape as meshgrid xy).
+                # Passing 2-D x/y after rotation breaks Plotly (striped artifacts + tick spam).
+                Z = np.asarray(theis_pack["drawdown_ft"], dtype=float)
+                x1d = np.asarray(theis_pack["x"], dtype=float)
+                y1d = np.asarray(theis_pack["y"], dtype=float)
+                fig.add_trace(
+                    go.Contour(
+                        x=x1d,
+                        y=y1d,
+                        z=Z,
+                        colorscale="Jet",
+                        name="Mound (Theis)",
+                        colorbar=dict(title="Mound (ft)"),
+                        opacity=0.82,
+                        contours=dict(showlines=True, coloring="fill"),
+                        hovertemplate=(
+                            "<b>Theis mound</b><br>%{z:.2f} ft<br>"
+                            "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
+                        ),
+                        uirevision=str(n_clicks or 0),
+                    )
+                )
+            else:
+                fig.add_annotation(
+                    xref="paper",
+                    yref="paper",
+                    x=0.5,
+                    y=0.55,
+                    text=(
+                        "Could not build confined Theis contours: "
+                        f"{theis_pack.get('error', 'unknown error')}"
+                    ),
+                    showarrow=False,
+                    font=dict(size=12, color="#b45309"),
+                )
+        # Unconfined: no contour overlay (deferred)
+        #
+        # --- MAR outline + directional labels (disabled: show only Theis contour for now) ---
+        # corners = np.array([
+        #     [-half_length, -half_width],
+        #     [half_length, -half_width],
+        #     [half_length, half_width],
+        #     [-half_length, half_width],
+        #     [-half_length, -half_width],
+        # ])
+        # rotated_corners = corners @ rotation_matrix.T
+        # fig.add_trace(go.Scatter(
+        #     x=rotated_corners[:, 0],
+        #     y=rotated_corners[:, 1],
+        #     mode="lines",
+        #     line=dict(color="black", width=3),
+        #     name="MAR Project Area",
+        #     hovertemplate=(
+        #         "<b>MAR Project Area</b><br>"
+        #         "Length: %{x:.1f} ft<br>Width: %{y:.1f} ft<extra></extra>"
+        #     ),
+        #     showlegend=True,
+        # ))
+        # fig.add_trace(go.Scatter(
+        #     x=rotated_corners[:, 0],
+        #     y=rotated_corners[:, 1],
+        #     fill="toself",
+        #     fillcolor="rgba(0, 123, 255, 0.3)",
+        #     line=dict(color="rgba(255,255,255,0)"),
+        #     name="Project Area",
+        #     showlegend=False,
+        #     hoverinfo="skip",
+        # ))
+        # upstream_center = np.array([-half_length, 0]) @ rotation_matrix.T
+        # fig.add_annotation(
+        #     x=upstream_center[0],
+        #     y=upstream_center[1],
+        #     text=f"Upstream<br>{upstream_head:.1f} ft",
+        #     showarrow=True,
+        #     arrowhead=2,
+        #     arrowcolor="green",
+        #     font=dict(size=10, color="green"),
+        #     bgcolor="rgba(255,255,255,0.8)",
+        #     bordercolor="green",
+        # )
+        # downstream_center = np.array([half_length, 0]) @ rotation_matrix.T
+        # fig.add_annotation(
+        #     x=downstream_center[0],
+        #     y=downstream_center[1],
+        #     text=f"Downstream<br>{downstream_head:.1f} ft",
+        #     showarrow=True,
+        #     arrowhead=2,
+        #     arrowcolor="red",
+        #     font=dict(size=10, color="red"),
+        #     bgcolor="rgba(255,255,255,0.8)",
+        #     bordercolor="red",
+        # )
+
         # Update layout
+        xy_title = (
+            "XY View — confined Theis mound"
+            if is_confined
+            else "XY View — MAR project area"
+        )
         fig.update_layout(
             title={
-                'text': 'XY View - MAR Project Area with Head Contours',
-                'x': 0.5,
-                'xanchor': 'center',
-                'font': {'size': 16}
+                "text": xy_title,
+                "x": 0.5,
+                "xanchor": "center",
+                "font": {"size": 16},
             },
             xaxis_title="Distance (ft)",
             yaxis_title="Distance (ft)",

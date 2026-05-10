@@ -861,14 +861,20 @@ def _build_view_card():
                                         [
                                             html.H6("XY View", className="mb-3"),
                                             html.P("Plan view visualization of hydrogeological features.", className="mb-3"),
-                                            
-                                            # XY View plot
+                                            dbc.Button(
+                                                "Show Contour Lines",
+                                                id="xy-view-show-contours-btn",
+                                                color="primary",
+                                                size="sm",
+                                                className="mb-3",
+                                                n_clicks=0,
+                                            ),
                                             dcc.Graph(
                                                 id="xy-view-plot",
-                                                style={'height': '500px'}
-                                            )
+                                                style={"height": "500px"},
+                                            ),
                                         ],
-                                        id="xy-view-content"
+                                        id="xy-view-content",
                                     )
                                 ],
                                 label_style={
