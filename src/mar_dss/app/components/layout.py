@@ -14,10 +14,28 @@ import mar_dss.app.utils.data_storage as dash_storage
 def setup_layout(app_ctx):
     """Set up the main dashboard layout on the given app context.
 
-    The app_ctx is expected to provide ``app`` (Dash instance). Tab content for
-    ``#main-content`` is filled by callbacks (e.g. Overview from overview_tab).
+    The app_ctx is expected to provide ``app`` (Dash instance). Main tabs use
+    stacked panels under ``#main-content`` (see :data:`MAIN_TAB_IDS`); each panel
+    is filled once when first selected and kept mounted for faster switching.
     """
     app_ctx.app.layout = _build_root_layout()
+
+
+# Top-level tab ids — keep in sync with ``_build_tabs`` tab_id values.
+MAIN_TAB_IDS = (
+    "overview",
+    "water-source",
+    "hydrogeology",
+    "environmental",
+    "legal",
+    "engineering-options",
+    "analysis",
+)
+
+
+def main_tab_panel_id(tab_id: str) -> str:
+    """Dash component id for the lazy-loaded panel for ``tab_id``."""
+    return f"main-tab-panel-{tab_id}"
 
 
 # ------------------------------
@@ -333,11 +351,24 @@ def _build_tabs() -> dbc.Tabs:
 
 
 def _build_main_card_body() -> list:
-    """Placeholder until ``top-tabs`` callbacks populate ``main-content``."""
+    """Stacked tab panels + flash row; panels mount once via lazy callback."""
+    tab_panels = [
+        html.Div(
+            id=main_tab_panel_id(tid),
+            style={"display": "block" if tid == "overview" else "none"},
+            children=[],
+            className="main-tab-panel",
+        )
+        for tid in MAIN_TAB_IDS
+    ]
     return [
         html.Div(
             id="main-content",
-            children=[],
+            children=[
+                dcc.Store(id="main-tab-clientside-sync", data=0),
+                html.Div(id="main-content-flash", className="mb-2"),
+                html.Div(id="main-tab-panels-wrapper", children=tab_panels),
+            ],
         )
     ]
 

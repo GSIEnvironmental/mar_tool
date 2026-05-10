@@ -35,6 +35,7 @@ try:
         build_water_source_location_map_figure,
         water_source_site_coordinates_summary_children,
     )
+    from mar_dss.app.components.layout import main_tab_panel_id
 except ImportError:
     from ..components.overview_tab import (
         create_overview_content,
@@ -48,6 +49,7 @@ except ImportError:
         build_water_source_location_map_figure,
         water_source_site_coordinates_summary_children,
     )
+    from ..components.layout import main_tab_panel_id
 
 
 def _extract_mapbox_view_from_relayout(relayout_data):
@@ -520,14 +522,16 @@ def setup_overview_callbacks(app):
 
     # Callback for Open button - load project from file (native picker when available)
     @app.callback(
-        Output("main-content", "children", allow_duplicate=True),
+        Output("main-content-flash", "children", allow_duplicate=True),
+        Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
         Output("project-path-input", "value", allow_duplicate=True),
+        Output("top-tabs", "active_tab", allow_duplicate=True),
         [Input("btn-open", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_open_project(n_clicks):
         """Pick a CSV/JSON project file (Tk dialog) then load into storage."""
-        noop = dash.no_update, dash.no_update
+        noop = (dash.no_update, dash.no_update, dash.no_update, dash.no_update)
         if not n_clicks:
             return noop
 
@@ -549,7 +553,6 @@ def setup_overview_callbacks(app):
             fn = format_project_path(data.get("workspace"), data.get("filename"))
             path_out = dash.no_update
             if not (fn or "").strip():
-                ov = create_overview_content()
                 return (
                     [
                         dbc.Alert(
@@ -558,14 +561,14 @@ def setup_overview_callbacks(app):
                             color="danger",
                             className="mb-3",
                         ),
-                    ]
-                    + ov,
+                    ],
+                    create_overview_content(),
                     dash.no_update,
+                    "overview",
                 )
             fn = os.path.normpath(fn.strip())
 
         if not os.path.exists(fn):
-            ov = create_overview_content()
             return (
                 [
                     dbc.Alert(
@@ -573,9 +576,10 @@ def setup_overview_callbacks(app):
                         color="danger",
                         className="mb-3",
                     ),
-                ]
-                + ov,
+                ],
+                create_overview_content(),
                 path_out,
+                "overview",
             )
 
         try:
@@ -604,7 +608,6 @@ def setup_overview_callbacks(app):
                 dash_storage.get_data("workspace"),
                 dash_storage.get_data("filename"),
             )
-            ov = create_overview_content()
             return (
                 [
                     dbc.Alert(
@@ -612,12 +615,12 @@ def setup_overview_callbacks(app):
                         color="success",
                         className="mb-3",
                     ),
-                ]
-                + ov,
+                ],
+                create_overview_content(),
                 path_after or path_out,
+                "overview",
             )
         except Exception as e:
-            ov = create_overview_content()
             return (
                 [
                     dbc.Alert(
@@ -625,9 +628,10 @@ def setup_overview_callbacks(app):
                         color="danger",
                         className="mb-3",
                     ),
-                ]
-                + ov,
+                ],
+                create_overview_content(),
                 path_out,
+                "overview",
             )
 
     # Callback for ground surface slope input - saves to data storage

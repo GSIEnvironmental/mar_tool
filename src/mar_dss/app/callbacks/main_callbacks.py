@@ -9,7 +9,7 @@ import pandas as pd
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, html, dependencies
+from dash import Input, Output, State, html, dependencies
 from dash.dependencies import ClientsideFunction
 import mar_dss.app.utils.data_storage as dash_storage
 
@@ -48,6 +48,7 @@ try:
         DEFAULT_OVERVIEW_MAP_ZOOM,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
     )
+    from mar_dss.app.components.layout import MAIN_TAB_IDS, main_tab_panel_id
 except ImportError:
     from .components.ai_generated_decision_tab import (
         create_ai_generated_decision_content,
@@ -76,6 +77,7 @@ except ImportError:
         DEFAULT_OVERVIEW_MAP_ZOOM,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
     )
+    from ..components.layout import MAIN_TAB_IDS, main_tab_panel_id
 
 
 def setup_main_callbacks(app, dashboard_instance):
@@ -86,53 +88,89 @@ def setup_main_callbacks(app, dashboard_instance):
         from mar_dss.app.callbacks.overview_callbacks import setup_overview_callbacks
     except ImportError:
         from .overview_callbacks import setup_overview_callbacks
-    
-    setup_overview_callbacks(app)
-    
-    @app.callback(
-        Output("main-content", "children"),
-        [
-            Input("top-tabs", "active_tab"),
-        ],
-    )
-    def update_main_content(active_tab):
-        """Update main content based on navigation."""
-        if active_tab == "overview":
+
+    def _create_main_tab_content(active_tab_id: str):
+        """Build children for one top-level tab (lazy, once per panel)."""
+        if active_tab_id == "overview":
             return create_overview_content()
-        elif active_tab == "water-source":
+        if active_tab_id == "water-source":
             return create_general_tab_content()
-        elif active_tab == "hydrogeology":
+        if active_tab_id == "hydrogeology":
             return create_hydro_tab_content()
-        elif active_tab == "environmental":
-            # Import environmental impact tab content
+        if active_tab_id == "environmental":
             try:
-                from mar_dss.app.components.environmental_impact_tab import create_environmental_impact_content
+                from mar_dss.app.components.environmental_impact_tab import (
+                    create_environmental_impact_content,
+                )
             except ImportError:
-                from ..components.environmental_impact_tab import create_environmental_impact_content
+                from ..components.environmental_impact_tab import (
+                    create_environmental_impact_content,
+                )
             return create_environmental_impact_content()
-        elif active_tab == "legal":
-            # Import legal constraints tab content
+        if active_tab_id == "legal":
             try:
-                from mar_dss.app.components.legal_constraints_tab import create_legal_constraints_content
+                from mar_dss.app.components.legal_constraints_tab import (
+                    create_legal_constraints_content,
+                )
             except ImportError:
-                from ..components.legal_constraints_tab import create_legal_constraints_content
+                from ..components.legal_constraints_tab import (
+                    create_legal_constraints_content,
+                )
             return create_legal_constraints_content()
-        elif active_tab == "engineering-options":
-            # Import engineering options tab content
+        if active_tab_id == "engineering-options":
             try:
-                from mar_dss.app.components.engineering_options_tab import create_engineering_options_content
+                from mar_dss.app.components.engineering_options_tab import (
+                    create_engineering_options_content,
+                )
             except ImportError:
-                from ..components.engineering_options_tab import create_engineering_options_content
+                from ..components.engineering_options_tab import (
+                    create_engineering_options_content,
+                )
             return create_engineering_options_content()
-        elif active_tab == "analysis":
-            # Import analysis tab content
+        if active_tab_id == "analysis":
             try:
                 from mar_dss.app.components.analysis_tab import create_analysis_tab_content
             except ImportError:
                 from ..components.analysis_tab import create_analysis_tab_content
             return create_analysis_tab_content()
-        else:
-            return create_overview_content()
+        return create_overview_content()
+
+    app.clientside_callback(
+        """
+        function(active_tab) {
+            var tabs = ["overview", "water-source", "hydrogeology", "environmental",
+                "legal", "engineering-options", "analysis"];
+            tabs.forEach(function(t) {
+                var el = document.getElementById("main-tab-panel-" + t);
+                if (el) {
+                    el.style.display = (active_tab === t) ? "block" : "none";
+                }
+            });
+            return 0;
+        }
+        """,
+        Output("main-tab-clientside-sync", "data"),
+        Input("top-tabs", "active_tab"),
+        prevent_initial_call=False,
+    )
+
+    @app.callback(
+        [Output(main_tab_panel_id(t), "children") for t in MAIN_TAB_IDS],
+        Input("top-tabs", "active_tab"),
+        [State(main_tab_panel_id(t), "children") for t in MAIN_TAB_IDS],
+        prevent_initial_call=False,
+    )
+    def lazy_load_main_tab(active_tab, *existing_children):
+        """Mount each tab body once; switching tabs only toggles visibility (clientside)."""
+        try:
+            idx = MAIN_TAB_IDS.index(active_tab)
+        except ValueError:
+            raise dash.exceptions.PreventUpdate
+        if existing_children[idx]:
+            raise dash.exceptions.PreventUpdate
+        patch = [dash.no_update] * len(MAIN_TAB_IDS)
+        patch[idx] = _create_main_tab_content(active_tab)
+        return patch
 
     @app.callback(
         [Output("theme-selector", "value"), Output("theme-css", "href")],
@@ -589,12 +627,15 @@ def setup_main_callbacks(app, dashboard_instance):
 
     # Callback for Save button - save current project
     @app.callback(
-        Output("main-content", "children", allow_duplicate=True),
+        Output("main-content-flash", "children"),
+        Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
+        Output("top-tabs", "active_tab", allow_duplicate=True),
         [Input("btn-save", "n_clicks")],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def handle_save_project(n_clicks):
         """Handle saving the current project."""
+        noop = (dash.no_update, dash.no_update, dash.no_update)
         if n_clicks:
             # Save current data to storage
             try:
@@ -651,34 +692,45 @@ def setup_main_callbacks(app, dashboard_instance):
                 #dash_storage.set_data("all_data", data)
                 
                 import dash_bootstrap_components as dbc
-                return [
-                    dbc.Alert(
-                        f"Project saved successfully at {fn}",
-                        color="success",
-                        className="mb-3"
-                    ),
-                    create_overview_content()[0]  # Show overview content
-                ]
+                return (
+                    [
+                        dbc.Alert(
+                            f"Project saved successfully at {fn}",
+                            color="success",
+                            className="mb-3",
+                        )
+                    ],
+                    create_overview_content(),
+                    "overview",
+                )
             except Exception as e:
                 import dash_bootstrap_components as dbc
-                return [
-                    dbc.Alert(
-                        f"Error saving project: {str(e)}",
-                        color="danger",
-                        className="mb-3"
-                    ),
-                    create_overview_content()[0]  # Show overview content
-                ]
-        return dash.no_update
+                return (
+                    [
+                        dbc.Alert(
+                            f"Error saving project: {str(e)}",
+                            color="danger",
+                            className="mb-3",
+                        )
+                    ],
+                    create_overview_content(),
+                    "overview",
+                )
+        return noop
 
-    # Callback for New button - create new project
+    # Callback for New button - create new project (clear lazy-mounted tabs so they reload)
     @app.callback(
-        Output("main-content", "children", allow_duplicate=True),
+        [
+            Output("main-content-flash", "children", allow_duplicate=True),
+            *[Output(main_tab_panel_id(t), "children", allow_duplicate=True) for t in MAIN_TAB_IDS],
+            Output("top-tabs", "active_tab", allow_duplicate=True),
+        ],
         [Input("btn-new", "n_clicks")],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def handle_new_project(n_clicks):
         """Handle creating a new project."""
+        noop = (dash.no_update,) * (len(MAIN_TAB_IDS) + 2)
         if n_clicks:
             # Clear all data storage (includes rule_defaults_overrides from rules.defaults).
             dash_storage.clear_data()
@@ -750,24 +802,32 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("overview_map_basemap", DEFAULT_OVERVIEW_MAP_BASEMAP)
 
             import dash_bootstrap_components as dbc
-            return [
-                dbc.Alert(
-                    "New project created! All data has been reset to defaults.",
-                    color="info",
-                    className="mb-3"
-                ),
-                create_overview_content()[0]  # Show overview content
-            ]
-        return dash.no_update
+            empty_rest = [[] for _ in range(len(MAIN_TAB_IDS) - 1)]
+            return (
+                [
+                    dbc.Alert(
+                        "New project created! All data has been reset to defaults.",
+                        color="info",
+                        className="mb-3",
+                    )
+                ],
+                create_overview_content(),
+                *empty_rest,
+                "overview",
+            )
+        return noop
 
     # Callback for Save As button - save project with new name
     @app.callback(
-        Output("main-content", "children", allow_duplicate=True),
+        Output("main-content-flash", "children", allow_duplicate=True),
+        Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
+        Output("top-tabs", "active_tab", allow_duplicate=True),
         [Input("btn-save-as", "n_clicks")],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def handle_save_as_project(n_clicks):
         """Handle saving the project with a new name."""
+        noop_as = (dash.no_update, dash.no_update, dash.no_update)
         if n_clicks:
             # Create a file dialog using dcc.Upload component
             import dash_bootstrap_components as dbc
@@ -806,31 +866,48 @@ def setup_main_callbacks(app, dashboard_instance):
             
             # Create a download interface with file save dialog
             from dash import dcc
-            return [
-                dbc.Alert(
-                    "Save As - Click the download button below to save your project. The browser will open a file save dialog.",
-                    color="info",
-                    className="mb-3"
-                ),
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H5("Save Project As", className="card-title"),
-                        html.P("Your project data will be saved as a JSON file that you can load later using the Open button."),
-                        dbc.Button(
-                            [html.I(className="fas fa-download me-2"), "Download Project File"],
-                            id="download-project-btn",
-                            color="success",
-                            className="mb-3"
-                        ),
-                        dcc.Download(
-                            id="download-project-file",
-                            data=dict(content=json_string, filename="mar_project.json")
-                        )
-                    ])
-                ], className="mb-3"),
-                create_overview_content()[0]  # Show overview content
-            ]
-        return dash.no_update
+            return (
+                [
+                    dbc.Alert(
+                        "Save As - Click the download button below to save your project. The browser will open a file save dialog.",
+                        color="info",
+                        className="mb-3",
+                    ),
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H5("Save Project As", className="card-title"),
+                                    html.P(
+                                        "Your project data will be saved as a JSON file that you can load later using the Open button."
+                                    ),
+                                    dbc.Button(
+                                        [
+                                            html.I(className="fas fa-download me-2"),
+                                            "Download Project File",
+                                        ],
+                                        id="download-project-btn",
+                                        color="success",
+                                        className="mb-3",
+                                    ),
+                                    dcc.Download(
+                                        id="download-project-file",
+                                        data=dict(
+                                            content=json_string, filename="mar_project.json"
+                                        ),
+                                    ),
+                                ]
+                            )
+                        ],
+                        className="mb-3",
+                    ),
+                ],
+                create_overview_content(),
+                "overview",
+            )
+        return noop_as
+
+    setup_overview_callbacks(app)
 
     # Callback for download button - trigger file download
     @app.callback(
