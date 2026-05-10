@@ -22,6 +22,7 @@ from mar_dss.app.components.hydro_tab import (
 from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
     build_confined_theis_xy_plot_dict,
+    build_unconfined_mounding_xy_plot_dict,
     infer_dashboard_aquifer_type,
 )
 from mar_dss.rules.defaults import (
@@ -35,6 +36,7 @@ from mar_dss.mar.options import mar_options
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph
 from mar_dss.app.callbacks.analysis_callbacks import get_session_graph, get_graph_inputs
 from mar_dss.app.utils.initial_hydro_feasibility import evaluate_option_traffic_light
+from mar_dss.app.utils.plotly_contour_grid import rectilinear_grid_for_plotly_contour
 
 DEFAULT_MAX_DRY_WELL_DEPTH_FT = 120.0
 
@@ -156,6 +158,30 @@ def _extent_for_radial_contour_z(z, x1d, y1d, *, rel_floor=0.01, pad_ratio=0.06)
     half_min = max(0.02 * grid_half, 1.0)
     half = float(np.clip(half, half_min, grid_half * (1.0 + pad_ratio)))
     return (-half, half), (-half, half)
+
+
+def _extent_padded_square_from_axes(xi, yi, *, pad_ratio=0.04):
+    """
+    Axis limits framing the full 1‑D coordinate span (square view with equal scale).
+
+    Use for plots where `_extent_for_radial_contour_z` is misleading — e.g. unconfined
+    mound + regional gradient: the tilt breaks radial symmetry so the radial mask can
+    collapse to roughly one quadrant.
+    """
+    import numpy as np
+
+    x1 = np.asarray(xi, dtype=float).ravel()
+    y1 = np.asarray(yi, dtype=float).ravel()
+    xm = float(np.min(x1))
+    xM = float(np.max(x1))
+    ym = float(np.min(y1))
+    yM = float(np.max(y1))
+    span = float(max(xM - xm, yM - ym, 1.0))
+    pad = float(pad_ratio) * span
+    cx = 0.5 * (xm + xM)
+    cy = 0.5 * (ym + yM)
+    half = max(xM - xm, yM - ym) * 0.5 + pad
+    return (cx - half, cx + half), (cy - half, cy + half)
 
 
 # Regional saturated-zone slope (dh/ds) along XY local +x: downstream is +x; head falls downstream.
@@ -1229,12 +1255,8 @@ def setup_hydro_callbacks(app):
     )
     def update_xy_view_plot(length, width, rotation, n_clicks, _strat_data):
         """Update the XY view plot with rectangle and contour lines."""
-        ctx = callback_context
-        tid = getattr(ctx, "triggered_id", None)
-        if tid is None and ctx.triggered:
-            tid = ctx.triggered[0]["prop_id"].split(".")[0]
-        if isinstance(tid, str) and tid == "stratigraphy-data-store":
-            return _xy_view_empty_figure()
+        # Rely on ``reset_xy_view_contours_on_stratigraphy_change`` zeroing clicks when stratigraphy/
+        # CSV reloads matches so we do not wipe a valid redraw on the same tick as the Show button.
         if not n_clicks:
             return _xy_view_empty_figure()
 
@@ -1332,7 +1354,92 @@ def setup_hydro_callbacks(app):
                     showarrow=False,
                     font=dict(size=12, color="#b45309"),
                 )
-        # Unconfined: no contour overlay (deferred)
+        else:
+            # unconfined  aquifer
+            strat_in = dash_storage.get_data("stratigraphy_data")
+            gw_rows = normalize_groundwater_data(
+                dash_storage.get_data("groundwater_data") or []
+            )
+            gs_elev = dash_storage.get_data("ground_surface_elevation")
+            op_raw = dash_storage.get_data("op_gw_depth")
+            op_gw_ft = None
+            if op_raw is not None and str(op_raw).strip() != "":
+                try:
+                    op_gw_ft = float(op_raw)
+                except (TypeError, ValueError):
+                    op_gw_ft = None
+            # evaluate the graph here
+            if 1:
+                graph = get_session_graph()                
+                inputs = get_graph_inputs()
+                evaluate_and_store_decision_graph(graph, inputs)
+                node_values = graph.get_node_values()
+                design_sizing = node_values.get("design_sizing")
+            op_gw_ft = node_values.get("op_gw_depth")
+            
+            """
+                stratigraphy_input,
+    design_sizing_result,
+    Lx,
+    Ly,
+    groundwater_rows,
+    ground_surface_elevation_ft,
+    *,
+    op_gw_depth_ft=None,
+    t_days=50.0,
+    xy_pad_factor=1.35,
+            """
+            mound_pack = build_unconfined_mounding_xy_plot_dict(
+                strat_in,
+                design_sizing,
+                half_length,
+                half_width,
+                gw_rows, 
+                gs_elev
+        
+               
+            )
+            if mound_pack.get("ok"):
+                Z = np.asarray(mound_pack["drawdown_ft"], dtype=float)
+                Xmesh = np.asarray(mound_pack["x_grid"], dtype=float)
+                Ymesh = np.asarray(mound_pack["y_grid"], dtype=float)
+                Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
+                Z = Z + Z_background
+                xi, yi, Zi = rectilinear_grid_for_plotly_contour(
+                    Xmesh, Ymesh, Z, n_boost=96
+                )
+                # Full mirrored domain — radial zoom assumes symmetry; tilt + gradient biases the mask.
+                plan_x_range, plan_y_range = _extent_padded_square_from_axes(xi, yi)
+                fig.add_trace(
+                    go.Contour(
+                        x=xi,
+                        y=yi,
+                        z=Zi,
+                        colorscale="Jet",
+                        name="Unconfined mound + 2% regional gradient",
+                        colorbar=dict(title="Mound + gradient (ft)"),
+                        opacity=0.82,
+                        contours=dict(showlines=True, coloring="fill"),
+                        hovertemplate=(
+                            "<b>Hantush mound + regional gradient</b><br>%{z:.2f} ft<br>"
+                            "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
+                        ),
+                        uirevision=str(n_clicks or 0),
+                    )
+                )
+            else:
+                fig.add_annotation(
+                    xref="paper",
+                    yref="paper",
+                    x=0.5,
+                    y=0.55,
+                    text=(
+                        "Could not build unconfined mound contours: "
+                        f"{mound_pack.get('error', 'unknown error')}"
+                    ),
+                    showarrow=False,
+                    font=dict(size=12, color="#b45309"),
+                )
         #
         # --- MAR outline + directional labels (disabled: show only Theis contour for now) ---
         # corners = np.array([
@@ -1394,7 +1501,7 @@ def setup_hydro_callbacks(app):
         xy_title = (
             "XY View — confined Theis mound"
             if is_confined
-            else "XY View — MAR project area"
+            else "XY View — unconfined Hantush mound"
         )
         xr, yr = (
             (plan_x_range, plan_y_range)

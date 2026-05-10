@@ -30,9 +30,45 @@ def compute_integral(alpha, beta):
     result, error = quad_vec(func, 0, 1.0)
     return result
 
+
+def mounding_integral_sum_at_point(x, y, l_half, a_half, t, k, b, sy):
+    """
+    Sum of the four Hantush-type integrals S1..S4 at (x, y) for a rectangular recharge strip.
+
+    Matches the kernel used in :func:`compute_mounding_grid` and ``mymound.py``.
+    ``l_half`` / ``a_half`` are half-length and half-width of the recharge area.
+
+    Parameters ``t``, ``k``, ``b``, ``sy`` must be positive.
+    """
+    if t <= 0 or k <= 0 or b <= 0 or sy <= 0:
+        return 0.0
+    v = 4.0 * t * k * b / sy
+    sv = np.sqrt(v)
+
+    p1 = (l_half + x) / sv
+    p2 = (a_half + y) / sv
+    s1 = compute_integral(p1, p2)
+
+    p1 = (l_half + x) / sv
+    p2 = (a_half - y) / sv
+    s2 = compute_integral(p1, p2)
+
+    p1 = (l_half - x) / sv
+    p2 = (a_half + y) / sv
+    s3 = compute_integral(p1, p2)
+
+    p1 = (l_half - x) / sv
+    p2 = (a_half - y) / sv
+    s4 = compute_integral(p1, p2)
+
+    return s1 + s2 + s3 + s4
+
+
 def compute_mounding_grid(Lx, Ly, N, l, a, t, b, w, k, sy, h0):
     """
-    Hantush-type rectangular recharge mounding on a quarter grid, mirrored to full domain.
+    Hantush-type rectangular recharge mounding on ``[-Lx, Lx] × [-Ly, Ly]``.
+
+    Uses ``2*N`` points per axis (same array size as the previous quarter-grid + ``concat`` layout).
 
     Returns ``x, y, h`` all with shape ``(2*N, 2*N)`` suitable for ``matplotlib.contour``.
     """
@@ -40,9 +76,10 @@ def compute_mounding_grid(Lx, Ly, N, l, a, t, b, w, k, sy, h0):
         N = 20
 
     v = 4 * t * k * b / sy
-    x1 = np.linspace(0, Lx, N)
-    y1 = np.linspace(0, Ly, N)
-    x_q, y_q = np.meshgrid(x1, y1)
+    n_full = int(2 * N)
+    x1 = np.linspace(-Lx, Lx, n_full)
+    y1 = np.linspace(-Ly, Ly, n_full)
+    x_q, y_q = np.meshgrid(x1, y1, indexing="xy")
 
     p1 = (l + x_q) / np.sqrt(v)
     p2 = (a + y_q) / np.sqrt(v)
@@ -64,12 +101,8 @@ def compute_mounding_grid(Lx, Ly, N, l, a, t, b, w, k, sy, h0):
 
     v1 = k * b / sy
     dh = (w / (2 * k)) * (v1 * t) * s
-
-    dh = concat(dh)
-    x = concat(x_q)
-    y = concat(y_q)
-    h = h0 + dh
-    return x, y, h
+    h = h0 + (dh**0.5)
+    return x_q, y_q, h
 
 def compute_recharge_rate(x,y,t,del_h, spread_area, k,b,sy):
 

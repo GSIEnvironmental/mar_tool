@@ -1,6 +1,11 @@
 import numpy as np
 import pandas as pd
-from mar_dss.rules.analytical_solutions import compute_recharge_rate, theis_drawdown_or_Q
+from mar_dss.rules.analytical_solutions import (
+    compute_mounding_grid,
+    compute_recharge_rate,
+    mounding_integral_sum_at_point,
+    theis_drawdown_or_Q,
+)
 from mar_dss.rules.defaults import get_default
 
 
@@ -468,7 +473,7 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
                                          b=saturated_thickness, 
                                          sy=sy_mean)
         if infl_rate <= k_min_vadose:
-            infl_rate = k_min_vadose
+            #infl_rate = k_min_vadose
             break
         else:
             vol_possiblee = vol_possiblee * 0.99
@@ -831,19 +836,60 @@ def get_stratigraphy_table(stratigraphy_table):
     return pd.DataFrame(stratigraphy_table, columns=columns)
 
 
-def dashboard_stratigraphy_to_dataframe(stratigraphy_data):
+def dashboard_stratigraphy_to_dataframe(stratigraphy_data, aquifer_type=None):
     """
     Convert Hydro tab ``stratigraphy_data`` (list of dicts) into a DataFrame with
     columns ``thickness``, ``K``, ``sy/ss``, and ``Recharge Target Layer`` where applicable.
+
+    ``sy/ss`` is filled from the dashboard by **aquifer type**:
+
+    - **confined**: Specific Storage → ``storage`` (1/ft).
+    - **unconfined**: Specific Yield → ``yield`` (dimensionless).
+
+    Other / missing ``aquifer_type``: prefer ``storage``, then ``yield``, matching legacy behavior.
     """
     if stratigraphy_data is None:
         return None
+    aq_l = str(aquifer_type or "").strip().lower()
+
+    def _storage_term_scalar(row_like):
+        if not isinstance(row_like, dict):
+            return 0.0001
+        if aq_l == "unconfined":
+            v = row_like.get("yield", row_like.get("specific_yield"))
+        elif aq_l == "confined":
+            v = row_like.get("storage", row_like.get("sy/ss"))
+        else:
+            v = row_like.get("storage", row_like.get("sy/ss"))
+            if v is None or v == "":
+                v = row_like.get("yield")
+        if v is None or v == "":
+            return 0.0001
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0001
+
     if isinstance(stratigraphy_data, pd.DataFrame):
         df = stratigraphy_data.copy()
         if "conductivity" in df.columns and "K" not in df.columns:
             df = df.rename(columns={"conductivity": "K"})
-        if "storage" in df.columns and "sy/ss" not in df.columns:
-            df = df.rename(columns={"storage": "sy/ss"})
+
+        if aq_l == "unconfined" and "yield" in df.columns:
+            df["sy/ss"] = pd.to_numeric(df["yield"], errors="coerce").fillna(0.0001)
+        elif aq_l == "confined" and "storage" in df.columns:
+            df["sy/ss"] = pd.to_numeric(df["storage"], errors="coerce").fillna(0.0001)
+        elif "storage" in df.columns:
+            df["sy/ss"] = pd.to_numeric(df["storage"], errors="coerce").fillna(0.0001)
+        elif "yield" in df.columns:
+            df["sy/ss"] = pd.to_numeric(df["yield"], errors="coerce").fillna(0.0001)
+        elif "sy/ss" in df.columns:
+            df["sy/ss"] = pd.to_numeric(df["sy/ss"], errors="coerce").fillna(0.0001)
+        else:
+            df["sy/ss"] = 0.0001
+
+        df["sy/ss"] = df["sy/ss"].clip(lower=1e-12)
+
         if "Recharge Target Layer" not in df.columns:
             if "recharge_target" in df.columns:
                 df["Recharge Target Layer"] = df["recharge_target"].fillna(False).astype(bool)
@@ -860,7 +906,7 @@ def dashboard_stratigraphy_to_dataframe(stratigraphy_data):
             {
                 "thickness": float(r.get("thickness") or 0.0),
                 "K": float(r.get("conductivity", r.get("K")) or 0.0),
-                "sy/ss": float(r.get("storage", r.get("sy/ss")) or 0.0001),
+                "sy/ss": max(_storage_term_scalar(r), 1e-12),
                 "Recharge Target Layer": bool(r.get("recharge_target", False)),
             }
         )
@@ -890,7 +936,7 @@ def build_confined_theis_xy_plot_dict(
         ``reference_radius_ft``, plus values passed through from the confined injection-well sizing logic.
     """
     out: dict = {"ok": False}
-    strat_df = dashboard_stratigraphy_to_dataframe(stratigraphy_input)
+    strat_df = dashboard_stratigraphy_to_dataframe(stratigraphy_input, aquifer_type="confined")
     if strat_df is None or len(strat_df) == 0:
         out["error"] = "No stratigraphy data."
         return out
@@ -953,6 +999,169 @@ def build_confined_theis_xy_plot_dict(
                 "reference_radius_ft": float(well_r_ft),
                 "confined_unit_thickness_above_target_ft": float(depth_of_confined_unit),
                 "recharge_target_row_index": int(ti),
+            }
+        )
+        return out
+    except Exception as ex:
+        out["error"] = str(ex)
+        return out
+
+
+def _unconfined_saturated_k_sy_b(strat_df, avg_gw_depth_bgs):
+    """Layer-weighted K, Sy, and saturated thickness below the water table (feet)."""
+    layer_depths = strat_df["thickness"].cumsum()
+    saturated = layer_depths - float(avg_gw_depth_bgs)
+    saturated = saturated[saturated > 0]
+    if len(saturated) == 0:
+        raise ValueError(
+            "Water table is below the bottom of the stratigraphy column (no saturated column)."
+        )
+    b = float(saturated.sum())
+    sat_thks = saturated.diff()
+    sat_thks.iloc[0] = saturated.iloc[0]
+    n = len(sat_thks)
+    sy_s = strat_df.iloc[-n:]["sy/ss"]
+    k_s = strat_df.iloc[-n:]["K"]
+    denom = float(sat_thks.values.sum())
+    k_mean = float((k_s.values * sat_thks.values).sum() / denom)
+    sy_mean = float((sy_s.values * sat_thks.values).sum() / denom)
+    if k_mean <= 0 or sy_mean <= 0 or b <= 0:
+        raise ValueError("Saturated K, Sy, or thickness must be positive for unconfined mounding.")
+    return k_mean, sy_mean, b
+
+
+def build_unconfined_mounding_xy_plot_dict(
+    stratigraphy_input,
+    design_sizing_result,
+    Lx,
+    Ly,
+    groundwater_rows,
+    ground_surface_elevation_ft,
+    # *,
+    # op_gw_depth_ft=None,
+    # t_days=50.0,
+    # xy_pad_factor=1.35,
+):
+    """
+    Plan-view mound (ft) on a grid using Hantush-type rectangular recharge
+    (:func:`compute_mounding_grid`, same kernel as ``mymound.py`` / :func:`compute_spread_area`).
+
+    Recharge half-size matches the MAR footprint (``half_length_ft``, ``half_width_ft``).
+    Recharge strength ``w`` is set so the mound at the origin matches the unconfined
+    head-rise target from average vs operational water-table depth (same spirit as
+    :func:`compute_number_of_injection_wells` unconfined block).
+
+    Returns
+    -------
+    dict
+        ``ok``, ``drawdown_ft`` (mound increment, ft), matching ``x_grid`` and ``y_grid`` (2‑D);
+        ``x`` / ``y`` are 1‑D center-line slices (for inspection only). Also ``w_ft_per_day``,
+        ``k_mean``, ``sy_mean``, ``saturated_thickness_ft``, ``time_days``, etc.
+    """
+    out = {"ok": False}
+    strat_df = dashboard_stratigraphy_to_dataframe(stratigraphy_input, aquifer_type="unconfined")
+    if strat_df is None or len(strat_df) == 0:
+        out["error"] = "No stratigraphy data."
+        return out
+    if groundwater_rows is None or (isinstance(groundwater_rows, list) and len(groundwater_rows) == 0):
+        out["error"] = "Groundwater elevations are required for unconfined mounding."
+        return out
+    try:
+        gs = float(ground_surface_elevation_ft)
+    except (TypeError, ValueError):
+        out["error"] = "Ground surface elevation is required for unconfined mounding."
+        return out
+
+    try:
+        gw_df = pd.DataFrame(list(groundwater_rows))
+        if "elevation" not in gw_df.columns:
+            out["error"] = "Groundwater data must include an 'elevation' column."
+            return out
+        monthly_depth_bgs = (gs - gw_df["elevation"].astype(float).values).astype(float)
+        avg_gw = float(np.mean(monthly_depth_bgs))
+
+        # if op_gw_depth_ft is None:
+        #     op_ft = max(0.0, avg_gw - 5.0)
+        # else:
+        #     op_ft = float(op_gw_depth_ft)
+
+        # dh = avg_gw - op_ft
+        # if dh <= 0:
+        #     out["error"] = (
+        #         "Average water-table depth must be greater than operational depth "
+        #         "to build a positive mound (check operational water level)."
+        #     )
+        #     return out
+
+        k_mean, sy_mean, b = _unconfined_saturated_k_sy_b(strat_df, avg_gw)
+        #dh_corrected = dh - (dh * dh) / (2.0 * b) if b > 0 else dh
+        #dh_target = max(float(dh_corrected), 1e-4)
+
+        area = design_sizing_result["spread_area"]
+        l_h = area**0.5
+        a_h = l_h
+        
+
+        t = 50.0
+        # s0 = float(
+        #     mounding_integral_sum_at_point(0.0, 0.0, l_h, a_h, t, k_mean, b, sy_mean)
+        # )
+        # if s0 <= 1e-30:
+        #     out["error"] = "Mounding kernel is zero at the origin (check time and aquifer parameters)."
+        #     return out
+
+        #v1 = k_mean * b / sy_mean
+        w = design_sizing_result["infl_rate"]
+
+        # pad = 1.
+        # Lx = max(l_h * pad, l_h + 20.0)
+        # Ly = max(a_h * pad, a_h + 20.0)
+
+        x2, y2, h_inc = compute_mounding_grid(
+            Lx,
+            Ly,
+            20,
+            l_h,
+            a_h,
+            t,
+            b,
+            w,
+            k_mean,
+            sy_mean,
+            0.0,
+        )
+        z_arr = np.asarray(h_inc, dtype=float)
+        x_grid = np.asarray(x2, dtype=float)
+        y_grid = np.asarray(y2, dtype=float)
+        if z_arr.shape != x_grid.shape or z_arr.shape != y_grid.shape:
+            out["error"] = (
+                "Internal grid shape mismatch in unconfined mounding plot; "
+                f"z {z_arr.shape}, x {x_grid.shape}, y {y_grid.shape}."
+            )
+            return out
+
+        # 1-D slices for callers that only need axes (legacy Plotly path used full x_grid/y_grid).
+        mid_r = z_arr.shape[0] // 2
+        mid_c = z_arr.shape[1] // 2
+        x1d = np.asarray(x2[mid_r, :], dtype=float)
+        y1d = np.asarray(y2[:, mid_c], dtype=float)
+
+        out.update(
+            {
+                "ok": True,
+                "x": x1d,
+                "y": y1d,
+                "x_grid": x_grid,
+                "y_grid": y_grid,
+                "drawdown_ft": z_arr.astype(float),
+                "w_ft_per_day": float(w),
+                "k_mean_ft_per_day": float(k_mean),
+                "sy_mean": float(sy_mean),
+                "saturated_thickness_ft": float(b),
+                "time_days": float(t),
+                "half_length_ft": l_h,
+                "half_width_ft": a_h,
+                "avg_gw_depth_bgs_ft": float(avg_gw)
             }
         )
         return out
