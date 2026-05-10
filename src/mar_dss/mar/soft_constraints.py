@@ -34,9 +34,10 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         response = -1
         penalty = []
     else:
+        response = 0
+        penalty = []
         if slope_significance == "Gentle":
-            response = 0
-            penalty = []
+            pass
         elif slope_significance == "Moderate":
             if option.name == "Surface Recharge":
                 response = 1
@@ -51,7 +52,7 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
             else:
                 response = 0
                 penalty = []
-        
+
         if option.name in ["Dry Well", "Injection Well"]:
             response = 1
             penalty = ["Cost: Moderate extra cost for earthwork to mitigate slope"]
