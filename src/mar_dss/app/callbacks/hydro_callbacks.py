@@ -70,7 +70,7 @@ def _render_initial_feasibility_status(status_line: str):
     if not status_line:
         return ""
     if status_line == "Pass":
-        return html.Span("Pass", className="fw-bold text-success small")
+        return html.Span("Pass", className="fw-bold text-success fs-6")
     prefix_pw = "Pass with Warnings - "
     if status_line.startswith(prefix_pw):
         rest = status_line[len(prefix_pw):]
@@ -79,7 +79,7 @@ def _render_initial_feasibility_status(status_line: str):
                 html.Span("Pass", className="fw-bold text-success"),
                 html.Span(f" with Warnings - {rest}", className="text-muted"),
             ],
-            className="small",
+            className="fs-6",
         )
     prefix_fail = "Fail - "
     if status_line.startswith(prefix_fail):
@@ -89,9 +89,9 @@ def _render_initial_feasibility_status(status_line: str):
                 html.Span("Fail", className="fw-bold text-danger"),
                 html.Span(f" - {rest}", className="text-muted"),
             ],
-            className="small",
+            className="fs-6",
         )
-    return html.Span(status_line, className="small text-muted")
+    return html.Span(status_line, className="fs-6 text-muted")
 
 
 def _aquitard_k_input_str(k: float) -> str:
@@ -1464,8 +1464,8 @@ def setup_hydro_callbacks(app):
                 )
             evaluate_and_store_decision_graph(graph, inputs)
 
-            rows_out = []
-            for option in mar_options():
+            cols_out = []
+            for i, option in enumerate(mar_options()):
                 color, status_line = evaluate_option_traffic_light(
                     option,
                     hc_module.hard_constraints,
@@ -1473,45 +1473,64 @@ def setup_hydro_callbacks(app):
                 )
                 dot = _TRAFFIC_DOT[color]
                 name_cls = (
-                    "fw-semibold small text-success"
+                    "fw-semibold fs-5 text-success"
                     if color in ("green", "orange")
-                    else "fw-semibold small text-danger"
+                    else "fw-semibold fs-5 text-danger"
                 )
-                rows_out.append(
-                    dbc.Row(
-                        [
-                            dbc.Col(
-                                html.Span(
-                                    className="rounded-circle d-inline-block flex-shrink-0",
-                                    style={
-                                        "width": "14px",
-                                        "height": "14px",
-                                        "backgroundColor": dot,
-                                        "verticalAlign": "middle",
-                                    },
+                col_border = (
+                    "mb-2 mb-sm-3 mb-md-0 border-start border-secondary border-opacity-25 ps-md-3"
+                    if i
+                    else "mb-2 mb-sm-3 mb-md-0"
+                )
+                cols_out.append(
+                    dbc.Col(
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    html.Span(
+                                        className="rounded-circle d-inline-block flex-shrink-0",
+                                        style={
+                                            "width": "22px",
+                                            "height": "22px",
+                                            "backgroundColor": dot,
+                                            "verticalAlign": "middle",
+                                        },
+                                    ),
+                                    width="auto",
+                                    className="d-flex align-items-start pt-2",
                                 ),
-                                width="auto",
-                                className="d-flex align-items-start pt-1",
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Div(
-                                        option.name,
-                                        className=name_cls,
-                                    ),
-                                    html.Div(
-                                        _render_initial_feasibility_status(status_line),
-                                        className="small",
-                                    ),
-                                ],
-                                className="ps-0",
-                            ),
-                        ],
-                        className="mb-2 align-items-start gx-2",
+                                dbc.Col(
+                                    [
+                                        html.Div(
+                                            option.name,
+                                            className=name_cls,
+                                        ),
+                                        html.Div(
+                                            _render_initial_feasibility_status(
+                                                status_line
+                                            ),
+                                            className="fs-6",
+                                        ),
+                                    ],
+                                    className="ps-0 min-w-0",
+                                ),
+                            ],
+                            className="g-2 align-items-start mx-0",
+                        ),
+                        xs=12,
+                        sm=6,
+                        md=4,
+                        className=col_border,
                     )
                 )
 
-            return html.Div(rows_out, className="initial-feasibility-traffic mt-1")
+            return html.Div(
+                dbc.Row(
+                    cols_out,
+                    className="g-2 g-md-3 align-items-start justify-content-lg-between",
+                ),
+                className="initial-feasibility-traffic initial-feasibility-traffic--evaluated mt-1",
+            )
         except ValueError as err:
             return dbc.Alert(
                 f"Cannot evaluate feasibility: {err}",

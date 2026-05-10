@@ -8,6 +8,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.mar.options import mar_options
 from mar_dss.rules.defaults import get_default
 
 columns = ["parameter", "Depth/Thickness (ft)", "Hydraulic Conductivity", "Storage Term"]
@@ -164,6 +165,80 @@ def create_hydro_tab_content():
     ]
 
 
+def _build_initial_feasibility_traffic_placeholder():
+    """Muted traffic-style columns in one row until the user runs Check Initial Feasibility."""
+    dot_style = {
+        "width": "22px",
+        "height": "22px",
+        "backgroundColor": "#adb5bd",
+        "opacity": 0.35,
+        "verticalAlign": "middle",
+    }
+    muted = {"opacity": 0.55, "color": "#6c757d"}
+    muted_sub = {"opacity": 0.45, "color": "#868e96"}
+    cols = []
+    for i, opt in enumerate(mar_options()):
+        col_border = (
+            "mb-2 mb-sm-3 mb-md-0 border-start border-secondary border-opacity-25 ps-md-3"
+            if i
+            else "mb-2 mb-sm-3 mb-md-0"
+        )
+        cols.append(
+            dbc.Col(
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            html.Span(
+                                className="rounded-circle d-inline-block flex-shrink-0",
+                                style=dot_style,
+                            ),
+                            width="auto",
+                            className="d-flex align-items-start pt-2",
+                        ),
+                        dbc.Col(
+                            [
+                                html.Div(
+                                    opt.name,
+                                    className="fw-semibold fs-5",
+                                    style=muted,
+                                ),
+                                html.Div(
+                                    "Not evaluated yet",
+                                    className="fs-6",
+                                    style=muted_sub,
+                                ),
+                            ],
+                            className="ps-0 min-w-0",
+                        ),
+                    ],
+                    className="g-2 align-items-start mx-0",
+                ),
+                xs=12,
+                sm=6,
+                md=4,
+                className=col_border,
+            )
+        )
+    return html.Div(
+        [
+            html.P(
+                (
+                    'Click "Check Initial Feasibility" to evaluate each engineering option '
+                    "using hard and soft hydrogeologic constraints."
+                ),
+                className="text-muted fs-6 mb-2",
+            ),
+            html.Div(
+                dbc.Row(
+                    cols,
+                    className="g-2 g-md-3 align-items-start justify-content-lg-between",
+                ),
+                className="initial-feasibility-traffic initial-feasibility-traffic--pending mt-1",
+            ),
+        ]
+    )
+
+
 def _build_hydro_tab_header():
     """Build the Hydrogeologic Settings top row (initial feasibility card)."""
     return [
@@ -179,24 +254,51 @@ def _build_hydro_tab_header():
                                 ),
                                 dbc.CardBody(
                                     [
-                                        dbc.Button(
-                                            "Check Initial Feasibility",
-                                            id="check-initial-feasibility-btn",
-                                            color="primary",
-                                            className="w-100 mb-3",
-                                            n_clicks=0,
-                                        ),
-                                        html.Div(
-                                            id="initial-feasibility-traffic-output",
-                                            children=html.P(
-                                                (
-                                                    "Click the button to evaluate each engineering "
-                                                    "option using hard and soft hydrogeologic constraints."
+                                        dbc.Row(
+                                            [
+                                                dbc.Col(
+                                                    html.Div(
+                                                        id="initial-feasibility-traffic-output",
+                                                        children=_build_initial_feasibility_traffic_placeholder(),
+                                                    ),
+                                                    xs=12,
+                                                    md=9,
+                                                    lg=9,
+                                                    className="pe-md-2 min-w-0",
                                                 ),
-                                                className="text-muted small mb-0",
-                                            ),
+                                                dbc.Col(
+                                                    dbc.Button(
+                                                        "Check Initial Feasibility",
+                                                        id="check-initial-feasibility-btn",
+                                                        color="success",
+                                                        className=(
+                                                            "text-wrap fw-semibold shadow-sm "
+                                                            "ms-md-auto d-block"
+                                                        ),
+                                                        style={
+                                                            "maxWidth": "11rem",
+                                                            "minHeight": "3.25rem",
+                                                            "lineHeight": "1.15",
+                                                            "paddingTop": "0.65rem",
+                                                            "paddingBottom": "0.65rem",
+                                                            "paddingLeft": "0.75rem",
+                                                            "paddingRight": "0.75rem",
+                                                        },
+                                                        n_clicks=0,
+                                                    ),
+                                                    xs=12,
+                                                    md="auto",
+                                                    className=(
+                                                        "d-flex justify-content-center "
+                                                        "justify-content-md-end align-items-start "
+                                                        "pt-2 pt-md-0"
+                                                    ),
+                                                ),
+                                            ],
+                                            className="g-2 align-items-start",
                                         ),
                                     ],
+                                    className="py-3",
                                 ),
                             ],
                             className="h-100",
