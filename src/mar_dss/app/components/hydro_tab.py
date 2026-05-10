@@ -130,38 +130,38 @@ def create_hydrogeologic_settings_content():
     ]
 
 
-def create_hydrogeologic_feasibility_content():
-    """Create the content for the Hydrogeologic Feasibility sub-tab (3.2)."""
-    return [
-        html.Div(id="hydrogeologic-feasibility-content", children=[
-            html.H3("Hydrogeologic Feasibility"),
-            html.P(
-                "Assess the feasibility of MAR implementation based on hydrogeologic conditions.",
-                className="mb-4"
-            ),
-            dbc.Alert(
-                "Loading feasibility assessment...",
-                color="info"
-            ),
-        ])
-    ]
+def create_default_hydrologic_parameters_tab_content():
+    """Content for the (3.2) Default Parameters tab (same level as 3.1)."""
+    notice = html.Div(
+        (
+            "The default parameters here are generally reasonable. "
+            "You do not need to change them unless you have reliable field data."
+        ),
+        className="text-success fw-bold mb-3",
+    )
+    return [notice, _build_geometry_hydrogeologic_parameters_card()]
 
 
 def create_hydro_tab_content():
     """Create the content for the Hydrogeology tab with sub-tabs."""
     return [
-        dbc.Tabs([
-            dbc.Tab(
-                label="(3.1) Hydrogeologic Settings",
-                tab_id="hydrogeologic-settings-tab",
-                children=create_hydrogeologic_settings_content()
-            ),
-            dbc.Tab(
-                label="(3.2) Hydrogeologic Feasibility",
-                tab_id="hydrogeologic-feasibility-tab",
-                children=create_hydrogeologic_feasibility_content()
-            )
-        ], id="hydrogeology-subtabs", active_tab="hydrogeologic-settings-tab")
+        dbc.Tabs(
+            [
+                dbc.Tab(
+                    label="(3.1) Hydrogeologic Settings",
+                    tab_id="hydrogeologic-settings-tab",
+                    children=create_hydrogeologic_settings_content(),
+                ),
+                dbc.Tab(
+                    label="(3.2) Default Parameters",
+                    tab_id="default-hydrologic-parameters-tab",
+                    children=create_default_hydrologic_parameters_tab_content(),
+                ),
+            ],
+            id="hydrogeology-subtabs",
+            active_tab="hydrogeologic-settings-tab",
+            className="hydrogeology-top-tabs w-100",
+        ),
     ]
 
 
@@ -1161,7 +1161,7 @@ def _build_geometry_hydrogeologic_parameters_card():
     return dbc.Card(
         [
             dbc.CardHeader(
-                "Default Hydrologic Parameters",
+                "Default parameters",
                 className="fw-bold bg-primary text-white py-2 px-3 small",
             ),
             dbc.CardBody(
@@ -1269,7 +1269,7 @@ def _build_geometry_hydrogeologic_parameters_card():
 
 
 def _build_geometry_and_view_cards():
-    """Build the Geometry and View cards side by side, plus hydrogeologic parameters below."""
+    """Build the Geometry and View cards side by side."""
     return html.Div(
         [
             dbc.Row(
@@ -1277,10 +1277,6 @@ def _build_geometry_and_view_cards():
                     dbc.Col(_build_geometry_card(), width=6),
                     dbc.Col(_build_view_card(), width=6),
                 ]
-            ),
-            dbc.Row(
-                [dbc.Col(_build_geometry_hydrogeologic_parameters_card(), width=12)],
-                className="g-0",
             ),
         ]
     )

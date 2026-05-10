@@ -35,4 +35,33 @@
   border-radius: 2px;
 }
 
+/* Hydrogeology: keep (3.1) left; pin "(3.2) Default Parameters" on the right */
+#hydrogeology-subtabs ul.nav {
+  flex-wrap: nowrap;
+  width: 100%;
+}
+#hydrogeology-subtabs ul.nav .nav-item:last-child {
+  margin-left: auto;
+}
+
+/* (3.2) Default Parameters — green tab (overrides global blue for this nav item) */
+#hydrogeology-subtabs ul.nav .nav-item:last-child .nav-link:not(.active) {
+  color: #0f5132;
+  background-color: #d1e7dd;
+  border-color: #badbcc;
+}
+#hydrogeology-subtabs ul.nav .nav-item:last-child .nav-link:hover:not(.active) {
+  color: #0a3622;
+  background-color: #c3e6cb;
+  border-color: #a3cfbb;
+}
+#hydrogeology-subtabs ul.nav .nav-item:last-child .nav-link.active {
+  color: #ffffff !important;
+  background-color: #198754 !important;
+  border-color: #146c43 #146c43 #0f172a !important;
+}
+#hydrogeology-subtabs ul.nav .nav-item:last-child .nav-link.active::after {
+  background: #86efac;
+}
+
 

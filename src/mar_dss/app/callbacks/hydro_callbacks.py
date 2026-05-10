@@ -18,14 +18,6 @@ from mar_dss.app.components.hydro_tab import (
     normalize_stratigraphy_recharge_target,
 )
 
-_FEASIBILITY_RULE_DEFAULT_INPUTS = [
-    Input(_rule_def_input_id(k), "value")
-    for k, _, _, _ in RULE_DEFAULT_SCALAR_ROWS
-] + [
-    Input("rule-def-excessive-deep-aquifer-0-input", "value"),
-    Input("rule-def-excessive-deep-aquifer-1-input", "value"),
-]
-
 from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
     infer_dashboard_aquifer_type,
@@ -1546,54 +1538,6 @@ def setup_hydro_callbacks(app):
                 color="danger",
                 className="mb-0 small",
             )
-
-    # Callback to update Hydrogeologic Feasibility content
-    @app.callback(
-        Output("hydrogeologic-feasibility-content", "children"),
-        [
-            Input("stratigraphy-data-store", "data"),
-            Input("groundwater-data-store", "data"),
-            Input("aq-type-inferred-store", "data"),
-            Input("aquitard-conductivity-input", "value"),
-            Input("hydrogeology-subtabs", "active_tab"),
-            *_FEASIBILITY_RULE_DEFAULT_INPUTS,
-        ],
-        prevent_initial_call=False
-    )
-    def update_hydrogeologic_feasibility_content(*args):
-        """Update the Hydrogeologic Feasibility tab content when data changes."""
-        strat_data, gw_data, _aq_inferred, aq_k_input, active_tab = args[:5]
-        # args[5:] are rule-default control values (refresh trigger only; rules read via get_default).
-
-        from mar_dss.app.components.hydrogeologic_feasibility_content import (
-            create_hydrogeologic_feasibility_content_dynamic,
-            create_loading_content
-        )
-        
-        # Only update if we're on the feasibility tab
-        if active_tab != "hydrogeologic-feasibility-tab":
-            return dash.no_update
-        
-        try:
-            strat = strat_data if strat_data is not None else dash_storage.get_data("stratigraphy_data")
-            gw = gw_data if gw_data is not None else dash_storage.get_data("groundwater_data")
-            gs_elev = dash_storage.get_data("ground_surface_elevation")
-            aq_k = _coerce_aquitard_k_ft_day(aq_k_input)
-            inferred = infer_dashboard_aquifer_type(
-                strat or [],
-                gw or [],
-                gs_elev,
-                aquitard_k_max_ft_day=aq_k,
-            )
-            dash_storage.set_data("aq_type", inferred)
-
-            # Generate dynamic content
-            content = create_hydrogeologic_feasibility_content_dynamic()
-            return content
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return create_loading_content(f"Error: {str(e)}")
 
     # --- Dashboard overrides for mar_dss.rules.defaults (geohydro rule parameters) ---
     for _row in RULE_DEFAULT_SCALAR_ROWS:
