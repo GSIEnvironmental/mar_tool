@@ -26,5 +26,39 @@ defaults["trace_organic_matter_residence_time"] = 30
 defaults["Nutrients_residence_time"] = 30
 
 
+RULE_DEFAULTS_OVERRIDES_STORAGE_KEY = "rule_defaults_overrides"
 
- # days - optimal for biodegradation
+
+def get_default(key):
+    """
+    Return a rule default, optionally overridden by dashboard storage
+    ``rule_defaults_overrides`` (flat dict merged with :data:`defaults`).
+    """
+    base = defaults[key]
+    try:
+        import mar_dss.app.utils.data_storage as dash_storage
+
+        ov = dash_storage.get_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY)
+        if not isinstance(ov, dict) or key not in ov or ov[key] is None:
+            return base
+        val = ov[key]
+        if key == "excessive_deep_aquifer":
+            if isinstance(val, (list, tuple)) and len(val) >= 2:
+                return [float(val[0]), float(val[1])]
+            return list(base)
+        if isinstance(base, bool):
+            return bool(val)
+        if isinstance(base, int) and not isinstance(base, bool):
+            try:
+                return int(round(float(val)))
+            except (TypeError, ValueError):
+                return base
+        if isinstance(base, float):
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return base
+        return val
+    except Exception:
+        pass
+    return base

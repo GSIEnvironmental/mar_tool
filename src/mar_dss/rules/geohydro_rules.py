@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from mar_dss.rules.analytical_solutions import compute_recharge_rate, theis_drawdown_or_Q
-from mar_dss.rules.defaults import defaults
+from mar_dss.rules.defaults import get_default
 
 
 def recharge_target_layer_row_index(strat_df):
@@ -247,7 +247,7 @@ def check_k_vadose_threshold(k_min_vadose):
     """
     if k_min_vadose is None:
         return False
-    threshold = defaults["k_min_vadose_threshold"]
+    threshold = get_default("k_min_vadose_threshold")
     return k_min_vadose >= threshold
 
 def check_vadose_pollution(unconfined, vadose_polluted_present):
@@ -314,7 +314,7 @@ def check_vadose_remediation(vadose_pollution_high_toxicity):
 
 
 def check_topsoil_limiting(limiting_layer, k_min_vadose):
-    if limiting_layer == 0 and k_min_vadose < defaults["k_min_vadose_threshold"]:
+    if limiting_layer == 0 and k_min_vadose < get_default("k_min_vadose_threshold"):
         return True 
     else:
         return False
@@ -336,7 +336,7 @@ def compute_min_gw_depth(limiting_layer, strat_df, d_gw_min):
     d_gw_min = float(d_gw_min)    
     limiting_layer = int(limiting_layer)
     k_min_vadose = strat_df.iloc[limiting_layer]["K"]
-    if k_min_vadose >= defaults["k_min_vadose_threshold"]:        
+    if k_min_vadose >= get_default("k_min_vadose_threshold"):        
         return d_gw_min
     else:
         layer_bottom_depth = strat_df["thickness"].cumsum()
@@ -453,11 +453,11 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
         Ss = strat_df.iloc[target_layer_index]["sy/ss"]
         transmissivity = kaq * B
         Ss = Ss * B
-        Qmax = defaults["max_injection_Q_per_well"] 
+        Qmax = get_default("max_injection_Q_per_well") 
         max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=Hmax, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
         Q_per_well = min(Qmax, max_Q_per_well)     
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)       
-        number_of_wells =min(defaults["max_number_of_injection_wells"], number_of_wells)
+        number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
         return {"number_of_wells": number_of_wells, "Q_per_well": Q_per_well} 
 
         
@@ -488,10 +488,10 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
         max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=dh_corrected, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
 
         #max_Q_per_well = (2 * 3.14159 * k_mean*saturated_thickness*dh) / (np.log(300))
-        Qmax = defaults["max_injection_Q_per_well"] #  ft^3/day, arround 20L/sec
+        Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
         Q_per_well = min(max_Q_per_well, Qmax)
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
-        number_of_wells =min(defaults["max_number_of_injection_wells"], number_of_wells)
+        number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
                                         
         return {"number_of_wells": number_of_wells, "Q_per_well": Q_per_well} # irrelevant for unconfined aquifer
     
@@ -512,7 +512,7 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         k_mean = (k_s.values * sat_thks.values).sum() / sat_thks.values.sum()
         sy_mean = (sy_s.values * sat_thks.values).sum() / sat_thks.values.sum()
 
-        dh = avg_gw_depth - max(op_gw_depth, defaults["max_drywell_depth_ft"])
+        dh = avg_gw_depth - max(op_gw_depth, get_default("max_drywell_depth_ft"))
         if dh <=0:
             return {"number_of_dry_wells": 0, "Q_per_dry_well": 0}
         # corrected drawdown for unconfined aquifer
@@ -522,10 +522,10 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=dh_corrected, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
 
         #max_Q_per_well = (2 * 3.14159 * k_mean*saturated_thickness*dh) / (np.log(300))
-        Qmax = defaults["max_injection_Q_per_well"] #  ft^3/day, arround 20L/sec
+        Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
         Q_per_well = min(max_Q_per_well, Qmax)
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
-        number_of_wells =min(defaults["max_number_of_injection_wells"], number_of_wells)
+        number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
                                         
         return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well} 
     
@@ -586,7 +586,7 @@ def compute_vadose_residence_time(vadose_biodegradable, design_zing, strat_df,  
     # v = ks.values * ratio / effective_porosity# todo: v = k * i * theta, 
     
     infl_rate = design_zing["infl_rate"]
-    v = infl_rate/defaults["average_moisture_content"]
+    v = infl_rate / get_default("average_moisture_content")
     residence_time = unsaturated_thickness / v
     return residence_time
 
@@ -670,7 +670,7 @@ def compute_leakage_significance(rechargability, strat_df):
     transmissivity = k_aquifer * aquifer_thickness
 
     BB = np.sqrt(transmissivity / leakance)
-    leakage_significance = BB/defaults['leakage_radius']
+    leakage_significance = BB / get_default("leakage_radius")
     if leakage_significance> 20.0:
         return "low"
     elif leakage_significance<20.0 and leakage_significance>1:
@@ -686,9 +686,10 @@ def compute_depth_significance(confined, strat_df):
     aquifer_depth = strat_df.iloc[0:2]["thickness"] 
     aquifer_depth = aquifer_depth.sum()
 
-    if aquifer_depth > defaults['excessive_deep_aquifer'][1]:
+    _eda = get_default("excessive_deep_aquifer")
+    if aquifer_depth > _eda[1]:
         return "Too Deep"
-    elif aquifer_depth > defaults['excessive_deep_aquifer'][0] and aquifer_depth <= defaults['excessive_deep_aquifer'][1]:
+    elif aquifer_depth > _eda[0] and aquifer_depth <= _eda[1]:
         return "Moderate Deep"
     else:
         return "Low Depth"
@@ -714,7 +715,7 @@ def compute_surface_recharge_suitability(gs_slope_significance, inflitration_sig
         surface_recharge_suitability = False
         return surface_recharge_suitability
     
-    if rechargability < defaults["maximum_rechargability"]:
+    if rechargability < get_default("maximum_rechargability"):
         surface_recharge_suitability = False
         return surface_recharge_suitability
     

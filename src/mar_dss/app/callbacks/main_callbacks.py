@@ -680,7 +680,7 @@ def setup_main_callbacks(app, dashboard_instance):
     def handle_new_project(n_clicks):
         """Handle creating a new project."""
         if n_clicks:
-            # Clear all data storage
+            # Clear all data storage (includes rule_defaults_overrides from rules.defaults).
             dash_storage.clear_data()
             
             # Reset to default values
@@ -712,7 +712,8 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("vadose_zone_pollution", "None")
             # Reset hydrogeology data
             dash_storage.set_data("aq_type", "unconfined")
-            dash_storage.set_data("max_allowed_head", 1.0)
+            dash_storage.set_data("confined_aquifer_head_ft", None)
+            dash_storage.set_data("max_dry_well_depth_ft", 120.0)
             dash_storage.set_data("aquitard_conductivity_ft_day", 1e-3)
             _strat_new = [
                 {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},

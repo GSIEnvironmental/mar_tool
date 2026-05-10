@@ -2,10 +2,13 @@
 Hydrogeology tab content for MAR DSS dashboard.
 """
 
+import math
+
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.rules.defaults import get_default
 
 columns = ["parameter", "Depth/Thickness (ft)", "Hydraulic Conductivity", "Storage Term"]
 
@@ -114,17 +117,6 @@ def create_hydro_tab_content():
 
 def _build_hydro_tab_header():
     """Build the Hydrogeologic Settings top cards."""
-    # Get existing values from data storage if available
-    max_allowed_head = dash_storage.get_data("max_allowed_head")
-    # Ensure max_allowed_head is a float, default to 1.0
-    if max_allowed_head is not None:
-        try:
-            max_allowed_head = float(max_allowed_head)
-        except (ValueError, TypeError):
-            max_allowed_head = 1.0
-    else:
-        max_allowed_head = 1.0
-
     aq_k_raw = dash_storage.get_data("aquitard_conductivity_ft_day")
     try:
         aquitard_k = float(aq_k_raw) if aq_k_raw is not None else 1e-3
@@ -192,38 +184,6 @@ def _build_hydro_tab_header():
                                             children=f"Aquifer Type: {aq_display}",
                                             className="fw-bold mb-2",
                                             style={"color": "#fd7e14"},
-                                        ),
-                                        html.Div(
-                                            id="confined-head-input-container",
-                                            style={
-                                                "display": (
-                                                    "block"
-                                                    if str(aq_label).lower()
-                                                    == "confined"
-                                                    else "none"
-                                                )
-                                            },
-                                            children=[
-                                                html.Label(
-                                                    "Maximum Allowed Head (Pressure) (ft/foot of depth to the top of the confining layer):",
-                                                    className="fw-bold mb-2",
-                                                ),
-                                                dbc.Input(
-                                                    id="max-allowed-head-input",
-                                                    type="number",
-                                                    placeholder="Enter maximum allowed head",
-                                                    step=0.1,
-                                                    value=max_allowed_head,
-                                                    debounce=True,
-                                                    className="mb-3",
-                                                ),
-                                            ],
-                                            className="mb-0",
-                                        ),
-                                        dbc.Tooltip(
-                                            "Pressure head limit applied when the inferred aquifer type is confined",
-                                            target="max-allowed-head-input",
-                                            placement="top",
                                         ),
                                     ],
                                 ),
@@ -872,11 +832,327 @@ def _build_view_card():
     )
 
 
-def _build_geometry_and_view_cards():
-    """Build the Geometry and View cards side by side."""
-    return dbc.Row(
+DEFAULT_MAX_DRY_WELL_DEPTH_FT = 120.0
+
+_FIELD_NOTE_STYLE = {"fontSize": "0.72rem", "lineHeight": 1.25}
+
+
+def _input_field_note(text: str):
+    """Single-line helper text under a compact numeric input."""
+    return html.Small(
+        text,
+        className="text-muted d-block",
+        style=_FIELD_NOTE_STYLE,
+    )
+
+
+# Matches ``mar_dss.rules.defaults`` keys (lines 3–26); editable overrides in ``rule_defaults_overrides``.
+# Each row: key, label, step, note (shown under the input).
+RULE_DEFAULT_SCALAR_ROWS = [
+    (
+        "k_min_vadose_threshold",
+        "K min vadose threshold (ft/day)",
+        0.01,
+        "Minimum K treated as vadose-dominated for classification rules.",
+    ),
+    (
+        "leakage_radius",
+        "Leakage radius (ft)",
+        1,
+        "Horizontal extent (ft) used in leakage-related rule checks.",
+    ),
+    (
+        "maximum_rechargability",
+        "Maximum rechargability (%)",
+        1,
+        "Upper bound on the fraction of source water that may be recharged (%).",
+    ),
+    (
+        "max_injection_Q_per_well",
+        "Max injection Q per well (ft³/day)",
+        1,
+        "Maximum injection rate assumed per well for feasibility and routing rules.",
+    ),
+    (
+        "max_number_of_injection_wells",
+        "Max number of injection wells",
+        1,
+        "Cap on the count of injection wells used in scenario logic.",
+    ),
+    (
+        "max_dry_well_infiltration_rate_in_per_hr",
+        "Max dry well infiltration rate (in/hr)",
+        1,
+        "Upper limit on surface infiltration into the dry well (in/hr).",
+    ),
+    (
+        "max_dry_well_transfer_rate_gpm",
+        "Max dry well transfer rate (gpm)",
+        1,
+        "Upper limit on pumping or transfer into the dry well (gpm).",
+    ),
+    (
+        "max_drywell_depth_ft",
+        "Max drywell depth — rule cutoff vs screen depth (ft)",
+        1,
+        "Rule cutoff comparing screen depth to defaults—not the construction depth limit above.",
+    ),
+    (
+        "vadose_effective_porosity",
+        "Vadose effective porosity (-)",
+        0.01,
+        "Default effective porosity when stratigraphy does not supply a value.",
+    ),
+    (
+        "average_moisture_content",
+        "Average moisture content (-)",
+        0.01,
+        "Default moisture content (0–1) for vadose estimates.",
+    ),
+    (
+        "pathogenic_bacteria_residence_time",
+        "Pathogenic bacteria residence time (days)",
+        1,
+        "Minimum subsurface residence (days) assumed for pathogen attenuation.",
+    ),
+    (
+        "organic_matter_residence_time",
+        "Organic matter residence time (days)",
+        1,
+        "Minimum residence time (days) for natural attenuation of organic matter.",
+    ),
+    (
+        "trace_organic_matter_residence_time",
+        "Trace organic matter residence time (days)",
+        1,
+        "Minimum residence time (days) for trace organic attenuation.",
+    ),
+    (
+        "Nutrients_residence_time",
+        "Nutrients residence time (days)",
+        1,
+        "Minimum residence time (days) for nutrient-related attenuation.",
+    ),
+]
+
+
+def _rule_def_input_id(key: str) -> str:
+    return f"rule-def-{key.replace('_', '-')}-input"
+
+
+def _build_rule_defaults_fields_children():
+    """Inputs for geohydro ``defaults`` scalars + excessive-deep aquifer bounds (compact columns)."""
+    rule_cols = []
+    for key, label, step, note in RULE_DEFAULT_SCALAR_ROWS:
+        inp_id = _rule_def_input_id(key)
+        rule_cols.append(
+            dbc.Col(
+                [
+                    html.Label(
+                        label,
+                        className="mb-0 text-muted small",
+                        htmlFor=inp_id,
+                        style={"fontSize": "0.72rem", "lineHeight": 1.2},
+                    ),
+                    dbc.Input(
+                        id=inp_id,
+                        type="number",
+                        step=step,
+                        debounce=True,
+                        value=get_default(key),
+                        size="sm",
+                        className="mb-1",
+                    ),
+                    _input_field_note(note),
+                ],
+                xs=12,
+                sm=6,
+                md=4,
+                lg=3,
+                className="mb-1",
+            )
+        )
+    lo_id = "rule-def-excessive-deep-aquifer-0-input"
+    hi_id = "rule-def-excessive-deep-aquifer-1-input"
+    _eda = get_default("excessive_deep_aquifer")
+    deep_cols = [
+        dbc.Col(
+            [
+                html.Label(
+                    "Excessive deep aquifer — lower (ft)",
+                    className="mb-0 text-muted small",
+                    htmlFor=lo_id,
+                    style={"fontSize": "0.72rem", "lineHeight": 1.2},
+                ),
+                dbc.Input(
+                    id=lo_id,
+                    type="number",
+                    step=1,
+                    debounce=True,
+                    value=float(_eda[0]),
+                    size="sm",
+                    className="mb-1",
+                ),
+                _input_field_note(
+                    "Lower bound of screened aquifer depth (ft) classed as excessively deep."
+                ),
+            ],
+            xs=12,
+            sm=6,
+            md=4,
+            lg=3,
+        ),
+        dbc.Col(
+            [
+                html.Label(
+                    "Excessive deep aquifer — upper (ft)",
+                    className="mb-0 text-muted small",
+                    htmlFor=hi_id,
+                    style={"fontSize": "0.72rem", "lineHeight": 1.2},
+                ),
+                dbc.Input(
+                    id=hi_id,
+                    type="number",
+                    step=1,
+                    debounce=True,
+                    value=float(_eda[1]),
+                    size="sm",
+                    className="mb-1",
+                ),
+                _input_field_note(
+                    "Upper bound (ft) of the excessively deep aquifer depth band for rules."
+                ),
+            ],
+            xs=12,
+            sm=6,
+            md=4,
+            lg=3,
+        ),
+    ]
+    return [
+        html.Hr(className="my-2"),
+        html.Div(
+            "Overrides for mar_dss.rules.defaults (blank = built-in default).",
+            className="text-muted small mb-2",
+            style={"fontSize": "0.75rem"},
+        ),
+        dbc.Row(rule_cols + deep_cols, className="g-2 gx-2 gy-1 mb-0"),
+    ]
+
+
+def _confined_aquifer_head_input_value():
+    """Initial display for confined aquifer head (ft); empty if unset."""
+    raw = dash_storage.get_data("confined_aquifer_head_ft")
+    if raw is None:
+        return ""
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return ""
+
+
+def _max_dry_well_depth_input_value():
+    """Initial display for maximum dry well depth (ft); default 120."""
+    raw = dash_storage.get_data("max_dry_well_depth_ft")
+    if raw is None:
+        return DEFAULT_MAX_DRY_WELL_DEPTH_FT
+    try:
+        v = float(raw)
+        if math.isfinite(v) and v > 0:
+            return v
+    except (TypeError, ValueError):
+        pass
+    return DEFAULT_MAX_DRY_WELL_DEPTH_FT
+
+
+def _build_geometry_hydrogeologic_parameters_card():
+    """Default hydrologic parameters below Geometry / View (confined head, dry well, rule overrides)."""
+    return dbc.Card(
         [
-            dbc.Col(_build_geometry_card(), width=6),
-            dbc.Col(_build_view_card(), width=6),
+            dbc.CardHeader(
+                "Default Hydrologic Parameters",
+                className="fw-bold bg-primary text-white py-2 px-3 small",
+            ),
+            dbc.CardBody(
+                [
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
+                                    html.Label(
+                                        "Confined aquifer head (ft)",
+                                        className="mb-0 text-muted small",
+                                        htmlFor="confined-aquifer-head-input",
+                                        style={"fontSize": "0.72rem"},
+                                    ),
+                                    dbc.Input(
+                                        id="confined-aquifer-head-input",
+                                        type="number",
+                                        step=0.1,
+                                        debounce=True,
+                                        placeholder="Optional; default ~80% static pressure in recharge layer",
+                                        value=_confined_aquifer_head_input_value(),
+                                        size="sm",
+                                        className="mb-1",
+                                    ),
+                                    _input_field_note(
+                                        "Dry-well feasibility: head must allow a downward gradient to inject."
+                                    ),
+                                ],
+                                xs=12,
+                                md=6,
+                                className="mb-2 mb-md-0",
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Label(
+                                        "Maximum dry well depth (ft)",
+                                        className="mb-0 text-muted small",
+                                        htmlFor="max-dry-well-depth-input",
+                                        style={"fontSize": "0.72rem"},
+                                    ),
+                                    dbc.Input(
+                                        id="max-dry-well-depth-input",
+                                        type="number",
+                                        step=1,
+                                        min=0.1,
+                                        debounce=True,
+                                        value=_max_dry_well_depth_input_value(),
+                                        size="sm",
+                                        className="mb-1",
+                                    ),
+                                    _input_field_note(
+                                        "Values above ~120 ft are uncommon and harder to construct."
+                                    ),
+                                ],
+                                xs=12,
+                                md=6,
+                            ),
+                        ],
+                        className="g-2 gx-2 gy-1 mb-1",
+                    ),
+                    *_build_rule_defaults_fields_children(),
+                ],
+                className="py-2 px-3",
+            ),
+        ],
+        className="mb-4",
+    )
+
+
+def _build_geometry_and_view_cards():
+    """Build the Geometry and View cards side by side, plus hydrogeologic parameters below."""
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(_build_geometry_card(), width=6),
+                    dbc.Col(_build_view_card(), width=6),
+                ]
+            ),
+            dbc.Row(
+                [dbc.Col(_build_geometry_hydrogeologic_parameters_card(), width=12)],
+                className="g-0",
+            ),
         ]
     )

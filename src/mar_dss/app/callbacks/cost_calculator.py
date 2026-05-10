@@ -1,7 +1,6 @@
 import pandas as pd
 from typing import Optional
 import numpy as np
-from mar_dss.rules.defaults import defaults
 import mar_dss.app.utils.data_storage as dash_storage
 
 

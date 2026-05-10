@@ -10,11 +10,28 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, dcc, html, State, callback_context
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.components.hydro_tab import normalize_stratigraphy_recharge_target
+from mar_dss.app.components.hydro_tab import (
+    RULE_DEFAULT_SCALAR_ROWS,
+    _rule_def_input_id,
+    normalize_stratigraphy_recharge_target,
+)
+
+_FEASIBILITY_RULE_DEFAULT_INPUTS = [
+    Input(_rule_def_input_id(k), "value")
+    for k, _, _, _ in RULE_DEFAULT_SCALAR_ROWS
+] + [
+    Input("rule-def-excessive-deep-aquifer-0-input", "value"),
+    Input("rule-def-excessive-deep-aquifer-1-input", "value"),
+]
 
 from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
     infer_dashboard_aquifer_type,
+)
+from mar_dss.rules.defaults import (
+    RULE_DEFAULTS_OVERRIDES_STORAGE_KEY,
+    defaults as RULE_DEFAULTS_BASE,
+    get_default as rule_defaults_get,
 )
 from mar_dss.mar import hard_constraints as hc_module
 from mar_dss.mar import soft_constraints as sc_module
@@ -22,6 +39,8 @@ from mar_dss.mar.options import mar_options
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph
 from mar_dss.app.callbacks.analysis_callbacks import get_session_graph, get_graph_inputs
 from mar_dss.app.utils.initial_hydro_feasibility import evaluate_option_traffic_light
+
+DEFAULT_MAX_DRY_WELL_DEPTH_FT = 120.0
 
 
 def _coerce_aquitard_k_ft_day(val):
@@ -97,7 +116,6 @@ def setup_hydro_callbacks(app):
     @app.callback(
         Output("aq-type-inferred-store", "data"),
         Output("aquifer-type-display", "children"),
-        Output("confined-head-input-container", "style"),
         [
             Input("stratigraphy-data-store", "data"),
             Input("groundwater-data-store", "data"),
@@ -121,12 +139,7 @@ def setup_hydro_callbacks(app):
         )
         dash_storage.set_data("aq_type", inferred)
         aq_text = str(inferred).replace("-", " ").title()
-        head_style = (
-            {"display": "block"}
-            if str(inferred).lower() == "confined"
-            else {"display": "none"}
-        )
-        return inferred, f"Aquifer Type: {aq_text}", head_style
+        return inferred, f"Aquifer Type: {aq_text}"
 
     # Callback to synchronize geometry tabs with view tabs
     @app.callback(
@@ -145,63 +158,115 @@ def setup_hydro_callbacks(app):
         
         # Return the corresponding view tab, or default to stratigraphy-cross-section
         return tab_mapping.get(active_geometry_tab, "stratigraphy-cross-section")
-    
-    # Callback to save max allowed head to data storage
+
     @app.callback(
-        Output("max-allowed-head-input", "value"),
+        Output("confined-aquifer-head-input", "value"),
         [
-            Input("max-allowed-head-input", "n_blur"),
-            Input("max-allowed-head-input", "n_submit"),
-            Input("max-allowed-head-input", "id")
+            Input("confined-aquifer-head-input", "n_blur"),
+            Input("confined-aquifer-head-input", "n_submit"),
+            Input("confined-aquifer-head-input", "id"),
         ],
-        State("max-allowed-head-input", "value"),
-        prevent_initial_call=False
+        State("confined-aquifer-head-input", "value"),
+        prevent_initial_call=False,
     )
-    def handle_max_allowed_head_input(n_blur, n_submit, component_id, value):
-        """Persist max allowed head on blur/submit so the field can be cleared while editing."""
+    def handle_confined_aquifer_head_input(n_blur, n_submit, component_id, value):
+        """Persist confined aquifer head (ft) for dry-well feasibility; empty clears stored value."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
-            # Initial load - get saved value and ensure it's a float, then save it
-            max_head = dash_storage.get_data("max_allowed_head")
-            if max_head is not None:
-                try:
-                    max_head = float(max_head)
-                except (ValueError, TypeError):
-                    max_head = 1.0
-            else:
-                max_head = 1.0
-            dash_storage.set_data("max_allowed_head", max_head)
-            return max_head
+            stored = dash_storage.get_data("confined_aquifer_head_ft")
+            if stored is None:
+                return ""
+            try:
+                return float(stored)
+            except (TypeError, ValueError):
+                return ""
 
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
 
-        # id trigger: just return stored value (or default) without forcing edits mid-typing
         if trigger_prop == "id":
-            max_head = dash_storage.get_data("max_allowed_head")
-            if max_head is not None:
-                try:
-                    max_head = float(max_head)
-                except (ValueError, TypeError):
-                    max_head = 1.0
-            else:
-                max_head = 1.0
-            dash_storage.set_data("max_allowed_head", max_head)
-            return max_head
-
-        # Blur or Enter: commit current text/number from State
-        if value is not None and str(value).strip() != "":
+            stored = dash_storage.get_data("confined_aquifer_head_ft")
+            if stored is None:
+                return ""
             try:
-                current_value = float(str(value).strip())
-                if not math.isfinite(current_value):
-                    current_value = 1.0
-            except (ValueError, TypeError):
-                current_value = 1.0
-        else:
-            current_value = 1.0
+                return float(stored)
+            except (TypeError, ValueError):
+                return ""
 
-        dash_storage.set_data("max_allowed_head", current_value)
-        return current_value
+        if value is None or str(value).strip() == "":
+            dash_storage.set_data("confined_aquifer_head_ft", None)
+            return ""
+
+        try:
+            fv = float(str(value).strip())
+            if not math.isfinite(fv):
+                dash_storage.set_data("confined_aquifer_head_ft", None)
+                return ""
+        except (ValueError, TypeError):
+            dash_storage.set_data("confined_aquifer_head_ft", None)
+            return ""
+
+        dash_storage.set_data("confined_aquifer_head_ft", fv)
+        return fv
+
+    @app.callback(
+        Output("max-dry-well-depth-input", "value"),
+        [
+            Input("max-dry-well-depth-input", "n_blur"),
+            Input("max-dry-well-depth-input", "n_submit"),
+            Input("max-dry-well-depth-input", "id"),
+        ],
+        State("max-dry-well-depth-input", "value"),
+        prevent_initial_call=False,
+    )
+    def handle_max_dry_well_depth_input(n_blur, n_submit, component_id, value):
+        """Persist maximum dry well depth (ft); default 120 ft when unset or invalid."""
+        ctx = dash.callback_context
+
+        def _load_or_default():
+            stored = dash_storage.get_data("max_dry_well_depth_ft")
+            if stored is not None:
+                try:
+                    v = float(stored)
+                    if math.isfinite(v) and v > 0:
+                        dash_storage.set_data("max_dry_well_depth_ft", v)
+                        return v
+                except (TypeError, ValueError):
+                    pass
+            dash_storage.set_data(
+                "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
+            )
+            return DEFAULT_MAX_DRY_WELL_DEPTH_FT
+
+        if not ctx.triggered:
+            return _load_or_default()
+
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
+
+        if trigger_prop == "id":
+            return _load_or_default()
+
+        if value is None or str(value).strip() == "":
+            dash_storage.set_data(
+                "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
+            )
+            return DEFAULT_MAX_DRY_WELL_DEPTH_FT
+
+        try:
+            fv = float(str(value).strip())
+            if not math.isfinite(fv) or fv <= 0:
+                dash_storage.set_data(
+                    "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
+                )
+                return DEFAULT_MAX_DRY_WELL_DEPTH_FT
+        except (ValueError, TypeError):
+            dash_storage.set_data(
+                "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
+            )
+            return DEFAULT_MAX_DRY_WELL_DEPTH_FT
+
+        dash_storage.set_data("max_dry_well_depth_ft", fv)
+        return fv
 
     @app.callback(
         Output("aquitard-conductivity-input", "value"),
@@ -1550,17 +1615,15 @@ def setup_hydro_callbacks(app):
             Input("aq-type-inferred-store", "data"),
             Input("aquitard-conductivity-input", "value"),
             Input("hydrogeology-subtabs", "active_tab"),
+            *_FEASIBILITY_RULE_DEFAULT_INPUTS,
         ],
         prevent_initial_call=False
     )
-    def update_hydrogeologic_feasibility_content(
-        strat_data,
-        gw_data,
-        _aq_inferred,
-        aq_k_input,
-        active_tab,
-    ):
+    def update_hydrogeologic_feasibility_content(*args):
         """Update the Hydrogeologic Feasibility tab content when data changes."""
+        strat_data, gw_data, _aq_inferred, aq_k_input, active_tab = args[:5]
+        # args[5:] are rule-default control values (refresh trigger only; rules read via get_default).
+
         from mar_dss.app.components.hydrogeologic_feasibility_content import (
             create_hydrogeologic_feasibility_content_dynamic,
             create_loading_content
@@ -1590,3 +1653,107 @@ def setup_hydro_callbacks(app):
             import traceback
             traceback.print_exc()
             return create_loading_content(f"Error: {str(e)}")
+
+    # --- Dashboard overrides for mar_dss.rules.defaults (geohydro rule parameters) ---
+    for _row in RULE_DEFAULT_SCALAR_ROWS:
+        _rk = _row[0]
+
+        def _make_rule_scalar_cb(rkey=_rk):
+            _inp = _rule_def_input_id(rkey)
+
+            @app.callback(
+                Output(_inp, "value"),
+                [
+                    Input(_inp, "n_blur"),
+                    Input(_inp, "n_submit"),
+                    Input(_inp, "id"),
+                ],
+                State(_inp, "value"),
+                prevent_initial_call=False,
+            )
+            def _persist_geohydro_rule_scalar(n_blur, n_submit, _component_id, value):
+                ctx = dash.callback_context
+                base = RULE_DEFAULTS_BASE[rkey]
+                if not ctx.triggered:
+                    return rule_defaults_get(rkey)
+                trig = ctx.triggered[0]["prop_id"].split(".")[1]
+                if trig == "id":
+                    return rule_defaults_get(rkey)
+                ov0 = dict(dash_storage.get_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY) or {})
+                if value is None or str(value).strip() == "":
+                    ov0.pop(rkey, None)
+                    dash_storage.set_data(
+                        RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov0 if ov0 else None
+                    )
+                    return rule_defaults_get(rkey)
+                try:
+                    if isinstance(base, bool):
+                        nv = bool(value)
+                    elif isinstance(base, int) and not isinstance(base, bool):
+                        nv = int(round(float(str(value).strip())))
+                    else:
+                        nv = float(str(value).strip())
+                    if isinstance(nv, float) and not math.isfinite(nv):
+                        raise ValueError
+                except (ValueError, TypeError):
+                    dash_storage.set_data(
+                        RULE_DEFAULTS_OVERRIDES_STORAGE_KEY,
+                        ov0 if ov0 else None,
+                    )
+                    return rule_defaults_get(rkey)
+                ov0[rkey] = nv
+                dash_storage.set_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov0)
+                return nv
+
+            return _persist_geohydro_rule_scalar
+
+        _make_rule_scalar_cb()
+
+    _lo_ex = "rule-def-excessive-deep-aquifer-0-input"
+    _hi_ex = "rule-def-excessive-deep-aquifer-1-input"
+
+    @app.callback(
+        Output(_lo_ex, "value"),
+        Output(_hi_ex, "value"),
+        [
+            Input(_lo_ex, "n_blur"),
+            Input(_lo_ex, "n_submit"),
+            Input(_hi_ex, "n_blur"),
+            Input(_hi_ex, "n_submit"),
+            Input(_lo_ex, "id"),
+        ],
+        [State(_lo_ex, "value"), State(_hi_ex, "value")],
+        prevent_initial_call=False,
+    )
+    def _persist_excessive_deep_aquifer_bounds(
+        nb0, ns0, nb1, ns1, id0, v0, v1
+    ):
+        ctx = dash.callback_context
+        base = RULE_DEFAULTS_BASE["excessive_deep_aquifer"]
+        if not ctx.triggered:
+            ed = rule_defaults_get("excessive_deep_aquifer")
+            return float(ed[0]), float(ed[1])
+        trig = ctx.triggered[0]["prop_id"].split(".")[1]
+        if trig == "id":
+            ed = rule_defaults_get("excessive_deep_aquifer")
+            return float(ed[0]), float(ed[1])
+
+        try:
+            lo = float(str(v0).strip()) if v0 is not None and str(v0).strip() != "" else float(base[0])
+            hi = float(str(v1).strip()) if v1 is not None and str(v1).strip() != "" else float(base[1])
+            if not math.isfinite(lo) or not math.isfinite(hi):
+                raise ValueError
+            if hi < lo:
+                lo, hi = hi, lo
+        except (ValueError, TypeError):
+            ov = dict(dash_storage.get_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY) or {})
+            ov.pop("excessive_deep_aquifer", None)
+            dash_storage.set_data(
+                RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov if ov else None
+            )
+            return float(base[0]), float(base[1])
+
+        ov = dict(dash_storage.get_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY) or {})
+        ov["excessive_deep_aquifer"] = [lo, hi]
+        dash_storage.set_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov)
+        return lo, hi

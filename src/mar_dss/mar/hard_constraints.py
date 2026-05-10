@@ -3,7 +3,7 @@
 from typing import Any, Dict, List
 from mar_dss.mar.options import MAROption
 import mar_dss.app.utils.data_storage as data_storage
-from mar_dss.rules.defaults import defaults
+from mar_dss.rules.defaults import get_default
 
 def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
     """Generate hard constraints for MAR options."""
@@ -47,19 +47,21 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
     if confined_rechargability is None:
         confined_rechargability = 0
     if aquifer_type.lower() == "Unconfined".lower():
-        if rechargable_percentage < defaults['maximum_rechargability']:
+        mx = get_default("maximum_rechargability")
+        if rechargable_percentage < mx:
             check = False
-            why = f"Rechargeable percentage {round(rechargable_percentage, 2)}% is less than the maximum rechargeable percentage {defaults['maximum_rechargability']}"
+            why = f"Rechargeable percentage {round(rechargable_percentage, 2)}% is less than the maximum rechargeable percentage {mx}"
         else:
             check = True
-            why = f"Rechargeable percentage {round(rechargable_percentage, 2)}% is greater than the maximum rechargeable percentage {defaults['maximum_rechargability']}"
+            why = f"Rechargeable percentage {round(rechargable_percentage, 2)}% is greater than the maximum rechargeable percentage {mx}"
     else:
-        if confined_rechargability < defaults['maximum_rechargability']:
+        mx = get_default("maximum_rechargability")
+        if confined_rechargability < mx:
             check = False
-            why = f"Confined rechargeable percentage {round(confined_rechargability, 2)}% is less than the maximum rechargeable percentage {defaults['maximum_rechargability']}"
+            why = f"Confined rechargeable percentage {round(confined_rechargability, 2)}% is less than the maximum rechargeable percentage {mx}"
         else:
             check = True
-            why = f"Confined rechargeable percentage {round(confined_rechargability, 2)}% is greater than the maximum rechargeable percentage {defaults['maximum_rechargability']}"
+            why = f"Confined rechargeable percentage {round(confined_rechargability, 2)}% is greater than the maximum rechargeable percentage {mx}"
     
     recharge_efficiency_metric = {
         "name": "Recharge Efficiency",
