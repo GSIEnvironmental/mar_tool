@@ -650,10 +650,39 @@ def create_and_run_cost_calculator():
     sediment_target = dash_storage.get_data("sediment_target")
     sediment_target_display = "Medium Silt" if sediment_target == "medium_silt" else "Fine Silt"
     graph = dash_storage.get_data("decision_graph")
+    if graph is None:
+        raise ValueError("decision_graph is missing; run graph evaluation before cost calculation")
+
+    from mar_dss.rules.defaults import get_default
+
     number_of_injection_wells_results = graph.get_node_value("number_of_injection_wells")
-    number_of_injection_wells = number_of_injection_wells_results['number_of_wells']
-    injection_Q_ft3_per_day = number_of_injection_wells_results['Q_per_well']
+    # compute_number_of_injection_wells returns None when neither confined nor unconfined is true
+    if not isinstance(number_of_injection_wells_results, dict):
+        q_def = float(get_default("max_injection_Q_per_well"))
+        logger.warning(
+            "number_of_injection_wells not available from graph (confined/unconfined may be unset); "
+            "using placeholder values for cost calculator"
+        )
+        number_of_injection_wells_results = {
+            "number_of_wells": 5,
+            "Q_per_well": q_def,
+        }
+
+    number_of_injection_wells = int(
+        float(number_of_injection_wells_results.get("number_of_wells", 5))
+    )
+    injection_Q_ft3_per_day = float(
+        number_of_injection_wells_results.get(
+            "Q_per_well", get_default("max_injection_Q_per_well")
+        )
+    )
+
     dry_well_results = graph.get_node_value("number_of_dry_wells")
+    if not isinstance(dry_well_results, dict):
+        logger.warning(
+            "number_of_dry_wells not available from graph; using zeros for cost calculator"
+        )
+        dry_well_results = {"number_of_dry_wells": 0, "Q_per_dry_well": 0.0}
     if aquifer_type.lower() == "confined":
         recharge_method = "injection_well"
     else:
@@ -682,8 +711,8 @@ def create_and_run_cost_calculator():
         collection_to_sediment_removal__conveyance_method="trapezoidal",
         dry_well_diameter_ft=6,
         recharge_method="dry_well", 
-        number_of_dry_wells=dry_well_results['number_of_dry_wells'],
-        dry_well_Q_ft3_per_day=dry_well_results['Q_per_dry_well']
+        number_of_dry_wells=int(float(dry_well_results.get("number_of_dry_wells", 0))),
+        dry_well_Q_ft3_per_day=float(dry_well_results.get("Q_per_dry_well", 0.0)),
     )
     
     # Run cost calculation
@@ -924,10 +953,12 @@ def setup_analysis_callbacks(app):
         It initializes the decision graph and stores it.
         """
         if active_tab == "analysis":
-            # Initialize the graph and store in data_storage
-            graph = read_knowledge()
-            dash_storage.set_data("decision_graph", graph)
-            logger.debug("Knowledge graph initialized")
+            # Do not overwrite an existing graph here: duplicate callbacks can reorder,
+            # and replacing storage after feasibility analysis swaps in an unevaluated graph.
+            if dash_storage.get_data("decision_graph") is None:
+                graph = read_knowledge()
+                dash_storage.set_data("decision_graph", graph)
+                logger.debug("Knowledge graph initialized from YAML")
             return {"initialized": True, "graph_ready": True}
         return dash.no_update
     
@@ -947,20 +978,18 @@ def setup_analysis_callbacks(app):
         """
         # Trigger when Analysis tab is selected
         if active_tab == "analysis":
-            # Ensure graph is initialized first
-            if 0:
-                graph = dash_storage.get_data("decision_graph")
-                if graph is None:
-                    logger.warning("Graph not initialized, initializing now...")
-                    graph = read_knowledge()
-                    dash_storage.set_data("decision_graph", graph)
-                
-                # Run feasibility analysis (which includes integrated analysis if inputs changed)
-                # run_feasibility_analysis() already calls run_integrated_analysis() when needed
-                logger.debug("Running feasibility analysis from Analysis tab callback")
-                run_feasibility_analysis()
-                logger.debug("Feasibility analysis completed - results available for Feasibilities tab")
-            
+            # Ensure graph is initialized first (ordering vs. initialize_knowledge_graph is not guaranteed)
+            graph = dash_storage.get_data("decision_graph")
+            if graph is None:
+                logger.warning("Graph not initialized, initializing now...")
+                graph = read_knowledge()
+                dash_storage.set_data("decision_graph", graph)
+
+            # Runs integrated analysis → evaluate graph, costs, forward_run, store dss_results
+            logger.debug("Running feasibility analysis from Analysis tab callback")
+            run_feasibility_analysis()
+            logger.debug("Feasibility analysis completed - results available for Feasibilities tab")
+
         return dash.no_update
     
     # DISABLED: Callback removed because Feasibility Summary tab was removed

@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 from mar_dss.rules.analytical_solutions import (
@@ -7,6 +8,8 @@ from mar_dss.rules.analytical_solutions import (
     theis_drawdown_or_Q,
 )
 from mar_dss.rules.defaults import get_default
+
+logger = logging.getLogger(__name__)
 
 
 def recharge_target_layer_row_index(strat_df):
@@ -130,6 +133,35 @@ def infer_aquifer_type(strat_df, monthly_gw_depth):
     strat_rows = _strat_df_to_dashboard_rows(strat_df)
     gw_rows = _monthly_depths_to_gw_rows(monthly_gw_depth)
     return infer_dashboard_aquifer_type(strat_rows, gw_rows, 0.0)
+
+
+def aquifer_inference_regime(strat_df, monthly_gw_depth):
+    """Return ``\"confined\"`` or ``\"unconfined\"`` from inferred geometry/hydraulics only.
+
+    This is the single branch selector for MAR sizing physics. Rule nodes ``confined`` /
+    ``unconfined`` are derived from the same inference, but sizing must not rely on
+    ambiguous truthiness or stale graph booleans ending up both falsy.
+
+    Anything that does not normalize to ``\"confined\"`` is treated as unconfined
+    for well-count purposes.
+    """
+    try:
+        aq = infer_aquifer_type(strat_df, monthly_gw_depth)
+    except Exception as exc:
+        logger.warning(
+            "infer_aquifer_type failed (%s); defaulting regime to unconfined for sizing",
+            exc,
+        )
+        return "unconfined"
+    if aq is None:
+        logger.warning(
+            "infer_aquifer_type returned None; defaulting regime to unconfined for sizing"
+        )
+        return "unconfined"
+    normalized = str(aq).strip().lower()
+    if normalized == "confined":
+        return "confined"
+    return "unconfined"
 
 
 # Default max *K* (ft/day) for classifying a dashboard layer as an aquitard when the user
@@ -269,18 +301,11 @@ def infer_dashboard_aquifer_type(
 
 
 def is_unconfined(strat_df, monthly_gw_depth):
-    aq_type = infer_aquifer_type(strat_df, monthly_gw_depth)
-    if aq_type.lower() == "unconfined":
-        return True
-    else:
-        return False
+    return aquifer_inference_regime(strat_df, monthly_gw_depth) == "unconfined"
+
 
 def is_confined(strat_df, monthly_gw_depth):
-    aq_type = infer_aquifer_type(strat_df, monthly_gw_depth)
-    if aq_type.lower() == "confined":
-        return True
-    else:
-        return False
+    return aquifer_inference_regime(strat_df, monthly_gw_depth) == "confined"
 
 def find_limiting_layer(strat_df, unconfined, monthly_gw_depth):
     """ the limiting layer is in the vadose zone, so it is lowest k above water table"""
@@ -506,7 +531,26 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
     return {"spread_area": spread_area, "infl_rate": infl_rate, "inf_k_ratio": infl_rate/k_min_vadose}
 
 def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df, gw_depth, Hmax, confined, unconfined):
-    if confined:
+    regime = aquifer_inference_regime(strat_df, gw_depth)
+    if not bool(confined) and not bool(unconfined):
+        logger.warning(
+            "Graph confined/unconfined flags are both falsy (%r, %r); using inferred regime %r for injection sizing.",
+            confined,
+            unconfined,
+            regime,
+        )
+    elif regime == "confined" and not bool(confined):
+        logger.debug(
+            "Injection sizing follows inferred confined regime despite confined node value %r",
+            confined,
+        )
+    elif regime == "unconfined" and not bool(unconfined):
+        logger.debug(
+            "Injection sizing follows inferred unconfined regime despite unconfined node value %r",
+            unconfined,
+        )
+
+    if regime == "confined":
         target_layer_index = recharge_target_layer_row_index(strat_df)
         depth_of_confined_unit = strat_df.iloc[0:target_layer_index]["thickness"].sum()
         # if len(strat_df) != 4:
@@ -532,43 +576,48 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
         return {"number_of_wells": number_of_wells, "Q_per_well": Q_per_well,
          'transmissivity':transmissivity, 'Ss':Ss, 'Hmax':Hmax, 'time':50, 'r':1} 
 
-        
-      
-    if unconfined:
-        # thiem equation
-        avg_gw_depth = np.mean(gw_depth)
-        layer_depths = strat_df['thickness'].cumsum()
+    # Unconfined / inferred default path (Thiem equation)
+    avg_gw_depth = np.mean(gw_depth)
+    layer_depths = strat_df['thickness'].cumsum()
 
-        saturated_layres = layer_depths - avg_gw_depth
-        saturated_layres = saturated_layres[saturated_layres>0]
-        saturated_thickness = saturated_layres.sum()
-        sat_thks = saturated_layres.diff()
-        sat_thks.iloc[0] = saturated_layres.iloc[0]
+    saturated_layres = layer_depths - avg_gw_depth
+    saturated_layres = saturated_layres[saturated_layres>0]
+    saturated_thickness = saturated_layres.sum()
+    sat_thks = saturated_layres.diff()
+    sat_thks.iloc[0] = saturated_layres.iloc[0]
 
-        sy_s = strat_df.iloc[-(len(sat_thks)):]['sy/ss']
-        k_s = strat_df.iloc[-(len(sat_thks)):]['K']
-        k_mean = (k_s.values * sat_thks.values).sum() / sat_thks.values.sum()
-        sy_mean = (sy_s.values * sat_thks.values).sum() / sat_thks.values.sum()
-        dh = avg_gw_depth - op_gw_depth
-        if dh < 0:
-            dh = 0
+    sy_s = strat_df.iloc[-(len(sat_thks)):]['sy/ss']
+    k_s = strat_df.iloc[-(len(sat_thks)):]['K']
+    k_mean = (k_s.values * sat_thks.values).sum() / sat_thks.values.sum()
+    sy_mean = (sy_s.values * sat_thks.values).sum() / sat_thks.values.sum()
+    dh = avg_gw_depth - op_gw_depth
+    if dh < 0:
+        dh = 0
 
-        # corrected drawdown for unconfined aquifer
-        dh_corrected = dh - dh*dh/(2.0*saturated_thickness)
-        transmissivity = k_mean * saturated_thickness
-        Ss = sy_mean * saturated_thickness
-        max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=dh_corrected, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
+    # corrected drawdown for unconfined aquifer
+    dh_corrected = dh - dh*dh/(2.0*saturated_thickness)
+    transmissivity = k_mean * saturated_thickness
+    Ss = sy_mean * saturated_thickness
+    max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=dh_corrected, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
 
-        #max_Q_per_well = (2 * 3.14159 * k_mean*saturated_thickness*dh) / (np.log(300))
-        Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
-        Q_per_well = min(max_Q_per_well, Qmax)
-        number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
-        number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
-                                        
-        return {"number_of_wells": number_of_wells, "Q_per_well": Q_per_well} # irrelevant for unconfined aquifer
-    
+    #max_Q_per_well = (2 * 3.14159 * k_mean*saturated_thickness*dh) / (np.log(300))
+    Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
+    Q_per_well = min(max_Q_per_well, Qmax)
+    number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
+    number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
+
+    return {"number_of_wells": number_of_wells, "Q_per_well": Q_per_well}
+
+
 def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_depth, unconfined):
-    if unconfined:
+    regime = aquifer_inference_regime(strat_df, gw_depth)
+    if not bool(unconfined) and regime == "unconfined":
+        logger.debug(
+            "Dry-well sizing follows inferred unconfined regime despite unconfined node value %r",
+            unconfined,
+        )
+
+    if regime == "unconfined":
         # thiem equation
         avg_gw_depth = np.mean(gw_depth)
         layer_depths = strat_df['thickness'].cumsum()
@@ -600,19 +649,19 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
                                         
         return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
-    else:
-        # get target recharge layer
-        target_layer_index = recharge_target_layer_row_index(strat_df)
-        depth_of_confined_unit = strat_df.iloc[0:target_layer_index]["thickness"].sum()
-        Hmax = 0.20 * depth_of_confined_unit
-        transmissivity = strat_df.iloc[target_layer_index]["K"] * strat_df.iloc[target_layer_index]["thickness"]
-        Ss = strat_df.iloc[target_layer_index]["sy/ss"] * strat_df.iloc[target_layer_index]["thickness"]
-        max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=Hmax, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
-        Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
-        Q_per_well = min(Qmax, max_Q_per_well)     
-        number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)       
-        number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
-        return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
+
+    # Confined regime: dry-well count from target confined unit / head limits
+    target_layer_index = recharge_target_layer_row_index(strat_df)
+    depth_of_confined_unit = strat_df.iloc[0:target_layer_index]["thickness"].sum()
+    Hmax_local = 0.20 * depth_of_confined_unit
+    transmissivity = strat_df.iloc[target_layer_index]["K"] * strat_df.iloc[target_layer_index]["thickness"]
+    Ss = strat_df.iloc[target_layer_index]["sy/ss"] * strat_df.iloc[target_layer_index]["thickness"]
+    max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=Hmax_local, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
+    Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
+    Q_per_well = min(Qmax, max_Q_per_well)
+    number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
+    number_of_wells = min(get_default("max_number_of_injection_wells"), number_of_wells)
+    return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
 
       
     

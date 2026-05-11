@@ -203,8 +203,15 @@ class DashboardApp:
 
 def main(port: int = 8050, open_browser: bool = True):
     """Main function to run the dashboard."""
-    dashboard = DashboardApp()
-    dashboard.run(debug=True, port=port, open_browser=open_browser)
+    if 0: # debug
+        dashboard = DashboardApp()
+        dashboard.run(debug=True, port=port, open_browser=open_browser)
+    else:
+        from waitress import serve
+        dashboard = DashboardApp()
+        serve(dashboard.app.server, host='127.0.0.1',
+         port=port, threads=4)
+
 
 
 if __name__ == "__main__":
