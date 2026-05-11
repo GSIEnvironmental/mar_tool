@@ -290,7 +290,7 @@ rules:
     type: numeric
     module: "geohydro_rules"
     function_name: "compute_rechargable_percentage"
-    dependencies: [annual_surface_recharge_volume, source_water_volume ]
+    dependencies: [annual_surface_recharge_volume, annual_injection_volume, annual_dry_well_volume, source_water_volume ]
     certainty: 0.8
     group: "Aquifer Properties"
     leaf: true

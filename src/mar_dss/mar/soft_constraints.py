@@ -54,8 +54,8 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
                 penalty = []
 
         if option.name in ["Dry Well", "Injection Well"]:
-            response = 1
-            penalty = ["Cost: Moderate extra cost for earthwork to mitigate slope"]
+            response = 0
+            penalty = []
    
     
     ground_surface_slope = {
@@ -132,20 +132,25 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         response = -1
         penalty = []
     else:
-        if vadose_biodegradable:
-            if option.name == "Surface Recharge":
-                response = 2 # warning
-                penalty = ["Warning: Vadose zone pollution is biodegradable, ensure natural attenuation is monitored"]
+        if vadose_pollution:
+            if vadose_biodegradable:
+                if option.name == "Surface Recharge":
+                    response = 2 # warning
+                    penalty = ["Warning: Vadose zone pollution is biodegradable, ensure natural attenuation is monitored"]
+                else:
+                    response = 0
+                    penalty = []
             else:
-                response = 0
-                penalty = []
+                if option.name == "Surface Recharge":
+                    response = 3
+                    penalty = ["Cost: Consider bypassing vadose zone pollution or remediation"]
+                else:            
+                    response = 2 # warning
+                    penalty = ["Action: Toxic contamination in the vadose. Although can be bypassed, mounding water table may mobilize contaminants to the aquifer"]
         else:
-            if option.name == "Surface Recharge":
-                response = 3
-                penalty = ["Cost: Consider bypassing vadose zone pollution or remediation"]
-            else:            
-                response = 2 # warning
-                penalty = ["Action: Toxic contamination in the vadose. Although can be bypassed, mounding water table may mobilize contaminants to the aquifer"]
+            response = 0
+            penalty = []
+
     vadose_biodegradable_metric = {
         "name": "Vadose zone pollution biodegradability",
         "response": response,   # 0–4
@@ -227,8 +232,12 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
                 response = 0
                 penalty = []
             else:
-                response = 3
-                penalty = ["Mitigation: Surface recharge is likely not suitable because of ground slope, infiltration, or vadose zone contamination"]
+                if option.name in ["Injection Well", "Dry Well"]:
+                    response = -1
+                    penalty = []
+                else:
+                    response = 3
+                    penalty = ["Mitigation: Surface recharge is likely not suitable because of ground slope, infiltration, or vadose zone contamination"]
     surface_recharge_suitability_metric = {
         "name": "Surface recharge suitability",
         "response": response,   # 0–4

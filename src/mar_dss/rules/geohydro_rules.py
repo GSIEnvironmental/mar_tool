@@ -577,6 +577,10 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
          'transmissivity':transmissivity, 'Ss':Ss, 'Hmax':Hmax, 'time':50, 'r':1} 
 
     # Unconfined / inferred default path (Thiem equation)
+    target_layer_index = recharge_target_layer_row_index(strat_df)
+    if strat_df.iloc[target_layer_index]["K"] < 0.2: # todo: make this general
+         return {"number_of_wells": 0, "Q_per_well": 0}
+    
     avg_gw_depth = np.mean(gw_depth)
     layer_depths = strat_df['thickness'].cumsum()
 
@@ -619,6 +623,9 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
 
     if regime == "unconfined":
         # thiem equation
+        target_layer_index = recharge_target_layer_row_index(strat_df)
+        if strat_df.iloc[target_layer_index]["K"] < 0.2: # todo: make this general
+            return {"number_of_dry_wells": 0, "Q_per_dry_well": 0}
         avg_gw_depth = np.mean(gw_depth)
         layer_depths = strat_df['thickness'].cumsum()
 
@@ -739,11 +746,26 @@ def check_vadose_residence_time_reasonable(vadose_residence_time):
 
     return unreasonble    
 
-def compute_rechargable_percentage(annual_recharge_volume, source_water_volume):
+def compute_rechargable_percentage(annual_surface_recharge_volume, 
+                                    annual_injection_volume, 
+                                    annual_dry_well_volume,
+                                    source_water_volume):
     # 
-    if annual_recharge_volume is None:
-        return None # irrelevant for confined aquifer
-    return 100.0*annual_recharge_volume / np.sum(source_water_volume)
+    if annual_surface_recharge_volume is None:
+       annual_surface_recharge_volume  = 0 # irrelevant for confined aquifer
+    if annual_injection_volume is None:
+        annual_injection_volume = 0
+    if annual_dry_well_volume is None:
+        annual_dry_well_volume = 0
+
+    rechargability_dict = {}
+    rechargability_dict["surface_recharge_percentage"] =  100.0*annual_surface_recharge_volume / np.sum(source_water_volume)
+    rechargability_dict["injection_recharge_percentage"] =  100.0*annual_injection_volume / np.sum(source_water_volume)
+    rechargability_dict["dry_well_recharge_percentage"] =  100.0*annual_dry_well_volume / np.sum(source_water_volume)
+
+    return rechargability_dict
+
+    return 100.0*annual_surface_recharge_volume / np.sum(source_water_volume)
 
 
 def compute_confined_storage_volume(confined, strat_df, Hmax, injection_wells_result, source_water_volume):  
@@ -842,6 +864,9 @@ def compute_gs_slope_significance(unconfined, gs_slope):
     
 
 def compute_surface_recharge_suitability(gs_slope_significance, inflitration_significance, rechargability, remediate):
+    if rechargability is None:
+        return None
+    surface_recharge_percentage = rechargability["surface_recharge_percentage"]
     surface_recharge_suitability = True
     if (inflitration_significance is None) or (not inflitration_significance):
         surface_recharge_suitability = False
@@ -851,7 +876,7 @@ def compute_surface_recharge_suitability(gs_slope_significance, inflitration_sig
         surface_recharge_suitability = False
         return surface_recharge_suitability
     
-    if rechargability < get_default("maximum_rechargability"):
+    if surface_recharge_percentage < get_default("maximum_rechargability"):
         surface_recharge_suitability = False
         return surface_recharge_suitability
     

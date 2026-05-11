@@ -60,14 +60,14 @@ class DecisionSupportSystem:
             if not hc["pass"]:
                 return {
                     "status": "Rejected",
-                    "cost": [],
+                    "cost": 0.0,
                     "benefit_score": 0.0,
                     "warnings": [],
                     "mitigations": [],
                 }
 
         # ---------- 2. Initialization ----------
-        cost = []
+        cost = float(option.base_cost)
         warnings = []
         mitigations = []
 

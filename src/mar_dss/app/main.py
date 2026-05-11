@@ -191,8 +191,7 @@ class DashboardApp:
             print(f"Opening browser to: {url}")
             webbrowser.open(url)
 
-        try:
-               self.app.run(debug=debug, port=port, host='127.0.0.1')
+        try:               self.app.run(debug=debug, port=port, host='127.0.0.1')
             
         except OSError as e:
             if "Address already in use" in str(e):
@@ -203,7 +202,7 @@ class DashboardApp:
 
 def main(port: int = 8050, open_browser: bool = True):
     """Main function to run the dashboard."""
-    if 0: # debug
+    if 1: # debug
         dashboard = DashboardApp()
         dashboard.run(debug=True, port=port, open_browser=open_browser)
     else:

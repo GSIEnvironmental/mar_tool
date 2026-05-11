@@ -40,12 +40,28 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
     # ==================================================================
     # Recharge Efficiency
     # ==================================================================
-    rechargable_percentage = graph.get_node_value('rechargability')
-    if rechargable_percentage is None:
-        rechargable_percentage = 0  
+    rechargability = graph.get_node_value('rechargability')
+    if rechargability is None:
+        rechargability = {}
+    surface_recharge_percentage = rechargability.get('surface_recharge_percentage', 0)
+    injection_recharge_percentage = rechargability.get('injection_recharge_percentage', 0)
+    dry_well_recharge_percentage = rechargability.get('dry_well_recharge_percentage', 0)
+    if option.name == "Surface Recharge":
+        rechargable_percentage = surface_recharge_percentage
+    elif option.name == "Injection Well":
+        rechargable_percentage = injection_recharge_percentage
+    elif option.name == "Dry Well":
+        rechargable_percentage = dry_well_recharge_percentage
+    else:
+        rechargable_percentage = 0
+  
+
+
     confined_rechargability = graph.get_node_value('confined_rechargability')
     if confined_rechargability is None:
         confined_rechargability = 0
+
+
     if aquifer_type.lower() == "Unconfined".lower():
         mx = get_default("maximum_rechargability")
         if rechargable_percentage < mx:

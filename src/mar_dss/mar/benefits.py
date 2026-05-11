@@ -15,9 +15,18 @@ def benefits(option: MAROption) -> List[Dict[str, float]]:
     # ==================================================================
     # 1. Volume of source water that can be recharged
     # ==================================================================
-    rechargable_percentage = graph.get_node_value('rechargability')
-    if rechargable_percentage is None:
+    rechargability = graph.get_node_value('rechargability')
+    if rechargability is None:
+        rechargability = {}
+    if option.name == "Surface Recharge":
+        rechargable_percentage = rechargability.get('surface_recharge_percentage', 0)
+    elif option.name == "Injection Well":
+        rechargable_percentage = rechargability.get('injection_recharge_percentage', 0)
+    elif option.name == "Dry Well":
+        rechargable_percentage = rechargability.get('dry_well_recharge_percentage', 0)
+    else:
         rechargable_percentage = 0
+
     confined_rechargability = graph.get_node_value('confined_rechargability')
     if confined_rechargability is None:
         confined_rechargability = 0
