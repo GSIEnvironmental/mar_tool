@@ -23,6 +23,11 @@ except ImportError:
 
 # Import the overview content creation function
 try:
+    from mar_dss.app.components.hydro_tab import (
+        normalize_groundwater_data,
+        normalize_stratigraphy_list_from_raw,
+        stratigraphy_store_payload_from_storage,
+    )
     from mar_dss.app.components.overview_tab import (
         create_overview_content,
         get_overview_map_header_text,
@@ -37,6 +42,11 @@ try:
     )
     from mar_dss.app.components.layout import main_tab_panel_id
 except ImportError:
+    from ..components.hydro_tab import (
+        normalize_groundwater_data,
+        normalize_stratigraphy_list_from_raw,
+        stratigraphy_store_payload_from_storage,
+    )
     from ..components.overview_tab import (
         create_overview_content,
         get_overview_map_header_text,
@@ -518,6 +528,12 @@ def setup_overview_callbacks(app):
                     except (ValueError, SyntaxError):
                         pass
 
+            if key == "stratigraphy_data":
+                coerced = normalize_stratigraphy_list_from_raw(value)
+                if coerced is None:
+                    continue
+                value = coerced
+
             dash_storage.set_data(key, value)
 
     # Callback for Open button - load project from file (native picker when available)
@@ -526,12 +542,14 @@ def setup_overview_callbacks(app):
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
         Output("project-path-input", "value", allow_duplicate=True),
         Output("top-tabs", "active_tab", allow_duplicate=True),
+        Output("stratigraphy-data-store", "data", allow_duplicate=True),
+        Output("groundwater-data-store", "data", allow_duplicate=True),
         [Input("btn-open", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_open_project(n_clicks):
         """Pick a CSV/JSON project file (Tk dialog) then load into storage."""
-        noop = (dash.no_update, dash.no_update, dash.no_update, dash.no_update)
+        noop = (dash.no_update,) * 6
         if not n_clicks:
             return noop
 
@@ -565,6 +583,8 @@ def setup_overview_callbacks(app):
                     create_overview_content(),
                     dash.no_update,
                     "overview",
+                    dash.no_update,
+                    dash.no_update,
                 )
             fn = os.path.normpath(fn.strip())
 
@@ -580,6 +600,8 @@ def setup_overview_callbacks(app):
                 create_overview_content(),
                 path_out,
                 "overview",
+                dash.no_update,
+                dash.no_update,
             )
 
         try:
@@ -608,6 +630,8 @@ def setup_overview_callbacks(app):
                 dash_storage.get_data("workspace"),
                 dash_storage.get_data("filename"),
             )
+            strat_out = stratigraphy_store_payload_from_storage()
+            gw_out = normalize_groundwater_data(dash_storage.get_data("groundwater_data") or [])
             return (
                 [
                     dbc.Alert(
@@ -619,6 +643,8 @@ def setup_overview_callbacks(app):
                 create_overview_content(),
                 path_after or path_out,
                 "overview",
+                strat_out,
+                gw_out,
             )
         except Exception as e:
             return (
@@ -632,6 +658,8 @@ def setup_overview_callbacks(app):
                 create_overview_content(),
                 path_out,
                 "overview",
+                dash.no_update,
+                dash.no_update,
             )
 
     # Callback for ground surface slope input - saves to data storage

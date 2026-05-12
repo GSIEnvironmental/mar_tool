@@ -2,6 +2,9 @@
 Hydrogeology tab content for MAR DSS dashboard.
 """
 
+import ast
+import copy
+import json
 import math
 
 import dash_bootstrap_components as dbc
@@ -31,19 +34,83 @@ default_stratigraphy_unconfined = pd.DataFrame(columns=columns)
 parameters = ["Depth of No MAR Storage Zone", "MAR Storage Zone", "Max. Groundwater Table Elevation", "Average Groundwater Table Elevation", "Min Groundwater Table Elevation", "Bedrock Depth"]
 
 
-def _get_stratigraphy_data():
-    """Get stratigraphy data from dash_storage or return defaults."""
-    stored_data = dash_storage.get_data("stratigraphy_data")
-    if stored_data:
-        if isinstance(stored_data, list):
-            normalize_stratigraphy_recharge_target(stored_data)
-            dash_storage.set_data("stratigraphy_data", stored_data)
-        return stored_data
-    default_data = [
+def default_stratigraphy_layers():
+    """Default three-layer profile used when no stratigraphy exists in storage."""
+    return [
         {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False, "recharge_target": True},
         {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False, "recharge_target": False},
         {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False, "recharge_target": False},
     ]
+
+
+def normalize_stratigraphy_list_from_raw(value):
+    """Parse ``stratigraphy_data`` from storage/CSV into a clean list of layer dicts.
+
+    - Accepts ``list[dict]`` (filters out non-dicts and empty dicts).
+    - Accepts JSON or Python literal strings (common in key/value CSV exports).
+    - Returns ``None`` if nothing usable remains (caller may fall back to defaults).
+    """
+    if value is None:
+        return None
+    if isinstance(value, float) and pd.isna(value):
+        return None
+    if hasattr(value, "item") and callable(getattr(value, "item")):
+        try:
+            value = value.item()
+        except Exception:
+            pass
+    if isinstance(value, str):
+        s = value.strip()
+        if not s or s.lower() == "nan":
+            return None
+        parsed = None
+        for parser in (json.loads, ast.literal_eval):
+            try:
+                parsed = parser(s)
+                break
+            except (ValueError, TypeError, SyntaxError, json.JSONDecodeError):
+                continue
+        if not isinstance(parsed, list):
+            return None
+        value = parsed
+    if not isinstance(value, list):
+        return None
+    rows = []
+    for item in value:
+        if not isinstance(item, dict) or not item:
+            continue
+        if item.get("layer") is None and item.get("thickness") is None:
+            continue
+        rows.append(copy.deepcopy(item))
+    return rows or None
+
+
+def stratigraphy_store_payload_from_storage():
+    """Build ``stratigraphy-data-store`` data from ``dash_storage`` (deep copy, normalized).
+
+    Does not write to ``dash_storage``. Call after project CSV/JSON load so the in-memory
+    ``dcc.Store`` matches the loaded file (the table otherwise keeps layout-time defaults
+    until the Hydro tab sync runs, which can race with other callbacks).
+    """
+    stored_data = dash_storage.get_data("stratigraphy_data")
+    coerced = normalize_stratigraphy_list_from_raw(stored_data)
+    if coerced is not None:
+        normalize_stratigraphy_recharge_target(coerced)
+        return coerced
+    rows = copy.deepcopy(default_stratigraphy_layers())
+    normalize_stratigraphy_recharge_target(rows)
+    return rows
+
+
+def _get_stratigraphy_data():
+    """Get stratigraphy data from dash_storage or return defaults."""
+    stored_data = dash_storage.get_data("stratigraphy_data")
+    coerced = normalize_stratigraphy_list_from_raw(stored_data)
+    if coerced is not None:
+        normalize_stratigraphy_recharge_target(coerced)
+        dash_storage.set_data("stratigraphy_data", coerced)
+        return coerced
+    default_data = default_stratigraphy_layers()
     normalize_stratigraphy_recharge_target(default_data)
     dash_storage.set_data("stratigraphy_data", default_data)
     return default_data
@@ -584,9 +651,7 @@ def _build_groundwater_level_tab():
                             )
                         ], width=6)
                     ], className="mb-3"),
-                    
-                    # Store for groundwater data - load from dash_storage if available
-                    dcc.Store(id="groundwater-data-store", data=_get_groundwater_data()),
+                    # groundwater-data-store is defined in layout._build_root_layout (always mounted).
                     dbc.Tooltip(
                         "Ground surface elevation used with groundwater levels for storage and graphics",
                         target="ground-surface-elevation",

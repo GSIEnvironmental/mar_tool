@@ -34,8 +34,10 @@ try:
     )
     from mar_dss.app.components.hydro_tab import (
         create_hydro_tab_content,
+        default_stratigraphy_layers,
         normalize_groundwater_data,
         normalize_stratigraphy_recharge_target,
+        stratigraphy_store_payload_from_storage,
     )
     from mar_dss.app.components.scenarios_comparison_tab import (
         create_scenarios_comparison_content,
@@ -66,8 +68,10 @@ except ImportError:
     from .components.dss_algorithm_tab import create_dss_algorithm_content
     from .components.hydro_tab import (
         create_hydro_tab_content,
+        default_stratigraphy_layers,
         normalize_groundwater_data,
         normalize_stratigraphy_recharge_target,
+        stratigraphy_store_payload_from_storage,
     )
     from .components.scenarios_comparison_tab import (
         create_scenarios_comparison_content,
@@ -340,20 +344,7 @@ def setup_main_callbacks(app, dashboard_instance):
     def sync_stratigraphy_data_store(active_tab):
         """When hydrogeology tab opens, seed the stratigraphy store from dash_storage."""
         if active_tab == "hydrogeology":
-            stored_data = dash_storage.get_data("stratigraphy_data")
-            if stored_data:
-                if isinstance(stored_data, list):
-                    rows = copy.deepcopy(stored_data)
-                    normalize_stratigraphy_recharge_target(rows)
-                    return rows
-                return stored_data
-            _fallback_strat = [
-                {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},
-                {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False},
-                {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False},
-            ]
-            normalize_stratigraphy_recharge_target(_fallback_strat)
-            return _fallback_strat
+            return stratigraphy_store_payload_from_storage()
         return dash.no_update
     
     # Add callback to sync groundwater-data-store with dash_storage when hydrogeology tab is accessed
@@ -746,13 +737,15 @@ def setup_main_callbacks(app, dashboard_instance):
             Output("main-content-flash", "children", allow_duplicate=True),
             *[Output(main_tab_panel_id(t), "children", allow_duplicate=True) for t in MAIN_TAB_IDS],
             Output("top-tabs", "active_tab", allow_duplicate=True),
+            Output("stratigraphy-data-store", "data", allow_duplicate=True),
+            Output("groundwater-data-store", "data", allow_duplicate=True),
         ],
         [Input("btn-new", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_new_project(n_clicks):
         """Handle creating a new project."""
-        noop = (dash.no_update,) * (len(MAIN_TAB_IDS) + 2)
+        noop = (dash.no_update,) * (len(MAIN_TAB_IDS) + 4)
         if n_clicks:
             # Clear all data storage (includes rule_defaults_overrides from rules.defaults).
             dash_storage.clear_data()
@@ -789,11 +782,7 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("confined_aquifer_head_ft", None)
             dash_storage.set_data("max_dry_well_depth_ft", 120.0)
             dash_storage.set_data("aquitard_conductivity_ft_day", 1e-3)
-            _strat_new = [
-                {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},
-                {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False},
-                {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False},
-            ]
+            _strat_new = default_stratigraphy_layers()
             normalize_stratigraphy_recharge_target(_strat_new)
             dash_storage.set_data("stratigraphy_data", _strat_new)
             dash_storage.set_data(
@@ -825,6 +814,8 @@ def setup_main_callbacks(app, dashboard_instance):
                 create_overview_content(),
                 *empty_rest,
                 "overview",
+                stratigraphy_store_payload_from_storage(),
+                normalize_groundwater_data(dash_storage.get_data("groundwater_data") or []),
             )
         return noop
 

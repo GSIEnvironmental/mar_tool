@@ -1,5 +1,37 @@
 from typing import Any, Dict, List
 
+
+def _numeric_cost_penalty(sm: Dict[str, Any]) -> float:
+    """Return the dollar amount to add for a soft metric (non-numeric → 0).
+
+    ``soft_constraints`` uses ``penalty`` for human-readable messages (often a
+    ``list[str]``). Only real numbers (or a list/tuple of numbers) contribute to
+    ``cost``; optional ``numeric_penalty`` / ``cost_penalty`` override when set.
+    """
+    for key in ("numeric_penalty", "cost_penalty"):
+        if key in sm and sm[key] is not None:
+            try:
+                return float(sm[key])
+            except (TypeError, ValueError):
+                pass
+    p = sm.get("penalty", 0)
+    if isinstance(p, (int, float)) and not isinstance(p, bool):
+        try:
+            return float(p)
+        except (TypeError, ValueError):
+            return 0.0
+    if isinstance(p, (list, tuple)):
+        total = 0.0
+        for x in p:
+            if isinstance(x, (int, float)) and not isinstance(x, bool):
+                try:
+                    total += float(x)
+                except (TypeError, ValueError):
+                    continue
+        return total
+    return 0.0
+
+
 class DecisionSupportSystem:
     """
     Generic rule-based Decision Support System (DSS).
@@ -32,7 +64,7 @@ class DecisionSupportSystem:
             [{
                 "name": str,
                 "response": int,   # 0–4
-                "penalty": float
+                "penalty": float | list[str]   # optional dollar bump, else messages only
             }]
 
         benefit_metrics:
@@ -102,7 +134,7 @@ class DecisionSupportSystem:
                 }
 
             if level >= 1:
-                cost += sm["penalty"]
+                cost += _numeric_cost_penalty(sm)
 
             if level == 2:
                 warnings.append(sm["name"])

@@ -481,11 +481,12 @@ def _build_content_area() -> dbc.Row:
 
 
 def _build_root_layout() -> html.Div:
-    # Single stratigraphy store (must match hydro tab callbacks). Duplicate ids caused
-    # updates to bind to an empty store while get_graph_inputs read dash_storage out of sync.
-    from mar_dss.app.components.hydro_tab import _get_stratigraphy_data
+    # Stratigraphy and groundwater stores live here (not inside lazy-loaded hydro panels)
+    # so project Load/New callbacks and dash_storage stay in sync before Hydro is opened.
+    from mar_dss.app.components.hydro_tab import _get_groundwater_data, _get_stratigraphy_data
 
     stratigraphy_store_initial = _get_stratigraphy_data()
+    groundwater_store_initial = _get_groundwater_data()
     return html.Div(
         [
             _create_theme_link("CERULEAN"),
@@ -500,6 +501,11 @@ def _build_root_layout() -> html.Div:
             dcc.Store(
                 id="stratigraphy-data-store",
                 data=stratigraphy_store_initial,
+                storage_type="memory",
+            ),
+            dcc.Store(
+                id="groundwater-data-store",
+                data=groundwater_store_initial,
                 storage_type="memory",
             ),
             # Bumped when stratigraphy / groundwater is copied into dash_storage (avoid

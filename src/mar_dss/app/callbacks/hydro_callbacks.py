@@ -17,6 +17,7 @@ from mar_dss.app.components.hydro_tab import (
     _build_initial_feasibility_traffic_placeholder,
     _rule_def_input_id,
     normalize_groundwater_data,
+    normalize_stratigraphy_list_from_raw,
     normalize_stratigraphy_recharge_target,
 )
 
@@ -725,13 +726,24 @@ def setup_hydro_callbacks(app):
         ctx = callback_context
         if not ctx.triggered:
             return data
-        
-        current_data = data or []
-        
-        button_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        
-        if button_id == "add-layer-btn":
-            # Add new layer (default to Sand)
+
+        # Never mutate the Store's list in place — append/move on a shared reference
+        # races with other callbacks and can produce phantom default rows.
+        current_data = copy.deepcopy(data or [])
+
+        trig_prop = ctx.triggered[0]["prop_id"]
+        tid = getattr(ctx, "triggered_id", None)
+        if tid is None and isinstance(trig_prop, str) and ".n_clicks" in trig_prop:
+            tid = trig_prop.rsplit(".", 1)[0]
+
+        ac = add_clicks if add_clicks is not None else 0
+        dc = delete_clicks if delete_clicks is not None else 0
+        muc = move_up_clicks if move_up_clicks is not None else 0
+        mdc = move_down_clicks if move_down_clicks is not None else 0
+
+        if tid == "add-layer-btn":
+            if ac < 1:
+                return data
             new_layer = {
                 "layer": "Sand",
                 "thickness": 60.0,
@@ -742,22 +754,27 @@ def setup_hydro_callbacks(app):
                 "recharge_target": False,
             }
             current_data.append(new_layer)
-            
-        elif button_id == "delete-layer-btn":
-            # Delete selected layers
+
+        elif tid == "delete-layer-btn":
+            if dc < 1:
+                return data
             current_data = [row for row in current_data if not row.get("selected", False)]
-            
-        elif button_id == "move-up-btn":
-            # Move selected layers up
+
+        elif tid == "move-up-btn":
+            if muc < 1:
+                return data
             for i in range(1, len(current_data)):
-                if current_data[i].get("selected", False) and not current_data[i-1].get("selected", False):
-                    current_data[i], current_data[i-1] = current_data[i-1], current_data[i]
-                    
-        elif button_id == "move-down-btn":
-            # Move selected layers down
-            for i in range(len(current_data)-2, -1, -1):
-                if current_data[i].get("selected", False) and not current_data[i+1].get("selected", False):
-                    current_data[i], current_data[i+1] = current_data[i+1], current_data[i]
+                if current_data[i].get("selected", False) and not current_data[i - 1].get("selected", False):
+                    current_data[i], current_data[i - 1] = current_data[i - 1], current_data[i]
+
+        elif tid == "move-down-btn":
+            if mdc < 1:
+                return data
+            for i in range(len(current_data) - 2, -1, -1):
+                if current_data[i].get("selected", False) and not current_data[i + 1].get("selected", False):
+                    current_data[i], current_data[i + 1] = current_data[i + 1], current_data[i]
+        else:
+            return data
 
         normalize_stratigraphy_recharge_target(current_data)
         return current_data
@@ -820,7 +837,7 @@ def setup_hydro_callbacks(app):
         """Update table data when inputs change."""
         if not data:
             return data
-        
+        data = copy.deepcopy(data)
         # Update data with new values
         for i, row in enumerate(data):
             if i < len(checkbox_values):
@@ -1579,9 +1596,10 @@ def setup_hydro_callbacks(app):
 
         try:
             if strat_store is not None:
-                rows = list(strat_store)
-                normalize_stratigraphy_recharge_target(rows)
-                dash_storage.set_data("stratigraphy_data", rows)
+                rows = normalize_stratigraphy_list_from_raw(strat_store)
+                if rows is not None:
+                    normalize_stratigraphy_recharge_target(rows)
+                    dash_storage.set_data("stratigraphy_data", rows)
             if gw_store is not None:
                 dash_storage.set_data("groundwater_data", gw_store)
             if gs_elev is not None and str(gs_elev).strip() != "":
