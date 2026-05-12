@@ -2,6 +2,7 @@
 Hydrogeology tab callbacks for MAR DSS dashboard.
 """
 
+import copy
 import math
 
 import dash
@@ -417,30 +418,35 @@ def setup_hydro_callbacks(app):
         )
         return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
 
-    # Callback to save stratigraphy data to dash_storage when store updates
+    # Persist stratigraphy store → dash_storage (do not Output to the same Store as Input;
+    # that pattern is unreliable in Dash). Ping store is only for a legal Output target.
     @app.callback(
-        Output("stratigraphy-data-store", "data", allow_duplicate=True),
+        Output("stratigraphy-dash-sync-ping", "data"),
         [Input("stratigraphy-data-store", "data")],
-        prevent_initial_call=True
+        [State("stratigraphy-dash-sync-ping", "data")],
+        prevent_initial_call=True,
     )
-    def save_stratigraphy_to_storage(data):
+    def save_stratigraphy_to_storage(data, prev_ping):
         """Save stratigraphy data to dash_storage when store updates."""
         if data:
-            normalize_stratigraphy_recharge_target(data)
-            dash_storage.set_data("stratigraphy_data", data)
-        return dash.no_update
-    
-    # Callback to save groundwater data to dash_storage when store updates
+            rows = copy.deepcopy(data)
+            normalize_stratigraphy_recharge_target(rows)
+            dash_storage.set_data("stratigraphy_data", rows)
+        n = prev_ping if isinstance(prev_ping, int) else 0
+        return n + 1
+
     @app.callback(
-        Output("groundwater-data-store", "data", allow_duplicate=True),
+        Output("groundwater-dash-sync-ping", "data"),
         [Input("groundwater-data-store", "data")],
-        prevent_initial_call=True
+        [State("groundwater-dash-sync-ping", "data")],
+        prevent_initial_call=True,
     )
-    def save_groundwater_to_storage(data):
+    def save_groundwater_to_storage(data, prev_ping):
         """Save groundwater data to dash_storage when store updates."""
         if data:
-            dash_storage.set_data("groundwater_data", data)
-        return dash.no_update
+            dash_storage.set_data("groundwater_data", copy.deepcopy(data))
+        n = prev_ping if isinstance(prev_ping, int) else 0
+        return n + 1
     
     # Callback to save ground surface elevation to data storage
     @app.callback(

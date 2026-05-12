@@ -1,6 +1,7 @@
 """
 Main dashboard callbacks for MAR DSS.
 """
+import copy
 import tempfile
 import os
 from datetime import datetime
@@ -156,6 +157,39 @@ def setup_main_callbacks(app, dashboard_instance):
         prevent_initial_call=False,
     )
 
+    # Bump analysis-rerun-count on every click of the (7) Analysis tab (including re-click).
+    app.clientside_callback(
+        """
+        function(active_tab) {
+            if (!window.__marAnalysisTopTabClickHook) {
+                window.__marAnalysisTopTabClickHook = true;
+                var root = document.getElementById("top-tabs");
+                if (root) {
+                    root.addEventListener("click", function(ev) {
+                        var tab = ev.target && ev.target.closest && ev.target.closest('[role="tab"]');
+                        if (!tab || !root.contains(tab)) return;
+                        var txt = (tab.textContent || "").trim();
+                        if (txt.indexOf("(7)") === -1) return;
+                        window.__marRC = (window.__marRC || 0) + 1;
+                        try {
+                            if (typeof dash_clientside !== "undefined" && dash_clientside.set_props) {
+                                dash_clientside.set_props(
+                                    "analysis-rerun-count",
+                                    {data: window.__marRC}
+                                );
+                            }
+                        } catch (e) {}
+                    }, true);
+                }
+            }
+            return dash_clientside.no_update;
+        }
+        """,
+        Output("analysis-rerun-count", "data"),
+        Input("top-tabs", "active_tab"),
+        prevent_initial_call=False,
+    )
+
     @app.callback(
         [Output(main_tab_panel_id(t), "children") for t in MAIN_TAB_IDS],
         Input("top-tabs", "active_tab"),
@@ -304,12 +338,14 @@ def setup_main_callbacks(app, dashboard_instance):
         prevent_initial_call=True
     )
     def sync_stratigraphy_data_store(active_tab):
-        """Sync stratigraphy-data-store with dash_storage when hydrogeology tab is accessed."""
+        """When hydrogeology tab opens, seed the stratigraphy store from dash_storage."""
         if active_tab == "hydrogeology":
             stored_data = dash_storage.get_data("stratigraphy_data")
             if stored_data:
                 if isinstance(stored_data, list):
-                    normalize_stratigraphy_recharge_target(stored_data)
+                    rows = copy.deepcopy(stored_data)
+                    normalize_stratigraphy_recharge_target(rows)
+                    return rows
                 return stored_data
             _fallback_strat = [
                 {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False},

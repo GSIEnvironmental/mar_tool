@@ -4,7 +4,7 @@ Callbacks for the Analysis tab lazy loading.
 from pathlib import Path
 import logging
 import dash
-from dash import Input, Output, html
+from dash import Input, Output, State, html
 import dash_bootstrap_components as dbc
 import mar_dss
 import mar_dss.app.utils.data_storage as dash_storage
@@ -22,8 +22,10 @@ from mar_dss.rules.geohydro_rules import (
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph, forward_run
 from mar_dss.base import DecisionGraph
 import pandas as pd
+import copy
 import hashlib
 import json
+import time
 import numpy as np
 
 # Set up logging
@@ -895,10 +897,10 @@ def run_integrated_analysis():
 
 
 def run_feasibility_analysis():
-    """Run the feasibility analysis only if inputs have changed (hash-based caching).
-    
-    However, always ensures DSS results exist - if they don't, runs integrated analysis
-    even if inputs haven't changed.
+    """Run the full feasibility pipeline (graph evaluation, costs, DSS).
+
+    Hash-based skip logic is disabled; each call runs :func:`run_integrated_analysis`.
+    The Analysis tab invokes this on every visit to refresh ``dss_results``.
     """
     # Get current inputs
     inputs = get_graph_inputs()
@@ -926,8 +928,7 @@ def run_feasibility_analysis():
         
     #     return 1
     
-    # Inputs have changed, run the analysis
-    logger.info(f"Feasibility analysis running - inputs changed (hash: {current_hash[:8]}...)")
+    logger.info(f"Feasibility analysis running (inputs hash: {current_hash[:8]}...)")
 
     # Store the new hash for next time
     dash_storage.set_data("feasibility_analysis_hash", current_hash)
@@ -939,58 +940,52 @@ def run_feasibility_analysis():
 
 def setup_analysis_callbacks(app):
     """Set up callbacks for lazy loading analysis tab content."""
-    
-    # Callback to initialize knowledge graph when Analysis tab is accessed
+
     @app.callback(
         Output("knowledge-graph-store", "data"),
-        [Input("top-tabs", "active_tab")],
-        prevent_initial_call=False
+        [
+            Input("top-tabs", "active_tab"),
+            Input("analysis-rerun-count", "data"),
+            Input("analysis-tabs", "active_tab"),
+        ],
+        [State("stratigraphy-data-store", "data")],
+        prevent_initial_call=False,
     )
-    def initialize_knowledge_graph(active_tab):
-        """Initialize knowledge graph when Analysis tab is accessed.
-        
-        This callback runs FIRST when Analysis tab is accessed.
-        It initializes the decision graph and stores it.
-        """
-        if active_tab == "analysis":
-            # Do not overwrite an existing graph here: duplicate callbacks can reorder,
-            # and replacing storage after feasibility analysis swaps in an unevaluated graph.
-            if dash_storage.get_data("decision_graph") is None:
-                graph = read_knowledge()
-                dash_storage.set_data("decision_graph", graph)
-                logger.debug("Knowledge graph initialized from YAML")
-            return {"initialized": True, "graph_ready": True}
-        return dash.no_update
-    
-    # Callback to trigger analysis when Analysis tab is accessed
-    # This runs AFTER initialize_knowledge_graph because it uses allow_duplicate
-    @app.callback(
-        Output("knowledge-graph-store", "data", allow_duplicate=True),
-        [Input("top-tabs", "active_tab")],
-        prevent_initial_call='initial_duplicate'
-    )
-    def handle_analysis_tab_access(active_tab):
-        """Handle when Analysis tab is selected - trigger feasibility analysis.
-        
-        This callback runs SECOND when Analysis tab is accessed.
-        It ensures the graph is initialized, then runs feasibility analysis.
-        This must complete before Feasibilities tab callbacks can access the results.
-        """
-        # Trigger when Analysis tab is selected
-        if active_tab == "analysis":
-            # Ensure graph is initialized first (ordering vs. initialize_knowledge_graph is not guaranteed)
-            graph = dash_storage.get_data("decision_graph")
-            if graph is None:
-                logger.warning("Graph not initialized, initializing now...")
-                graph = read_knowledge()
-                dash_storage.set_data("decision_graph", graph)
+    def on_analysis_top_tab(active_tab, rerun_count, analysis_sub_tab, strat_store):
+        """Re-run the integrated pipeline when Analysis is shown, re-clicked, or sub-tab changes.
 
-            # Runs integrated analysis → evaluate graph, costs, forward_run, store dss_results
-            logger.debug("Running feasibility analysis from Analysis tab callback")
-            run_feasibility_analysis()
-            logger.debug("Feasibility analysis completed - results available for Feasibilities tab")
+        ``active_tab`` (top) does not change when the user clicks (7) Analysis again;
+        ``analysis-rerun-count`` (clientside) covers that. ``analysis-tabs`` covers
+        switching among Feasibilities, Cost, DSS Algorithm, etc., while staying on
+        the Analysis top tab.
+        """
+        if active_tab != "analysis":
+            return dash.no_update
 
-        return dash.no_update
+        if strat_store is not None and isinstance(strat_store, list) and len(strat_store) > 0:
+            rows = copy.deepcopy(strat_store)
+            normalize_stratigraphy_recharge_target(rows)
+            dash_storage.set_data("stratigraphy_data", rows)
+
+        if dash_storage.get_data("decision_graph") is None:
+            graph = read_knowledge()
+            dash_storage.set_data("decision_graph", graph)
+            logger.debug("Knowledge graph initialized from YAML")
+
+        logger.debug(
+            "Running feasibility analysis (top=analysis sub=%s rerun_count=%s)",
+            analysis_sub_tab,
+            rerun_count,
+        )
+        run_feasibility_analysis()
+        logger.debug("Feasibility analysis completed - results available for Feasibilities tab")
+
+        return {
+            "initialized": True,
+            "graph_ready": True,
+            "last_analysis_at": time.time(),
+        }
+
     
     # DISABLED: Callback removed because Feasibility Summary tab was removed
     # This callback populated technology cards in the removed tab

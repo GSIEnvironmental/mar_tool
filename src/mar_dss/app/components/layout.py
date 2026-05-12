@@ -366,7 +366,10 @@ def _build_main_card_body() -> list:
             id="main-content",
             children=[
                 dcc.Store(id="main-tab-clientside-sync", data=0),
-                html.Div(id="main-content-flash", className="mb-2"),
+                html.Div(
+                    id="main-content-flash",
+                    className="mb-2 mar-main-content-flash",
+                ),
                 html.Div(id="main-tab-panels-wrapper", children=tab_panels),
             ],
         )
@@ -478,6 +481,11 @@ def _build_content_area() -> dbc.Row:
 
 
 def _build_root_layout() -> html.Div:
+    # Single stratigraphy store (must match hydro tab callbacks). Duplicate ids caused
+    # updates to bind to an empty store while get_graph_inputs read dash_storage out of sync.
+    from mar_dss.app.components.hydro_tab import _get_stratigraphy_data
+
+    stratigraphy_store_initial = _get_stratigraphy_data()
     return html.Div(
         [
             _create_theme_link("CERULEAN"),
@@ -490,8 +498,16 @@ def _build_root_layout() -> html.Div:
                 id="app-container",
             ),
             dcc.Store(
-                id="stratigraphy-data-store", data=[], storage_type="memory"
+                id="stratigraphy-data-store",
+                data=stratigraphy_store_initial,
+                storage_type="memory",
             ),
+            # Bumped when stratigraphy / groundwater is copied into dash_storage (avoid
+            # circular callbacks that write the same dcc.Store they listen to).
+            dcc.Store(id="stratigraphy-dash-sync-ping", data=0),
+            dcc.Store(id="groundwater-dash-sync-ping", data=0),
+            # Incremented on every (7) Analysis top-tab click (including re-clicks).
+            dcc.Store(id="analysis-rerun-count", data=0),
         ]
     )
 

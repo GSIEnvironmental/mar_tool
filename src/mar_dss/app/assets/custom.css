@@ -1,3 +1,9 @@
+/* Cap height of global flash messages so they do not push tab content far down */
+.mar-main-content-flash {
+  max-height: 10.5rem;
+  overflow-y: auto;
+}
+
 /* Improve visibility of active tab across themes */
 .nav-tabs .nav-link,
 .nav-pills .nav-link {

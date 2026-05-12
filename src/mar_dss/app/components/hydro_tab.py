@@ -508,9 +508,6 @@ def _build_stratigraphy_tab():
                         responsive=True,
                         className="mb-3"
                     ),
-                    
-                    # Store for table data - load from dash_storage if available
-                    dcc.Store(id="stratigraphy-data-store", data=_get_stratigraphy_data()),
                 ],
                 id="stratigraphy-content"
             )

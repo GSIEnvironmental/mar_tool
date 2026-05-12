@@ -967,22 +967,29 @@ def setup_feasibilities_callbacks(app):
          Output("maintenance-cost-chart", "figure"),
          Output("npv-cost-chart", "figure"),
          Output("spider-plots-container", "children")],
-        [Input("analysis-tabs", "active_tab")],
+        [
+            Input("analysis-tabs", "active_tab"),
+            Input("knowledge-graph-store", "data"),
+        ],
         prevent_initial_call=False
     )
-    def update_feasibilities_dashboard(active_tab):
+    def update_feasibilities_dashboard(active_tab, _graph_store):
         """Update Executive Summary and Decision Funnel based on DSS results.
         
+        Listens to ``knowledge-graph-store`` so the Feasibilities view refreshes whenever
+        the Analysis pipeline finishes (e.g. selecting the Analysis top tab), not only when
+        switching away from and back to this sub-tab.
+        
         This callback depends on Analysis tab callbacks completing first.
-        When Feasibilities tab is accessed, it ensures analysis has run and then
+        When Feasibilities sub-tab is selected, it ensures analysis has run and then
         displays the results.
         
         Execution order:
         1. Analysis tab callbacks run (initialize graph, run feasibility analysis)
-        2. This callback runs when Feasibilities sub-tab is selected
+        2. This callback runs when Feasibilities sub-tab is selected or graph store updates
         3. Then it accesses and displays the results
         """
-        # Only trigger when Feasibilities sub-tab is selected
+        # Only refresh Feasibilities UI when this sub-tab is active
         if active_tab != "analysis-feasibilities":
             return (dash.no_update, dash.no_update, dash.no_update, 
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,

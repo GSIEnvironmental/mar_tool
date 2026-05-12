@@ -92,7 +92,7 @@ class DecisionSupportSystem:
             """
 
              # ---------- Promotion to hard constraint ----------
-            if sm.get("hard", True) and level >= 2:
+            if sm.get("hard", False) and level >= 2:
                 return {
                     "status": "Rejected",
                     "cost": option.base_cost,
