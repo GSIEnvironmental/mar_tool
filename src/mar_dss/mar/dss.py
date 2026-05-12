@@ -169,6 +169,12 @@ class DecisionSupportSystem:
         - Benefits: Convert percentage to points (100% = 10 points)
         - Score = (actual_points / ideal_points) × 100%
         
+        Hard constraints in MAR DSS are physical / hydrogeologic feasibility checks only
+        (see ``mar.hard_constraints``). If any fail, the option is rejected in
+        :meth:`evaluate`, but environmental and regulation scores are still derived from
+        their soft metrics so dashboards (e.g. spider plots) can show those dimensions.
+        In that case only ``hydrogeologic`` is forced to 0.0 here.
+        
         Returns:
             {
                 "hydrogeologic": float (0-100),
@@ -176,16 +182,9 @@ class DecisionSupportSystem:
                 "regulation": float (0-100)
             }
         """
-        # Step 1: Check hard constraints
-        for hc in self.hard_constraints:
-            if not hc.get("pass", True):
-                return {
-                    "hydrogeologic": 0.0,
-                    "environmental": 0.0,
-                    "regulation": 0.0
-                }
-        
-        # Step 2: Group soft constraints by type
+        hard_fail = any(not hc.get("pass", True) for hc in self.hard_constraints)
+
+        # Group soft constraints by type
         type_constraints = {
             "hydrogeologic": [],
             "environmental": [],
@@ -239,5 +238,8 @@ class DecisionSupportSystem:
             
             # Clamp to [0, 100]
             scores[constraint_type] = max(0.0, min(100.0, type_score))
-        
+
+        if hard_fail:
+            scores["hydrogeologic"] = 0.0
+
         return scores
