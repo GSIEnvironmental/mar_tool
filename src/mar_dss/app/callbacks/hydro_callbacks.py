@@ -190,15 +190,149 @@ def _extent_padded_square_from_axes(xi, yi, *, pad_ratio=0.04):
 XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT = 0.02  # 2% (ft/ft)
 
 
+def _footprint_corners(half_length, half_width, rotation_deg):
+    """Closed polygon for the horizontal-extension footprint (local x = length, y = width)."""
+    import numpy as np
+
+    hl = float(half_length)
+    hw = float(half_width)
+    local = np.array(
+        [
+            [-hl, -hw],
+            [hl, -hw],
+            [hl, hw],
+            [-hl, hw],
+            [-hl, -hw],
+        ],
+        dtype=float,
+    )
+    ang = np.radians(float(rotation_deg))
+    cos_a, sin_a = np.cos(ang), np.sin(ang)
+    x_w = cos_a * local[:, 0] - sin_a * local[:, 1]
+    y_w = sin_a * local[:, 0] + cos_a * local[:, 1]
+    return x_w, y_w
+
+
+def _axis_ranges_for_footprint(half_length, half_width, rotation_deg, *, pad_ratio=0.06):
+    """Axis limits that frame the rotated length × width footprint."""
+    import numpy as np
+
+    x_c, y_c = _footprint_corners(half_length, half_width, rotation_deg)
+    x_min, x_max = float(np.min(x_c)), float(np.max(x_c))
+    y_min, y_max = float(np.min(y_c)), float(np.max(y_c))
+    pad_x = pad_ratio * max(x_max - x_min, 1.0)
+    pad_y = pad_ratio * max(y_max - y_min, 1.0)
+    return (x_min - pad_x, x_max + pad_x), (y_min - pad_y, y_max + pad_y)
+
+
+def _mask_z_outside_footprint(x_plot, y_plot, z_plot, half_length, half_width, rotation_deg):
+    """NaN-out contour samples outside the rotated MAR footprint box."""
+    import numpy as np
+
+    z = np.asarray(z_plot, dtype=float).copy()
+    x1d = np.asarray(x_plot, dtype=float).ravel()
+    y1d = np.asarray(y_plot, dtype=float).ravel()
+    if z.ndim == 1:
+        if z.size != x1d.size * y1d.size:
+            return z
+        z = z.reshape(len(y1d), len(x1d))
+    X, Y = np.meshgrid(x1d, y1d, indexing="xy")
+    ang = np.radians(float(rotation_deg))
+    cos_a, sin_a = np.cos(ang), np.sin(ang)
+    x_loc = cos_a * X + sin_a * Y
+    y_loc = -sin_a * X + cos_a * Y
+    hl = float(half_length)
+    hw = float(half_width)
+    outside = (np.abs(x_loc) > hl + 1e-9) | (np.abs(y_loc) > hw + 1e-9)
+    z[outside] = np.nan
+    return z
+
+
+def _add_footprint_outline(fig, half_length, half_width, rotation_deg):
+    """Draw the rotated horizontal-extension rectangle on the XY plan view."""
+    x_c, y_c = _footprint_corners(half_length, half_width, rotation_deg)
+    fig.add_trace(
+        go.Scatter(
+            x=x_c,
+            y=y_c,
+            mode="lines",
+            line=dict(color="#212529", width=2),
+            name="MAR footprint",
+            hoverinfo="skip",
+        )
+    )
+
+
+def _prepare_contour_axes(
+    x1d,
+    y1d,
+    z,
+    rotation_deg,
+    *,
+    half_length,
+    half_width,
+    n_boost=96,
+):
+    """
+    Rotate a rectilinear contour grid, resample for Plotly, and clip to the footprint.
+    """
+    import numpy as np
+
+    z = np.asarray(z, dtype=float)
+    x1d = np.asarray(x1d, dtype=float)
+    y1d = np.asarray(y1d, dtype=float)
+    if abs(float(rotation_deg)) < 1e-9:
+        xp, yp, zp = x1d, y1d, z
+    else:
+        Xg, Yg = np.meshgrid(x1d, y1d, indexing="xy")
+        ang = np.radians(float(rotation_deg))
+        cos_a, sin_a = np.cos(ang), np.sin(ang)
+        Xr = cos_a * Xg - sin_a * Yg
+        Yr = sin_a * Xg + cos_a * Yg
+        xp, yp, zp = rectilinear_grid_for_plotly_contour(Xr, Yr, z, n_boost=n_boost)
+
+    zp = _mask_z_outside_footprint(xp, yp, zp, half_length, half_width, rotation_deg)
+    return xp, yp, zp
+
+
+def _prepare_contour_from_mesh(
+    x_mesh,
+    y_mesh,
+    z,
+    rotation_deg,
+    *,
+    half_length,
+    half_width,
+    n_boost=96,
+):
+    """Rotate a 2-D mesh grid, resample for Plotly, and clip to the footprint."""
+    import numpy as np
+
+    z = np.asarray(z, dtype=float)
+    xm = np.asarray(x_mesh, dtype=float)
+    ym = np.asarray(y_mesh, dtype=float)
+    if abs(float(rotation_deg)) < 1e-9:
+        Xg, Yg = xm, ym
+    else:
+        ang = np.radians(float(rotation_deg))
+        cos_a, sin_a = np.cos(ang), np.sin(ang)
+        Xg = cos_a * xm - sin_a * ym
+        Yg = sin_a * xm + cos_a * ym
+    xi, yi, zi = rectilinear_grid_for_plotly_contour(Xg, Yg, z, n_boost=n_boost)
+    zi = _mask_z_outside_footprint(xi, yi, zi, half_length, half_width, rotation_deg)
+    return xi, yi, zi
+
+
 def _add_confined_theis_contour_to_figure(
     fig,
     strat_in,
     half_length,
     half_width,
     *,
+    rotation_deg=0.0,
     n_clicks=0,
 ):
-    """Add confined Theis + regional-gradient contour trace; return axis extents if ok."""
+    """Add confined Theis + regional-gradient contour clipped to the footprint."""
     import numpy as np
 
     theis_pack = build_confined_theis_xy_plot_dict(
@@ -219,7 +353,7 @@ def _add_confined_theis_contour_to_figure(
             showarrow=False,
             font=dict(size=12, color="#b45309"),
         )
-        return fig, None, None
+        return fig, False
 
     Z = np.asarray(theis_pack["drawdown_ft"], dtype=float)
     x1d = np.asarray(theis_pack["x"], dtype=float)
@@ -227,12 +361,19 @@ def _add_confined_theis_contour_to_figure(
     Xg, _Yg = np.meshgrid(x1d, y1d, indexing="xy")
     Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xg
     Z = Z + Z_background
-    plan_x_range, plan_y_range = _extent_for_radial_contour_z(Z, x1d, y1d)
+    xp, yp, zp = _prepare_contour_axes(
+        x1d,
+        y1d,
+        Z,
+        rotation_deg,
+        half_length=half_length,
+        half_width=half_width,
+    )
     fig.add_trace(
         go.Contour(
-            x=x1d,
-            y=y1d,
-            z=Z,
+            x=xp,
+            y=yp,
+            z=zp,
             colorscale="Jet",
             name="Mound + 2% regional gradient",
             colorbar=dict(title="Mound + gradient (ft)"),
@@ -245,7 +386,7 @@ def _add_confined_theis_contour_to_figure(
             uirevision=str(n_clicks or 0),
         )
     )
-    return fig, plan_x_range, plan_y_range
+    return fig, True
 
 
 def setup_hydro_callbacks(app):
@@ -1375,26 +1516,21 @@ def setup_hydro_callbacks(app):
         # Create the plot
         fig = go.Figure()
         contour_style = "theis" if is_confined else "hantush"
-        
-        rotation_rad = np.radians(rotation)
-        cos_rot = np.cos(rotation_rad)
-        sin_rot = np.sin(rotation_rad)
-        rotation_matrix = np.array([[cos_rot, -sin_rot], [sin_rot, cos_rot]])
 
         half_length = length / 2
         half_width = width / 2
-        fallback_half = max(half_length, half_width) * 1.02
-        xy_range_fallback = ((-fallback_half, fallback_half), (-fallback_half, fallback_half))
-        plan_x_range = None
-        plan_y_range = None
+        footprint_x_range, footprint_y_range = _axis_ranges_for_footprint(
+            half_length, half_width, rotation
+        )
 
         if is_confined:
             strat_in = dash_storage.get_data("stratigraphy_data")
-            fig, plan_x_range, plan_y_range = _add_confined_theis_contour_to_figure(
+            fig, _contour_ok = _add_confined_theis_contour_to_figure(
                 fig,
                 strat_in,
                 half_length,
                 half_width,
+                rotation_deg=rotation,
                 n_clicks=n_clicks,
             )
         else:
@@ -1429,11 +1565,14 @@ def setup_hydro_callbacks(app):
                     Ymesh = np.asarray(mound_pack["y_grid"], dtype=float)
                     Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
                     Z = Z + Z_background
-                    xi, yi, Zi = rectilinear_grid_for_plotly_contour(
-                        Xmesh, Ymesh, Z, n_boost=96
+                    xi, yi, Zi = _prepare_contour_from_mesh(
+                        Xmesh,
+                        Ymesh,
+                        Z,
+                        rotation,
+                        half_length=half_length,
+                        half_width=half_width,
                     )
-                    # Full mirrored domain — radial zoom assumes symmetry; tilt + gradient biases the mask.
-                    plan_x_range, plan_y_range = _extent_padded_square_from_axes(xi, yi)
                     fig.add_trace(
                         go.Contour(
                             x=xi,
@@ -1467,14 +1606,16 @@ def setup_hydro_callbacks(app):
             else:
                 # Surface recharge not possible — fall back to confined Theis contours.
                 contour_style = "theis"
-                fig, plan_x_range, plan_y_range = _add_confined_theis_contour_to_figure(
+                fig, _contour_ok = _add_confined_theis_contour_to_figure(
                     fig,
                     strat_in,
                     half_length,
                     half_width,
+                    rotation_deg=rotation,
                     n_clicks=n_clicks,
                 )
-       
+
+        _add_footprint_outline(fig, half_length, half_width, rotation)
 
         # Update layout
         xy_title = (
@@ -1482,11 +1623,7 @@ def setup_hydro_callbacks(app):
             if contour_style == "theis"
             else "XY View — unconfined Hantush mound"
         )
-        xr, yr = (
-            (plan_x_range, plan_y_range)
-            if plan_x_range is not None and plan_y_range is not None
-            else xy_range_fallback
-        )
+        xr, yr = footprint_x_range, footprint_y_range
         fig.update_layout(
             title={
                 "text": xy_title,
