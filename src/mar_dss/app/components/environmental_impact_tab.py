@@ -8,6 +8,7 @@ from dash import dcc, html, dash_table
 import plotly.graph_objects as go
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # --- Data Structures for Logic and Display ---
 
@@ -826,16 +827,34 @@ def create_environmental_considerations_content():
 def create_environmental_impact_content():
     """Create the Environmental Impact tab content with sub-tabs."""
     return [
-        dbc.Tabs([
-            dbc.Tab(
-                label="4.1 Water Quality and Geochemistry",
-                tab_id="water-quality-tab",
-                children=create_water_quality_content()
-            ),
-            dbc.Tab(
-                label="4.2 Environmental Considerations",
-                tab_id="environmental-considerations-tab",
-                children=create_environmental_considerations_content()
-            )
-        ], id="environmental-subtabs", active_tab="water-quality-tab")
+        html.Div(
+            [
+                dbc.Tabs(
+                    [
+                        dbc.Tab(
+                            label="4.1 Water Quality and Geochemistry",
+                    id=tab_nav_id("water-quality-tab"),
+                            tab_id="water-quality-tab",
+                            children=create_water_quality_content(),
+                        ),
+                        dbc.Tab(
+                            label="4.2 Environmental Considerations",
+                    id=tab_nav_id("environmental-considerations-tab"),
+                            tab_id="environmental-considerations-tab",
+                            children=create_environmental_considerations_content(),
+                        ),
+                    ],
+                    id="environmental-subtabs",
+                    active_tab="water-quality-tab",
+                ),
+                tab_tooltip(
+                    "water-quality-tab",
+                    "Stepwise source water suitability assessment and treatment recommendations",
+                ),
+                tab_tooltip(
+                    "environmental-considerations-tab",
+                    "MAR environmental factors and AI-generated site considerations",
+                ),
+            ]
+        )
     ]

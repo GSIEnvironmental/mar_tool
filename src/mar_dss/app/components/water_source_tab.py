@@ -12,6 +12,7 @@ import requests
 from dash import dcc, dash_table, html
 from dash.dash_table.Format import Format, Scheme
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 from .runoff_calculator_tab import create_runoff_calculator_tab, create_curve_number_tab
 
 
@@ -835,43 +836,57 @@ def _create_optional_runoff_calculations_card():
             ),
             dbc.CardBody(
                 [
-                    dbc.Tabs(
+                    html.Div(
                         [
-                            dbc.Tab(
-                                label="Runoff Calculator",
-                                tab_id="curve-number",
-                                children=create_curve_number_tab(),
-                                label_style={
-                                    "color": "#ffffff",
-                                    "fontWeight": "bold",
-                                    "backgroundColor": "#28a745",
-                                    "border": "1px solid #28a745",
-                                },
-                                active_label_style={
-                                    "color": "#ffffff",
-                                    "backgroundColor": "#1e7e34",
-                                    "border": "1px solid #1e7e34",
-                                },
+                            dbc.Tabs(
+                                [
+                                    dbc.Tab(
+                                        label="Runoff Calculator",
+                    id=tab_nav_id("curve-number"),
+                                        tab_id="curve-number",
+                                        children=create_curve_number_tab(),
+                                        label_style={
+                                            "color": "#ffffff",
+                                            "fontWeight": "bold",
+                                            "backgroundColor": "#28a745",
+                                            "border": "1px solid #28a745",
+                                        },
+                                        active_label_style={
+                                            "color": "#ffffff",
+                                            "backgroundColor": "#1e7e34",
+                                            "border": "1px solid #1e7e34",
+                                        },
+                                    ),
+                                    dbc.Tab(
+                                        label="Watershed Information",
+                    id=tab_nav_id("runoff-calculator"),
+                                        tab_id="runoff-calculator",
+                                        children=create_runoff_calculator_tab(),
+                                        label_style={
+                                            "color": "#ffffff",
+                                            "fontWeight": "bold",
+                                            "backgroundColor": "#dc3545",
+                                            "border": "1px solid #dc3545",
+                                        },
+                                        active_label_style={
+                                            "color": "#ffffff",
+                                            "backgroundColor": "#a71e2a",
+                                            "border": "1px solid #a71e2a",
+                                        },
+                                    ),
+                                ],
+                                id="optional-runoff-tabs",
+                                active_tab="curve-number",
                             ),
-                            dbc.Tab(
-                                label="Watershed Information",
-                                tab_id="runoff-calculator",
-                                children=create_runoff_calculator_tab(),
-                                label_style={
-                                    "color": "#ffffff",
-                                    "fontWeight": "bold",
-                                    "backgroundColor": "#dc3545",
-                                    "border": "1px solid #dc3545",
-                                },
-                                active_label_style={
-                                    "color": "#ffffff",
-                                    "backgroundColor": "#a71e2a",
-                                    "border": "1px solid #a71e2a",
-                                },
+                            tab_tooltip(
+                                "curve-number",
+                                "Composite curve number and impervious cover runoff calculations",
                             ),
-                        ],
-                        id="optional-runoff-tabs",
-                        active_tab="curve-number",
+                            tab_tooltip(
+                                "runoff-calculator",
+                                "Watershed map, rainfall data, and runoff results for the site",
+                            ),
+                        ]
                     )
                 ],
                 className="p-2",

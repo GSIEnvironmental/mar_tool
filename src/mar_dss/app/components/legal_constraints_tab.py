@@ -12,6 +12,7 @@ The project is feasible only if all three branches are Feasible or Conditionally
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
 def _section_card(header_text, body_children):
@@ -349,16 +350,34 @@ def create_ai_powered_feasibility_content():
 def create_legal_constraints_content():
     """Create the Legal Constraints tab content with sub-tabs."""
     return [
-        dbc.Tabs([
-            dbc.Tab(
-                label="(1) Basic Regulation Feasibility",
-                tab_id="basic-regulation-tab",
-                children=create_basic_regulation_feasibility_content()
-            ),
-            dbc.Tab(
-                label="(2) AI-Powered Feasibility",
-                tab_id="ai-powered-feasibility-tab",
-                children=create_ai_powered_feasibility_content()
-            )
-        ], id="legal-subtabs", active_tab="basic-regulation-tab")
+        html.Div(
+            [
+                dbc.Tabs(
+                    [
+                        dbc.Tab(
+                            label="(1) Basic Regulation Feasibility",
+                    id=tab_nav_id("basic-regulation-tab"),
+                            tab_id="basic-regulation-tab",
+                            children=create_basic_regulation_feasibility_content(),
+                        ),
+                        dbc.Tab(
+                            label="(2) AI-Powered Feasibility",
+                    id=tab_nav_id("ai-powered-feasibility-tab"),
+                            tab_id="ai-powered-feasibility-tab",
+                            children=create_ai_powered_feasibility_content(),
+                        ),
+                    ],
+                    id="legal-subtabs",
+                    active_tab="basic-regulation-tab",
+                ),
+                tab_tooltip(
+                    "basic-regulation-tab",
+                    "Structured regulatory decision tree: site, water source, and water quality feasibility",
+                ),
+                tab_tooltip(
+                    "ai-powered-feasibility-tab",
+                    "AI-powered regulatory feasibility analysis (coming soon)",
+                ),
+            ]
+        )
     ]

@@ -4,6 +4,7 @@ Analysis tab component with all analysis sub-tabs.
 
 import dash_bootstrap_components as dbc
 from dash import html, dcc
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # Import all the analysis components
 try:
@@ -32,7 +33,7 @@ def create_analysis_tab_content():
         dbc.Tabs(
             [
                 dbc.Tab(
-                    label="Feasibilities",
+                    label="Feasibilities", id=tab_nav_id("analysis-feasibilities"),
                     tab_id="analysis-feasibilities",
                     children=create_feasibilities_content(),  # Load immediately
                     label_style={
@@ -48,7 +49,7 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="Cost Analysis",
+                    label="Cost Analysis", id=tab_nav_id("analysis-cost"),
                     tab_id="analysis-cost",
                     children=create_cost_content(),
                     label_style={
@@ -64,7 +65,7 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="DSS Algorithm",
+                    label="DSS Algorithm", id=tab_nav_id("analysis-dss-algorithm"),
                     tab_id="analysis-dss-algorithm",
                     children=[html.Div(id="analysis-dss-algorithm-content", children="Loading...")],  # Lazy load
                     label_style={
@@ -80,7 +81,7 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="Decision Sensitivity",
+                    label="Decision Sensitivity", id=tab_nav_id("analysis-decision-sensitivity"),
                     tab_id="analysis-decision-sensitivity",
                     children=[html.Div(id="analysis-decision-sensitivity-content", children="Loading...")],  # Lazy load
                     label_style={
@@ -96,7 +97,7 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="Decision Interpretation",
+                    label="Decision Interpretation", id=tab_nav_id("analysis-decision-interpretation"),
                     tab_id="analysis-decision-interpretation",
                     children=[html.Div(id="analysis-decision-interpretation-content", children="Loading...")],  # Lazy load
                     label_style={
@@ -112,7 +113,7 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="Scenarios Comparison",
+                    label="Scenarios Comparison", id=tab_nav_id("analysis-scenarios-comparison"),
                     tab_id="analysis-scenarios-comparison",
                     children=[html.Div(id="analysis-scenarios-comparison-content", children="Loading...")],  # Lazy load
                     label_style={
@@ -128,7 +129,7 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="AI Generated Decision",
+                    label="AI Generated Decision", id=tab_nav_id("analysis-ai-decision"),
                     tab_id="analysis-ai-decision",
                     children=[html.Div(id="analysis-ai-decision-content", children="Loading...")],  # Lazy load
                     label_style={
@@ -144,7 +145,7 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="Data Export",
+                    label="Data Export", id=tab_nav_id("analysis-data-export"),
                     tab_id="analysis-data-export",
                     children=[html.Div(id="analysis-data-export-content", children="Loading...")],  # Lazy load
                     label_style={
@@ -162,6 +163,38 @@ def create_analysis_tab_content():
             ],
             id="analysis-tabs",
             active_tab="analysis-feasibilities",
+        ),
+        tab_tooltip(
+            "analysis-feasibilities",
+            "Technology feasibility categories and overall project viability scores",
+        ),
+        tab_tooltip(
+            "analysis-cost",
+            "Capital and maintenance cost tables with NPV analysis",
+        ),
+        tab_tooltip(
+            "analysis-dss-algorithm",
+            "Multi-criteria decision support algorithm configuration and results",
+        ),
+        tab_tooltip(
+            "analysis-decision-sensitivity",
+            "How input parameter changes affect feasibility outcomes",
+        ),
+        tab_tooltip(
+            "analysis-decision-interpretation",
+            "Detailed explanation of decision algorithm results and rankings",
+        ),
+        tab_tooltip(
+            "analysis-scenarios-comparison",
+            "Compare multiple project scenarios side by side",
+        ),
+        tab_tooltip(
+            "analysis-ai-decision",
+            "AI-powered decision support and technology recommendations",
+        ),
+        tab_tooltip(
+            "analysis-data-export",
+            "Export project data, reports, and analysis results",
         ),
         # Hidden store to trigger knowledge graph initialization
         dcc.Store(id="knowledge-graph-store", data={"initialized": False}),

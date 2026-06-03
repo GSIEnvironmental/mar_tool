@@ -8,6 +8,7 @@ from dash import dcc, html
 import dash_leaflet as dl
 from dash import dash_table
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
 def _get_runoff_calculations_data():
@@ -232,22 +233,44 @@ def create_results_card():
     return dbc.Card([
         dbc.CardHeader("Runoff Calculation Results", className="fw-bold bg-primary text-white"),
         dbc.CardBody([
-            dbc.Tabs([
-                dbc.Tab(
-                    label="Watershed Info",
-                    tab_id="watershed-tab",
-                    children=[
-                        html.Div(id="watershed-info-content", style={'minHeight': '400px', 'overflow': 'auto'})
-                    ]
-                ),
-                dbc.Tab(
-                    label="Rain Information",
-                    tab_id="rain-tab",
-                    children=[
-                        html.Div(id="rain-info-content", style={'minHeight': '400px', 'overflow': 'auto'})
-                    ]
-                )
-            ], id="results-tabs", active_tab="watershed-tab")
+            html.Div(
+                [
+                    dbc.Tabs(
+                        [
+                            dbc.Tab(
+                                label="Watershed Info", id=tab_nav_id("watershed-tab"),
+                                tab_id="watershed-tab",
+                                children=[
+                                    html.Div(
+                                        id="watershed-info-content",
+                                        style={"minHeight": "400px", "overflow": "auto"},
+                                    )
+                                ],
+                            ),
+                            dbc.Tab(
+                                label="Rain Information", id=tab_nav_id("rain-tab"),
+                                tab_id="rain-tab",
+                                children=[
+                                    html.Div(
+                                        id="rain-info-content",
+                                        style={"minHeight": "400px", "overflow": "auto"},
+                                    )
+                                ],
+                            ),
+                        ],
+                        id="results-tabs",
+                        active_tab="watershed-tab",
+                    ),
+                    tab_tooltip(
+                        "watershed-tab",
+                        "Watershed area, land cover, and curve number summary",
+                    ),
+                    tab_tooltip(
+                        "rain-tab",
+                        "Rainfall intensity, duration, and precipitation inputs",
+                    ),
+                ]
+            )
         ])
     ], style={'minHeight': '500px'})
 
@@ -491,26 +514,39 @@ def create_runoff_calculator_tab():
         html.H3("Watershed Information", className="mb-4"),
         html.P("Calculate and analyze runoff patterns for your MAR project location.", className="mb-4"),
 
-        dbc.Tabs([
-            dbc.Tab(
-                label="Rainfall and Watershed Information",
-                tab_id="rainfall-watershed-tab",
-                children=[
-                    dbc.Row([
-                        dbc.Col([
-                            create_map_card()
-                        ], width=8),
-                        dbc.Col([
-                            create_controls_card()
-                        ], width=4)
-                    ], className="mb-4"),
+        html.Div(
+            [
+                dbc.Tabs(
+                    [
+                        dbc.Tab(
+                            label="Rainfall and Watershed Information",
+                    id=tab_nav_id("rainfall-watershed-tab"),
+                            tab_id="rainfall-watershed-tab",
+                            children=[
+                                dbc.Row([
+                                    dbc.Col([
+                                        create_map_card()
+                                    ], width=8),
+                                    dbc.Col([
+                                        create_controls_card()
+                                    ], width=4)
+                                ], className="mb-4"),
 
-                    dbc.Row([
-                        dbc.Col([
-                            create_results_card()
-                        ])
-                    ])
-                ]
-            )
-        ], id="runoff-calculator-tabs", active_tab="rainfall-watershed-tab")
+                                dbc.Row([
+                                    dbc.Col([
+                                        create_results_card()
+                                    ])
+                                ])
+                            ]
+                        )
+                    ],
+                    id="runoff-calculator-tabs",
+                    active_tab="rainfall-watershed-tab",
+                ),
+                tab_tooltip(
+                    "rainfall-watershed-tab",
+                    "Interactive watershed map, rainfall controls, and runoff results",
+                ),
+            ]
+        )
     ]

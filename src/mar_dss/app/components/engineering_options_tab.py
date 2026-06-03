@@ -5,6 +5,7 @@ Engineering Options tab component.
 import dash_bootstrap_components as dbc
 from dash import html, dcc
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
 def _get_max_infiltration_area_value():
@@ -621,7 +622,7 @@ def create_cost_content():
         dbc.Tabs(
             [
                 dbc.Tab(
-                    label="Capital Cost Table",
+                    label="Capital Cost Table", id=tab_nav_id("capital-cost-table-tab"),
                     tab_id="capital-cost-table-tab",
                     children=[
                         dbc.Card(
@@ -642,6 +643,7 @@ def create_cost_content():
                 ),
                 dbc.Tab(
                     label="Maintenance Cost Table",
+                    id=tab_nav_id("maintenance-cost-table-tab"),
                     tab_id="maintenance-cost-table-tab",
                     children=[
                         dbc.Card(
@@ -661,7 +663,7 @@ def create_cost_content():
                     ]
                 ),
                 dbc.Tab(
-                    label="Net Present Value Table",
+                    label="Net Present Value Table", id=tab_nav_id("npv-table-tab"),
                     tab_id="npv-table-tab",
                     children=[
                         dbc.Card(
@@ -682,7 +684,19 @@ def create_cost_content():
                 ),
             ],
             id="cost-tables-tabs",
-            active_tab="capital-cost-table-tab"
+            active_tab="capital-cost-table-tab",
+        ),
+        tab_tooltip(
+            "capital-cost-table-tab",
+            "Detailed breakdown of capital infrastructure and equipment costs",
+        ),
+        tab_tooltip(
+            "maintenance-cost-table-tab",
+            "Annual operating and maintenance cost breakdown by component",
+        ),
+        tab_tooltip(
+            "npv-table-tab",
+            "20-year net present value cost and benefit summary",
         ),
         dbc.Tooltip(
             "Total estimated capital cost from engineering selections",
@@ -697,11 +711,6 @@ def create_cost_content():
         dbc.Tooltip(
             "20-year net present value of benefits minus costs",
             target="npv-20-years-display",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Switch between capital, maintenance, and NPV detail tables",
-            target="cost-tables-tabs",
             placement="top",
         ),
     ]

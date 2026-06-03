@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
 def _get_status_color(status):
@@ -335,6 +336,7 @@ def create_decision_interpretation_content():
                     [
                         dbc.Tab(
                             label="Overview",
+                    id=tab_nav_id("decision-interpretation-overview"),
                             tab_id="decision-interpretation-overview",
                             children=html.Div(
                                 [
@@ -354,6 +356,7 @@ def create_decision_interpretation_content():
                         ),
                         dbc.Tab(
                             label="Detailed calculations workbook",
+                    id=tab_nav_id("decision-interpretation-workbook"),
                             tab_id="decision-interpretation-workbook",
                             children=html.Div(
                                 [
@@ -383,6 +386,14 @@ def create_decision_interpretation_content():
                     ],
                     id="decision-interpretation-subtabs",
                     active_tab="decision-interpretation-overview",
+                ),
+                tab_tooltip(
+                    "decision-interpretation-overview",
+                    "Summary charts and status interpretation of DSS evaluation results",
+                ),
+                tab_tooltip(
+                    "decision-interpretation-workbook",
+                    "Step-by-step decision graph computation log and rule evaluations",
                 ),
             ],
             style={"padding": "0.5rem"},
@@ -733,6 +744,7 @@ def create_decision_interpretation_content():
                 [
                     dbc.Tab(
                         label="Overview",
+                    id=tab_nav_id("decision-interpretation-overview"),
                         tab_id="decision-interpretation-overview",
                         children=html.Div(
                             overview_tab_children,
@@ -741,6 +753,7 @@ def create_decision_interpretation_content():
                     ),
                     dbc.Tab(
                         label="Detailed calculations workbook",
+                    id=tab_nav_id("decision-interpretation-workbook"),
                         tab_id="decision-interpretation-workbook",
                         children=html.Div(
                             [
@@ -772,6 +785,14 @@ def create_decision_interpretation_content():
                 ],
                 id="decision-interpretation-subtabs",
                 active_tab="decision-interpretation-overview",
+            ),
+            tab_tooltip(
+                "decision-interpretation-overview",
+                "Summary charts and status interpretation of DSS evaluation results",
+            ),
+            tab_tooltip(
+                "decision-interpretation-workbook",
+                "Step-by-step decision graph computation log and rule evaluations",
             ),
         ],
         style={"padding": "0.5rem"},

@@ -9,6 +9,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from mar_dss.app.utils.defaults import defaults
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
 def setup_layout(app_ctx):
@@ -236,11 +237,37 @@ def _build_header() -> dbc.Row:
 # Main content builders
 # ------------------------------
 
-def _build_tabs() -> dbc.Tabs:
-    return dbc.Tabs(
+_TOP_TAB_TOOLTIPS = {
+    "overview": (
+        "Project setup: name, location, MAR purpose, and site characteristics"
+    ),
+    "water-source": (
+        "Water source availability, quality, flow data, and runoff calculations"
+    ),
+    "hydrogeology": (
+        "Subsurface conditions: stratigraphy, aquifer type, groundwater, and storage"
+    ),
+    "environmental": (
+        "Source water suitability assessment for MAR (quality and geochemistry)"
+    ),
+    "legal": (
+        "Legal and regulatory feasibility: permits, water rights, and compliance"
+    ),
+    "engineering-options": (
+        "Engineering design parameters and cost estimation (capital, O&M, NPV)"
+    ),
+    "analysis": (
+        "Feasibility assessment, decision support, sensitivity, and data export"
+    ),
+}
+
+
+def _build_tabs():
+    tabs = dbc.Tabs(
         [
             dbc.Tab(
-                label="(1) Overview", 
+                label="(1) Overview",
+                id=tab_nav_id("overview"),
                 tab_id="overview",
                 label_style={
                     "color": "#ffffff", 
@@ -255,7 +282,8 @@ def _build_tabs() -> dbc.Tabs:
                 }
             ),
             dbc.Tab(
-                label=("(2) Water Source"), 
+                label="(2) Water Source",
+                id=tab_nav_id("water-source"),
                 tab_id="water-source",
                 label_style={
                     "color": "#ffffff", 
@@ -270,7 +298,8 @@ def _build_tabs() -> dbc.Tabs:
                 }
             ),
             dbc.Tab(
-                label=("(3) Hydrogeology"), 
+                label="(3) Hydrogeology",
+                id=tab_nav_id("hydrogeology"),
                 tab_id="hydrogeology",
                 label_style={
                     "color": "#ffffff", 
@@ -285,7 +314,8 @@ def _build_tabs() -> dbc.Tabs:
                 }
             ),
             dbc.Tab(
-                label=("(4) Water Quality"), 
+                label="(4) Water Quality",
+                id=tab_nav_id("environmental"),
                 tab_id="environmental",
                 label_style={
                     "color": "#ffffff", 
@@ -300,7 +330,8 @@ def _build_tabs() -> dbc.Tabs:
                 }
             ),
             dbc.Tab(
-                label=("(5) Regulations"), 
+                label="(5) Regulations",
+                id=tab_nav_id("legal"),
                 tab_id="legal",
                 label_style={
                     "color": "#ffffff", 
@@ -315,7 +346,8 @@ def _build_tabs() -> dbc.Tabs:
                 }
             ),
             dbc.Tab(
-                label="(6) Engineering", 
+                label="(6) Engineering",
+                id=tab_nav_id("engineering-options"),
                 tab_id="engineering-options",
                 label_style={
                     "color": "#ffffff", 
@@ -330,7 +362,8 @@ def _build_tabs() -> dbc.Tabs:
                 }
             ),
             dbc.Tab(
-                label="(7) Analysis", 
+                label="(7) Analysis",
+                id=tab_nav_id("analysis"),
                 tab_id="analysis",
                 label_style={
                     "color": "#ffffff", 
@@ -346,7 +379,16 @@ def _build_tabs() -> dbc.Tabs:
             ),
         ],
         id="top-tabs",
-        active_tab="overview"
+        active_tab="overview",
+    )
+    return html.Div(
+        [
+            tabs,
+            *[
+                tab_tooltip(tab_id, text, placement="bottom")
+                for tab_id, text in _TOP_TAB_TOOLTIPS.items()
+            ],
+        ]
     )
 
 

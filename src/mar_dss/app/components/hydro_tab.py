@@ -11,6 +11,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 from mar_dss.mar.options import mar_options
 from mar_dss.rules.defaults import get_default
 
@@ -212,22 +213,36 @@ def create_default_hydrologic_parameters_tab_content():
 def create_hydro_tab_content():
     """Create the content for the Hydrogeology tab with sub-tabs."""
     return [
-        dbc.Tabs(
+        html.Div(
             [
-                dbc.Tab(
-                    label="(3.1) Hydrogeologic Settings",
-                    tab_id="hydrogeologic-settings-tab",
-                    children=create_hydrogeologic_settings_content(),
+                dbc.Tabs(
+                    [
+                        dbc.Tab(
+                            label="(3.1) Hydrogeologic Settings",
+                    id=tab_nav_id("hydrogeologic-settings-tab"),
+                            tab_id="hydrogeologic-settings-tab",
+                            children=create_hydrogeologic_settings_content(),
+                        ),
+                        dbc.Tab(
+                            label="(3.2) Default Parameters",
+                    id=tab_nav_id("default-hydrologic-parameters-tab"),
+                            tab_id="default-hydrologic-parameters-tab",
+                            children=create_default_hydrologic_parameters_tab_content(),
+                        ),
+                    ],
+                    id="hydrogeology-subtabs",
+                    active_tab="hydrogeologic-settings-tab",
+                    className="hydrogeology-top-tabs w-100",
                 ),
-                dbc.Tab(
-                    label="(3.2) Default Parameters",
-                    tab_id="default-hydrologic-parameters-tab",
-                    children=create_default_hydrologic_parameters_tab_content(),
+                tab_tooltip(
+                    "hydrogeologic-settings-tab",
+                    "Aquifer type, stratigraphy, groundwater elevations, and initial feasibility",
                 ),
-            ],
-            id="hydrogeology-subtabs",
-            active_tab="hydrogeologic-settings-tab",
-            className="hydrogeology-top-tabs w-100",
+                tab_tooltip(
+                    "default-hydrologic-parameters-tab",
+                    "Default geometry and hydrogeologic parameters (change only with field data)",
+                ),
+            ]
         ),
     ]
 
@@ -517,7 +532,7 @@ def _build_stratigraphy_table():
 def _build_stratigraphy_tab():
     """Build the stratigraphy tab content."""
     return dbc.Tab(
-        label="Stratigraphy",
+        label="Stratigraphy", id=tab_nav_id("stratigraphy-tab"),
         tab_id="stratigraphy-tab",
         label_style={
             "color": "#ffffff", 
@@ -585,7 +600,7 @@ def _build_stratigraphy_tab():
 def _build_groundwater_level_tab():
     """Build the groundwater level tab content."""
     return dbc.Tab(
-        label="Groundwater Level",
+        label="Groundwater Level", id=tab_nav_id("groundwater-level-tab"),
         tab_id="groundwater-level-tab",
         label_style={
             "color": "#ffffff", 
@@ -672,7 +687,7 @@ def _build_groundwater_level_tab():
 def _build_horizontal_extension_tab():
     """Build the horizontal extension tab content."""
     return dbc.Tab(
-        label="Horizontal Extension",
+        label="Horizontal Extension", id=tab_nav_id("horizontal-extension-tab"),
         tab_id="horizontal-extension-tab",
         label_style={
             "color": "#ffffff", 
@@ -754,14 +769,30 @@ def _build_horizontal_extension_tab():
 
 def _build_geometry_tabs():
     """Build the geometry tabs container."""
-    return dbc.Tabs(
-        id="geometry-tabs",
-        children=[
-            _build_stratigraphy_tab(),
-            _build_groundwater_level_tab(),
-            _build_horizontal_extension_tab(),
-        ],
-        active_tab="stratigraphy-tab"
+    return html.Div(
+        [
+            dbc.Tabs(
+                id="geometry-tabs",
+                children=[
+                    _build_stratigraphy_tab(),
+                    _build_groundwater_level_tab(),
+                    _build_horizontal_extension_tab(),
+                ],
+                active_tab="stratigraphy-tab",
+            ),
+            tab_tooltip(
+                "stratigraphy-tab",
+                "Configure soil layers and hydrogeological properties",
+            ),
+            tab_tooltip(
+                "groundwater-level-tab",
+                "Monthly groundwater elevation data and seasonal variation",
+            ),
+            tab_tooltip(
+                "horizontal-extension-tab",
+                "Horizontal extent and geometry of the recharge area",
+            ),
+        ]
     )
 
 
@@ -819,6 +850,7 @@ def _build_view_card():
                         [
                             dbc.Tab(
                                 label="Stratigraphy Cross Section",
+                    id=tab_nav_id("stratigraphy-cross-section"),
                                 tab_id="stratigraphy-cross-section",
                                 children=[
                                     html.Div(
@@ -849,6 +881,7 @@ def _build_view_card():
                             ),
                             dbc.Tab(
                                 label="Available MAR Storage",
+                    id=tab_nav_id("available-mar-storage"),
                                 tab_id="available-mar-storage",
                                 children=[
                                     html.Div(
@@ -878,7 +911,7 @@ def _build_view_card():
                                 },
                             ),
                             dbc.Tab(
-                                label="XY View",
+                                label="XY View", id=tab_nav_id("xy-view"),
                                 tab_id="xy-view",
                                 children=[
                                     html.Div(
@@ -916,6 +949,18 @@ def _build_view_card():
                         ],
                         id="view-tabs",
                         active_tab="stratigraphy-cross-section",
+                    ),
+                    tab_tooltip(
+                        "stratigraphy-cross-section",
+                        "Cross-section visualization of subsurface stratigraphy",
+                    ),
+                    tab_tooltip(
+                        "available-mar-storage",
+                        "Available MAR storage capacity based on stratigraphy and head limits",
+                    ),
+                    tab_tooltip(
+                        "xy-view",
+                        "Plan-view (XY) map of the recharge site geometry",
                     ),
                     dbc.Tooltip(
                         "Cross-section sketch of stratigraphy and key horizons",

@@ -4,6 +4,7 @@ Dashboard tab content for MAR DSS dashboard.
 
 import dash_bootstrap_components as dbc
 from dash import html, dcc
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
 def create_dashboard_content():
@@ -112,11 +113,13 @@ def create_dashboard_content():
             ),
             
             # Technology Analysis Tabs
-            dbc.Tabs(
+            html.Div(
                 [
-                    dbc.Tab(
-                        label="Feasibility Metrics",
-                        tab_id="feasibility-metrics",
+                    dbc.Tabs(
+                        [
+                            dbc.Tab(
+                                label="Feasibility Metrics", id=tab_nav_id("feasibility-metrics"),
+                                tab_id="feasibility-metrics",
                         children=[
                             # Feasibility Metrics Section
                             dbc.Card(
@@ -252,6 +255,7 @@ def create_dashboard_content():
                     ),
                     dbc.Tab(
                         label="Hydrogeological Feasibility",
+                    id=tab_nav_id("hydrogeological-feasibility"),
                         tab_id="hydrogeological-feasibility",
                         children=[
                             # Hydrogeological Feasibility Section
@@ -406,7 +410,7 @@ def create_dashboard_content():
                         }
                     ),
                     dbc.Tab(
-                        label="Decision Matrix",
+                        label="Decision Matrix", id=tab_nav_id("decision-matrix"),
                         tab_id="decision-matrix",
                         children=[
                             # Decision Matrix Section
@@ -565,7 +569,21 @@ def create_dashboard_content():
                 ],
                 id="technology-analysis-tabs",
                 active_tab="feasibility-metrics",
-                className="mb-4"
+                className="mb-4",
+                    ),
+                    tab_tooltip(
+                        "feasibility-metrics",
+                        "Multi-criteria feasibility scores across physical, environmental, and other factors",
+                    ),
+                    tab_tooltip(
+                        "hydrogeological-feasibility",
+                        "Hydrogeological suitability assessment for selected MAR technologies",
+                    ),
+                    tab_tooltip(
+                        "decision-matrix",
+                        "Weighted multi-criteria decision matrix comparing MAR technologies",
+                    ),
+                ],
             ),
             dbc.Tooltip(
                 "Roll-up feasibility score from integrated DSS metrics",
@@ -580,11 +598,6 @@ def create_dashboard_content():
             dbc.Tooltip(
                 "MAR technologies passing soft and hard constraints",
                 target="feasible-technologies-card-body",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Feasibility metrics, comparisons, and sensitivity views",
-                target="technology-analysis-tabs",
                 placement="top",
             ),
         ]
