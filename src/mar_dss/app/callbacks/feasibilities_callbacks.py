@@ -26,6 +26,46 @@ _NPV_VALUE_COLS = (
     "Dry Wells Net Present Value ($)",
 )
 
+# Model recharge volumes are computed in ft³/yr; convert to acre-ft for $/acre-ft metrics.
+_FT3_PER_ACRE_FT = 43560.0
+
+
+def _annual_recharged_volume_acre_ft(option_name):
+    """Annual recharged volume (acre-ft/yr) for a MAR option from the decision graph."""
+    graph = dash_storage.get_data("decision_graph")
+    if graph is None:
+        return 0.0
+
+    confined = bool(graph.get_node_value("confined"))
+    if option_name == "Surface Recharge":
+        vol_ft3 = graph.get_node_value("annual_surface_recharge_volume")
+    elif option_name == "Injection Well":
+        if confined:
+            vol_ft3 = graph.get_node_value("annual_confined_storage_volume")
+        else:
+            vol_ft3 = graph.get_node_value("annual_injection_volume")
+    elif option_name == "Dry Well":
+        vol_ft3 = graph.get_node_value("annual_dry_well_volume")
+    else:
+        vol_ft3 = None
+
+    if vol_ft3 is None:
+        return 0.0
+    try:
+        vol = float(vol_ft3)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(vol) or vol <= 0:
+        return 0.0
+    return vol / _FT3_PER_ACRE_FT
+
+
+def _efficiency_from_min_ratio(value, min_positive):
+    """Map a positive metric to 0–100 where the minimum value scores 100."""
+    if value > 0 and min_positive > 0:
+        return max(0.0, min(100.0, 100.0 * (min_positive / value)))
+    return 0.0
+
 
 def _normalize_net_val_dict(raw):
     """Coerce dash_storage ``net_val`` to a dict keyed by NPV column names."""
@@ -1054,7 +1094,7 @@ def setup_feasibilities_callbacks(app):
         )
     
 def _create_spider_plots(dss_results):
-    """Create spider plots for each MAR option showing scores and cost efficiencies."""
+    """Create spider plots for each MAR option (7 axes including $/acre-ft efficiency)."""
     if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
         return html.Div(
             "No DSS evaluation results available. Please run the feasibility analysis first.",
@@ -1135,10 +1175,23 @@ def _create_spider_plots(dss_results):
         else:
             npv_dict[option_name] = 0
     
-    # Find minimum costs and NPV for efficiency calculation
+    # Find minimum costs, NPV, and cost/acre-ft for efficiency calculation
     min_capital_cost = min(capital_costs) if capital_costs else 1
     min_maintenance_cost = min(maintenance_costs) if maintenance_costs else 1
     min_npv = min(npv_values) if npv_values else 1
+
+    cost_per_acre_ft_dict = {}
+    cost_per_acre_ft_values = []
+    for option_name in scores.keys():
+        capital_val = capital_cost_dict.get(option_name, 0.0)
+        acre_ft = _annual_recharged_volume_acre_ft(option_name)
+        if capital_val > 0 and acre_ft > 0:
+            cppa = capital_val / acre_ft
+            cost_per_acre_ft_dict[option_name] = cppa
+            cost_per_acre_ft_values.append(cppa)
+        else:
+            cost_per_acre_ft_dict[option_name] = 0.0
+    min_cost_per_acre_ft = min(cost_per_acre_ft_values) if cost_per_acre_ft_values else 1
     
     # Create spider plots for each option
     spider_plots = []
@@ -1171,6 +1224,11 @@ def _create_spider_plots(dss_results):
         else:
             npv_efficiency = 0.0
         npv_efficiency = max(0.0, min(100.0, npv_efficiency))
+
+        cost_per_acre_ft_val = cost_per_acre_ft_dict.get(option_name, 0.0)
+        cost_per_acre_ft_efficiency = _efficiency_from_min_ratio(
+            cost_per_acre_ft_val, min_cost_per_acre_ft
+        )
         
         # Helper function to get color and style based on score
         def get_score_style(score):
@@ -1192,9 +1250,18 @@ def _create_spider_plots(dss_results):
             'Regulation',
             'Capital Cost Efficiency',
             'Maintenance Cost Efficiency',
-            'NPV Efficiency'
+            'NPV Efficiency',
+            'Cost per Acre-Ft',
         ]
-        values = [hydro_score, env_score, reg_score, capital_efficiency, maintenance_efficiency, npv_efficiency]
+        values = [
+            hydro_score,
+            env_score,
+            reg_score,
+            capital_efficiency,
+            maintenance_efficiency,
+            npv_efficiency,
+            cost_per_acre_ft_efficiency,
+        ]
         
         # Calculate average score
         average_score = sum(values) / len(values)
@@ -1203,8 +1270,26 @@ def _create_spider_plots(dss_results):
         categories_with_scores = []
         for category, score in zip(categories, values):
             style = get_score_style(score)
-            # Category name on first line, score on second line (below, centered)
-            label = f'{category}\n<span style="color:{style["color"]};">{score:.0f}%</span>'
+            if category == 'Cost per Acre-Ft':
+                if cost_per_acre_ft_val > 0:
+                    label = (
+                        f'{category}\n'
+                        f'<span style="color:{style["color"]};">{score:.0f}%</span> '
+                        f'<span style="color:#495057;">'
+                        f'\n(${cost_per_acre_ft_val:,.1f}/acre-ft)'
+                        f'</span>'
+                    )
+                else:
+                    label = (
+                        f'{category}\n'
+                        f'<span style="color:{style["color"]};">{score:.0f}%</span> '
+                        f'<span style="color:#6c757d;">N/A</span>'
+                    )
+            else:
+                label = (
+                    f'{category}\n'
+                    f'<span style="color:{style["color"]};">{score:.0f}%</span>'
+                )
             categories_with_scores.append(label)
         
         # Close the polygon by adding the first point at the end

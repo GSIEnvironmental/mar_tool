@@ -257,6 +257,11 @@ def create_feasibilities_content():
                 placement="top",
             ),
             dbc.Tooltip(
+                "Radar comparison of constraint scores and cost efficiencies (including $/acre-ft)",
+                target="spider-plots-container",
+                placement="top",
+            ),
+            dbc.Tooltip(
                 "Constraint intensity for environmental criteria",
                 target="environmental-constraints-heatmap-chart",
                 placement="top",
