@@ -190,6 +190,64 @@ def _extent_padded_square_from_axes(xi, yi, *, pad_ratio=0.04):
 XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT = 0.02  # 2% (ft/ft)
 
 
+def _add_confined_theis_contour_to_figure(
+    fig,
+    strat_in,
+    half_length,
+    half_width,
+    *,
+    n_clicks=0,
+):
+    """Add confined Theis + regional-gradient contour trace; return axis extents if ok."""
+    import numpy as np
+
+    theis_pack = build_confined_theis_xy_plot_dict(
+        strat_in,
+        half_length,
+        half_width,
+    )
+    if not theis_pack.get("ok"):
+        fig.add_annotation(
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.55,
+            text=(
+                "Could not build confined Theis contours: "
+                f"{theis_pack.get('error', 'unknown error')}"
+            ),
+            showarrow=False,
+            font=dict(size=12, color="#b45309"),
+        )
+        return fig, None, None
+
+    Z = np.asarray(theis_pack["drawdown_ft"], dtype=float)
+    x1d = np.asarray(theis_pack["x"], dtype=float)
+    y1d = np.asarray(theis_pack["y"], dtype=float)
+    Xg, _Yg = np.meshgrid(x1d, y1d, indexing="xy")
+    Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xg
+    Z = Z + Z_background
+    plan_x_range, plan_y_range = _extent_for_radial_contour_z(Z, x1d, y1d)
+    fig.add_trace(
+        go.Contour(
+            x=x1d,
+            y=y1d,
+            z=Z,
+            colorscale="Jet",
+            name="Mound + 2% regional gradient",
+            colorbar=dict(title="Mound + gradient (ft)"),
+            opacity=0.82,
+            contours=dict(showlines=True, coloring="fill"),
+            hovertemplate=(
+                "<b>Theis + regional gradient</b><br>%{z:.2f} ft<br>"
+                "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
+            ),
+            uirevision=str(n_clicks or 0),
+        )
+    )
+    return fig, plan_x_range, plan_y_range
+
+
 def setup_hydro_callbacks(app):
     """Set up all hydrogeology-related callbacks."""
     
@@ -1316,6 +1374,7 @@ def setup_hydro_callbacks(app):
 
         # Create the plot
         fig = go.Figure()
+        contour_style = "theis" if is_confined else "hantush"
         
         rotation_rad = np.radians(rotation)
         cos_rot = np.cos(rotation_rad)
@@ -1331,199 +1390,96 @@ def setup_hydro_callbacks(app):
 
         if is_confined:
             strat_in = dash_storage.get_data("stratigraphy_data")
-            theis_pack = build_confined_theis_xy_plot_dict(
+            fig, plan_x_range, plan_y_range = _add_confined_theis_contour_to_figure(
+                fig,
                 strat_in,
                 half_length,
                 half_width,
+                n_clicks=n_clicks,
             )
-            if theis_pack.get("ok"):
-                # Standard rectilinear Contour: 1-D x/y, 2-D z (same shape as meshgrid xy).
-                # Passing 2-D x/y after rotation breaks Plotly (striped artifacts + tick spam).
-                Z = np.asarray(theis_pack["drawdown_ft"], dtype=float)
-                x1d = np.asarray(theis_pack["x"], dtype=float)
-                y1d = np.asarray(theis_pack["y"], dtype=float)
-                Xg, _Yg = np.meshgrid(x1d, y1d, indexing="xy")
-                # Linear head change along flow: dh = −(gradient) × distance along x (ft); ref. at x = 0.
-                Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xg
-                Z = Z + Z_background
-                plan_x_range, plan_y_range = _extent_for_radial_contour_z(Z, x1d, y1d)
-                fig.add_trace(
-                    go.Contour(
-                        x=x1d,
-                        y=y1d,
-                        z=Z,
-                        colorscale="Jet",
-                        name="Mound + 2% regional gradient",
-                        colorbar=dict(title="Mound + gradient (ft)"),
-                        opacity=0.82,
-                        contours=dict(showlines=True, coloring="fill"),
-                        hovertemplate=(
-                            "<b>Theis + regional gradient</b><br>%{z:.2f} ft<br>"
-                            "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
-                        ),
-                        uirevision=str(n_clicks or 0),
-                    )
-                )
-            else:
-                fig.add_annotation(
-                    xref="paper",
-                    yref="paper",
-                    x=0.5,
-                    y=0.55,
-                    text=(
-                        "Could not build confined Theis contours: "
-                        f"{theis_pack.get('error', 'unknown error')}"
-                    ),
-                    showarrow=False,
-                    font=dict(size=12, color="#b45309"),
-                )
         else:
             # unconfined  aquifer
             strat_in = dash_storage.get_data("stratigraphy_data")
             gw_rows = normalize_groundwater_data(
                 dash_storage.get_data("groundwater_data") or []
             )
-            gs_elev = dash_storage.get_data("ground_surface_elevation")
-            op_raw = dash_storage.get_data("op_gw_depth")
-            op_gw_ft = None
-            if op_raw is not None and str(op_raw).strip() != "":
-                try:
-                    op_gw_ft = float(op_raw)
-                except (TypeError, ValueError):
-                    op_gw_ft = None
-            # evaluate the graph here
-            if 1:
-                graph = get_session_graph()                
-                inputs = get_graph_inputs()
-                evaluate_and_store_decision_graph(graph, inputs)
-                node_values = graph.get_node_values()
-                design_sizing = node_values.get("design_sizing")
-            op_gw_ft = node_values.get("op_gw_depth")
+            gs_elev = dash_storage.get_data("ground_surface_elevation")        
+           
+            graph = get_session_graph()                
+            inputs = get_graph_inputs()
+            evaluate_and_store_decision_graph(graph, inputs)
+            node_values = graph.get_node_values()
+            design_sizing = node_values.get("design_sizing")
+
+            if design_sizing is not None:     
+
+                mound_pack = build_unconfined_mounding_xy_plot_dict(
+                    strat_in,
+                    design_sizing,
+                    half_length,
+                    half_width,
+                    gw_rows, 
+                    gs_elev
             
-            """
-                stratigraphy_input,
-    design_sizing_result,
-    Lx,
-    Ly,
-    groundwater_rows,
-    ground_surface_elevation_ft,
-    *,
-    op_gw_depth_ft=None,
-    t_days=50.0,
-    xy_pad_factor=1.35,
-            """
-            mound_pack = build_unconfined_mounding_xy_plot_dict(
-                strat_in,
-                design_sizing,
-                half_length,
-                half_width,
-                gw_rows, 
-                gs_elev
-        
-               
-            )
-            if mound_pack.get("ok"):
-                Z = np.asarray(mound_pack["drawdown_ft"], dtype=float)
-                Xmesh = np.asarray(mound_pack["x_grid"], dtype=float)
-                Ymesh = np.asarray(mound_pack["y_grid"], dtype=float)
-                Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
-                Z = Z + Z_background
-                xi, yi, Zi = rectilinear_grid_for_plotly_contour(
-                    Xmesh, Ymesh, Z, n_boost=96
+                
                 )
-                # Full mirrored domain — radial zoom assumes symmetry; tilt + gradient biases the mask.
-                plan_x_range, plan_y_range = _extent_padded_square_from_axes(xi, yi)
-                fig.add_trace(
-                    go.Contour(
-                        x=xi,
-                        y=yi,
-                        z=Zi,
-                        colorscale="Jet",
-                        name="Unconfined mound + 2% regional gradient",
-                        colorbar=dict(title="Mound + gradient (ft)"),
-                        opacity=0.82,
-                        contours=dict(showlines=True, coloring="fill"),
-                        hovertemplate=(
-                            "<b>Hantush mound + regional gradient</b><br>%{z:.2f} ft<br>"
-                            "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
-                        ),
-                        uirevision=str(n_clicks or 0),
+                if mound_pack.get("ok"):
+                    Z = np.asarray(mound_pack["drawdown_ft"], dtype=float)
+                    Xmesh = np.asarray(mound_pack["x_grid"], dtype=float)
+                    Ymesh = np.asarray(mound_pack["y_grid"], dtype=float)
+                    Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
+                    Z = Z + Z_background
+                    xi, yi, Zi = rectilinear_grid_for_plotly_contour(
+                        Xmesh, Ymesh, Z, n_boost=96
                     )
-                )
+                    # Full mirrored domain — radial zoom assumes symmetry; tilt + gradient biases the mask.
+                    plan_x_range, plan_y_range = _extent_padded_square_from_axes(xi, yi)
+                    fig.add_trace(
+                        go.Contour(
+                            x=xi,
+                            y=yi,
+                            z=Zi,
+                            colorscale="Jet",
+                            name="Unconfined mound + 2% regional gradient",
+                            colorbar=dict(title="Mound + gradient (ft)"),
+                            opacity=0.82,
+                            contours=dict(showlines=True, coloring="fill"),
+                            hovertemplate=(
+                                "<b>Hantush mound + regional gradient</b><br>%{z:.2f} ft<br>"
+                                "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
+                            ),
+                            uirevision=str(n_clicks or 0),
+                        )
+                    )
+                else:
+                    fig.add_annotation(
+                        xref="paper",
+                        yref="paper",
+                        x=0.5,
+                        y=0.55,
+                        text=(
+                            "Could not build unconfined mound contours: "
+                            f"{mound_pack.get('error', 'unknown error')}"
+                        ),
+                        showarrow=False,
+                        font=dict(size=12, color="#b45309"),
+                    )
             else:
-                fig.add_annotation(
-                    xref="paper",
-                    yref="paper",
-                    x=0.5,
-                    y=0.55,
-                    text=(
-                        "Could not build unconfined mound contours: "
-                        f"{mound_pack.get('error', 'unknown error')}"
-                    ),
-                    showarrow=False,
-                    font=dict(size=12, color="#b45309"),
+                # Surface recharge not possible — fall back to confined Theis contours.
+                contour_style = "theis"
+                fig, plan_x_range, plan_y_range = _add_confined_theis_contour_to_figure(
+                    fig,
+                    strat_in,
+                    half_length,
+                    half_width,
+                    n_clicks=n_clicks,
                 )
-        #
-        # --- MAR outline + directional labels (disabled: show only Theis contour for now) ---
-        # corners = np.array([
-        #     [-half_length, -half_width],
-        #     [half_length, -half_width],
-        #     [half_length, half_width],
-        #     [-half_length, half_width],
-        #     [-half_length, -half_width],
-        # ])
-        # rotated_corners = corners @ rotation_matrix.T
-        # fig.add_trace(go.Scatter(
-        #     x=rotated_corners[:, 0],
-        #     y=rotated_corners[:, 1],
-        #     mode="lines",
-        #     line=dict(color="black", width=3),
-        #     name="MAR Project Area",
-        #     hovertemplate=(
-        #         "<b>MAR Project Area</b><br>"
-        #         "Length: %{x:.1f} ft<br>Width: %{y:.1f} ft<extra></extra>"
-        #     ),
-        #     showlegend=True,
-        # ))
-        # fig.add_trace(go.Scatter(
-        #     x=rotated_corners[:, 0],
-        #     y=rotated_corners[:, 1],
-        #     fill="toself",
-        #     fillcolor="rgba(0, 123, 255, 0.3)",
-        #     line=dict(color="rgba(255,255,255,0)"),
-        #     name="Project Area",
-        #     showlegend=False,
-        #     hoverinfo="skip",
-        # ))
-        # upstream_center = np.array([-half_length, 0]) @ rotation_matrix.T
-        # fig.add_annotation(
-        #     x=upstream_center[0],
-        #     y=upstream_center[1],
-        #     text=f"Upstream<br>{upstream_head:.1f} ft",
-        #     showarrow=True,
-        #     arrowhead=2,
-        #     arrowcolor="green",
-        #     font=dict(size=10, color="green"),
-        #     bgcolor="rgba(255,255,255,0.8)",
-        #     bordercolor="green",
-        # )
-        # downstream_center = np.array([half_length, 0]) @ rotation_matrix.T
-        # fig.add_annotation(
-        #     x=downstream_center[0],
-        #     y=downstream_center[1],
-        #     text=f"Downstream<br>{downstream_head:.1f} ft",
-        #     showarrow=True,
-        #     arrowhead=2,
-        #     arrowcolor="red",
-        #     font=dict(size=10, color="red"),
-        #     bgcolor="rgba(255,255,255,0.8)",
-        #     bordercolor="red",
-        # )
+       
 
         # Update layout
         xy_title = (
             "XY View — confined Theis mound"
-            if is_confined
+            if contour_style == "theis"
             else "XY View — unconfined Hantush mound"
         )
         xr, yr = (
