@@ -29,6 +29,32 @@ _NPV_VALUE_COLS = (
 # Model recharge volumes are computed in ft³/yr; convert to acre-ft for $/acre-ft metrics.
 _FT3_PER_ACRE_FT = 43560.0
 
+MAR_ENGINEERING_OPTIONS = ("Surface Recharge", "Injection Well", "Dry Well")
+
+_OPTION_TO_CAPITAL_COL = {
+    "Surface Recharge": "Spreading Pond Cost ($)",
+    "Injection Well": "Injection Wells Cost ($)",
+    "Dry Well": "Dry Wells Cost ($)",
+}
+
+_OPTION_TO_MAINTENANCE_COL = {
+    "Surface Recharge": "Spreading Pond Maintenance Cost ($)",
+    "Injection Well": "Injection Wells Maintenance Cost ($)",
+    "Dry Well": "Dry Wells Maintenance Cost ($)",
+}
+
+_OPTION_TO_NPV_COL = {
+    "Surface Recharge": "Spreading Pond Net Present Value ($)",
+    "Injection Well": "Injection Wells Net Present Value ($)",
+    "Dry Well": "Dry Wells Net Present Value ($)",
+}
+
+_OPTION_CARD_STYLE = {
+    "Surface Recharge": {"color": "#28a745", "bg": "#e8f5e9", "icon": "fas fa-water"},
+    "Injection Well": {"color": "#0d6efd", "bg": "#e7f1ff", "icon": "fas fa-syringe"},
+    "Dry Well": {"color": "#fd7e14", "bg": "#fff3e6", "icon": "fas fa-circle-arrow-down"},
+}
+
 
 def _annual_recharged_volume_acre_ft(option_name):
     """Annual recharged volume (acre-ft/yr) for a MAR option from the decision graph."""
@@ -58,6 +84,188 @@ def _annual_recharged_volume_acre_ft(option_name):
     if not math.isfinite(vol) or vol <= 0:
         return 0.0
     return vol / _FT3_PER_ACRE_FT
+
+
+def _format_currency(val):
+    """Format a dollar amount for compact display."""
+    if val is None or not math.isfinite(val) or val <= 0:
+        return "—"
+    if val >= 1e6:
+        return f"${val / 1e6:.2f}M"
+    if val >= 1e3:
+        return f"${val / 1e3:.0f}K"
+    return f"${val:,.0f}"
+
+
+def _format_per_acre_ft(val):
+    """Format a cost per acre-ft value."""
+    if val is None or not math.isfinite(val) or val <= 0:
+        return "—"
+    return f"${val:,.1f}/acre-ft"
+
+
+def _format_volume_acre_ft(val):
+    """Format annual recharge volume in acre-ft/yr."""
+    if val is None or not math.isfinite(val) or val <= 0:
+        return "—"
+    return f"{val:,.1f} acre-ft/yr"
+
+
+def _collect_engineering_option_economics():
+    """Collect capital, O&M, volume, and unit-cost metrics for each MAR option."""
+    capital_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
+    )
+    maintenance_cost_num = coerce_storage_cost_totals(
+        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+    )
+
+    economics = []
+    for option_name in MAR_ENGINEERING_OPTIONS:
+        capital_col = _OPTION_TO_CAPITAL_COL.get(option_name)
+        maintenance_col = _OPTION_TO_MAINTENANCE_COL.get(option_name)
+
+        capital_val = 0.0
+        if capital_col and capital_cost_num is not None and capital_col in capital_cost_num.index:
+            raw = capital_cost_num[capital_col]
+            capital_val = float(raw) if pd.notna(raw) else 0.0
+
+        maintenance_val = 0.0
+        if maintenance_col and maintenance_cost_num is not None and maintenance_col in maintenance_cost_num.index:
+            raw = maintenance_cost_num[maintenance_col]
+            maintenance_val = float(raw) if pd.notna(raw) else 0.0
+
+        acre_ft = _annual_recharged_volume_acre_ft(option_name)
+        economics.append({
+            "name": option_name,
+            "capital": capital_val,
+            "maintenance": maintenance_val,
+            "acre_ft": acre_ft,
+            "capital_per_acre_ft": capital_val / acre_ft if acre_ft > 0 and capital_val > 0 else None,
+            "maintenance_per_acre_ft": maintenance_val / acre_ft if acre_ft > 0 and maintenance_val > 0 else None,
+        })
+    return economics
+
+
+def _is_option_not_feasible(categorized_data, option_name):
+    """True when the option failed feasibility (rejected)."""
+    rejected_names = {opt["name"] for opt in categorized_data.get("rejected", [])}
+    return option_name in rejected_names
+
+
+def _option_feasibility_badges(categorized_data):
+    """Map option names to feasibility badge label and color."""
+    badges = {}
+    for opt in categorized_data.get("recommended", []):
+        badges[opt["name"]] = ("Recommended", "success")
+    for opt in categorized_data.get("conditional", []):
+        badges[opt["name"]] = ("Conditional", "warning")
+    for opt in categorized_data.get("rejected", []):
+        badges[opt["name"]] = ("Not feasible", "danger")
+    return badges
+
+
+def _option_metric_row(label, value, *, highlight=False):
+    """Single label/value row for an option economics card."""
+    value_class = "fw-semibold text-end mb-0"
+    if highlight:
+        value_class += " text-primary"
+    return dbc.Row(
+        [
+            dbc.Col(html.Span(label, className="text-muted small"), width=7, className="pe-0"),
+            dbc.Col(
+                html.P(value, className=value_class, style={"fontSize": "0.85rem"}),
+                width=5,
+            ),
+        ],
+        className="g-1 mb-2 align-items-center",
+    )
+
+
+def _build_engineering_options_summary(categorized_data):
+    """Build option cards showing cost, recharge volume, and unit economics."""
+    economics = _collect_engineering_option_economics()
+    badges = _option_feasibility_badges(categorized_data)
+    cards = []
+
+    for econ in economics:
+        name = econ["name"]
+        style = _OPTION_CARD_STYLE.get(name, {"color": "#1e3a5f", "bg": "#f8f9fa", "icon": "fas fa-circle"})
+        badge_label, badge_color = badges.get(name, ("Not evaluated", "secondary"))
+        not_feasible = badge_label == "Not feasible"
+        capital_display = "N/A" if not_feasible else _format_currency(econ["capital"])
+        maintenance_display = "N/A" if not_feasible else _format_currency(econ["maintenance"])
+
+        cards.append(
+            dbc.Col(
+                dbc.Card(
+                    [
+                        dbc.CardHeader(
+                            [
+                                html.I(className=f"{style['icon']} me-2"),
+                                html.Span(name, className="fw-bold"),
+                                dbc.Badge(
+                                    badge_label,
+                                    color=badge_color,
+                                    className="float-end",
+                                    style={"fontSize": "0.7rem"},
+                                ),
+                            ],
+                            className="text-white py-2",
+                            style={"backgroundColor": style["color"], "fontSize": "0.9rem"},
+                        ),
+                        dbc.CardBody(
+                            [
+                                html.Div(
+                                    "Project costs",
+                                    className="text-uppercase text-muted fw-semibold mb-2",
+                                    style={"fontSize": "0.65rem", "letterSpacing": "0.05em"},
+                                ),
+                                _option_metric_row("Capital cost", capital_display),
+                                _option_metric_row("Annual O&M cost", maintenance_display),
+                                html.Hr(className="my-2"),
+                                html.Div(
+                                    "Recharge performance",
+                                    className="text-uppercase text-muted fw-semibold mb-2",
+                                    style={"fontSize": "0.65rem", "letterSpacing": "0.05em"},
+                                ),
+                                _option_metric_row(
+                                    "Total annual recharge",
+                                    _format_volume_acre_ft(econ["acre_ft"]),
+                                    highlight=True,
+                                ),
+                                html.Hr(className="my-2"),
+                                html.Div(
+                                    "Unit economics",
+                                    className="text-uppercase text-muted fw-semibold mb-2",
+                                    style={"fontSize": "0.65rem", "letterSpacing": "0.05em"},
+                                ),
+                                _option_metric_row(
+                                    "Capital cost / volume",
+                                    _format_per_acre_ft(econ["capital_per_acre_ft"]),
+                                ),
+                                _option_metric_row(
+                                    "O&M cost / volume",
+                                    _format_per_acre_ft(econ["maintenance_per_acre_ft"]),
+                                ),
+                            ],
+                            style={"backgroundColor": style["bg"], "padding": "1rem"},
+                        ),
+                    ],
+                    className="h-100 shadow-sm border-0 w-100",
+                    style={"borderTop": f"4px solid {style['color']}"},
+                ),
+                className="d-flex px-1",
+                lg=4,
+                md=4,
+                sm=12,
+            )
+        )
+
+    return html.Div(
+        dbc.Row(cards, className="g-0 mx-0 w-100"),
+        className="w-100",
+    )
 
 
 def _efficiency_from_min_ratio(value, min_positive):
@@ -152,25 +360,7 @@ def _ensure_dss_results_available():
 
 def _get_empty_dashboard_content():
     """Return empty dashboard content when no DSS results are available."""
-    no_data_msg = html.Div(
-        [
-            html.P(
-                "No DSS evaluation results available. Please run the feasibility analysis first.",
-                className="text-muted text-center p-4"
-            )
-        ]
-    )
-    
-    empty_fig = go.Figure()
-    empty_fig.update_layout(
-        title="Decision Funnel",
-        xaxis_title="Number of Options",
-        yaxis_title="",
-        template="plotly_white",
-        height=250
-    )
-    
-    empty_stats = html.Div()
+    empty_engineering_summary = _build_empty_engineering_options_summary()
     
     empty_hydro_heatmap_fig = go.Figure()
     empty_hydro_heatmap_fig.update_layout(
@@ -225,7 +415,7 @@ def _get_empty_dashboard_content():
         className="text-muted text-center p-4"
     )
     
-    return (no_data_msg, empty_fig, empty_stats, 
+    return (empty_engineering_summary,
             empty_hydro_heatmap_fig, empty_hydro_heatmap_legend,
             empty_env_heatmap_fig, empty_env_heatmap_legend,
             empty_reg_heatmap_fig, empty_reg_heatmap_legend,
@@ -369,161 +559,13 @@ def _categorize_options(results, filters):
     }
 
 
-def _build_executive_summary(categorized_data):
-    """Build the executive summary HTML content."""
-    recommended = categorized_data["recommended"]
-    conditional = categorized_data["conditional"]
-    rejected = categorized_data["rejected"]
-    
-    executive_summary = []
-    
-    # Recommended section
-    if recommended:
-        executive_summary.append(
-            html.Div(
-                [
-                    html.H5("Recommended MAR Options", className="text-success fw-bold mb-3"),
-                    *[
-                        html.Div(
-                            [
-                                html.Strong(f"{opt['name']}:", className="d-block"),
-                                html.Span(f"Cost: {opt['cost']} | Benefit: {opt['benefit']}", className="d-block text-muted"),
-                                html.Small(opt.get('description', ''), className="d-block text-muted mt-1")
-                            ],
-                            className="mb-3 p-2",
-                            style={"borderLeft": "3px solid #28a745", "backgroundColor": "#f8f9fa"}
-                        )
-                        for opt in recommended
-                    ]
-                ],
-                className="mb-4"
-            )
-        )
-    
-    # Conditional section
-    if conditional:
-        executive_summary.append(
-            html.Div(
-                [
-                    html.H5("Conditional MAR Options", className="text-warning fw-bold mb-3"),
-                    *[
-                        html.Div(
-                            [
-                                html.Strong(f"{opt['name']}:", className="d-block"),
-                                html.Span(f"Cost: {opt['cost']} | Benefit: {opt['benefit']}", className="d-block text-muted"),
-                                html.Small(f"Requirements: {opt['requirements']}", className="d-block text-muted mt-1")
-                            ],
-                            className="mb-3 p-2",
-                            style={"borderLeft": "3px solid #ffc107", "backgroundColor": "#f8f9fa"}
-                        )
-                        for opt in conditional
-                    ]
-                ],
-                className="mb-4"
-            )
-        )
-    
-    # Rejected section
-    if rejected:
-        executive_summary.append(
-            html.Div(
-                [
-                    html.H5("Rejected MAR Options", className="text-danger fw-bold mb-3"),
-                    *[
-                        html.Div(
-                            [
-                                html.Strong(f"{opt['name']}:", className="d-block"),
-                                html.Small(f"Reason: {opt['reason']}", className="d-block text-muted mt-1")
-                            ],
-                            className="mb-3 p-2",
-                            style={"borderLeft": "3px solid #dc3545", "backgroundColor": "#f8f9fa"}
-                        )
-                        for opt in rejected
-                    ]
-                ]
-            )
-        )
-    
-    if not executive_summary:
-        executive_summary = [
-            html.P("No options evaluated yet.", className="text-muted text-center p-4")
-        ]
-    
-    return executive_summary
-
-
-def _create_decision_funnel_chart(stats):
-    """Create the decision funnel chart."""
-    funnel_categories = ["All Options", "After Hard Constraints", "After Soft Rules", "Recommended"]
-    funnel_values = [
-        stats["total_options"],
-        stats["after_hard_constraints"],
-        stats["after_soft_rules"],
-        stats["recommended_count"]
-    ]
-    
-    colors = ["#6c757d", "#007bff", "#28a745", "#28a745"]
-    
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=funnel_values,
-            y=funnel_categories,
-            orientation='h',
-            marker_color=colors,
-            text=[str(v) for v in funnel_values],
-            textposition='auto',
-        )
-    )
-    fig.update_layout(
-        title="Decision Funnel",
-        xaxis_title="Number of Options",
-        yaxis_title="",
-        template="plotly_white",
-        height=250,
-        autosize=False,
-        showlegend=False,
-        margin=dict(l=120, r=40, t=40, b=40),
-        uirevision='constant'
-    )
-    
-    return fig
-
-
-def _create_funnel_stats(stats):
-    """Create summary statistics for the decision funnel."""
+def _build_empty_engineering_options_summary():
+    """Placeholder when feasibility analysis has not run yet."""
     return html.Div(
-        [
-            html.Div(
-                [
-                    html.Strong(f"{stats['total_options']}", className="d-block"),
-                    html.Small("Options Evaluated", className="text-muted")
-                ],
-                className="text-center me-3"
-            ),
-            html.Div(
-                [
-                    html.Strong(f"{stats['hard_constraint_fails']}", className="d-block text-danger"),
-                    html.Small("Hard Constraint Fail", className="text-muted")
-                ],
-                className="text-center me-3"
-            ),
-            html.Div(
-                [
-                    html.Strong(f"{stats['soft_rule_rejects']}", className="d-block text-danger"),
-                    html.Small("Soft Rule Reject", className="text-muted")
-                ],
-                className="text-center me-3"
-            ),
-            html.Div(
-                [
-                    html.Strong(f"{stats['recommended_count']}", className="d-block text-success"),
-                    html.Small("Acceptable Options", className="text-muted")
-                ],
-                className="text-center"
-            )
-        ],
-        className="d-flex justify-content-around border-top pt-3"
+        html.P(
+            "No DSS evaluation results available. Please run the feasibility analysis first.",
+            className="text-muted text-center p-4 mb-0",
+        )
     )
 
 
@@ -994,9 +1036,7 @@ def setup_feasibilities_callbacks(app):
     """Set up all callbacks for the Feasibilities tab."""
     
     @app.callback(
-        [Output("executive-summary-content", "children"),
-         Output("decision-funnel-chart", "figure"),
-         Output("decision-funnel-stats", "children"),
+        [Output("engineering-options-summary", "children"),
          Output("hydrogeologic-constraints-heatmap-chart", "figure"),
          Output("hydrogeologic-constraints-heatmap-legend", "children"),
          Output("environmental-constraints-heatmap-chart", "figure"),
@@ -1014,7 +1054,7 @@ def setup_feasibilities_callbacks(app):
         prevent_initial_call=False
     )
     def update_feasibilities_dashboard(active_tab, _graph_store):
-        """Update Executive Summary and Decision Funnel based on DSS results.
+        """Update engineering options economics and feasibility charts from DSS results.
         
         Listens to ``knowledge-graph-store`` so the Feasibilities view refreshes whenever
         the Analysis pipeline finishes (e.g. selecting the Analysis top tab), not only when
@@ -1033,8 +1073,7 @@ def setup_feasibilities_callbacks(app):
         if active_tab != "analysis-feasibilities":
             return (dash.no_update, dash.no_update, dash.no_update, 
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update)
+                    dash.no_update, dash.no_update, dash.no_update, dash.no_update)
         
         # CRITICAL: Ensure Analysis tab callbacks have run first
         # This ensures the knowledge graph is initialized and feasibility analysis has completed
@@ -1057,9 +1096,7 @@ def setup_feasibilities_callbacks(app):
         categorized_data = _categorize_options(results, filters)
         
         # Build components
-        executive_summary = _build_executive_summary(categorized_data)
-        funnel_fig = _create_decision_funnel_chart(categorized_data["stats"])
-        funnel_stats = _create_funnel_stats(categorized_data["stats"])
+        engineering_summary = _build_engineering_options_summary(categorized_data)
         
         # Create separate heatmaps for each constraint type
         hydro_heatmap_fig, hydro_heatmap_legend = _create_constraints_heatmap(
@@ -1075,12 +1112,10 @@ def setup_feasibilities_callbacks(app):
         capital_fig, maintenance_fig, npv_fig = _create_cost_comparison_charts()
         
         # Create spider plots
-        spider_plots_content = _create_spider_plots(dss_results)
+        spider_plots_content = _create_spider_plots(dss_results, categorized_data)
         
         return (
-            html.Div(executive_summary),
-            funnel_fig,
-            funnel_stats,
+            engineering_summary,
             hydro_heatmap_fig,
             hydro_heatmap_legend,
             env_heatmap_fig,
@@ -1093,7 +1128,7 @@ def setup_feasibilities_callbacks(app):
             spider_plots_content
         )
     
-def _create_spider_plots(dss_results):
+def _create_spider_plots(dss_results, categorized_data):
     """Create spider plots for each MAR option (7 axes including $/acre-ft efficiency)."""
     if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
         return html.Div(
@@ -1117,24 +1152,10 @@ def _create_spider_plots(dss_results):
             className="text-muted text-center p-4"
         )
     
-    # Map option names to cost column names
-    option_to_capital_col = {
-        "Surface Recharge": "Spreading Pond Cost ($)",
-        "Injection Well": "Injection Wells Cost ($)",
-        "Dry Well": "Dry Wells Cost ($)"
-    }
-    
-    option_to_maintenance_col = {
-        "Surface Recharge": "Spreading Pond Maintenance Cost ($)",
-        "Injection Well": "Injection Wells Maintenance Cost ($)",
-        "Dry Well": "Dry Wells Maintenance Cost ($)"
-    }
-    
-    option_to_npv_col = {
-        "Surface Recharge": "Spreading Pond Net Present Value ($)",
-        "Injection Well": "Injection Wells Net Present Value ($)",
-        "Dry Well": "Dry Wells Net Present Value ($)"
-    }
+    # Map option names to cost column names (shared module constants)
+    option_to_capital_col = _OPTION_TO_CAPITAL_COL
+    option_to_maintenance_col = _OPTION_TO_MAINTENANCE_COL
+    option_to_npv_col = _OPTION_TO_NPV_COL
     
     # Get all capital, maintenance costs, and NPV values and find minimums
     capital_cost_dict = {}  # Store capital cost per option
@@ -1200,35 +1221,44 @@ def _create_spider_plots(dss_results):
         hydro_score = option_scores.get("hydrogeologic", 0.0)
         env_score = option_scores.get("environmental", 0.0)
         reg_score = option_scores.get("regulation", 0.0)
-        
-        # Calculate capital cost efficiency: 100 for lowest cost, 100 * (min_cost / x) for others
-        capital_val = capital_cost_dict.get(option_name, 0.0)
-        if capital_val > 0 and min_capital_cost > 0:
-            capital_efficiency = 100.0 * (min_capital_cost / capital_val)
-        else:
-            capital_efficiency = 0.0
-        capital_efficiency = max(0.0, min(100.0, capital_efficiency))
-        
-        # Calculate maintenance cost efficiency: 100 for lowest cost, 100 * (min_cost / x) for others
-        maintenance_val = maintenance_cost_dict.get(option_name, 0.0)
-        if maintenance_val > 0 and min_maintenance_cost > 0:
-            maintenance_efficiency = 100.0 * (min_maintenance_cost / maintenance_val)
-        else:
-            maintenance_efficiency = 0.0
-        maintenance_efficiency = max(0.0, min(100.0, maintenance_efficiency))
-        
-        # Calculate NPV efficiency: 100 for lowest NPV, 100 * (min_npv / x) for others
-        npv_val = npv_dict.get(option_name, 0.0)
-        if npv_val > 0 and min_npv > 0:
-            npv_efficiency = 100.0 * (min_npv / npv_val)
-        else:
-            npv_efficiency = 0.0
-        npv_efficiency = max(0.0, min(100.0, npv_efficiency))
 
-        cost_per_acre_ft_val = cost_per_acre_ft_dict.get(option_name, 0.0)
-        cost_per_acre_ft_efficiency = _efficiency_from_min_ratio(
-            cost_per_acre_ft_val, min_cost_per_acre_ft
-        )
+        not_feasible = _is_option_not_feasible(categorized_data, option_name)
+
+        if not_feasible:
+            capital_efficiency = 0.0
+            maintenance_efficiency = 0.0
+            npv_efficiency = 0.0
+            cost_per_acre_ft_efficiency = 0.0
+            cost_per_acre_ft_val = 0.0
+        else:
+            # Calculate capital cost efficiency: 100 for lowest cost, 100 * (min_cost / x) for others
+            capital_val = capital_cost_dict.get(option_name, 0.0)
+            if capital_val > 0 and min_capital_cost > 0:
+                capital_efficiency = 100.0 * (min_capital_cost / capital_val)
+            else:
+                capital_efficiency = 0.0
+            capital_efficiency = max(0.0, min(100.0, capital_efficiency))
+
+            # Calculate maintenance cost efficiency: 100 for lowest cost, 100 * (min_cost / x) for others
+            maintenance_val = maintenance_cost_dict.get(option_name, 0.0)
+            if maintenance_val > 0 and min_maintenance_cost > 0:
+                maintenance_efficiency = 100.0 * (min_maintenance_cost / maintenance_val)
+            else:
+                maintenance_efficiency = 0.0
+            maintenance_efficiency = max(0.0, min(100.0, maintenance_efficiency))
+
+            # Calculate NPV efficiency: 100 for lowest NPV, 100 * (min_npv / x) for others
+            npv_val = npv_dict.get(option_name, 0.0)
+            if npv_val > 0 and min_npv > 0:
+                npv_efficiency = 100.0 * (min_npv / npv_val)
+            else:
+                npv_efficiency = 0.0
+            npv_efficiency = max(0.0, min(100.0, npv_efficiency))
+
+            cost_per_acre_ft_val = cost_per_acre_ft_dict.get(option_name, 0.0)
+            cost_per_acre_ft_efficiency = _efficiency_from_min_ratio(
+                cost_per_acre_ft_val, min_cost_per_acre_ft
+            )
         
         # Helper function to get color and style based on score
         def get_score_style(score):

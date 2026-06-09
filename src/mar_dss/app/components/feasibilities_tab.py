@@ -10,7 +10,7 @@ def create_feasibilities_content():
     """Create content for Feasibilities tab."""
     return html.Div(
         [
-            # First row: Executive Summary and Decision Funnel
+            # First row: Engineering options economics
             dbc.Row(
                 [
                     dbc.Col(
@@ -23,46 +23,20 @@ def create_feasibilities_content():
                                         style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
                                     ),
                                     dbc.CardBody(
-                                        id="executive-summary-content",
+                                        id="engineering-options-summary",
                                         children=[
                                             html.Div(
-                                                "Loading feasibility analysis...",
-                                                className="text-center text-muted p-2 small"
+                                                "Loading option economics...",
+                                                className="text-center text-muted p-3 small"
                                             )
                                         ],
-                                        style={"padding": "0.75rem"}
+                                        style={"padding": "0.5rem 0.25rem"}
                                     )
                                 ],
-                                className="h-100"
+                                className="h-100 shadow-sm"
                             )
                         ],
-                        width=6
-                    ),
-                    dbc.Col(
-                        [
-                            dbc.Card(
-                                [
-                                    dbc.CardHeader(
-                                        "Decision Funnel",
-                                        className="fw-bold text-white py-2",
-                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
-                                    ),
-                                    dbc.CardBody(
-                                        [
-                                            dcc.Graph(
-                                                id="decision-funnel-chart",
-                                                style={"height": "250px"},
-                                                config={"displayModeBar": False}
-                                            ),
-                                            html.Div(id="decision-funnel-stats", className="mt-2")
-                                        ],
-                                        style={"padding": "0.75rem"}
-                                    )
-                                ],
-                                className="h-100"
-                            )
-                        ],
-                        width=6
+                        width=12
                     )
                 ],
                 className="mb-2"
@@ -242,13 +216,8 @@ def create_feasibilities_content():
                 className="mb-2"
             ),
             dbc.Tooltip(
-                "Text summary of integrated feasibility conclusions",
-                target="executive-summary-content",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Share of MAR options passing filters at each decision stage",
-                target="decision-funnel-chart",
+                "Capital cost, annual recharge volume, and unit costs for each MAR technology",
+                target="engineering-options-summary",
                 placement="top",
             ),
             dbc.Tooltip(

@@ -5,6 +5,7 @@ Callbacks for Cost calculations and display in the Engineering tab.
 import dash
 from dash import Input, Output, State, html, dash_table, dcc
 import dash_bootstrap_components as dbc
+import json
 import pandas as pd
 import plotly.graph_objects as go
 import mar_dss.app.utils.data_storage as dash_storage
@@ -19,6 +20,64 @@ try:
     from mar_dss.app.callbacks.cost_calculator import CostCalculator
 except ImportError:
     from .cost_calculator import CostCalculator
+
+_COST_COLUMN_TO_OPTION = {
+    "Spreading Pond Cost ($)": "Surface Recharge",
+    "Injection Wells Cost ($)": "Injection Well",
+    "Dry Wells Cost ($)": "Dry Well",
+    "Spreading Pond Maintenance Cost ($)": "Surface Recharge",
+    "Injection Wells Maintenance Cost ($)": "Injection Well",
+    "Dry Wells Maintenance Cost ($)": "Dry Well",
+    "Spreading Pond Net Present Value ($)": "Surface Recharge",
+    "Injection Wells Net Present Value ($)": "Injection Well",
+    "Dry Wells Net Present Value ($)": "Dry Well",
+}
+
+
+def _get_not_feasible_option_names():
+    """Option names rejected by feasibility analysis (same logic as Feasibilities tab)."""
+    dss_results = dash_storage.get_data("dss_results")
+    if dss_results is None or not hasattr(dss_results, "results") or not dss_results.results:
+        return set()
+    from mar_dss.app.callbacks.feasibilities_callbacks import _categorize_options
+
+    categorized = _categorize_options(
+        dss_results.results,
+        getattr(dss_results, "filters", {}),
+    )
+    return {opt["name"] for opt in categorized.get("rejected", [])}
+
+
+def _coerce_stored_dataframe(value):
+    """Return a DataFrame from dash storage, or None if the value is not usable."""
+    if isinstance(value, pd.DataFrame):
+        return value
+    if value is None:
+        return None
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            parsed = json.loads(stripped)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return None
+        value = parsed
+    if isinstance(value, (list, dict)):
+        try:
+            return pd.DataFrame(value)
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _cost_table_dataframe(stored_df, cost_calculator, calculator_attr):
+    """Copy a cost breakdown table from storage or the live calculator."""
+    if isinstance(stored_df, pd.DataFrame):
+        return stored_df.copy()
+    if cost_calculator is not None:
+        return getattr(cost_calculator, calculator_attr).copy()
+    return pd.DataFrame()
 
 
 def setup_cost_callbacks(app):
@@ -693,10 +752,16 @@ def setup_cost_callbacks(app):
        
         # Check if cost data already exists (from integrated analysis)
         existing_capital_costs = dash_storage.get_data("capital_cost_num")
-        existing_capital_df = dash_storage.get_data("capital_costs_calculations_df")
-        existing_maintenance_df = dash_storage.get_data("maintenance_costs_calculations_df")
-        existing_npv_df = dash_storage.get_data("npv_calculations_df")
-        
+        existing_capital_df = _coerce_stored_dataframe(
+            dash_storage.get_data("capital_costs_calculations_df")
+        )
+        existing_maintenance_df = _coerce_stored_dataframe(
+            dash_storage.get_data("maintenance_costs_calculations_df")
+        )
+        existing_npv_df = _coerce_stored_dataframe(
+            dash_storage.get_data("npv_calculations_df")
+        )
+
         if existing_capital_costs is not None and existing_capital_df is not None:
             # Cost data already exists from integrated analysis - use it without recalculating
             print("Using existing cost data from integrated analysis (skipping recalculation)")
@@ -768,7 +833,13 @@ def setup_cost_callbacks(app):
         
         # Get selected technology to determine which cost to display
         selected_technology = dash_storage.get_data("selected_mar_technology")
-        
+        not_feasible_options = _get_not_feasible_option_names()
+
+        def _cost_str_for_option(option_name, value):
+            if option_name in not_feasible_options:
+                return "N/A"
+            return f"${float(value):,.0f}" if pd.notna(value) and value != 0 else "$0"
+
         # Format costs - show all three or one based on selection
         def format_cost_display(cost_data, cost_type="Capital"):
             """Format cost display to show 3 values or 1 based on selection."""
@@ -804,9 +875,9 @@ def setup_cost_callbacks(app):
                     injection = cost_data.get(injection_col, 0) if injection_col in cost_data.index else 0
                     dry_well = cost_data.get(dry_well_col, 0) if dry_well_col in cost_data.index else 0
                     
-                    spreading_str = f"${float(spreading):,.0f}" if pd.notna(spreading) and spreading != 0 else "$0"
-                    injection_str = f"${float(injection):,.0f}" if pd.notna(injection) and injection != 0 else "$0"
-                    dry_well_str = f"${float(dry_well):,.0f}" if pd.notna(dry_well) and dry_well != 0 else "$0"
+                    spreading_str = _cost_str_for_option("Surface Recharge", spreading)
+                    injection_str = _cost_str_for_option("Injection Well", injection)
+                    dry_well_str = _cost_str_for_option("Dry Well", dry_well)
                     return html.Div([
                         html.Div(f"Spreading: {spreading_str}", style={"margin-bottom": "5px"}),
                         html.Div(f"Injection: {injection_str}", style={"margin-bottom": "5px"}),
@@ -833,6 +904,9 @@ def setup_cost_callbacks(app):
                                 break
                     
                     if cost_column and cost_column in cost_data.index:
+                        option_name = _COST_COLUMN_TO_OPTION.get(cost_column)
+                        if option_name in not_feasible_options:
+                            return "N/A"
                         cost_value = cost_data[cost_column]
                         return f"${float(cost_value):,.0f}" if pd.notna(cost_value) else "$0"
                     else:
@@ -841,9 +915,9 @@ def setup_cost_callbacks(app):
                         injection = cost_data.get(injection_col, 0) if injection_col in cost_data.index else 0
                         dry_well = cost_data.get(dry_well_col, 0) if dry_well_col in cost_data.index else 0
                         
-                        spreading_str = f"${float(spreading):,.0f}" if pd.notna(spreading) and spreading != 0 else "$0"
-                        injection_str = f"${float(injection):,.0f}" if pd.notna(injection) and injection != 0 else "$0"
-                        dry_well_str = f"${float(dry_well):,.0f}" if pd.notna(dry_well) and dry_well != 0 else "$0"
+                        spreading_str = _cost_str_for_option("Surface Recharge", spreading)
+                        injection_str = _cost_str_for_option("Injection Well", injection)
+                        dry_well_str = _cost_str_for_option("Dry Well", dry_well)
                         return html.Div([
                             html.Div(f"Spreading: {spreading_str}", style={"margin-bottom": "5px"}),
                             html.Div(f"Injection: {injection_str}", style={"margin-bottom": "5px"}),
@@ -864,11 +938,9 @@ def setup_cost_callbacks(app):
             npv_20_years = "$0"
         
         # Create Capital Cost Table
-        # Use stored DataFrame if available, otherwise use cost_calculator
-        if existing_capital_df is not None:
-            capital_df = existing_capital_df.copy()
-        else:
-            capital_df = cost_calculator.capital_costs_calculations.copy()
+        capital_df = _cost_table_dataframe(
+            existing_capital_df, cost_calculator, "capital_costs_calculations"
+        )
         # Reset index to make it a column
         capital_df = capital_df.reset_index()
         # Rename the index column if it exists
@@ -973,11 +1045,9 @@ def setup_cost_callbacks(app):
         )
         
         # Create Maintenance Cost Table
-        # Use stored DataFrame if available, otherwise use cost_calculator
-        if existing_maintenance_df is not None:
-            maintenance_df = existing_maintenance_df.copy()
-        else:
-            maintenance_df = cost_calculator.maintenance_costs_calculations.copy()
+        maintenance_df = _cost_table_dataframe(
+            existing_maintenance_df, cost_calculator, "maintenance_costs_calculations"
+        )
         # Reset index to make it a column
         maintenance_df = maintenance_df.reset_index()
         # Rename the index column if it exists
@@ -1068,11 +1138,9 @@ def setup_cost_callbacks(app):
         )
         
         # Create Net Present Value Table and Plot
-        # Use stored DataFrame if available, otherwise use cost_calculator
-        if existing_npv_df is not None:
-            npv_df = existing_npv_df.copy()
-        else:
-            npv_df = cost_calculator.net_present_value_calculations.copy()
+        npv_df = _cost_table_dataframe(
+            existing_npv_df, cost_calculator, "net_present_value_calculations"
+        )
         # Reset index to make Year a column
         npv_df = npv_df.reset_index()
         # Rename the index column if it exists
