@@ -38,15 +38,34 @@ def launch_dashboard_waitress(
     """
     from waitress import serve
 
+    from mar_dss.startup_banner import (
+        is_frozen_distribution,
+        print_startup_footer,
+        print_startup_status,
+    )
+
+    if is_frozen_distribution():
+        print_startup_status("Loading application modules and project data stores...")
+
     dashboard = DashboardApp()
+
+    if is_frozen_distribution():
+        print_startup_status("Building dashboard layout and registering callbacks...")
+
     display_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
     url = f"http://{display_host}:{port}/"
-    print(f"Dashboard (Waitress) at: {url}")
-    if host == "0.0.0.0":
-        print("Listening on all interfaces (0.0.0.0).")
+
+    if not is_frozen_distribution():
+        print(f"Dashboard (Waitress) at: {url}")
+        if host == "0.0.0.0":
+            print("Listening on all interfaces (0.0.0.0).")
+    else:
+        print_startup_status(f"Starting local web server on port {port}...")
 
     if open_browser:
         webbrowser.open(f"http://127.0.0.1:{port}/")
+
+    print_startup_footer(url=url, open_browser=open_browser)
 
     serve(dashboard.app.server, host=host, port=port, threads=threads)
 
