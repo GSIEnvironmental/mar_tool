@@ -370,14 +370,14 @@ def calculate_physical_feasibility(selected_technology, graph, node_values, aq_t
 def calculate_environmental_feasibility():
     """Calculate environmental feasibility score based on risk assessment."""
     env_inputs = [
-        dash_storage.get_data("tss_turbidity_risk") or "LOW RISK",
-        dash_storage.get_data("doc_toc_risk") or "LOW RISK",
-        dash_storage.get_data("ph_alkalinity_risk") or "LOW RISK",
-        dash_storage.get_data("tds_salinity_risk") or "LOW RISK",
-        dash_storage.get_data("inorganic_contaminants_risk") or "LOW RISK",
-        dash_storage.get_data("emerging_contaminants_risk") or "LOW RISK",
-        dash_storage.get_data("redox_compatibility_risk") or "LOW RISK",
-        dash_storage.get_data("pathogen_risk") or "LOW RISK",
+        dash_storage.get_data("tss_turbidity_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("doc_toc_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("ph_alkalinity_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("tds_salinity_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("inorganic_contaminants_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("emerging_contaminants_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("redox_compatibility_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("pathogen_risk") or "NOT AVAILABLE",
     ]
     
     try:

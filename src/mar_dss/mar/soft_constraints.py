@@ -13,6 +13,25 @@ levels = {
     4: "Reject",
 }
 
+NOT_AVAILABLE_RISK = "NOT AVAILABLE"
+_WQ_DATA_GAP_PREFIX = "Warning: Data gap — "
+
+
+def _water_quality_data_gap_penalty(parameter_label: str) -> str:
+    return (
+        f"{_WQ_DATA_GAP_PREFIX}{parameter_label} not available; "
+        "assumed very low risk pending water quality data collection."
+    )
+
+
+def _finalize_water_quality_group_response(response: int, penalty: list) -> tuple[int, list]:
+    """Promote to Warning when only data-gap messages exist (very low risk, but flagged)."""
+    if response > 0:
+        return response, penalty
+    if any(p.startswith(_WQ_DATA_GAP_PREFIX) for p in penalty):
+        return 2, penalty
+    return response, penalty
+
 def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     """Generate soft constraints for MAR options."""
     
@@ -342,14 +361,14 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     
     # Get environmental assessment data from data storage
     # Note: data_storage is the same module used throughout the app
-    tss_turbidity_risk = data_storage.get_data("tss_turbidity_risk") or "LOW RISK"
-    doc_toc_risk = data_storage.get_data("doc_toc_risk") or "LOW RISK"
-    ph_alkalinity_risk = data_storage.get_data("ph_alkalinity_risk") or "LOW RISK"
-    tds_salinity_risk = data_storage.get_data("tds_salinity_risk") or "LOW RISK"
-    inorganic_contaminants_risk = data_storage.get_data("inorganic_contaminants_risk") or "LOW RISK"
-    emerging_contaminants_risk = data_storage.get_data("emerging_contaminants_risk") or "LOW RISK"
-    redox_compatibility_risk = data_storage.get_data("redox_compatibility_risk") or "LOW RISK"
-    pathogen_risk = data_storage.get_data("pathogen_risk") or "LOW RISK"
+    tss_turbidity_risk = data_storage.get_data("tss_turbidity_risk") or NOT_AVAILABLE_RISK
+    doc_toc_risk = data_storage.get_data("doc_toc_risk") or NOT_AVAILABLE_RISK
+    ph_alkalinity_risk = data_storage.get_data("ph_alkalinity_risk") or NOT_AVAILABLE_RISK
+    tds_salinity_risk = data_storage.get_data("tds_salinity_risk") or NOT_AVAILABLE_RISK
+    inorganic_contaminants_risk = data_storage.get_data("inorganic_contaminants_risk") or NOT_AVAILABLE_RISK
+    emerging_contaminants_risk = data_storage.get_data("emerging_contaminants_risk") or NOT_AVAILABLE_RISK
+    redox_compatibility_risk = data_storage.get_data("redox_compatibility_risk") or NOT_AVAILABLE_RISK
+    pathogen_risk = data_storage.get_data("pathogen_risk") or NOT_AVAILABLE_RISK
     vadose_zone_pollution = data_storage.get_data("vadose_zone_pollution") or "None"
 
     # if land_use in ["Urban Residential", "Urban Nonresidential"]:
@@ -377,6 +396,8 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         clogging_fouling_response = max(clogging_fouling_response, 1)
         if not clogging_fouling_penalty:
             clogging_fouling_penalty.append("Warning + Cost: Moderate TSS/Turbidity (10-20 mg/L, 5-10 NTU) may require treatment")
+    elif tss_turbidity_risk == NOT_AVAILABLE_RISK:
+        clogging_fouling_penalty.append(_water_quality_data_gap_penalty("TSS/Turbidity"))
     
     # Check DOC/TOC risk
     if doc_toc_risk == "HIGH RISK":
@@ -386,7 +407,12 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         clogging_fouling_response = max(clogging_fouling_response, 2)
         if not clogging_fouling_penalty:
             clogging_fouling_penalty.append("Warning + Cost: Moderate DOC/TOC (5-10 mg/L) may cause biofouling, monitor closely")
-    
+    elif doc_toc_risk == NOT_AVAILABLE_RISK:
+        clogging_fouling_penalty.append(_water_quality_data_gap_penalty("DOC/TOC"))
+
+    clogging_fouling_response, clogging_fouling_penalty = _finalize_water_quality_group_response(
+        clogging_fouling_response, clogging_fouling_penalty
+    )
     clogging_fouling_constraint = {
         "name": "Clogging & Fouling Risks",
         "response": clogging_fouling_response,
@@ -411,6 +437,8 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         chemical_compatibility_response = max(chemical_compatibility_response, 2)
         if not chemical_compatibility_penalty:
             chemical_compatibility_penalty.append("Warning + Cost: Moderate pH/alkalinity difference (0.5-1.0 units) may cause geochemical reactions")
+    elif ph_alkalinity_risk == NOT_AVAILABLE_RISK:
+        chemical_compatibility_penalty.append(_water_quality_data_gap_penalty("pH/Alkalinity"))
     
     # Check TDS/Salinity risk (CRITICAL CHECKPOINT)
     if tds_salinity_risk == "HIGH RISK":
@@ -420,6 +448,8 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         chemical_compatibility_response = max(chemical_compatibility_response, 2)
         if not chemical_compatibility_penalty:
             chemical_compatibility_penalty.append("Warning + Cost: Moderate TDS increase (250-500 mg/L) - long-term salinization risk")
+    elif tds_salinity_risk == NOT_AVAILABLE_RISK:
+        chemical_compatibility_penalty.append(_water_quality_data_gap_penalty("TDS/Salinity"))
     
     # Check Redox Compatibility risk
     if redox_compatibility_risk == "HIGH RISK":
@@ -429,7 +459,12 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         chemical_compatibility_response = max(chemical_compatibility_response, 3)
         if not chemical_compatibility_penalty:
             chemical_compatibility_penalty.append("Mitigation + Cost: Redox incompatibility may cause Fe/Mn precipitation or As mobilization")
-    
+    elif redox_compatibility_risk == NOT_AVAILABLE_RISK:
+        chemical_compatibility_penalty.append(_water_quality_data_gap_penalty("Redox Compatibility"))
+
+    chemical_compatibility_response, chemical_compatibility_penalty = _finalize_water_quality_group_response(
+        chemical_compatibility_response, chemical_compatibility_penalty
+    )
     chemical_compatibility_constraint = {
         "name": "Chemical Compatibility",
         "response": chemical_compatibility_response,
@@ -454,6 +489,8 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         water_quality_compliance_response = max(water_quality_compliance_response, 2)
         if not water_quality_compliance_penalty:
             water_quality_compliance_penalty.append("Warning + Cost: Inorganic contaminants 50-100% of limits - treatment required")
+    elif inorganic_contaminants_risk == NOT_AVAILABLE_RISK:
+        water_quality_compliance_penalty.append(_water_quality_data_gap_penalty("Inorganic Contaminants"))
     
     # Check Emerging Contaminants risk
     if emerging_contaminants_risk == "HIGH RISK":
@@ -463,6 +500,8 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         water_quality_compliance_response = max(water_quality_compliance_response, 2)
         if not water_quality_compliance_penalty:
             water_quality_compliance_penalty.append("Warning + Cost: Emerging contaminants detected at low levels - monitor and evaluate treatment")
+    elif emerging_contaminants_risk == NOT_AVAILABLE_RISK:
+        water_quality_compliance_penalty.append(_water_quality_data_gap_penalty("Emerging Contaminants"))
     
     # Check Pathogen Risk (CRITICAL CHECKPOINT)
     if pathogen_risk == "HIGH RISK":
@@ -472,8 +511,12 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         water_quality_compliance_response = max(water_quality_compliance_response, 3)
         if not water_quality_compliance_penalty:
             water_quality_compliance_penalty.append("Mitigation + Cost: Moderate pathogen risk - disinfection required")
-    
+    elif pathogen_risk == NOT_AVAILABLE_RISK:
+        water_quality_compliance_penalty.append(_water_quality_data_gap_penalty("Pathogen Risk"))
 
+    water_quality_compliance_response, water_quality_compliance_penalty = _finalize_water_quality_group_response(
+        water_quality_compliance_response, water_quality_compliance_penalty
+    )
     water_quality_compliance_constraint = {
         "name": "Water-Quality Compliance",
         "response": water_quality_compliance_response,

@@ -13,44 +13,67 @@ from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # --- Data Structures for Logic and Display ---
 
+# --- Water quality risk levels (shared with callbacks and soft_constraints) ---
+NOT_AVAILABLE_RISK = "NOT AVAILABLE"
+DEFAULT_WATER_QUALITY_RISK = NOT_AVAILABLE_RISK
+
+
+def water_quality_risk_options(low_label, moderate_label, high_label):
+    """Standard four-option radio list for water quality assessment questions."""
+    return [
+        {"label": "NOT AVAILABLE (data not yet collected)", "value": NOT_AVAILABLE_RISK},
+        {"label": low_label, "value": "LOW RISK"},
+        {"label": moderate_label, "value": "MODERATE RISK"},
+        {"label": high_label, "value": "HIGH RISK"},
+    ]
+
+
 # 1. Decision Logic and Scoring (Maps parameter input to score, treatment, and recommendations)
 DECISION_LOGIC = {
     "step1_tss": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S1_NA", "rec": "Collect TSS/turbidity data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S1_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S1_MOD", "rec": "Conduct pilot-scale settling tests, evaluate seasonal variations."},
         "HIGH RISK": {"score": 2, "color": "danger", "treatment_key": "S1_HIGH", "rec": "Jar test studies, evaluate membrane fouling potential, budget for chemical costs."},
     },
     "step2a_doc": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S2A_NA", "rec": "Collect DOC/TOC data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S2A_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S2A_MOD", "rec": "Conduct biodegradability tests, monitor biofouling, consider oxygenated recharge."},
         "HIGH RISK": {"score": 2, "color": "danger", "treatment_key": "S2A_HIGH", "rec": "Pilot test oxidation effectiveness, evaluate GAC regeneration costs, consider multi-barrier approach."},
     },
     "step2b_ph": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S2B_NA", "rec": "Collect pH/alkalinity data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S2B_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S2B_MOD", "rec": "Geochemical modeling (PHREEQC), pilot injection test, monitor Fe/Mn precipitation."},
         "HIGH RISK": {"score": 3, "color": "danger", "treatment_key": "S2B_HIGH", "rec": "**MANDATORY:** Detailed geochemical assessment, column studies, extended pilot test."},
     },
     "step3_tds": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S3_NA", "rec": "Collect TDS/salinity data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S3_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 2, "color": "warning", "treatment_key": "S3_MOD", "rec": "Monitor TDS trends, evaluate blending strategies, consider reverse osmosis if needed."},
         "HIGH RISK": {"score": 4, "color": "danger", "treatment_key": "S3_HIGH", "rec": "**CRITICAL:** Reverse osmosis or advanced desalination required. High capital and O&M costs expected."},
     },
     "step4_inorganic": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S4_NA", "rec": "Collect inorganic contaminant data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S4_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 2, "color": "warning", "treatment_key": "S4_MOD", "rec": "Enhanced monitoring, consider targeted treatment (e.g., ion exchange, adsorption)."},
         "HIGH RISK": {"score": 5, "color": "danger", "treatment_key": "S4_HIGH", "rec": "**CRITICAL:** Source may be unsuitable without extensive treatment. Regulatory compliance mandatory."},
     },
     "step5a_ec": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S5A_NA", "rec": "Collect emerging contaminant data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S5A_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S5A_MOD", "rec": "Enhanced monitoring, consider GAC or advanced oxidation processes."},
         "HIGH RISK": {"score": 3, "color": "danger", "treatment_key": "S5A_HIGH", "rec": "Advanced treatment required (GAC, AOP, membrane filtration). High costs and complexity."},
     },
     "step5b_redox": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S5B_NA", "rec": "Collect redox compatibility data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S5B_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S5B_MOD", "rec": "Geochemical modeling, monitor Fe/Mn/As mobilization, consider aeration."},
         "HIGH RISK": {"score": 3, "color": "danger", "treatment_key": "S5B_HIGH", "rec": "**MANDATORY:** Detailed redox assessment, pilot injection, consider pre-treatment to adjust redox state."},
     },
     "step6_pathogens": {
+        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S6_NA", "rec": "Collect pathogen indicator data before final suitability assessment."},
         "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S6_LOW", "rec": "None."},
         "MODERATE RISK": {"score": 2, "color": "warning", "treatment_key": "S6_MOD", "rec": "Disinfection required (chlorination, UV, ozonation). Monitor residual and byproducts."},
         "HIGH RISK": {"score": 5, "color": "danger", "treatment_key": "S6_HIGH", "rec": "**CRITICAL:** Multi-barrier disinfection mandatory (filtration + disinfection). Source may be unsuitable for direct recharge."},
@@ -135,27 +158,35 @@ TREATMENT_DF = pd.DataFrame({
 
 # 3. Treatment Mapping (from decision logic to treatment technologies)
 TREATMENT_MAPPING = {
+    "S1_NA": [],
     "S1_LOW": [],
     "S1_MOD": ["Sedimentation/Clarification"],
     "S1_HIGH": ["Sedimentation/Clarification", "Media Filtration (Sand/Anthracite)", "Membrane Filtration (MF/UF)"],
+    "S2A_NA": [],
     "S2A_LOW": [],
     "S2A_MOD": ["Granular Activated Carbon (GAC)"],
     "S2A_HIGH": ["Granular Activated Carbon (GAC)", "Advanced Oxidation (AOP)"],
+    "S2B_NA": [],
     "S2B_LOW": [],
     "S2B_MOD": ["Aeration/Oxidation"],
     "S2B_HIGH": ["Aeration/Oxidation", "Reverse Osmosis (RO)"],
+    "S3_NA": [],
     "S3_LOW": [],
     "S3_MOD": ["Reverse Osmosis (RO)"],
     "S3_HIGH": ["Reverse Osmosis (RO)"],
+    "S4_NA": [],
     "S4_LOW": [],
     "S4_MOD": ["Ion Exchange", "Media Filtration (Sand/Anthracite)"],
     "S4_HIGH": ["Ion Exchange", "Reverse Osmosis (RO)", "Media Filtration (Sand/Anthracite)"],
+    "S5A_NA": [],
     "S5A_LOW": [],
     "S5A_MOD": ["Granular Activated Carbon (GAC)"],
     "S5A_HIGH": ["Granular Activated Carbon (GAC)", "Advanced Oxidation (AOP)", "Membrane Filtration (MF/UF)"],
+    "S5B_NA": [],
     "S5B_LOW": [],
     "S5B_MOD": ["Aeration/Oxidation"],
     "S5B_HIGH": ["Aeration/Oxidation", "Reverse Osmosis (RO)"],
+    "S6_NA": [],
     "S6_LOW": [],
     "S6_MOD": ["Disinfection (Chlorination/UV/Ozone)", "Membrane Filtration (MF/UF)"],
     "S6_HIGH": ["Membrane Filtration (MF/UF)", "Disinfection (Chlorination/UV/Ozone)", "Advanced Oxidation (AOP)"],
@@ -167,6 +198,7 @@ TREATMENT_MAPPING = {
 # 4. Treatment Options (maps treatment keys to list of (tech_name, cost_scale) tuples)
 # Based on TREATMENT_MAPPING and TREATMENT_DF cost scales
 TREATMENT_OPTIONS = {
+    "S1_NA": [],
     "S1_LOW": [],
     "S1_MOD": [("Sedimentation/Clarification", "Low")],
     "S1_HIGH": [
@@ -174,21 +206,25 @@ TREATMENT_OPTIONS = {
         ("Media Filtration (Sand/Anthracite)", "Low-Medium"),
         ("Membrane Filtration (MF/UF)", "Medium-High")
     ],
+    "S2A_NA": [],
     "S2A_LOW": [],
     "S2A_MOD": [("Granular Activated Carbon (GAC)", "Medium")],
     "S2A_HIGH": [
         ("Granular Activated Carbon (GAC)", "Medium"),
         ("Advanced Oxidation (AOP)", "High")
     ],
+    "S2B_NA": [],
     "S2B_LOW": [],
     "S2B_MOD": [("Aeration/Oxidation", "Low-Medium")],
     "S2B_HIGH": [
         ("Aeration/Oxidation", "Low-Medium"),
         ("Reverse Osmosis (RO)", "Very High")
     ],
+    "S3_NA": [],
     "S3_LOW": [],
     "S3_MOD": [("Reverse Osmosis (RO)", "Very High")],
     "S3_HIGH": [("Reverse Osmosis (RO)", "Very High")],
+    "S4_NA": [],
     "S4_LOW": [],
     "S4_MOD": [
         ("Ion Exchange", "Medium-High"),
@@ -199,6 +235,7 @@ TREATMENT_OPTIONS = {
         ("Reverse Osmosis (RO)", "Very High"),
         ("Media Filtration (Sand/Anthracite)", "Low-Medium")
     ],
+    "S5A_NA": [],
     "S5A_LOW": [],
     "S5A_MOD": [("Granular Activated Carbon (GAC)", "Medium")],
     "S5A_HIGH": [
@@ -206,12 +243,14 @@ TREATMENT_OPTIONS = {
         ("Advanced Oxidation (AOP)", "High"),
         ("Membrane Filtration (MF/UF)", "Medium-High")
     ],
+    "S5B_NA": [],
     "S5B_LOW": [],
     "S5B_MOD": [("Aeration/Oxidation", "Low-Medium")],
     "S5B_HIGH": [
         ("Aeration/Oxidation", "Low-Medium"),
         ("Reverse Osmosis (RO)", "Very High")
     ],
+    "S6_NA": [],
     "S6_LOW": [],
     "S6_MOD": [
         ("Disinfection (Chlorination/UV/Ozone)", "Low-Medium"),
@@ -268,14 +307,14 @@ COST_SCALE_TO_SCORE = {
 def create_water_quality_content():
     """Create the Water Quality and Geochemistry content (sub-tab 4.1)."""
     # Get existing values from data storage if available
-    tss_turbidity_risk = dash_storage.get_data("tss_turbidity_risk") or "LOW RISK"
-    doc_toc_risk = dash_storage.get_data("doc_toc_risk") or "LOW RISK"
-    ph_alkalinity_risk = dash_storage.get_data("ph_alkalinity_risk") or "LOW RISK"
-    tds_salinity_risk = dash_storage.get_data("tds_salinity_risk") or "LOW RISK"
-    inorganic_contaminants_risk = dash_storage.get_data("inorganic_contaminants_risk") or "LOW RISK"
-    emerging_contaminants_risk = dash_storage.get_data("emerging_contaminants_risk") or "LOW RISK"
-    redox_compatibility_risk = dash_storage.get_data("redox_compatibility_risk") or "LOW RISK"
-    pathogen_risk = dash_storage.get_data("pathogen_risk") or "LOW RISK"
+    tss_turbidity_risk = dash_storage.get_data("tss_turbidity_risk") or DEFAULT_WATER_QUALITY_RISK
+    doc_toc_risk = dash_storage.get_data("doc_toc_risk") or DEFAULT_WATER_QUALITY_RISK
+    ph_alkalinity_risk = dash_storage.get_data("ph_alkalinity_risk") or DEFAULT_WATER_QUALITY_RISK
+    tds_salinity_risk = dash_storage.get_data("tds_salinity_risk") or DEFAULT_WATER_QUALITY_RISK
+    inorganic_contaminants_risk = dash_storage.get_data("inorganic_contaminants_risk") or DEFAULT_WATER_QUALITY_RISK
+    emerging_contaminants_risk = dash_storage.get_data("emerging_contaminants_risk") or DEFAULT_WATER_QUALITY_RISK
+    redox_compatibility_risk = dash_storage.get_data("redox_compatibility_risk") or DEFAULT_WATER_QUALITY_RISK
+    pathogen_risk = dash_storage.get_data("pathogen_risk") or DEFAULT_WATER_QUALITY_RISK
     vadose_zone_pollution = dash_storage.get_data("vadose_zone_pollution") or "None"
     
     return [
@@ -301,11 +340,11 @@ def create_water_quality_content():
                                     html.P("Is TSS/Turbidity HIGH?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step1-input",
-                                options=[
-                                    {'label': "LOW RISK (TSS <10 mg/L, Turbidity <5 NTU)", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK (TSS 10-20 mg/L, Turbidity 5-10 NTU)", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK (TSS >20 mg/L, Turbidity >10 NTU)", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK (TSS <10 mg/L, Turbidity <5 NTU)",
+                                    "MODERATE RISK (TSS 10-20 mg/L, Turbidity 5-10 NTU)",
+                                    "HIGH RISK (TSS >20 mg/L, Turbidity >10 NTU)",
+                                ),
                                 value=tss_turbidity_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
@@ -318,11 +357,11 @@ def create_water_quality_content():
                                     html.P("Is Dissolved Organic Carbon (DOC/TOC) HIGH?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step2a-input",
-                                options=[
-                                    {'label': "LOW RISK (DOC <5 mg/L)", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK (DOC 5-10 mg/L)", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK (DOC >10 mg/L)", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK (DOC <5 mg/L)",
+                                    "MODERATE RISK (DOC 5-10 mg/L)",
+                                    "HIGH RISK (DOC >10 mg/L)",
+                                ),
                                 value=doc_toc_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
@@ -347,11 +386,11 @@ def create_water_quality_content():
                                     html.P("Is pH/Alkalinity Significantly Different from Native Groundwater?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step2b-input",
-                                options=[
-                                    {'label': "LOW RISK (pH difference <0.5 units, similar alkalinity)", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK (pH difference 0.5-1.0 units)", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK (pH difference >1.0 unit, large alkalinity mismatch)", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK (pH difference <0.5 units, similar alkalinity)",
+                                    "MODERATE RISK (pH difference 0.5-1.0 units)",
+                                    "HIGH RISK (pH difference >1.0 unit, large alkalinity mismatch)",
+                                ),
                                 value=ph_alkalinity_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
@@ -364,11 +403,11 @@ def create_water_quality_content():
                                     html.P("Is TDS/Salinity significantly higher than Native Groundwater?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step3-input",
-                                options=[
-                                    {'label': "LOW RISK (TDS increase <250 mg/L)", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK (TDS increase 250-500 mg/L)", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK (TDS increase >500 mg/L)", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK (TDS increase <250 mg/L)",
+                                    "MODERATE RISK (TDS increase 250-500 mg/L)",
+                                    "HIGH RISK (TDS increase >500 mg/L)",
+                                ),
                                 value=tds_salinity_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
@@ -381,11 +420,11 @@ def create_water_quality_content():
                                     html.P("Is Source Water Redox State Incompatible with Native Aquifer?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step5b-input",
-                                options=[
-                                    {'label': "LOW RISK (Similar redox conditions, compatible chemistry)", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK (Some redox incompatibility, manageable precipitation/mobilization)", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK (Significant redox incompatibility, risk of Fe/Mn precipitation or As mobilization)", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK (Similar redox conditions, compatible chemistry)",
+                                    "MODERATE RISK (Some redox incompatibility, manageable precipitation/mobilization)",
+                                    "HIGH RISK (Significant redox incompatibility, risk of Fe/Mn precipitation or As mobilization)",
+                                ),
                                 value=redox_compatibility_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
@@ -413,11 +452,11 @@ def create_water_quality_content():
                                     html.P("(Arsenic >10 µg/L, Nitrate >50 mg/L, Heavy Metals, Fluoride >1.5 mg/L, Selenium, Boron)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
                                 id="env-step4-input",
-                                options=[
-                                    {'label': "LOW RISK (<50% of standard)", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK (50-100% of limit)", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK (≥100% of limit)", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK (<50% of standard)",
+                                    "MODERATE RISK (50-100% of limit)",
+                                    "HIGH RISK (≥100% of limit)",
+                                ),
                                 value=inorganic_contaminants_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
@@ -431,11 +470,11 @@ def create_water_quality_content():
                                     html.P("(PFAS >10-70 ng/L, Pharmaceuticals, EDCs, Pesticides, Microplastics)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
                                 id="env-step5a-input",
-                                options=[
-                                    {'label': "LOW RISK (Not detected or trace levels well below health-based values)", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK (Detected at low levels, <2x health-based guidance)", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK (Multiple compounds >health guidance OR PFAS >100 ng/L)", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK (Not detected or trace levels well below health-based values)",
+                                    "MODERATE RISK (Detected at low levels, <2x health-based guidance)",
+                                    "HIGH RISK (Multiple compounds >health guidance OR PFAS >100 ng/L)",
+                                ),
                                 value=emerging_contaminants_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
@@ -449,11 +488,11 @@ def create_water_quality_content():
                                     html.P("(Consider source type: wastewater > stormwater > surface water > groundwater)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
                                 id="env-step6-input",
-                                options=[
-                                    {'label': "LOW RISK", 'value': "LOW RISK"},
-                                    {'label': "MODERATE RISK", 'value': "MODERATE RISK"},
-                                    {'label': "HIGH RISK", 'value': "HIGH RISK"},
-                                ],
+                                options=water_quality_risk_options(
+                                    "LOW RISK",
+                                    "MODERATE RISK",
+                                    "HIGH RISK",
+                                ),
                                 value=pathogen_risk,
                                         className="d-flex flex-column small",
                                         labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}

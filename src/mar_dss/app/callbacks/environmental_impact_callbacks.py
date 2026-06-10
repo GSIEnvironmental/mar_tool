@@ -15,6 +15,8 @@ from mar_dss.app.components.environmental_impact_tab import (
     VADOSE_REMEDIATION_COSTS,
     COST_SCALE_TO_SCORE,
     ASSESSMENT_QUESTION_LABELS,
+    NOT_AVAILABLE_RISK,
+    DEFAULT_WATER_QUALITY_RISK,
 )
 from mar_dss.app.callbacks.ai_environment import (
     get_mar_factors,
@@ -24,7 +26,7 @@ from mar_dss.app.callbacks.ai_environment import (
 )
 import mar_dss.app.utils.data_storage as dash_storage
 
-_RISK_LEVEL_CANONICAL = frozenset({"LOW RISK", "MODERATE RISK", "HIGH RISK"})
+_RISK_LEVEL_CANONICAL = frozenset({"NOT AVAILABLE", "LOW RISK", "MODERATE RISK", "HIGH RISK"})
 
 
 def _mar_factors_success_banner(location, count):
@@ -53,27 +55,31 @@ def _normalize_water_quality_risk(raw):
     Users may see labels like "Low Risk" while storage still has legacy lowercase or shortened values.
     """
     if raw is None:
-        return "LOW RISK"
+        return DEFAULT_WATER_QUALITY_RISK
     s = str(raw).strip()
     if not s:
-        return "LOW RISK"
+        return DEFAULT_WATER_QUALITY_RISK
     u = " ".join(s.upper().split())
     if u in _RISK_LEVEL_CANONICAL:
         return u
+    if "NOT AVAILABLE" in u or u in {"N/A", "NA", "UNKNOWN", "NOT AVAIL"}:
+        return NOT_AVAILABLE_RISK
     if "HIGH" in u:
         return "HIGH RISK"
     if "MODERATE" in u:
         return "MODERATE RISK"
     if "LOW" in u:
         return "LOW RISK"
-    return "LOW RISK"
+    return DEFAULT_WATER_QUALITY_RISK
 
 
 def _persist_water_quality_risk(storage_key: str, value):
     """Write RadioItems selection to dash_storage using canonical risk strings."""
     fallback = dash_storage.get_data(storage_key)
     raw = value if value is not None else fallback
-    choice = _normalize_water_quality_risk(raw if raw not in (None, "") else "LOW RISK")
+    choice = _normalize_water_quality_risk(
+        raw if raw not in (None, "") else DEFAULT_WATER_QUALITY_RISK
+    )
     dash_storage.set_data(storage_key, choice)
     return choice
 
@@ -254,7 +260,7 @@ def setup_environmental_impact_callbacks(app):
     def update_dashboard(*inputs):
         """Update the dashboard based on input selections."""
         # Validate inputs - ensure they're not None
-        default_values = ["LOW RISK"] * 8 + ["None"]
+        default_values = [DEFAULT_WATER_QUALITY_RISK] * 8 + ["None"]
         inputs = [inp if inp is not None else default_values[i] for i, inp in enumerate(inputs)]
         
         # Map inputs to logic keys
@@ -285,7 +291,14 @@ def setup_environmental_impact_callbacks(app):
                 required_treatments_raw.append((risk_factor_name, TREATMENT_OPTIONS[treatment_key]))
             
             # Aggregate recommendations
-            if value not in ["LOW RISK", "None"] and recommendation:
+            if value == NOT_AVAILABLE_RISK and recommendation:
+                recommendations_list.append(
+                    html.Li(
+                        f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}",
+                        className="list-group-item list-group-item-action list-group-item-secondary",
+                    )
+                )
+            elif value not in ["LOW RISK", "None", NOT_AVAILABLE_RISK] and recommendation:
                 recommendations_list.append(
                     html.Li(
                         f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}", 
@@ -308,12 +321,14 @@ def setup_environmental_impact_callbacks(app):
             # Add risk detail for the output list with colored background
             # Map risk level to background color
             bg_color_map = {
+                NOT_AVAILABLE_RISK: "#e2e3e5",
                 "LOW RISK": "#d4edda",  # Light green
                 "None": "#d4edda",  # Light green (same as LOW RISK)
                 "MODERATE RISK": "#fff3cd",  # Light yellow
                 "HIGH RISK": "#f8d7da"  # Light red
             }
             text_color_map = {
+                NOT_AVAILABLE_RISK: "#383d41",
                 "LOW RISK": "#155724",  # Dark green text
                 "None": "#155724",  # Dark green text (same as LOW RISK)
                 "MODERATE RISK": "#856404",  # Dark yellow/brown text
@@ -528,12 +543,21 @@ def setup_environmental_impact_callbacks(app):
         
         # 8. Format Recommendations
         if not recommendations_list:
-            recommendations_list = [
-                html.Li(
-                    "All parameters are LOW RISK. No specific recommendations are triggered.", 
-                    className="list-group-item list-group-item-success"
-                )
-            ]
+            if all(v in (DEFAULT_WATER_QUALITY_RISK, "LOW RISK", "None") for v in inputs):
+                recommendations_list = [
+                    html.Li(
+                        "All assessed parameters are NOT AVAILABLE or LOW RISK. "
+                        "Collect water quality data where marked NOT AVAILABLE.",
+                        className="list-group-item list-group-item-secondary",
+                    )
+                ]
+            else:
+                recommendations_list = [
+                    html.Li(
+                        "All parameters are LOW RISK. No specific recommendations are triggered.",
+                        className="list-group-item list-group-item-success",
+                    )
+                ]
             
         return decision_content, result_style, gauge_fig, cost_gauge_fig, risk_details, cost_details_html, treatment_summary_table, recommendations_list
     
