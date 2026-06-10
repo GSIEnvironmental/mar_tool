@@ -130,6 +130,15 @@ class DashboardApp:
             from .callbacks.ai_decision_callbacks import setup_ai_decision_callbacks
         setup_ai_decision_callbacks(self.app)
 
+        # Set up Generate Report callbacks
+        try:
+            from mar_dss.app.callbacks.generate_report_callbacks import (
+                setup_generate_report_callbacks,
+            )
+        except ImportError:
+            from .callbacks.generate_report_callbacks import setup_generate_report_callbacks
+        setup_generate_report_callbacks(self.app)
+
         # Set up cost callbacks
         try:
             from mar_dss.app.callbacks.cost_callbacks import (

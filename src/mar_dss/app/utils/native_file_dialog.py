@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 _WORKER = Path(__file__).resolve().parent / "_tk_open_project_dialog.py"
+_SAVE_REPORT_WORKER = Path(__file__).resolve().parent / "_tk_save_report_dialog.py"
 
 
 def ask_open_project_path():
@@ -43,6 +44,36 @@ def ask_open_project_path():
     if not out:
         return ""
     # First line only (ignore accidental extra output)
+    path = out.splitlines()[0].strip()
+    if path:
+        return path
+    return ""
+
+
+def ask_save_report_path(default_filename="MAR_Prefeasibility_Report.html", report_format="html"):
+    """Open an OS-native save dialog for the prefeasibility HTML or PDF report."""
+    if not _SAVE_REPORT_WORKER.is_file():
+        return None
+
+    fmt = "pdf" if str(report_format or "").lower() == "pdf" else "html"
+
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-u", str(_SAVE_REPORT_WORKER), default_filename, fmt],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+    if completed.returncode != 0:
+        return None
+
+    out = (completed.stdout or "").strip()
+    if not out:
+        return ""
     path = out.splitlines()[0].strip()
     if path:
         return path

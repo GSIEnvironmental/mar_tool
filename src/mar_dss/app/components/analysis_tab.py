@@ -128,19 +128,19 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="Data Export", id=tab_nav_id("analysis-data-export"),
+                    label="Generate Report", id=tab_nav_id("analysis-data-export"),
                     tab_id="analysis-data-export",
                     children=[html.Div(id="analysis-data-export-content", children="Loading...")],  # Lazy load
                     label_style={
-                        "color": "#ffffff", 
+                        "color": "#ffffff",
                         "fontWeight": "bold",
-                        "backgroundColor": "#6c757d",
-                        "border": "1px solid #6c757d"
+                        "backgroundColor": "#6610f2",
+                        "border": "1px solid #6610f2",
                     },
                     active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#545b62",
-                        "border": "1px solid #545b62"
+                        "color": "#ffffff",
+                        "backgroundColor": "#520dc2",
+                        "border": "1px solid #520dc2",
                     },
                 ),
             ],
