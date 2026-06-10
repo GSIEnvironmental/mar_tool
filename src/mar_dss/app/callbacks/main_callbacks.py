@@ -378,7 +378,7 @@ def setup_main_callbacks(app, dashboard_instance):
                 create_editable_flow_table,
             )
 
-        return create_editable_flow_table()
+        return create_editable_flow_table(flow_data)
 
     # Add callback for updating monthly flow chart from table and saving to data storage
     @app.callback(

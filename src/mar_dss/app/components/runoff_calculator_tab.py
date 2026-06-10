@@ -11,6 +11,44 @@ import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
+def _runoff_section_header(title):
+    """Bold blue section header for peak vs. monthly runoff blocks."""
+    return html.H3(
+        title,
+        className="fw-bold text-primary mb-4 mt-2",
+        style={"fontSize": "1.75rem"},
+    )
+
+
+def _peak_runoff_steps_summary():
+    """Numbered workflow summary under the peak runoff section header."""
+    return html.Ol(
+        [
+            html.Li(
+                "Choose option 1A or 1B to compute the percentage of impervious cover."
+            ),
+            html.Li("Select the condition of the impervious area."),
+            html.Li("Select the condition of the pervious area (land cover)."),
+            html.Li("Select the soil type."),
+            html.Li([
+                "Enter latitude and longitude, then click ",
+                html.Strong("Download Rain Statistics"),
+                ".",
+            ]),
+            html.Li(
+                "Copy and paste the design storm depth of your choice into the rainfall table."
+            ),
+            html.Li([
+                "If watershed area is not available, use the ",
+                html.Strong("Watershed Information"),
+                " tab to obtain it.",
+            ]),
+            html.Li("All remaining runoff values are computed automatically."),
+        ],
+        className="mb-4 ps-3",
+    )
+
+
 def _get_runoff_calculations_data():
     """Get runoff calculations table data from storage or return defaults."""
     saved_data = dash_storage.get_data("runoff_calculations_table")
@@ -278,30 +316,75 @@ def create_results_card():
 def create_curve_number_tab():
     """Create the content for the Runoff Calculator tab."""
     return [
-        html.H3("Runoff Calculator", className="mb-4"),
-        html.P("The runoff calculations was developed based on STORME-PFAS tool that was developed as part of SERDP Project ER23-3741 (PFAS in Stormwater) (Vines et al., in review)", 
-               className="mb-3 text-danger fst-italic fw-bold"),
-        html.P("Calculate curve numbers and runoff patterns for your MAR project location.", className="mb-4"),
+        dbc.Alert(
+            [
+                html.Div("About this section", className="fw-bold mb-2"),
+                html.P(
+                    "This is an optional step if you do not already have information about "
+                    "water available for MAR at your site.",
+                    className="mb-2",
+                ),
+                html.P("The Runoff Calculator is used for two goals:", className="mb-2"),
+                html.Ul(
+                    [
+                        html.Li([
+                            html.Strong("(a) Peak runoff calculations: "),
+                            "Used in the sizing and design of engineering elements "
+                            "(e.g., spreading ponds, diversions, and site storage).",
+                        ]),
+                        html.Li([
+                            html.Strong("(b) Average monthly runoff for recharge: "),
+                            "Estimates available recharge volumes by month; you can choose "
+                            "to recharge a fraction of these rates.",
+                        ]),
+                    ],
+                    className="mb-0 ps-3",
+                ),
+            ],
+            color="light",
+            className="border mb-3 py-2",
+        ),
+        html.P(
+            "The runoff calculations was developed based on STORME-PFAS tool that was developed "
+            "as part of SERDP Project ER23-3741 (PFAS in Stormwater) (Vines et al., in review)",
+            className="mb-3 text-danger fst-italic fw-bold",
+        ),
+        _runoff_section_header("(A) Peak Runoff Calculations"),
+        _peak_runoff_steps_summary(),
         dbc.Card([
             dbc.CardBody([
                 html.H5("Step 1: Composite Curve Number Based on % Impervious Cover Calculator (Pick 1A or 1B)", 
                         className="fw-bold mb-3"),
                             dbc.Row([
                                 dbc.Col([
-                                    dbc.RadioItems(
-                                        id="impervious-outlet-option",
-                                        options=[
-                                            {
-                                                "label": "1A: Pick this one if all of your impervious areas outlet directly to the drainage system (see figure below).",
-                                                "value": "1A"
-                                            },
-                                            {
-                                                "label": "1B: Pick this one if all/some of impervious area flow spreads over pervious areas before entering the drainage system.",
-                                                "value": "1B"
-                                            }
-                                        ],
-                                        value=None,
-                                        className="mb-4"
+                                    html.Div(
+                                        dbc.RadioItems(
+                                            id="impervious-outlet-option",
+                                            options=[
+                                                {
+                                                    "label": (
+                                                        "1A: Pick this one if all of your impervious areas "
+                                                        "outlet directly to the drainage system "
+                                                        "(see figure below)."
+                                                    ),
+                                                    "value": "1A",
+                                                },
+                                                {
+                                                    "label": (
+                                                        "1B: Pick this one if all/some of impervious area "
+                                                        "flow spreads over pervious areas before entering "
+                                                        "the drainage system."
+                                                    ),
+                                                    "value": "1B",
+                                                },
+                                            ],
+                                            value="1A",
+                                            className="runoff-outlet-radio-group",
+                                            input_class_name="runoff-outlet-radio-input",
+                                            label_class_name="runoff-outlet-radio-label",
+                                            label_checked_class_name="runoff-outlet-radio-label-checked",
+                                        ),
+                                        className="runoff-outlet-radio-group-wrapper mb-4",
                                     ),
                                     html.Div(id="composite-cn-table", className="mt-3"),
                                     html.Div(
@@ -420,7 +503,34 @@ def create_curve_number_tab():
                                                         'fontWeight': 'bold'
                                                     }
                                                 ]
-                                            )
+                                            ),
+                                            html.Div(
+                                                [
+                                                    html.P(
+                                                        [
+                                                            html.Strong("Note: "),
+                                                            "The ",
+                                                            html.Strong("Runoff Volume (ft³)"),
+                                                            " value can be used in the ",
+                                                            html.Strong("Engineering"),
+                                                            " tab to size engineering elements.",
+                                                        ],
+                                                        className="mb-2 small",
+                                                    ),
+                                                    dbc.Checkbox(
+                                                        id="use-runoff-for-engineering-check",
+                                                        label=(
+                                                            "Use this estimate for Engineering "
+                                                            "(copies Runoff Volume to Total Runoff on the Engineering tab)"
+                                                        ),
+                                                        value=False,
+                                                        className="runoff-engineering-sync-check mb-0",
+                                                        input_class_name="runoff-engineering-sync-input",
+                                                        label_class_name="runoff-engineering-sync-label",
+                                                    ),
+                                                ],
+                                                className="runoff-engineering-sync-card mt-3 mb-0",
+                                            ),
                                         ], width=6),
                                         dbc.Col([
                                             html.Div(id="rain-statistics-table-placeholder")
@@ -430,6 +540,17 @@ def create_curve_number_tab():
                             ])
                         ], width=12)
                     ], className="mt-4"),
+                    _runoff_section_header("(B) Average monthly runoff for recharge"),
+                    html.P(
+                        [
+                            "This section is an optional tool to estimate monthly runoff volumes "
+                            "available for recharge. If you choose to use this estimate, run the "
+                            "calculation and check the ",
+                            html.Strong("Use Runoff For Recharge"),
+                            " box.",
+                        ],
+                        className="mb-4",
+                    ),
                     dbc.Row([
                         dbc.Col([
                             dbc.Card([
@@ -503,6 +624,11 @@ def create_curve_number_tab():
         dbc.Tooltip(
             "When checked, monthly runoff estimates can feed MAR recharge inputs elsewhere",
             target="use-runoff-for-recharge-check",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "When checked, copies Runoff Volume (ft³) to Total Runoff on the Engineering tab",
+            target="use-runoff-for-engineering-check",
             placement="top",
         ),
     ]

@@ -562,6 +562,7 @@ def _build_root_layout() -> html.Div:
                 data=dash_storage.get_data("project_location") or "",
                 storage_type="memory",
             ),
+            dcc.Store(id="peak-runoff-engineering-sync", data=None),
         ]
     )
 

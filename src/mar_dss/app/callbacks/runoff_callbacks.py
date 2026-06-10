@@ -165,6 +165,72 @@ def _get_basin_characteristics(region, lat, lon):
     return resp.json()
 
 
+MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+MONTH_FULL_TO_SHORT = {
+    "January": "Jan",
+    "February": "Feb",
+    "March": "Mar",
+    "April": "Apr",
+    "May": "May",
+    "June": "Jun",
+    "July": "Jul",
+    "August": "Aug",
+    "September": "Sep",
+    "October": "Oct",
+    "November": "Nov",
+    "December": "Dec",
+}
+
+
+def _monthly_runoff_volumes_to_flow_list(monthly_runoff_records):
+    """Convert monthly runoff table rows to Jan–Dec flow values (ft³/month)."""
+    by_month = {}
+    for row in monthly_runoff_records:
+        month = row.get("Month")
+        short = MONTH_FULL_TO_SHORT.get(month) or month
+        if short not in MONTHS_SHORT:
+            continue
+        try:
+            by_month[short] = float(row.get("Runoff Volume (ft3)", 0) or 0)
+        except (TypeError, ValueError):
+            by_month[short] = 0.0
+    return [by_month.get(month, 0.0) for month in MONTHS_SHORT]
+
+
+def _sync_runoff_volumes_to_monthly_flow():
+    """Copy Runoff Volume (ft3) from monthly runoff results into monthly_flow storage."""
+    saved_data = dash_storage.get_data("monthly_runoff_table")
+    if not saved_data:
+        return None
+    monthly_flows = _monthly_runoff_volumes_to_flow_list(saved_data)
+    dash_storage.set_data("monthly_flow", monthly_flows)
+    return {month: flow for month, flow in zip(MONTHS_SHORT, monthly_flows)}
+
+
+def _peak_runoff_volume_ft3(table_data=None):
+    """Read single-storm Runoff Volume (ft3) from the runoff calculations table."""
+    if table_data is None:
+        table_data = dash_storage.get_data("runoff_calculations_table")
+    if not table_data:
+        return None
+    for row in table_data:
+        if row.get("Parameter") == "Runoff Volume (ft3)":
+            try:
+                return float(row.get("Value", 0) or 0)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _sync_peak_runoff_to_engineering(table_data=None):
+    """Copy peak Runoff Volume (ft3) into Engineering tab storage."""
+    volume = _peak_runoff_volume_ft3(table_data)
+    if volume is None:
+        return None
+    dash_storage.set_data("total_runoff_ft3", volume)
+    return volume
+
+
 def setup_runoff_callbacks(app):
     """Register callbacks related to the runoff calculator tab."""
     print("Setting up runoff callbacks...")
@@ -544,7 +610,7 @@ def setup_runoff_callbacks(app):
         
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
-            outlet_option = dash_storage.get_data("impervious_outlet_option")
+            outlet_option = dash_storage.get_data("impervious_outlet_option") or "1A"
             dash_storage.set_data("impervious_outlet_option", outlet_option)
             return outlet_option
         
@@ -1571,15 +1637,23 @@ def setup_runoff_callbacks(app):
     
     # Callback for "Get Monthly Rainfall and Runoff" button in Monthly Runoff Estimation card
     @app.callback(
-        Output('monthly-runoff-estimation-content', 'children', allow_duplicate=True),
+        [
+            Output('monthly-runoff-estimation-content', 'children', allow_duplicate=True),
+            Output('flow-data-store', 'data', allow_duplicate=True),
+        ],
         Input('get-monthly-rain-btn', 'n_clicks'),
-        [State('runoff-single-storm-latitude', 'value'),
-         State('runoff-single-storm-longitude', 'value'),
-         State('runoff-calculations-table', 'data'),
-         State('rain-events-per-month', 'value')],
+        [
+            State('runoff-single-storm-latitude', 'value'),
+            State('runoff-single-storm-longitude', 'value'),
+            State('runoff-calculations-table', 'data'),
+            State('rain-events-per-month', 'value'),
+            State('use-runoff-for-recharge-check', 'value'),
+        ],
         prevent_initial_call=True
     )
-    def get_monthly_rain_for_runoff(n_clicks, lat, lon, runoff_table_data, rain_events_per_month):
+    def get_monthly_rain_for_runoff(
+        n_clicks, lat, lon, runoff_table_data, rain_events_per_month, use_runoff_for_recharge
+    ):
         """Get monthly rain data and display as table and chart side by side."""
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
             try:
@@ -1644,7 +1718,7 @@ def setup_runoff_callbacks(app):
                 ###
                 monthly_rain['Rain (inches)'] = monthly_rain['Rain (inches)'].round(3)
                 if monthly_rain is None or monthly_rain.empty:
-                    return html.P("No monthly rain data available.", className="text-warning")
+                    return html.P("No monthly rain data available.", className="text-warning"), dash.no_update
                 if len(runoff_volume)>0:
                     monthly_rain['Runoff depth (inches)'] = runoff_depth
                     monthly_rain['Runoff Volume (ft3)'] = runoff_volume
@@ -1652,15 +1726,78 @@ def setup_runoff_callbacks(app):
                 # Save to data storage
                 monthly_rain_dict = monthly_rain.to_dict('records')
                 dash_storage.set_data("monthly_runoff_table", monthly_rain_dict)
-                
-                # Create and return display using helper function
-                return _create_monthly_runoff_display(monthly_rain)
+
+                flow_store_update = dash.no_update
+                if use_runoff_for_recharge:
+                    flow_data = _sync_runoff_volumes_to_monthly_flow()
+                    if flow_data:
+                        flow_store_update = flow_data
+
+                return _create_monthly_runoff_display(monthly_rain), flow_store_update
                 
             except Exception as e:
                 print(f"Error getting monthly rain data: {e}")
-                return html.P(f"Error getting monthly rain data: {str(e)}", className="text-danger")
+                return html.P(f"Error getting monthly rain data: {str(e)}", className="text-danger"), dash.no_update
         
-        return dash.no_update
+        return dash.no_update, dash.no_update
+
+    @app.callback(
+        Output('flow-data-store', 'data', allow_duplicate=True),
+        Input('use-runoff-for-recharge-check', 'value'),
+        prevent_initial_call=True,
+    )
+    def apply_runoff_volumes_when_checked(use_runoff_for_recharge):
+        """Copy monthly Runoff Volume (ft3) into Volume Estimates when checkbox is checked."""
+        if not use_runoff_for_recharge:
+            return dash.no_update
+        flow_data = _sync_runoff_volumes_to_monthly_flow()
+        return flow_data if flow_data else dash.no_update
+
+    @app.callback(
+        Output("peak-runoff-engineering-sync", "data"),
+        [
+            Input("use-runoff-for-engineering-check", "value"),
+            Input("runoff-calculations-table", "data"),
+        ],
+        prevent_initial_call=True,
+    )
+    def apply_peak_runoff_to_engineering(use_for_engineering, table_data):
+        """Copy peak Runoff Volume (ft3) to Engineering tab when checkbox is checked."""
+        dash_storage.set_data("use_runoff_for_engineering", bool(use_for_engineering))
+        if not use_for_engineering:
+            return dash.no_update
+        volume = _sync_peak_runoff_to_engineering(table_data)
+        return volume if volume is not None else dash.no_update
+
+    @app.callback(
+        Output("peak-flow-available-input", "value", allow_duplicate=True),
+        Input("peak-runoff-engineering-sync", "data"),
+        prevent_initial_call=True,
+    )
+    def push_peak_runoff_to_engineering_input(sync_volume):
+        """Update Engineering Total Runoff when runoff sync store changes."""
+        if sync_volume is None:
+            return dash.no_update
+        return sync_volume
+
+    @app.callback(
+        Output("peak-flow-available-input", "value", allow_duplicate=True),
+        Input("top-tabs", "active_tab"),
+        prevent_initial_call=True,
+    )
+    def refresh_peak_runoff_when_engineering_tab_open(active_tab):
+        """When Engineering tab opens, show synced runoff if the checkbox is checked."""
+        if active_tab != "engineering-options":
+            return dash.no_update
+        if not dash_storage.get_data("use_runoff_for_engineering"):
+            return dash.no_update
+        stored = dash_storage.get_data("total_runoff_ft3")
+        if stored is None:
+            return dash.no_update
+        try:
+            return float(stored)
+        except (TypeError, ValueError):
+            return dash.no_update
 
 
 

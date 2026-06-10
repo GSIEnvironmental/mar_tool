@@ -69,7 +69,9 @@ def create_engineering_elements_content():
                                         ),
                                         dbc.Input(
                                             type="number",
-                                            value=0.0,
+                                            value=float(
+                                                dash_storage.get_data("total_runoff_ft3") or 0.0
+                                            ),
                                             id="peak-flow-available-input",
                                             debounce=True,
                                             min=0,

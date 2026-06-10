@@ -141,13 +141,19 @@ def setup_cost_callbacks(app):
     def handle_peak_flow_available(value, n_blur, n_submit, component_id):
         """Handle peak flow available input and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
             peak_flow = dash_storage.get_data("total_runoff_ft3") or 0.0
             dash_storage.set_data("total_runoff_ft3", peak_flow)
             return peak_flow
-        
+
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
+        if trigger_prop == "id":
+            stored = dash_storage.get_data("total_runoff_ft3")
+            if stored is not None:
+                return float(stored)
+            return value if value is not None else 0.0
+
         current_value = value if value is not None else 0.0
         dash_storage.set_data("total_runoff_ft3", current_value)
         return current_value

@@ -70,4 +70,121 @@
   background: #86efac;
 }
 
+/* Runoff Calculator: 1A / 1B impervious outlet options */
+.runoff-outlet-radio-group-wrapper {
+  width: 100%;
+}
+
+.runoff-outlet-radio-group .form-check {
+  border: 2px solid #2563eb;
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem 0.85rem 2.5rem;
+  margin-bottom: 0.75rem;
+  background-color: #eff6ff;
+  position: relative;
+}
+
+.runoff-outlet-radio-group .form-check:last-child {
+  margin-bottom: 0;
+}
+
+.runoff-outlet-radio-group .form-check-input,
+.runoff-outlet-radio-group .runoff-outlet-radio-input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+  border: 2px solid #1d4ed8;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  accent-color: #2563eb;
+}
+
+.runoff-outlet-radio-group .form-check-input:checked,
+.runoff-outlet-radio-group .runoff-outlet-radio-input:checked {
+  background-color: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.runoff-outlet-radio-group .form-check-input:focus,
+.runoff-outlet-radio-group .runoff-outlet-radio-input:focus {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.35);
+}
+
+.runoff-outlet-radio-group .form-check-label,
+.runoff-outlet-radio-group .runoff-outlet-radio-label {
+  color: #0f172a;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.runoff-outlet-radio-group .runoff-outlet-radio-label-checked {
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.runoff-outlet-radio-group .form-check:has(.form-check-input:checked),
+.runoff-outlet-radio-group .form-check:has(.runoff-outlet-radio-input:checked) {
+  background-color: #dbeafe;
+  border-color: #1d4ed8;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.18);
+}
+
+/* Runoff Calculator: Engineering sync note + checkbox */
+.runoff-engineering-sync-card {
+  border: 2px solid #0d6efd;
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  background-color: #e7f1ff;
+  box-shadow: 0 2px 6px rgba(13, 110, 253, 0.12);
+}
+
+.runoff-engineering-sync-card p {
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.runoff-engineering-sync-check.form-check {
+  margin-bottom: 0;
+  padding-left: 1.75rem;
+}
+
+.runoff-engineering-sync-check .form-check-input,
+.runoff-engineering-sync-check .runoff-engineering-sync-input {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.15rem;
+  border: 2px solid #0d6efd;
+  background-color: #ffffff;
+  accent-color: #0d6efd;
+  cursor: pointer;
+}
+
+.runoff-engineering-sync-check .form-check-input:checked,
+.runoff-engineering-sync-check .runoff-engineering-sync-input:checked {
+  background-color: #0d6efd;
+  border-color: #0a58ca;
+}
+
+.runoff-engineering-sync-check .form-check-input:focus,
+.runoff-engineering-sync-check .runoff-engineering-sync-input:focus {
+  border-color: #0a58ca;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.35);
+}
+
+.runoff-engineering-sync-check .form-check-label,
+.runoff-engineering-sync-check .runoff-engineering-sync-label {
+  color: #0a58ca;
+  font-weight: 600;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.runoff-engineering-sync-card:has(.runoff-engineering-sync-input:checked),
+.runoff-engineering-sync-card:has(.form-check-input:checked) {
+  background-color: #cfe2ff;
+  border-color: #0a58ca;
+  box-shadow: 0 2px 10px rgba(13, 110, 253, 0.2);
+}
+
 

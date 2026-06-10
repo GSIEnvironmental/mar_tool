@@ -556,7 +556,7 @@ def _get_flow_store_data():
     return {month: flow for month, flow in zip(months, monthly_flows)}
 
 
-def create_editable_flow_table():
+def create_editable_flow_table(flow_data=None):
     """Create an editable table for monthly flow data."""
     months = [
         "Jan",
@@ -572,10 +572,12 @@ def create_editable_flow_table():
         "Nov",
         "Dec",
     ]
-    # Get existing values from data storage if available
     default_flows = [4500, 4200, 2800, 2200, 1800, 1500, 1200, 1000, 1300, 2000, 3800, 4100]
-    monthly_flows = dash_storage.get_data("monthly_flow") or default_flows
-    
+    if flow_data:
+        monthly_flows = [float(flow_data.get(month, 0) or 0) for month in months]
+    else:
+        monthly_flows = dash_storage.get_data("monthly_flow") or default_flows
+
     # Ensure we have exactly 12 values
     if len(monthly_flows) != 12:
         monthly_flows = default_flows
