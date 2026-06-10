@@ -34,6 +34,8 @@ try:
         get_overview_map_figure_params,
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
+        DEFAULT_LAND_USE,
+        normalize_land_use,
     )
     from mar_dss.app.components.water_source_tab import (
         create_location_map,
@@ -53,6 +55,8 @@ except ImportError:
         get_overview_map_figure_params,
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
+        DEFAULT_LAND_USE,
+        normalize_land_use,
     )
     from ..components.water_source_tab import (
         create_location_map,
@@ -745,12 +749,12 @@ def setup_overview_callbacks(app):
         
         if not ctx.triggered:
             # Initial load - get saved land use or use default, and save it
-            land_use = dash_storage.get_data("land_use") or "Urban Residential"
+            land_use = normalize_land_use(dash_storage.get_data("land_use"))
             dash_storage.set_data("land_use", land_use)
             return land_use
         
         # Get the current selection
-        current_selection = value if value else "Urban Residential"
+        current_selection = normalize_land_use(value) if value else DEFAULT_LAND_USE
         
         # Save land use selection to data storage
         dash_storage.set_data("land_use", current_selection)

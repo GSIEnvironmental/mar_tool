@@ -14,6 +14,7 @@ from mar_dss.app.components.environmental_impact_tab import (
     TREATMENT_COST_MAP,
     VADOSE_REMEDIATION_COSTS,
     COST_SCALE_TO_SCORE,
+    ASSESSMENT_QUESTION_LABELS,
 )
 from mar_dss.app.callbacks.ai_environment import get_mar_factors
 import mar_dss.app.utils.data_storage as dash_storage
@@ -263,7 +264,7 @@ def setup_environmental_impact_callbacks(app):
             if value not in ["LOW RISK", "None"] and recommendation:
                 recommendations_list.append(
                     html.Li(
-                        f"**{key.split('_')[0].upper()}: {value}** - {recommendation}", 
+                        f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}", 
                         className="list-group-item list-group-item-action list-group-item-" + score_data['color']
                     )
                 )
@@ -299,7 +300,10 @@ def setup_environmental_impact_callbacks(app):
             text_color = text_color_map.get(value, "#000000")
             
             risk_details.append(html.Div([
-                html.Span(f"Step {key.split('_')[0].replace('step','')}: {value}", className="font-weight-bold"),
+                html.Span(
+                    f"{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}",
+                    className="font-weight-bold",
+                ),
                 html.Span(f" - Score: {score} pt(s)", className="float-right badge badge-" + score_data['color'])
             ], className="d-flex justify-content-between mb-1 p-2 rounded", style={
                 "background-color": bg_color,

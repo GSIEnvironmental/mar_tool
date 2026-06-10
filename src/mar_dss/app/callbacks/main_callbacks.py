@@ -756,7 +756,7 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("mar_purpose", ["secure_water_supply"])
             dash_storage.set_data("ground_surface_slope", 0.5)
             dash_storage.set_data("max_available_area", 1.0)
-            dash_storage.set_data("land_use", "Urban Residential")
+            dash_storage.set_data("land_use", "Residential")
             dash_storage.set_data("water_source", "surface_water_sources")
             dash_storage.set_data("proximity_distance", 1.0)
             dash_storage.set_data("water_conveyance", "open_canals_ditches")

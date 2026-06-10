@@ -61,6 +61,18 @@ DECISION_LOGIC = {
     },
 }
 
+ASSESSMENT_QUESTION_LABELS = {
+    "step1_tss": "1.A",
+    "step2a_doc": "1.B",
+    "step2b_ph": "2.A",
+    "step3_tds": "2.B",
+    "step5b_redox": "2.C",
+    "step4_inorganic": "3.A",
+    "step5a_ec": "3.B",
+    "step6_pathogens": "3.C",
+    "step7_vadose": "4.A",
+}
+
 # 2. Treatment Technology Database
 TREATMENT_DF = pd.DataFrame({
     "Treatment Technology": [
@@ -282,9 +294,9 @@ def create_water_quality_content():
                                 html.H6("1. Clogging & Fouling Risks", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
                             ], className="bg-primary py-2"),
                         dbc.CardBody([
-                                # Step 1: Physical Clogging Risk (TSS/Turbidity)
+                                # 1.A: Physical Clogging Risk (TSS/Turbidity)
                                 html.Div([
-                                    html.P("STEP 1: Physical Clogging (TSS/Turbidity)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("1.A: Physical Clogging (TSS/Turbidity)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Is TSS/Turbidity HIGH?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step1-input",
@@ -299,9 +311,9 @@ def create_water_quality_content():
                                     )
                                 ], className="mb-3"),
                     
-                    # Step 2A: DOC/TOC (Organic Matter Fouling)
+                    # 1.B: DOC/TOC (Organic Matter Fouling)
                                 html.Div([
-                                    html.P("STEP 2A: Organic Matter Fouling (DOC/TOC)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("1.B: Organic Matter Fouling (DOC/TOC)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Is Dissolved Organic Carbon (DOC/TOC) HIGH?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step2a-input",
@@ -328,9 +340,9 @@ def create_water_quality_content():
                                 html.H6("2. Chemical Compatibility", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
                             ], className="bg-success py-2"),
                         dbc.CardBody([
-                                # Step 2B: pH/Alkalinity
+                                # 2.A: pH/Alkalinity
                                 html.Div([
-                                    html.P("STEP 2B: pH/Alkalinity Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("2.A: pH/Alkalinity Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Is pH/Alkalinity Significantly Different from Native Groundwater?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step2b-input",
@@ -345,9 +357,9 @@ def create_water_quality_content():
                                     )
                                 ], className="mb-3"),
                     
-                    # Step 3: Salinity Risk (TDS/Salinity)
+                    # 2.B: Salinity Risk (TDS/Salinity)
                                 html.Div([
-                                    html.P("STEP 3: Salinity Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("2.B: Salinity Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Is TDS/Salinity significantly higher than Native Groundwater?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step3-input",
@@ -362,9 +374,9 @@ def create_water_quality_content():
                                     )
                                 ], className="mb-3"),
                     
-                    # Step 5B: Redox Compatibility
+                    # 2.C: Redox Compatibility
                                 html.Div([
-                                    html.P("STEP 5B: Redox Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("2.C: Redox Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Is Source Water Redox State Incompatible with Native Aquifer?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step5b-input",
@@ -393,9 +405,9 @@ def create_water_quality_content():
                                 html.H6("3. Water-Quality Compliance", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
                             ], className="bg-danger py-2"),
                         dbc.CardBody([
-                                # Step 4: Inorganic Contaminants
+                                # 3.A: Inorganic Contaminants
                                 html.Div([
-                                    html.P("STEP 4: Inorganic Contaminants (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("3.A: Inorganic Contaminants (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Are key Inorganic Contaminants above Regulatory Limits?", className="text-muted mb-1 small", style={"fontSize": "0.8rem"}),
                                     html.P("(Arsenic >10 µg/L, Nitrate >50 mg/L, Heavy Metals, Fluoride >1.5 mg/L, Selenium, Boron)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
@@ -411,9 +423,9 @@ def create_water_quality_content():
                                     )
                                 ], className="mb-3"),
                     
-                    # Step 5A: Emerging Contaminants
+                    # 3.B: Emerging Contaminants
                                 html.Div([
-                                    html.P("STEP 5A: Emerging Contaminants", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("3.B: Emerging Contaminants", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Are Emerging Contaminants Present at Risky Levels?", className="text-muted mb-1 small", style={"fontSize": "0.8rem"}),
                                     html.P("(PFAS >10-70 ng/L, Pharmaceuticals, EDCs, Pesticides, Microplastics)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
@@ -429,9 +441,9 @@ def create_water_quality_content():
                                     )
                                 ], className="mb-3"),
                     
-                    # Step 6: Pathogen Risk
+                    # 3.C: Pathogen Risk
                                 html.Div([
-                                    html.P("STEP 6: Pathogen Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("3.C: Pathogen Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Are pathogens present at risky levels?", className="text-muted mb-1 small", style={"fontSize": "0.8rem"}),
                                     html.P("(Consider source type: wastewater > stormwater > surface water > groundwater)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
@@ -459,9 +471,9 @@ def create_water_quality_content():
                                 html.H6("4. Need for Remediation", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
                             ], className="bg-secondary py-2"),
                         dbc.CardBody([
-                                # Step 7: Vadose Zone Pollution
+                                # 4.A: Vadose Zone Pollution
                                 html.Div([
-                                    html.P("STEP 7: Vadose Zone Pollution", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
+                                    html.P("4.A: Vadose Zone Pollution", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
                                     html.P("Indicates presence of pollution in the vadose zone.", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step7-input",

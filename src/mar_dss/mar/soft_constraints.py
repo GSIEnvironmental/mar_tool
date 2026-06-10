@@ -314,7 +314,12 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     land_use = data_storage.get_data("land_use")
     land_use_response = 0
     land_use_penalty = []
-    if land_use in ["Urban Residential", "Urban Nonresidential"]:
+    if land_use in [
+        "Residential",
+        "Commercial/Industrial",
+        "Urban Residential",
+        "Urban Nonresidential",
+    ]:
         if option.name == "Surface Recharge":
             land_use_response = 1
             land_use_penalty.append("Cost: Land cost increase in urban areas. Check zoning requirements and land use regulations.")

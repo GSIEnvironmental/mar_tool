@@ -15,6 +15,27 @@ import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 from .runoff_calculator_tab import create_runoff_calculator_tab, create_curve_number_tab
 
+WATER_SOURCE_OPTIONS = [
+    {
+        "label": "(1) Surface Water Sources (streams, Reservoir, canals)",
+        "value": "surface_water_sources",
+    },
+    {"label": "(2) Urban Stormwater Runoff", "value": "urban_stormwater_runoff"},
+    {"label": "(3) Rural/Agricultural Runoff", "value": "rural_agricultural_runoff"},
+    {"label": "(4) Treated Wastewater", "value": "reclaimed_water"},
+    {"label": "(5) Other Groundwater Basin", "value": "other_groundwater_basin"},
+    {
+        "label": (
+            "(6) Other Non-Conventional Sources (e.g. Industrial Process Water, "
+            "Agricultural Return Flows, Produced Water, Dewatering Project Water, "
+            "Desalinated Water, Environmental Remediation Site Water)"
+        ),
+        "value": "other_non_conventional_sources",
+    },
+]
+
+WATER_SOURCE_LABELS = {opt["value"]: opt["label"] for opt in WATER_SOURCE_OPTIONS}
+
 
 def _nearest_place_label(lat: float, lon: float) -> str | None:
     """Find nearest city/town/village name using Overpass, return a label or None.
@@ -278,7 +299,7 @@ _SITE_COORD_VALUE_COLOR = "#fd7e14"
 
 
 def water_source_site_coordinates_summary_children():
-    """Layout children for Source / Recharge site lat-lon and straight-line distance (mi)."""
+    """Layout children for Source / Recharge site lat-lon and source-to-site distance (mi)."""
     slat, slon, rlat, rlon = ensure_water_source_site_coordinates()
     dist_mi = _haversine_miles(slat, slon, rlat, rlon)
     num_style = {"color": _SITE_COORD_VALUE_COLOR}
@@ -311,7 +332,7 @@ def water_source_site_coordinates_summary_children():
         ),
         html.Div(
             [
-                html.Span("Straight Line distance : "),
+                html.Span("Distance from the water source to the MAR project site: "),
                 html.Span(
                     f"{dist_mi:.2f} mi",
                     className="fw-bold",
@@ -909,6 +930,10 @@ def create_water_source_info_tab():
     emerging_contaminants = dash_storage.get_data("emerging_contaminants") or []
     
     return [
+        html.P(
+            "Where the MAR project water will come from, and volumes available",
+            className="text-muted fs-6 mb-3",
+        ),
         dbc.Row(
             [
                 dbc.Col(
@@ -939,32 +964,7 @@ def create_water_source_info_tab():
                                                         ),
                                                         dcc.Dropdown(
                                                             id="water-source-dropdown",
-                                                            options=[
-                                                                {
-                                                                    "label": "(1) Surface Water Sources (streams, Reservoir, canals)",
-                                                                    "value": "surface_water_sources",
-                                                                },
-                                                                {
-                                                                    "label": "(2) Urban Stormwater Runoff",
-                                                                    "value": "urban_stormwater_runoff",
-                                                                },
-                                                                {
-                                                                    "label": "(3) Rural/Agricultural Runoff",
-                                                                    "value": "rural_agricultural_runoff",
-                                                                },
-                                                                {
-                                                                    "label": "(4) Reclaimed Water",
-                                                                    "value": "reclaimed_water",
-                                                                },
-                                                                {
-                                                                    "label": "(5) Other Groundwater Basin",
-                                                                    "value": "other_groundwater_basin",
-                                                                },
-                                                                {
-                                                                    "label": "(6) Other Non-Conventional Sources",
-                                                                    "value": "other_non_conventional_sources",
-                                                                },
-                                                            ],
+                                                            options=WATER_SOURCE_OPTIONS,
                                                             value=water_source,
                                                             placeholder="Select water source...",
                                                         ),
@@ -1010,6 +1010,10 @@ def create_water_source_info_tab():
                                 ),
                                 dbc.CardBody(
                                     [
+                                        html.P(
+                                            "Total monthly volume potentially available for MAR",
+                                            className="text-muted fs-6 mb-3",
+                                        ),
                                         dbc.Row(
                                             [
                                                 dbc.Col(

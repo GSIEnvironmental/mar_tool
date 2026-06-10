@@ -30,6 +30,34 @@ OVERVIEW_BASEMAP_OPTIONS = [
 
 ALLOWED_OVERVIEW_BASEMAP_STYLES = frozenset(o["value"] for o in OVERVIEW_BASEMAP_OPTIONS)
 
+DEFAULT_LAND_USE = "Residential"
+
+LAND_USE_OPTIONS = [
+    {"label": "Residential", "value": "Residential"},
+    {"label": "Commercial/Industrial", "value": "Commercial/Industrial"},
+    {"label": "Agricultural", "value": "Agricultural"},
+    {"label": "Open Space", "value": "Open Space"},
+]
+
+_LEGACY_LAND_USE_ALIASES = {
+    "Urban Residential": "Residential",
+    "Urban Nonresidential": "Commercial/Industrial",
+    "Rural Agricultural": "Agricultural",
+    "Rural Open Space": "Open Space",
+}
+
+ALLOWED_LAND_USE = frozenset(o["value"] for o in LAND_USE_OPTIONS)
+
+
+def normalize_land_use(value):
+    """Map stored land use to current dropdown values (supports legacy saves)."""
+    if not value:
+        return DEFAULT_LAND_USE
+    normalized = _LEGACY_LAND_USE_ALIASES.get(value, value)
+    if normalized in ALLOWED_LAND_USE:
+        return normalized
+    return DEFAULT_LAND_USE
+
 
 def _float_storage(key, default):
     raw = dash_storage.get_data(key)
@@ -106,7 +134,7 @@ def create_mar_purpose_section():
     # Site description values (kept here so they live under this card)
     ground_slope = dash_storage.get_data("ground_surface_slope") or 0.5
     max_area = dash_storage.get_data("max_available_area") or 1.0
-    land_use = dash_storage.get_data("land_use") or "Urban Residential"
+    land_use = normalize_land_use(dash_storage.get_data("land_use"))
 
     return dbc.Card([
         dbc.CardHeader(
@@ -155,15 +183,6 @@ def create_mar_purpose_section():
                 debounce=True,
                 style={"margin-bottom": "8px"},
             ),
-            html.Label("Project Location:", className="fw-bold small mb-1"),
-            dbc.Input(
-                id="project-location-input",
-                type="text",
-                placeholder="Enter project location (e.g., Sacramento, CA)...",
-                value=project_location,
-                debounce=True,
-                style={"margin-bottom": "8px"},
-            ),
             html.Hr(className="my-2"),
             html.H6("MAR-Tool Starting Information", className="fw-bold mb-2"),
             html.P(
@@ -200,6 +219,15 @@ def create_mar_purpose_section():
             ),
             html.Hr(className="my-2"),
             html.H6("Site Description", className="fw-bold mb-2"),
+            html.Label("Project Location:", className="fw-bold small mb-1"),
+            dbc.Input(
+                id="project-location-input",
+                type="text",
+                placeholder="Enter project location (e.g., Sacramento, CA)...",
+                value=project_location,
+                debounce=True,
+                style={"margin-bottom": "8px"},
+            ),
             html.Label("Ground Surface Slope (%):", className="fw-bold small mb-1"),
             dbc.Input(
                 id="ground-slope-input",
@@ -211,9 +239,9 @@ def create_mar_purpose_section():
                 step=0.1,
                 style={"margin-bottom": "8px"},
             ),
-            html.Label("Maximum Available Area for Recharge (acres):", className="fw-bold small mb-1"),
+            html.Label("Available Land Area for Recharge (acres):", className="fw-bold small mb-1"),
             html.Small(
-                "This area is the total area available for the MAR site",
+                "This is the total land surface area available for the MAR project site",
                 className="text-muted d-block mb-1",
             ),
             dbc.Input(
@@ -228,17 +256,12 @@ def create_mar_purpose_section():
             ),
             html.Label("Land Use:", className="fw-bold small mb-1"),
             html.P(
-                "Select the primary land use type for the recharge site:",
+                "Select the primary land use type for the MAR project site",
                 className="text-muted small mb-2",
             ),
             dcc.Dropdown(
                 id="land-use-dropdown",
-                options=[
-                    {"label": "Urban Residential", "value": "Urban Residential"},
-                    {"label": "Urban Nonresidential", "value": "Urban Nonresidential"},
-                    {"label": "Rural Agricultural", "value": "Rural Agricultural"},
-                    {"label": "Rural Open Space", "value": "Rural Open Space"},
-                ],
+                options=LAND_USE_OPTIONS,
                 value=land_use,
                 style={"margin-top": "4px"},
             ),
@@ -340,7 +363,7 @@ def create_site_description_section():
     # Get existing values from data storage if available
     ground_slope = dash_storage.get_data("ground_surface_slope") or 0.5
     max_area = dash_storage.get_data("max_available_area") or 1.0
-    land_use = dash_storage.get_data("land_use") or "Urban Residential"
+    land_use = normalize_land_use(dash_storage.get_data("land_use"))
 
     return dbc.Card([
         dbc.CardHeader(
@@ -358,8 +381,11 @@ def create_site_description_section():
                 step=0.1,
                 style={"margin-bottom": "15px"},
             ),
-            html.Label("Maximum Available Area for Recharge (acres):", className="fw-bold"),
-            html.Small("This area is the total area available for the MAR site", className="text-muted d-block mb-2"),
+            html.Label("Available Land Area for Recharge (acres):", className="fw-bold"),
+            html.Small(
+                "This is the total land surface area available for the MAR project site",
+                className="text-muted d-block mb-2",
+            ),
             dbc.Input(
                 id="max-area-input",
                 type="number",
@@ -371,17 +397,12 @@ def create_site_description_section():
             ),
             html.Label("Land Use:", className="fw-bold"),
             html.P(
-                "Select the primary land use type for the recharge site:",
+                "Select the primary land use type for the MAR project site",
                 className="text-muted small",
             ),
             dcc.Dropdown(
                 id="land-use-dropdown",
-                options=[
-                    {"label": "Urban Residential", "value": "Urban Residential"},
-                    {"label": "Urban Nonresidential", "value": "Urban Nonresidential"},
-                    {"label": "Rural Agricultural", "value": "Rural Agricultural"},
-                    {"label": "Rural Open Space", "value": "Rural Open Space"},
-                ],
+                options=LAND_USE_OPTIONS,
                 value=land_use,
                 style={"margin-top": "10px"},
             ),

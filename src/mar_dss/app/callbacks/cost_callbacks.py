@@ -18,8 +18,10 @@ from mar_dss.app.utils.cost_storage import (
 
 try:
     from mar_dss.app.callbacks.cost_calculator import CostCalculator
+    from mar_dss.app.components.water_source_tab import WATER_SOURCE_LABELS
 except ImportError:
     from .cost_calculator import CostCalculator
+    from ..components.water_source_tab import WATER_SOURCE_LABELS
 
 _COST_COLUMN_TO_OPTION = {
     "Spreading Pond Cost ($)": "Surface Recharge",
@@ -98,18 +100,8 @@ def setup_cost_callbacks(app):
         # Get water source from data storage
         stored_value = dash_storage.get_data("water_source")
         
-        # Map values to display labels
-        water_source_labels = {
-            "surface_water_sources": "(1) Surface Water Sources (streams, Reservoir, canals)",
-            "urban_stormwater_runoff": "(2) Urban Stormwater Runoff",
-            "rural_agricultural_runoff": "(3) Rural/Agricultural Runoff",
-            "reclaimed_water": "(4) Reclaimed Water",
-            "other_groundwater_basin": "(5) Other Groundwater Basin",
-            "other_non_conventional_sources": "(6) Other Non-Conventional Sources"
-        }
-        
-        if stored_value and stored_value in water_source_labels:
-            return water_source_labels[stored_value]
+        if stored_value and stored_value in WATER_SOURCE_LABELS:
+            return WATER_SOURCE_LABELS[stored_value]
         return "Not selected"
     
     # Callback to save hydrologic design method to data storage
@@ -250,16 +242,7 @@ def setup_cost_callbacks(app):
         water_source = dash_storage.get_data("water_source") or "Not set"
         water_ownership = dash_storage.get_data("water_ownership") or "Not set"
         pumping_needed = dash_storage.get_data("pumping_needed") or "Not set"
-        # Map water source value to label
-        water_source_labels = {
-            "surface_water_sources": "(1) Surface Water Sources (streams, Reservoir, canals)",
-            "urban_stormwater_runoff": "(2) Urban Stormwater Runoff",
-            "rural_agricultural_runoff": "(3) Rural/Agricultural Runoff",
-            "reclaimed_water": "(4) Reclaimed Water",
-            "other_groundwater_basin": "(5) Other Groundwater Basin",
-            "other_non_conventional_sources": "(6) Other Non-Conventional Sources"
-        }
-        water_source_display = water_source_labels.get(water_source, water_source)
+        water_source_display = WATER_SOURCE_LABELS.get(water_source, water_source)
         
         # Map water ownership value to label
         ownership_labels = {
