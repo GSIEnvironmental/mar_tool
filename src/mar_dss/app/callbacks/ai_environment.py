@@ -1,5 +1,6 @@
 from google import genai
 import json
+import textwrap
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import pandas as pd
@@ -34,6 +35,38 @@ def _normalize_api_key(value):
 
 # --- REVISED MAR PROMPT ---
 
+def build_mar_factors_prompt(location):
+    """Build the MAR environmental factors prompt for Gemini or any external AI model."""
+    location = str(location).strip() if location is not None else ""
+    if not location:
+        raise ValueError("Location is required.")
+
+    return textwrap.dedent(
+        f"""
+        **ROLE:** Multidisciplinary Managed Aquifer Recharge (MAR) Project Planning Expert (Hydrogeologist, Ecologist, Community Engagement Specialist).
+        **GOAL:** Generate a comprehensive, *prioritized* list of *actionable* data points, metrics, or factors that *must* be collected and analyzed for an MAR project at **{location}**. The focus is strictly on **Environmental, Ecological, and Cultural impacts and viability** relevant to the specified geographic context.
+
+        **LOCATION:** {location}
+        **CONTEXT CONSTRAINT:** All data points/factors must be relevant to the unique geographic, regulatory, and ecological context of the {location} area.
+
+        **TASK INSTRUCTIONS (Follow Step-by-Step):**
+        1.  **Environmental Factors (Geochemistry):** Identify critical factors and actionable data points concerning chemical compatibility and sustainability (e.g., water quality degradation, geo-chemical reactions).
+        2.  **Ecological Factors (Ecosystem Health):** Identify critical factors and actionable data points related to the impact on Groundwater-Dependent Ecosystems (GDEs) like wetlands, riparian zones, and surface water bodies (e.g., changes to habitat or species).
+        3.  **Cultural Factors (Socio-economic/Governance):** Identify critical factors and actionable data points related to community impact, land use, legal/regulatory framework, and heritage preservation.
+        4.  **Prioritization and Justification:** For each identified item, assign a prioritization (High/Medium/Low) based on its criticality for the {location} context and provide a brief rationale.
+
+        **OUTPUT CONSTRAINTS:**
+        * **Quantification:** Provide a minimum of four specific factors/data points for *each* of the three categories (Environmental, Ecological, Cultural), for a total of at least 12 rows.
+        * **Precision:** Focus on actionable data points (e.g., "Groundwater-Surface Water Interaction Flow Rate," not just "Hydrology").
+        * **Format:** Present the final output as a single, organized **Markdown Table** with the following four columns:
+            * **Category** (Environmental, Ecological, or Cultural)
+            * **Actionable Data Point/Factor**
+            * **Priority** (High, Medium, or Low)
+            * **Justification/Rationale** (Why is this critical for the {location} project?)
+        """
+    ).strip()
+
+
 def get_mar_factors(location, model="gemini-2.5-flash", temperature=0.5):
     """
     Get the MAR factors for a given location.
@@ -47,33 +80,7 @@ def get_mar_factors(location, model="gemini-2.5-flash", temperature=0.5):
     temperature : float, optional
         The temperature parameter for generation (default: 0.5, range: 0.0-2.0)
     """
-        
-    location = str(location).strip() if location is not None else ""
-    if not location:
-        raise ValueError("Location is required.")
-        
-    mar_prompt = f"""
-    **ROLE:** Multidisciplinary Managed Aquifer Recharge (MAR) Project Planning Expert (Hydrogeologist, Ecologist, Community Engagement Specialist).
-    **GOAL:** Generate a comprehensive, *prioritized* list of *actionable* data points, metrics, or factors that *must* be collected and analyzed for an MAR project at **{location}**. The focus is strictly on **Environmental, Ecological, and Cultural impacts and viability** relevant to the specified geographic context.
-
-    **LOCATION:** {location}
-    **CONTEXT CONSTRAINT:** All data points/factors must be relevant to the unique geographic, regulatory, and ecological context of the {location} area.
-
-    **TASK INSTRUCTIONS (Follow Step-by-Step):**
-    1.  **Environmental Factors (Geochemistry):** Identify critical factors and actionable data points concerning chemical compatibility and sustainability (e.g., water quality degradation, geo-chemical reactions).
-    2.  **Ecological Factors (Ecosystem Health):** Identify critical factors and actionable data points related to the impact on Groundwater-Dependent Ecosystems (GDEs) like wetlands, riparian zones, and surface water bodies (e.g., changes to habitat or species).
-    3.  **Cultural Factors (Socio-economic/Governance):** Identify critical factors and actionable data points related to community impact, land use, legal/regulatory framework, and heritage preservation.
-    4.  **Prioritization and Justification:** For each identified item, assign a prioritization (High/Medium/Low) based on its criticality for the {location} context and provide a brief rationale.
-
-    **OUTPUT CONSTRAINTS:**
-    * **Quantification:** Provide a minimum of four specific factors/data points for *each* of the three categories (Environmental, Ecological, Cultural), for a total of at least 12 rows.
-    * **Precision:** Focus on actionable data points (e.g., "Groundwater-Surface Water Interaction Flow Rate," not just "Hydrology").
-    * **Format:** Present the final output as a single, organized **Markdown Table** with the following four columns:
-        * **Category** (Environmental, Ecological, or Cultural)
-        * **Actionable Data Point/Factor**
-        * **Priority** (High, Medium, or Low)
-        * **Justification/Rationale** (Why is this critical for the{location} project?)
-    """
+    mar_prompt = build_mar_factors_prompt(location)
     # -----------------------------
 
     # 1. Define the schema for a single row in your table (REVISED STRUCTURE)

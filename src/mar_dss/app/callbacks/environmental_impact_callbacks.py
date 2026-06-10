@@ -16,7 +16,7 @@ from mar_dss.app.components.environmental_impact_tab import (
     COST_SCALE_TO_SCORE,
     ASSESSMENT_QUESTION_LABELS,
 )
-from mar_dss.app.callbacks.ai_environment import get_mar_factors, _normalize_stored_string
+from mar_dss.app.callbacks.ai_environment import get_mar_factors, _normalize_stored_string, build_mar_factors_prompt
 import mar_dss.app.utils.data_storage as dash_storage
 
 _RISK_LEVEL_CANONICAL = frozenset({"LOW RISK", "MODERATE RISK", "HIGH RISK"})
@@ -27,6 +27,25 @@ def _location_text(value):
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _mar_factors_success_banner(location, count):
+    """Green banner shown after Gemini successfully returns factors."""
+    return dbc.Alert(
+        [
+            html.I(className="fas fa-check-circle me-2"),
+            html.Strong("Generation complete. "),
+            html.Span(
+                f"{count} MAR factors were generated for {location}. ",
+            ),
+            html.Span(
+                "Review the results below.",
+                className="fw-semibold",
+            ),
+        ],
+        color="success",
+        className="mb-3",
+    )
 
 
 def _normalize_water_quality_risk(raw):
@@ -721,6 +740,56 @@ def setup_environmental_impact_callbacks(app):
         loc = _location_text(store_location or dash_storage.get_data("project_location"))
         return loc
 
+    @app.callback(
+        [
+            Output("mar-factors-prompt-display", "value"),
+            Output("mar-prompt-feedback", "children"),
+        ],
+        Input("build-mar-factors-prompt-btn", "n_clicks"),
+        State("mar-location-input", "value"),
+        prevent_initial_call=True,
+    )
+    def build_mar_factors_prompt_display(n_clicks, location):
+        """Fill the prompt textarea for copy/paste into an external AI model."""
+        if not n_clicks:
+            return dash.no_update, dash.no_update
+
+        location = _location_text(location) or _location_text(
+            dash_storage.get_data("project_location")
+        )
+        if not location:
+            return "", dbc.Alert(
+                "Enter a location first, or set Project Location on the Overview tab.",
+                color="warning",
+                className="py-2 mb-0 small",
+            )
+
+        prompt = build_mar_factors_prompt(location)
+        feedback = html.Small(
+            "Prompt ready. Click Copy Prompt or select all text and paste into your AI model.",
+            className="text-success",
+        )
+        return prompt, feedback
+
+    app.clientside_callback(
+        """
+        function(n_clicks, prompt_text) {
+            if (!n_clicks) {
+                return window.dash_clientside.no_update;
+            }
+            if (!prompt_text) {
+                return "Build the prompt first, then click Copy Prompt.";
+            }
+            navigator.clipboard.writeText(prompt_text).catch(function() {});
+            return "Prompt copied to clipboard.";
+        }
+        """,
+        Output("mar-prompt-feedback", "children", allow_duplicate=True),
+        Input("copy-mar-factors-prompt-btn", "n_clicks"),
+        State("mar-factors-prompt-display", "value"),
+        prevent_initial_call=True,
+    )
+
     # Callback for MAR Factors Generation (Tab 4.2)
     @app.callback(
         Output('mar-factors-table-container', 'children'),
@@ -876,46 +945,49 @@ def setup_environmental_impact_callbacks(app):
             )
             
             # Wrap table in a card with summary - in its own full-width row
-            return dbc.Row([
-                dbc.Col([
-                    dbc.Card([
-                        dbc.CardHeader([
-                            html.H5(f"MAR Factors for {location}", className="mb-0 text-primary"),
-                            html.Small(f"Total factors: {len(df)}", className="text-muted")
-                        ], className="bg-light"),
-                        dbc.CardBody([
-                            # Disclaimer
-                            dbc.Alert([
-                                html.P([
-                                    html.Strong("Important Disclaimer: "),
-                                    f"The analysis of Managed Aquifer Recharge (MAR) factors specific to {location} was produced using the Google Gemini Large Language Model (LLM). Although this generation incorporates site-specific parameters, we cannot guarantee its accuracy or completeness. The data provided in the matrix below should be used with caution, as it is intended only to offer general guidance regarding MAR's potential environmental, ecological, and cultural considerations."
-                                ], className="mb-0")
-                            ], color="warning", className="mb-4"),
-                            
-                            html.Div([
-                                html.P([
-                                    html.Strong("Categories: "),
-                                    html.Span(f"Environmental: {len(df[df['category'] == 'Environmental'])}, ", className="text-info"),
-                                    html.Span(f"Ecological: {len(df[df['category'] == 'Ecological'])}, ", className="text-success"),
-                                    html.Span(f"Cultural: {len(df[df['category'] == 'Cultural'])}", className="text-warning")
-                                ], className="mb-3"),
-                                html.P([
-                                    html.Strong("Priorities: "),
-                                    html.Span(f"High: {len(df[df['priority'].astype(str).str.strip() == 'High'])}, ", className="text-danger"),
-                                    html.Span(f"Medium: {len(df[df['priority'].astype(str).str.strip() == 'Medium'])}, ", className="text-warning"),
-                                    html.Span(f"Low: {len(df[df['priority'].astype(str).str.strip() == 'Low'])}", className="text-success")
-                                ], className="mb-3")
-                            ]),
-                            html.Div(
-                                table, 
-                                style={
-                                    'overflowX': 'auto',
-                                    'width': '100%'
-                                }
-                            )
-                        ])
-                    ], className="mt-3")
-                ], width=12)
+            return html.Div([
+                _mar_factors_success_banner(location, len(df)),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5(f"MAR Factors for {location}", className="mb-0 text-primary"),
+                                html.Small(f"Total factors: {len(df)}", className="text-muted")
+                            ], className="bg-light"),
+                            dbc.CardBody([
+                                # Disclaimer
+                                dbc.Alert([
+                                    html.P([
+                                        html.Strong("Important Disclaimer: "),
+                                        f"The analysis of Managed Aquifer Recharge (MAR) factors specific to {location} was produced using the Google Gemini Large Language Model (LLM). Although this generation incorporates site-specific parameters, we cannot guarantee its accuracy or completeness. The data provided in the matrix below should be used with caution, as it is intended only to offer general guidance regarding MAR's potential environmental, ecological, and cultural considerations."
+                                    ], className="mb-0")
+                                ], color="warning", className="mb-4"),
+                                
+                                html.Div([
+                                    html.P([
+                                        html.Strong("Categories: "),
+                                        html.Span(f"Environmental: {len(df[df['category'] == 'Environmental'])}, ", className="text-info"),
+                                        html.Span(f"Ecological: {len(df[df['category'] == 'Ecological'])}, ", className="text-success"),
+                                        html.Span(f"Cultural: {len(df[df['category'] == 'Cultural'])}", className="text-warning")
+                                    ], className="mb-3"),
+                                    html.P([
+                                        html.Strong("Priorities: "),
+                                        html.Span(f"High: {len(df[df['priority'].astype(str).str.strip() == 'High'])}, ", className="text-danger"),
+                                        html.Span(f"Medium: {len(df[df['priority'].astype(str).str.strip() == 'Medium'])}, ", className="text-warning"),
+                                        html.Span(f"Low: {len(df[df['priority'].astype(str).str.strip() == 'Low'])}", className="text-success")
+                                    ], className="mb-3")
+                                ]),
+                                html.Div(
+                                    table, 
+                                    style={
+                                        'overflowX': 'auto',
+                                        'width': '100%'
+                                    }
+                                )
+                            ])
+                        ], className="mt-3")
+                    ], width=12)
+                ]),
             ])
             
         except Exception as e:

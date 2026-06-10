@@ -664,10 +664,42 @@ def create_environmental_considerations_content():
     project_location = str(dash_storage.get_data("project_location") or "").strip()
 
     return [
-        html.P(
-            "Generate environmental, ecological, and cultural factors for your MAR site using AI.",
-            className="text-muted fs-6 mb-3",
-        ),
+        dbc.Alert([
+            html.Div("Choose how to generate MAR environmental factors:", className="fw-bold mb-2"),
+            html.Ul([
+                html.Li([
+                    html.Span("Option 1 — ", className="fw-bold"),
+                    html.Span(
+                        "Gemini with personal API",
+                        className="fw-bold text-success",
+                    ),
+                    html.Span(
+                        ": enter your API key (right), set location, and click ",
+                        className="text-muted",
+                    ),
+                    html.Span("Generate MAR Factors", className="fw-semibold"),
+                    html.Span(".", className="text-muted"),
+                ], className="mb-2"),
+                html.Li([
+                    html.Span("Option 2 — ", className="fw-bold"),
+                    html.Span(
+                        "Create the prompt and use it in your chosen AI model",
+                        className="fw-bold text-primary",
+                    ),
+                    html.Span(
+                        ": click ",
+                        className="text-muted",
+                    ),
+                    html.Span("Build Prompt", className="fw-semibold"),
+                    html.Span(", then ", className="text-muted"),
+                    html.Span("Copy Prompt", className="fw-semibold"),
+                    html.Span(
+                        " and paste into ChatGPT, Claude, Copilot, or another tool.",
+                        className="text-muted",
+                    ),
+                ], className="mb-0"),
+            ], className="mb-0 ps-3"),
+        ], color="light", className="border mb-3 py-2"),
         dbc.Row([
             dbc.Col([
                 dbc.Card([
@@ -699,7 +731,17 @@ def create_environmental_considerations_content():
                         ], className="mb-1"),
                         html.Small(
                             "Populated from Overview Project Location; edit if needed.",
-                            className="text-muted d-block mb-3",
+                            className="text-muted d-block mb-2",
+                        ),
+                        dcc.Loading(
+                            id="mar-factors-loading",
+                            type="circle",
+                            color="#198754",
+                            parent_style={"minHeight": "80px"},
+                            children=html.Div(
+                                id="mar-factors-table-container",
+                                className="mb-3",
+                            ),
                         ),
                         dbc.Row([
                             dbc.Col([
@@ -731,7 +773,7 @@ def create_environmental_considerations_content():
                             ], xs=12, md=6, className="mt-2 mt-md-0"),
                         ], className="g-2"),
                     ], className="p-3"),
-                ], className="h-100"),
+                ]),
             ], xs=12, lg=7, className="mb-3 mb-lg-0"),
             dbc.Col([
                 dbc.Card([
@@ -751,7 +793,8 @@ def create_environmental_considerations_content():
                             className="mb-1",
                         ),
                         html.Small(
-                            "Stored locally. Get a key at aistudio.google.com/apikey",
+                            "Optional if using Gemini here. Stored locally. "
+                            "Get a key at aistudio.google.com/apikey",
                             className="text-muted d-block mb-3",
                         ),
                         html.Label("API Key File Path:", className="fw-bold small mb-1"),
@@ -772,7 +815,49 @@ def create_environmental_considerations_content():
                 ], className="h-100"),
             ], xs=12, lg=5, className="mb-3 mb-lg-0"),
         ], className="mb-3 g-3 align-items-stretch"),
-        html.Div(id="mar-factors-table-container", className="mt-1"),
+        dbc.Card([
+            dbc.CardHeader(
+                "Use Your Own AI Model",
+                className="fw-bold bg-primary text-white py-2",
+            ),
+            dbc.CardBody([
+                html.Small(
+                    "Build the same prompt used for Gemini, then copy and paste it into "
+                    "ChatGPT, Claude, Copilot, or another AI tool if you prefer not to use Gemini.",
+                    className="text-muted d-block mb-2",
+                ),
+                dbc.ButtonGroup([
+                    dbc.Button(
+                        [html.I(className="fas fa-file-alt me-1"), "Build Prompt"],
+                        id="build-mar-factors-prompt-btn",
+                        color="outline-primary",
+                        size="sm",
+                        n_clicks=0,
+                    ),
+                    dbc.Button(
+                        [html.I(className="fas fa-copy me-1"), "Copy Prompt"],
+                        id="copy-mar-factors-prompt-btn",
+                        color="outline-secondary",
+                        size="sm",
+                        n_clicks=0,
+                    ),
+                ], className="mb-2"),
+                html.Div(id="mar-prompt-feedback", className="mb-2"),
+                dcc.Textarea(
+                    id="mar-factors-prompt-display",
+                    value="",
+                    readOnly=True,
+                    placeholder="Click Build Prompt to generate the text for your location…",
+                    style={
+                        "width": "100%",
+                        "minHeight": "180px",
+                        "fontFamily": "monospace",
+                        "fontSize": "12px",
+                        "resize": "vertical",
+                    },
+                ),
+            ], className="p-3"),
+        ], className="mb-3"),
         dbc.Tooltip(
             "Google Gemini API key (stored locally for this session)",
             target="gemini-api-key-input",
@@ -796,6 +881,16 @@ def create_environmental_considerations_content():
         dbc.Tooltip(
             "Plain-language place name sent to the AI",
             target="mar-location-input",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Create the MAR factors prompt for the current location",
+            target="build-mar-factors-prompt-btn",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Copy the prompt below to your clipboard",
+            target="copy-mar-factors-prompt-btn",
             placement="top",
         ),
     ]
