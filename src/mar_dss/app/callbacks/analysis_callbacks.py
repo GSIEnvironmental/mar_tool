@@ -181,12 +181,16 @@ def get_graph_inputs():
 
         if max_available_area is None:
             max_available_area = 1e7
+            max_infiltration_area = max_available_area
         else:
             try:
                 max_infiltration_area = float(max_infiltration_area_percent) * float(max_available_area)
             except (ValueError, TypeError):
-                logger.warning(f"Invalid max_infiltration_area: {max_infiltration_area}, using default")
-                max_infiltration_area = 1e7
+                logger.warning(
+                    "Invalid max_infiltration_area: %s, using default",
+                    max_infiltration_area_percent,
+                )
+                max_infiltration_area = float(max_available_area)
         
         max_infiltration_area_ft2 = max_infiltration_area * ACRES_TO_FT2
         if max_infiltration_area_ft2 <= 0:
@@ -872,7 +876,7 @@ def run_integrated_analysis():
             if isinstance(first_value, dict):
                 # Nested structure - extract capital costs
                 capital_cost_override = {
-                    option: costs["capital"] 
+                    option: costs["capital"]
                     for option, costs in cost_mapping.items()
                 }
             else:
@@ -880,61 +884,64 @@ def run_integrated_analysis():
                 capital_cost_override = cost_mapping
         else:
             capital_cost_override = None
-        
+
         dss_results = forward_run(cost_override=capital_cost_override)
         logger.info("DSS evaluation completed successfully")
     except Exception as e:
-        logger.error(f"Error in DSS evaluation: {e}", exc_info=True)
-        # Run without cost override if there's an error
-        dss_results = forward_run()
-    
+        logger.error(f"Error in DSS evaluation with cost override: {e}", exc_info=True)
+        try:
+            dss_results = forward_run()
+            logger.info("DSS evaluation completed without cost override")
+        except Exception as fallback_error:
+            logger.error(f"Error in DSS evaluation: {fallback_error}", exc_info=True)
+            raise RuntimeError(f"DSS evaluation failed: {fallback_error}") from fallback_error
+
     # Step 5: Store DSS results
     dash_storage.set_data("dss_results", dss_results)
-    
+
     return dss_results, cost_calculator
+
+
+def _format_analysis_error(exc):
+    """Turn analysis exceptions into a user-facing message with guidance."""
+    msg = str(exc).strip()
+    if not msg:
+        msg = "Analysis could not be completed."
+
+    guidance = [
+        ("stratigraphy_data", "Add stratigraphy layers on the Hydrogeology tab."),
+        ("groundwater_data", "Add groundwater data on the Hydrogeology tab."),
+        ("ground_surface_elevation", "Set ground surface elevation on the Hydrogeology tab."),
+        ("decision_graph", "The decision knowledge graph could not be loaded."),
+        ("DSS evaluation failed", "Check that required inputs are entered across Overview, Water Source, Hydrogeology, Engineering, and Regulations tabs."),
+    ]
+    extra = next((hint for key, hint in guidance if key in msg), None)
+    if extra and extra not in msg:
+        return f"{msg} {extra}"
+    return msg
 
 
 def run_feasibility_analysis():
     """Run the full feasibility pipeline (graph evaluation, costs, DSS).
 
-    Hash-based skip logic is disabled; each call runs :func:`run_integrated_analysis`.
-    The Analysis tab invokes this on every visit to refresh ``dss_results``.
+    Returns None on success, or an error message string on failure.
     """
-    # Get current inputs
-    inputs = get_graph_inputs()
-    
-    # Create hash of current inputs
-    current_hash = create_inputs_hash(inputs)
+    try:
+        inputs = get_graph_inputs()
+        current_hash = create_inputs_hash(inputs)
 
-    # Check if inputs have changed
-    # if current_hash == last_hash:
-    #     # Inputs haven't changed
-    #     logger.debug("Feasibility analysis skipped - inputs unchanged (hash match)")
-        
-    #     # # Still ensure graph exists
-    #     # graph = dash_storage.get_data("decision_graph")
-    #     # if graph is None:
-    #     #     # If no graph exists, we need to create one
-    #     #     graph = get_session_graph()
-    #     #     dash_storage.set_data("decision_graph", graph)
-        
-    #     # # CRITICAL: If DSS results don't exist, run integrated analysis anyway
-    #     # # This handles cases where results were cleared or this is the first run
-    #     # if not has_dss_results:
-    #     #     logger.info("Inputs unchanged but DSS results missing - running integrated analysis")
-    #     #     dss_results, cost_calculator = run_integrated_analysis()
-        
-    #     return 1
-    
-    logger.info(f"Feasibility analysis running (inputs hash: {current_hash[:8]}...)")
+        logger.info(f"Feasibility analysis running (inputs hash: {current_hash[:8]}...)")
+        dash_storage.set_data("feasibility_analysis_hash", current_hash)
 
-    # Store the new hash for next time
-    dash_storage.set_data("feasibility_analysis_hash", current_hash)
+        run_integrated_analysis()
+        dash_storage.set_data("analysis_last_error", None)
+        return None
+    except Exception as exc:
+        error_message = _format_analysis_error(exc)
+        dash_storage.set_data("analysis_last_error", error_message)
+        logger.error("Feasibility analysis failed: %s", error_message, exc_info=True)
+        return error_message
 
-    # Integrated analysis evaluates the graph, runs costs, then forward_run (single pipeline)
-    dss_results, cost_calculator = run_integrated_analysis()
-    
-    return 1
 
 def _analysis_loading_banner():
     """Banner shown while integrated analysis is running."""
@@ -954,6 +961,19 @@ def _analysis_loading_banner():
         ],
         color="info",
         className="py-2 mb-0 d-flex align-items-center",
+    )
+
+
+def _analysis_error_banner(message):
+    """Banner shown when integrated analysis fails."""
+    return dbc.Alert(
+        [
+            html.I(className="fas fa-exclamation-triangle me-2"),
+            html.Strong("Analysis could not be completed. "),
+            html.Span(message),
+        ],
+        color="danger",
+        className="py-2 mb-0",
     )
 
 
@@ -1014,7 +1034,15 @@ def setup_analysis_callbacks(app):
             analysis_sub_tab,
             rerun_count,
         )
-        run_feasibility_analysis()
+        error_message = run_feasibility_analysis()
+        if error_message:
+            logger.debug("Feasibility analysis failed: %s", error_message)
+            return {
+                "initialized": False,
+                "graph_ready": False,
+                "error": error_message,
+            }, _analysis_error_banner(error_message)
+
         logger.debug("Feasibility analysis completed - results available for Feasibilities tab")
 
         return {
