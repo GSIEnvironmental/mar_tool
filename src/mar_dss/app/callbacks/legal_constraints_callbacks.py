@@ -342,19 +342,19 @@ def setup_legal_constraints_callbacks(app):
         site_branch = html.Div(
             [
                 html.P(["Site Branch Result: ", html.Strong(site_result)], className="mb-2"),
-                html.Small("Outcome derived from A1–A7 inputs."),
+                html.Small("Outcome derived from A.1–A.7 inputs."),
             ]
         )
         source_branch = html.Div(
             [
                 html.P(["Water Source Branch Result: ", html.Strong(source_result)], className="mb-2"),
-                html.Small("Outcome derived from B1–B5 inputs."),
+                html.Small("Outcome derived from B.1–B.5 inputs."),
             ]
         )
         quality_branch = html.Div(
             [
                 html.P(["Water Quality Branch Result: ", html.Strong(quality_result)], className="mb-2"),
-                html.Small("Outcome derived from C1–C9 inputs."),
+                html.Small("Outcome derived from C.1–C.9 inputs."),
             ]
         )
 

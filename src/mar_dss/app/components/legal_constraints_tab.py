@@ -2,7 +2,7 @@
 Legal Constraints tab component.
 
 Managed Aquifer Recharge (MAR) legal and regulatory feasibility decision tree:
-- Project/Jurisdiction screen
+- D) Project/Jurisdiction screen
 - A) Site feasibility
 - B) Water source feasibility
 - C) Water quality feasibility
@@ -21,17 +21,21 @@ import mar_dss.app.utils.data_storage as dash_storage
 
 
 def _section_card(header_text, body_children):
+    """Standard dashboard card: blue header, white body."""
     return dbc.Card(
         [
-            dbc.CardHeader(header_text, className="fw-bold bg-light"),
-            dbc.CardBody(body_children),
+            dbc.CardHeader(header_text, className="fw-bold bg-primary text-white py-2"),
+            dbc.CardBody(body_children, className="p-3"),
         ],
         className="mb-3",
-        style={
-            "box-shadow": "0 4px 8px 0 rgba(0,0,0,0.1)",
-            "transition": "0.3s",
-            "border-left": "5px solid #0d6efd",
-        },
+    )
+
+
+def _question_label(code, text):
+    """Sub-question label, e.g. A.1, B.2."""
+    return html.P(
+        [html.Span(f"{code} ", className="fw-bold text-primary"), text],
+        className="mb-2",
     )
 
 
@@ -70,73 +74,59 @@ def create_basic_regulation_feasibility_content():
                             className="mb-4",
                         ),
 
-                        # 0) Project/Jurisdiction screen
-                        _section_card(
-                            "0) Project/Jurisdiction Screen",
-                            [
-                                html.P("(Federal nexus) Does your project has a direct federal connection such that federal environmental laws and reviews are triggered?"),
-                                _radio(
-                                    "legal-proj-federal-nexus",
-                                    ["No", "Yes - NEPA (National Environmental Policy Act) / ESA (Endangered Species Act) / NHPA (National Historic Preservation Act) likely"],
-                                    "No",
-                                ),
-                                html.Hr(),
-                                html.P("Tribal or interstate context?"),
-                                _radio(
-                                    "legal-proj-tribal-interstate",
-                                    ["None", "Tribal lands/resources", "Interstate compact", "Both"],
-                                    "None",
-                                ),
-                            ],
-                        ),
-
                         # A) Site feasibility
                         _section_card(
                             "A) Site Feasibility (Location, Land Rights, Environmental Review)",
                             [
-                                html.P("A1. Site control and access"),
+                                _question_label("A.1", "Site control and access"),
                                 _radio(
                                     "legal-site-control",
                                     ["Have site control", "Can secure site control", "Cannot secure site control (Prohibited)"],
                                     "Have site control",
                                 ),
                                 html.Hr(),
-                                html.P("A2. Land use and local approvals (zoning/conditional use/building/floodplain)"),
+                                _question_label(
+                                    "A.2",
+                                    "Land use and local approvals (zoning/conditional use/building/floodplain)",
+                                ),
                                 _radio(
                                     "legal-site-zoning",
                                     ["Allowed", "Conditionally allowed (permit/variance)", "Prohibited (no variance)"],
                                     "Allowed",
                                 ),
                                 html.Hr(),
-                                html.P("A3. Waters/wetlands impacts (CWA (Clean Water Act) §§404/401; RHA (Rivers and Harbors Act) §10)"),
+                                _question_label(
+                                    "A.3",
+                                    "Waters/wetlands impacts (CWA (Clean Water Act) §§404/401; RHA (Rivers and Harbors Act) §10)",
+                                ),
                                 _radio(
                                     "legal-site-wetlands",
                                     ["No impacts", "General permit likely", "Individual permit feasible", "Permit unlikely (Prohibited)"],
                                     "No impacts",
                                 ),
                                 html.Hr(),
-                                html.P("A4. Sensitive resources (ESA/cultural/historic/critical areas)"),
+                                _question_label("A.4", "Sensitive resources (ESA/cultural/historic/critical areas)"),
                                 _radio(
                                     "legal-site-sensitive",
                                     ["None", "Present - mitigable", "Present - unmitigable (Prohibited)"],
                                     "None",
                                 ),
                                 html.Hr(),
-                                html.P("A5. Public lands/federal facilities authorizations"),
+                                _question_label("A.5", "Public lands/federal facilities authorizations"),
                                 _radio(
                                     "legal-site-public-lands",
                                     ["Not applicable", "Authorizations obtainable", "Authorizations unobtainable (Prohibited)"],
                                     "Not applicable",
                                 ),
                                 html.Hr(),
-                                html.P("A6. Dam safety/geotechnical constraints"),
+                                _question_label("A.6", "Dam safety/geotechnical constraints"),
                                 _radio(
                                     "legal-site-dams",
                                     ["Not applicable", "Approvable with conditions", "Not approvable (Prohibited)"],
                                     "Not applicable",
                                 ),
                                 html.Hr(),
-                                html.P("A7. Subsidence/seismic constraints"),
+                                _question_label("A.7", "Subsidence/seismic constraints"),
                                 _radio(
                                     "legal-site-seismic",
                                     ["Compliant", "Mitigable", "Noncompliant (Prohibited)"],
@@ -149,28 +139,35 @@ def create_basic_regulation_feasibility_content():
                         _section_card(
                             "B) Water Source Feasibility (Rights, Compacts, Conveyance)",
                             [
-                                html.P("B1. Legal right/entitlement to source (incl. storage for recharge)"),
+                                _question_label(
+                                    "B.1",
+                                    "Legal right/entitlement to source (incl. storage for recharge)",
+                                ),
                                 _radio(
                                     "legal-src-right",
                                     ["Valid right/contract", "Obtainable without injury", "No path to a valid right (Prohibited)"],
                                     "Valid right/contract",
                                 ),
                                 html.Hr(),
-                                html.P("B2. Recharge authorization, accounting, and recovery (state MAR (Managed Aquifer Recharge)/ASR (Aquifer Storage and Recovery) framework)"),
+                                _question_label(
+                                    "B.2",
+                                    "Recharge authorization, accounting, and recovery "
+                                    "(state MAR (Managed Aquifer Recharge)/ASR (Aquifer Storage and Recovery) framework)",
+                                ),
                                 _radio(
                                     "legal-src-accounting",
                                     ["Authorized", "Authorizable with conditions", "No statutory/administrative pathway (Prohibited)"],
                                     "Authorized",
                                 ),
                                 html.Hr(),
-                                html.P("B3. Interstate compact/delivery compliance"),
+                                _question_label("B.3", "Interstate compact/delivery compliance"),
                                 _radio(
                                     "legal-src-compact",
                                     ["Not applicable", "Compliant", "Noncompliant (Prohibited)"],
                                     "Not applicable",
                                 ),
                                 html.Hr(),
-                                html.P("B4. Source-specific compliance feasible?"),
+                                _question_label("B.4", "Source-specific compliance feasible?"),
                                 dcc.Dropdown(
                                     id="legal-src-type",
                                     options=[
@@ -190,7 +187,7 @@ def create_basic_regulation_feasibility_content():
                                     "Feasible",
                                 ),
                                 html.Hr(),
-                                html.P("B5. Conveyance/wheeling agreements (ditches/canals/pipelines)"),
+                                _question_label("B.5", "Conveyance/wheeling agreements (ditches/canals/pipelines)"),
                                 _radio(
                                     "legal-src-conveyance",
                                     ["Available", "Negotiable", "Unavailable (Prohibited)"],
@@ -203,7 +200,7 @@ def create_basic_regulation_feasibility_content():
                         _section_card(
                             "C) Water Quality Feasibility (UIC, Anti-degradation, Standards)",
                             [
-                                html.P("C1. Recharge method"),
+                                _question_label("C.1", "Recharge method"),
                                 dcc.Dropdown(
                                     id="legal-qual-method",
                                     options=[
@@ -216,60 +213,102 @@ def create_basic_regulation_feasibility_content():
                                     style={"maxWidth": "420px"},
                                 ),
                                 html.Br(),
-                                html.P("C2. UIC (Underground Injection Control) Class V (SDWA (Safe Drinking Water Act)) or equivalent permit feasibility"),
+                                _question_label(
+                                    "C.2",
+                                    "UIC (Underground Injection Control) Class V (SDWA (Safe Drinking Water Act)) "
+                                    "or equivalent permit feasibility",
+                                ),
                                 _radio(
                                     "legal-qual-uic",
                                     ["Not applicable", "Feasible", "Not feasible (Prohibited)"],
                                     "Not applicable",
                                 ),
                                 html.Hr(),
-                                html.P("C3. Receiving aquifer a USDW (Underground Source of Drinking Water) or planned potable use?"),
+                                _question_label(
+                                    "C.3",
+                                    "Receiving aquifer a USDW (Underground Source of Drinking Water) or planned potable use?",
+                                ),
                                 _radio(
                                     "legal-qual-usdw",
                                     ["No", "Yes - MCLs/no endangerment apply"],
                                     "No",
                                 ),
                                 html.Br(),
-                                html.P("C4. Ability to meet SDWA (Safe Drinking Water Act) MCLs (Maximum Contaminant Levels)/no-endangerment and state reuse criteria (if applicable)"),
+                                _question_label(
+                                    "C.4",
+                                    "Ability to meet SDWA (Safe Drinking Water Act) MCLs (Maximum Contaminant Levels)/"
+                                    "no-endangerment and state reuse criteria (if applicable)",
+                                ),
                                 _radio(
                                     "legal-qual-mcls",
                                     ["Assured", "Achievable with treatment/monitoring", "Cannot be met (Prohibited)"],
                                     "Assured",
                                 ),
                                 html.Hr(),
-                                html.P("C5. Anti-degradation/TMDL (Total Maximum Daily Load) compliance"),
+                                _question_label("C.5", "Anti-degradation/TMDL (Total Maximum Daily Load) compliance"),
                                 _radio(
                                     "legal-qual-antideg",
                                     ["No lowering", "Lowering justified with mitigation", "Likely with studies", "Not compliant (Prohibited)"],
                                     "No lowering",
                                 ),
                                 html.Hr(),
-                                html.P("C6. Geochemical compatibility (mobilization/precipitation risks)"),
+                                _question_label(
+                                    "C.6",
+                                    "Geochemical compatibility (mobilization/precipitation risks)",
+                                ),
                                 _radio(
                                     "legal-qual-compat",
                                     ["Acceptable", "Mitigable with treatment/modeling", "Not acceptable (Prohibited)"],
                                     "Acceptable",
                                 ),
                                 html.Hr(),
-                                html.P("C7. CECs (Constituents of Emerging Concern)/PFAS (Per- and Polyfluoroalkyl Substances) and monitoring orders compliance"),
+                                _question_label(
+                                    "C.7",
+                                    "CECs (Constituents of Emerging Concern)/PFAS (Per- and Polyfluoroalkyl Substances) "
+                                    "and monitoring orders compliance",
+                                ),
                                 _radio(
                                     "legal-qual-cecs",
                                     ["Compliant", "Compliant with advanced treatment", "Not compliant (Prohibited)"],
                                     "Compliant",
                                 ),
                                 html.Hr(),
-                                html.P("C8. Residuals handling (backwash/brine) permitting"),
+                                _question_label("C.8", "Residuals handling (backwash/brine) permitting"),
                                 _radio(
                                     "legal-qual-residuals",
                                     ["Permittable", "Permittable with conditions", "Not permittable (Prohibited)"],
                                     "Permittable",
                                 ),
                                 html.Hr(),
-                                html.P("C9. Well construction & monitoring plan (state standards/UIC)"),
+                                _question_label("C.9", "Well construction & monitoring plan (state standards/UIC)"),
                                 _radio(
                                     "legal-qual-wells",
                                     ["Compliant", "Compliant with conditions", "Noncompliant (Prohibited)"],
                                     "Compliant",
+                                ),
+                            ],
+                        ),
+
+                        # D) Project/Jurisdiction screen
+                        _section_card(
+                            "D) Project/Jurisdiction Screen",
+                            [
+                                _question_label(
+                                    "D.1",
+                                    "(Federal nexus) Does your project have a direct federal connection "
+                                    "such that federal environmental laws and reviews are triggered?",
+                                ),
+                                _radio(
+                                    "legal-proj-federal-nexus",
+                                    ["No", "Yes - NEPA (National Environmental Policy Act) / ESA (Endangered Species Act) / NHPA (National Historic Preservation Act) likely"],
+                                    "No",
+                                ),
+                                html.Hr(),
+                                _question_label("D.2", "Tribal or interstate context?"),
+                                _radio(
+                                    "legal-proj-tribal-interstate",
+                                    ["None", "Tribal lands/resources", "Interstate compact", "Both"],
+                                    "None",
                                 ),
                             ],
                         ),
@@ -569,25 +608,58 @@ def create_legal_constraints_content():
     return [
         html.Div(
             [
-                dbc.Tabs(
+                        dbc.Tabs(
                     [
                         dbc.Tab(
                             label="(1) Basic Regulation Feasibility",
-                    id=tab_nav_id("basic-regulation-tab"),
+                            id=tab_nav_id("basic-regulation-tab"),
                             tab_id="basic-regulation-tab",
                             children=create_basic_regulation_feasibility_content(),
+                            label_style={
+                                "color": "#ffffff",
+                                "fontWeight": "bold",
+                                "backgroundColor": "#0d6efd",
+                                "border": "1px solid #0d6efd",
+                            },
+                            active_label_style={
+                                "color": "#ffffff",
+                                "backgroundColor": "#0b5ed7",
+                                "border": "1px solid #0b5ed7",
+                            },
                         ),
                         dbc.Tab(
                             label="(2) AI-Powered Regulations and Permits",
                             id=tab_nav_id("ai-regulations-permits-tab"),
                             tab_id="ai-regulations-permits-tab",
                             children=create_ai_regulations_permits_content(),
+                            label_style={
+                                "color": "#ffffff",
+                                "fontWeight": "bold",
+                                "backgroundColor": "#5dade2",
+                                "border": "1px solid #5dade2",
+                            },
+                            active_label_style={
+                                "color": "#ffffff",
+                                "backgroundColor": "#4a9fd1",
+                                "border": "1px solid #4a9fd1",
+                            },
                         ),
                         dbc.Tab(
                             label="(3) AI-Powered Environmental, Ecological, and Cultural Factors",
                             id=tab_nav_id("environmental-considerations-tab"),
                             tab_id="environmental-considerations-tab",
                             children=create_environmental_considerations_content(),
+                            label_style={
+                                "color": "#ffffff",
+                                "fontWeight": "bold",
+                                "backgroundColor": "#17a2b8",
+                                "border": "1px solid #17a2b8",
+                            },
+                            active_label_style={
+                                "color": "#ffffff",
+                                "backgroundColor": "#138496",
+                                "border": "1px solid #138496",
+                            },
                         ),
                     ],
                     id="legal-subtabs",
