@@ -251,7 +251,8 @@ _TOP_TAB_TOOLTIPS = {
         "Source water suitability assessment for MAR (quality and geochemistry)"
     ),
     "legal": (
-        "Legal and regulatory feasibility: permits, water rights, and compliance"
+        "Legal and regulatory feasibility, permits, water rights, and "
+        "AI environmental considerations"
     ),
     "engineering-options": (
         "Engineering design parameters and cost estimation (capital, O&M, NPV)"

@@ -657,219 +657,150 @@ def create_water_quality_content():
 
 def create_environmental_considerations_content():
     """Create the Environmental Considerations content (sub-tab 4.2)."""
-    # Get existing API key and file path from data storage if available
     gemini_api_key = _normalize_stored_string(dash_storage.get_data("gemini_api_key"))
     gemini_api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
     if not gemini_api_file:
         gemini_api_file = r"C:\workspace\api\gemini.txt"
     project_location = str(dash_storage.get_data("project_location") or "").strip()
-    
+
     return [
+        html.P(
+            "Generate environmental, ecological, and cultural factors for your MAR site using AI.",
+            className="text-muted fs-6 mb-3",
+        ),
         dbc.Row([
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader("Environmental Considerations", className="fw-bold bg-primary text-white"),
+                    dbc.CardHeader(
+                        "AI-Generated MAR Factors",
+                        className="fw-bold bg-primary text-white py-2",
+                    ),
                     dbc.CardBody([
-                        html.H5("AI-Generated MAR Factors Analysis", className="mb-4 text-primary"),
-                        
-                        # Gemini AI Control Panel
-                        dbc.Card([
-                            dbc.CardHeader([
-                                html.H6("Gemini AI Configuration", className="mb-0 text-white fw-bold")
-                            ], className="bg-secondary py-2"),
-                            dbc.CardBody([
-                                dbc.Row([
-                                    dbc.Col([
-                                        dbc.Label("Gemini API Key:", className="fw-bold mb-2"),
-                                        dbc.Input(
-                                            id="gemini-api-key-input",
-                                            type="password",
-                                            value=gemini_api_key,
-                                            placeholder="Enter your Gemini API key",
-                                            debounce=True,
-                                            className="mb-2"
-                                        ),
-                                        html.Small(
-                                            "Your API key is stored locally and used only for generating MAR factors. "
-                                            "Get your API key from: https://aistudio.google.com/apikey",
-                                            className="text-muted"
-                                        ),
-                                    ], width=12),
-                                ], className="mb-3"),
-                                dbc.Row([
-                                    dbc.Col([
-                                        dbc.Label("API Key File Path (Optional):", className="fw-bold mb-2"),
-                                        dbc.Input(
-                                            id="gemini-api-file-input",
-                                            type="text",
-                                            value=gemini_api_file,
-                                            placeholder=r"C:\workspace\api\gemini.txt",
-                                            debounce=True,
-                                            className="mb-2"
-                                        ),
-                                        html.Small(
-                                            "Path to a file containing your Gemini API key (used as fallback if API key is not entered directly).",
-                                            className="text-muted"
-                                        ),
-                                    ], width=12),
-                                ], className="mb-3"),
-                                dbc.Row([
-                                    dbc.Col([
-                                        dbc.Label("Gemini Model Version:", className="fw-bold mb-2"),
-                                        dcc.Dropdown(
-                                            id="gemini-model-select",
-                                            options=[
-                                                {"label": "gemini-2.5-flash", "value": "gemini-2.5-flash"},
-                                                {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
-                                                {"label": "gemini-1.5-pro", "value": "gemini-1.5-pro"},
-                                                {"label": "gemini-pro", "value": "gemini-pro"},
-                                            ],
-                                            value=dash_storage.get_data("gemini_model") or "gemini-2.5-flash",
-                                            placeholder="Select Gemini model",
-                                            className="mb-2"
-                                        ),
-                                    ], width=12, md=6),
-                                    dbc.Col([
-                                        dbc.Label("Temperature:", className="fw-bold mb-2"),
-                                        dcc.Slider(
-                                            id="temperature-slider",
-                                            min=0.0,
-                                            max=2.0,
-                                            step=0.1,
-                                            value=float(dash_storage.get_data("gemini_temperature") or 0.5),
-                                            marks={
-                                                0.0: {'label': '0.0', 'style': {'fontSize': '12px'}},
-                                                0.5: {'label': '0.5', 'style': {'fontSize': '12px'}},
-                                                1.0: {'label': '1.0', 'style': {'fontSize': '12px'}},
-                                                1.5: {'label': '1.5', 'style': {'fontSize': '12px'}},
-                                                2.0: {'label': '2.0', 'style': {'fontSize': '12px'}}
-                                            },
-                                            tooltip={"placement": "bottom", "always_visible": True}
-                                        ),
-                                        html.Div(id="temperature-value-display", className="mt-2"),
-                                    ], width=12, md=6),
-                                ], className="mb-3"),
-                            ], className="p-3")
-                        ], className="mb-4 border"),
-                        
-                        # Text and button on same row
+                        html.Label("Location:", className="fw-bold small mb-1"),
+                        dbc.InputGroup([
+                            dbc.Input(
+                                id="mar-location-input",
+                                type="text",
+                                value=project_location,
+                                placeholder="City, State or City, Country",
+                                size="sm",
+                            ),
+                            dbc.Button(
+                                [
+                                    html.I(className="fas fa-brain me-1"),
+                                    "Generate MAR Factors",
+                                ],
+                                id="generate-mar-factors-btn",
+                                color="success",
+                                size="sm",
+                                n_clicks=0,
+                                title="Call Gemini to build an environmental factors checklist",
+                            ),
+                        ], className="mb-1"),
+                        html.Small(
+                            "Populated from Overview Project Location; edit if needed.",
+                            className="text-muted d-block mb-3",
+                        ),
                         dbc.Row([
                             dbc.Col([
-                                html.P(
-                                    "Enter a location to generate a comprehensive list of environmental, ecological, and cultural factors "
-                                    "that must be considered for a Managed Aquifer Recharge (MAR) project at that location.",
-                                    className="text-muted mb-0"
+                                html.Label("Model:", className="fw-bold small mb-1"),
+                                dcc.Dropdown(
+                                    id="gemini-model-select",
+                                    options=[
+                                        {"label": "gemini-2.5-flash", "value": "gemini-2.5-flash"},
+                                        {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
+                                        {"label": "gemini-1.5-pro", "value": "gemini-1.5-pro"},
+                                        {"label": "gemini-pro", "value": "gemini-pro"},
+                                    ],
+                                    value=dash_storage.get_data("gemini_model") or "gemini-2.5-flash",
+                                    clearable=False,
                                 ),
-                            ], width=12, md=8),
+                            ], xs=12, md=6),
                             dbc.Col([
-                                html.Div([
-                                    dbc.Button(
-                                        [
-                                            html.Div([
-                                                html.I(className="fas fa-brain mb-1", style={"display": "block", "fontSize": "3.6rem", "color": "#9c27b0"}),
-                                                html.Span("Generate MAR Factors", style={"fontSize": "0.65rem", "display": "block"})
-                                            ], style={"display": "flex", "flexDirection": "column", "alignItems": "center", "justifyContent": "center"})
-                                        ],
-                                        id="generate-mar-factors-btn",
-                                        color="success",
-                                        className="w-100",
-                                        n_clicks=0,
-                                        title="Call Gemini with the location to build an environmental factors checklist",
-                                        style={
-                                            "aspectRatio": "1",
-                                            "height": "auto",
-                                            "minHeight": "36px",
-                                            "maxWidth": "120px",
-                                            "display": "flex",
-                                            "alignItems": "center",
-                                            "justifyContent": "center",
-                                            "padding": "5px",
-                                            "margin": "0 auto"
-                                        }
-                                    )
-                                ], className="mb-3")
-                            ], width=12, md=4, style={"display": "flex", "alignItems": "center", "justifyContent": "center"})
-                        ], className="mb-4"),
-                        
-                        # Input section
-                        dbc.Row([
-                            dbc.Col([
-                                dbc.Label("Location:", className="fw-bold"),
-                                dbc.Input(
-                                    id="mar-location-input",
-                                    type="text",
-                                    value=project_location,
-                                    placeholder="Enter location (e.g., City, State or City, Country)",
-                                    className="mb-3"
+                                html.Label("Temperature:", className="fw-bold small mb-1"),
+                                dcc.Slider(
+                                    id="temperature-slider",
+                                    min=0.0,
+                                    max=2.0,
+                                    step=0.1,
+                                    value=float(dash_storage.get_data("gemini_temperature") or 0.5),
+                                    marks={0.0: "0", 1.0: "1", 2.0: "2"},
+                                    tooltip={"placement": "bottom", "always_visible": False},
                                 ),
-                            ], width=12, md=6),
-                        ]),
-                        
-                        # Output section
-                        html.Div(id="mar-factors-table-container", className="mt-4"),
-                        dbc.Tooltip(
-                            "Google Gemini API key (stored locally for this session)",
-                            target="gemini-api-key-input",
-                            placement="top",
+                                html.Div(id="temperature-value-display", className="mt-1"),
+                            ], xs=12, md=6, className="mt-2 mt-md-0"),
+                        ], className="g-2"),
+                    ], className="p-3"),
+                ], className="h-100"),
+            ], xs=12, lg=7, className="mb-3 mb-lg-0"),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader(
+                        "Gemini API Settings",
+                        className="fw-bold bg-primary text-white py-2",
+                    ),
+                    dbc.CardBody([
+                        html.Label("Gemini API Key:", className="fw-bold small mb-1"),
+                        dbc.Input(
+                            id="gemini-api-key-input",
+                            type="password",
+                            value=gemini_api_key,
+                            placeholder="Enter API key (optional if file/env set)",
+                            debounce=True,
+                            size="sm",
+                            className="mb-1",
                         ),
-                        dbc.Tooltip(
-                            "Optional text file on disk containing the API key",
-                            target="gemini-api-file-input",
-                            placement="top",
+                        html.Small(
+                            "Stored locally. Get a key at aistudio.google.com/apikey",
+                            className="text-muted d-block mb-3",
                         ),
-                        dbc.Tooltip(
-                            "Gemini model used for environmental factor generation",
-                            target="gemini-model-select",
-                            placement="top",
+                        html.Label("API Key File Path:", className="fw-bold small mb-1"),
+                        dbc.Input(
+                            id="gemini-api-file-input",
+                            type="text",
+                            value=gemini_api_file,
+                            placeholder=r"C:\workspace\api\gemini.txt",
+                            debounce=True,
+                            size="sm",
+                            className="mb-1",
                         ),
-                        dbc.Tooltip(
-                            "Sampling temperature: lower is more deterministic; higher is more varied",
-                            target="temperature-slider",
-                            placement="top",
+                        html.Small(
+                            "Fallback file if key is not entered above.",
+                            className="text-muted",
                         ),
-                        dbc.Tooltip(
-                            "Populated from Project Location on the Overview tab; edit if needed for AI analysis",
-                            target="mar-location-input",
-                            placement="top",
-                        ),
-                    ])
-                ])
-            ], width=12)
-        ])
+                    ], className="p-3"),
+                ], className="h-100"),
+            ], xs=12, lg=5, className="mb-3 mb-lg-0"),
+        ], className="mb-3 g-3 align-items-stretch"),
+        html.Div(id="mar-factors-table-container", className="mt-1"),
+        dbc.Tooltip(
+            "Google Gemini API key (stored locally for this session)",
+            target="gemini-api-key-input",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Optional text file on disk containing the API key",
+            target="gemini-api-file-input",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Gemini model used for environmental factor generation",
+            target="gemini-model-select",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Sampling temperature: lower is more deterministic; higher is more varied",
+            target="temperature-slider",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Plain-language place name sent to the AI",
+            target="mar-location-input",
+            placement="top",
+        ),
     ]
 
 
 def create_environmental_impact_content():
-    """Create the Environmental Impact tab content with sub-tabs."""
-    return [
-        html.Div(
-            [
-                dbc.Tabs(
-                    [
-                        dbc.Tab(
-                            label="4.1 Water Quality and Geochemistry",
-                    id=tab_nav_id("water-quality-tab"),
-                            tab_id="water-quality-tab",
-                            children=create_water_quality_content(),
-                        ),
-                        dbc.Tab(
-                            label="4.2 Environmental Considerations",
-                    id=tab_nav_id("environmental-considerations-tab"),
-                            tab_id="environmental-considerations-tab",
-                            children=create_environmental_considerations_content(),
-                        ),
-                    ],
-                    id="environmental-subtabs",
-                    active_tab="water-quality-tab",
-                ),
-                tab_tooltip(
-                    "water-quality-tab",
-                    "Stepwise source water suitability assessment and treatment recommendations",
-                ),
-                tab_tooltip(
-                    "environmental-considerations-tab",
-                    "MAR environmental factors and AI-generated site considerations",
-                ),
-            ]
-        )
-    ]
+    """Create the Environmental Impact tab content (Water Quality and Geochemistry)."""
+    return create_water_quality_content()

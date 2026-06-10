@@ -13,6 +13,9 @@ The project is feasible only if all three branches are Feasible or Conditionally
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
+from mar_dss.app.components.environmental_impact_tab import (
+    create_environmental_considerations_content,
+)
 
 
 def _section_card(header_text, body_children):
@@ -366,6 +369,12 @@ def create_legal_constraints_content():
                             tab_id="ai-powered-feasibility-tab",
                             children=create_ai_powered_feasibility_content(),
                         ),
+                        dbc.Tab(
+                            label="(3) AI-Powered Environmental, Ecological, and Cultural Factors",
+                            id=tab_nav_id("environmental-considerations-tab"),
+                            tab_id="environmental-considerations-tab",
+                            children=create_environmental_considerations_content(),
+                        ),
                     ],
                     id="legal-subtabs",
                     active_tab="basic-regulation-tab",
@@ -377,6 +386,10 @@ def create_legal_constraints_content():
                 tab_tooltip(
                     "ai-powered-feasibility-tab",
                     "AI-powered regulatory feasibility analysis (coming soon)",
+                ),
+                tab_tooltip(
+                    "environmental-considerations-tab",
+                    "AI-generated environmental, ecological, and cultural MAR factors for your site",
                 ),
             ]
         )
