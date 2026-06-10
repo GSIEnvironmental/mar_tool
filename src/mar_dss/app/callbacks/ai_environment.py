@@ -6,6 +6,32 @@ import pandas as pd
 import os # Import os for environment variable management
 import mar_dss.app.utils.data_storage as dash_storage
 
+
+def _normalize_stored_string(value):
+    """Treat None, NaN, and empty CSV sentinels as missing; else return stripped str."""
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        import math
+        if math.isnan(value):
+            return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    if text.lower() in ("nan", "none", "<na>", "nat"):
+        return ""
+    return text
+
+
+def _normalize_api_key(value):
+    """Return a usable API key string, or None if missing/invalid."""
+    key = _normalize_stored_string(value)
+    return key or None
+
+
 # --- REVISED MAR PROMPT ---
 
 def get_mar_factors(location, model="gemini-2.5-flash", temperature=0.5):
@@ -21,6 +47,10 @@ def get_mar_factors(location, model="gemini-2.5-flash", temperature=0.5):
     temperature : float, optional
         The temperature parameter for generation (default: 0.5, range: 0.0-2.0)
     """
+        
+    location = str(location).strip() if location is not None else ""
+    if not location:
+        raise ValueError("Location is required.")
         
     mar_prompt = f"""
     **ROLE:** Multidisciplinary Managed Aquifer Recharge (MAR) Project Planning Expert (Hydrogeologist, Ecologist, Community Engagement Specialist).
@@ -63,18 +93,20 @@ def get_mar_factors(location, model="gemini-2.5-flash", temperature=0.5):
     # --- API Configuration and Execution ---
 
     # Priority order: 1) data_storage, 2) file, 3) environment variable
-    api_key = dash_storage.get_data("gemini_api_key")
+    api_key = _normalize_api_key(dash_storage.get_data("gemini_api_key"))
     
     if not api_key:
         # Fallback to file - use saved path from data_storage or default
-        api_file = dash_storage.get_data("gemini_api_file") or r"C:\workspace\api\gemini.txt"
+        api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
+        if not api_file:
+            api_file = r"C:\workspace\api\gemini.txt"
         if os.path.exists(api_file):
             with open(api_file, "r") as f:
-                api_key = f.read().strip()
+                api_key = _normalize_api_key(f.read())
     
     if not api_key:
         # Fallback to environment variable
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = _normalize_api_key(os.getenv("GEMINI_API_KEY"))
 
     if not api_key:
         raise ValueError("API Key not found. Please enter your Gemini API key in the control panel, set GEMINI_API_KEY environment variable, or check the file path.")

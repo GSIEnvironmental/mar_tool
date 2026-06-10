@@ -8,6 +8,7 @@ from dash import dcc, html, dash_table
 import plotly.graph_objects as go
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # --- Data Structures for Logic and Display ---
@@ -657,8 +658,11 @@ def create_water_quality_content():
 def create_environmental_considerations_content():
     """Create the Environmental Considerations content (sub-tab 4.2)."""
     # Get existing API key and file path from data storage if available
-    gemini_api_key = dash_storage.get_data("gemini_api_key") or ""
-    gemini_api_file = dash_storage.get_data("gemini_api_file") or r"C:\workspace\api\gemini.txt"
+    gemini_api_key = _normalize_stored_string(dash_storage.get_data("gemini_api_key"))
+    gemini_api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
+    if not gemini_api_file:
+        gemini_api_file = r"C:\workspace\api\gemini.txt"
+    project_location = str(dash_storage.get_data("project_location") or "").strip()
     
     return [
         dbc.Row([
@@ -794,9 +798,8 @@ def create_environmental_considerations_content():
                                 dbc.Input(
                                     id="mar-location-input",
                                     type="text",
-                                    value="China Lake, CA",
+                                    value=project_location,
                                     placeholder="Enter location (e.g., City, State or City, Country)",
-                                    debounce=True,
                                     className="mb-3"
                                 ),
                             ], width=12, md=6),
@@ -825,7 +828,7 @@ def create_environmental_considerations_content():
                             placement="top",
                         ),
                         dbc.Tooltip(
-                            "Plain-language place name sent to the AI (e.g., city, state)",
+                            "Populated from Project Location on the Overview tab; edit if needed for AI analysis",
                             target="mar-location-input",
                             placement="top",
                         ),

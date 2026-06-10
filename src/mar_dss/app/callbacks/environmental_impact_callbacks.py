@@ -16,10 +16,17 @@ from mar_dss.app.components.environmental_impact_tab import (
     COST_SCALE_TO_SCORE,
     ASSESSMENT_QUESTION_LABELS,
 )
-from mar_dss.app.callbacks.ai_environment import get_mar_factors
+from mar_dss.app.callbacks.ai_environment import get_mar_factors, _normalize_stored_string
 import mar_dss.app.utils.data_storage as dash_storage
 
 _RISK_LEVEL_CANONICAL = frozenset({"LOW RISK", "MODERATE RISK", "HIGH RISK"})
+
+
+def _location_text(value):
+    """Coerce stored or UI location values to a stripped string."""
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def _normalize_water_quality_risk(raw):
@@ -617,12 +624,12 @@ def setup_environmental_impact_callbacks(app):
         
         if not ctx.triggered:
             # Initial load - get saved value or use default
-            saved_key = dash_storage.get_data("gemini_api_key") or ""
+            saved_key = _normalize_stored_string(dash_storage.get_data("gemini_api_key"))
             dash_storage.set_data("gemini_api_key", saved_key)
             return saved_key
         
         # Get the current value
-        current_value = value if value else ""
+        current_value = _normalize_stored_string(value)
         
         # Determine which trigger caused the callback
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
@@ -701,6 +708,19 @@ def setup_environmental_impact_callbacks(app):
         current_temp = float(dash_storage.get_data("gemini_temperature") or 0.5)
         return current_model, current_temp
     
+    @app.callback(
+        Output("mar-location-input", "value"),
+        [
+            Input("project-location-store", "data"),
+            Input("mar-location-input", "id"),
+        ],
+        prevent_initial_call=False,
+    )
+    def sync_mar_location_from_project_location(store_location, _component_id):
+        """Keep tab 4.2 location aligned with Overview Project Location."""
+        loc = _location_text(store_location or dash_storage.get_data("project_location"))
+        return loc
+
     # Callback for MAR Factors Generation (Tab 4.2)
     @app.callback(
         Output('mar-factors-table-container', 'children'),
@@ -716,8 +736,22 @@ def setup_environmental_impact_callbacks(app):
     )
     def generate_mar_factors_table(n_clicks, location, model, temperature):
         """Generate MAR factors table using AI."""
-        if n_clicks == 0 or not location or location.strip() == "":
-            return html.Div()
+        if not n_clicks:
+            return dash.no_update
+
+        location = _location_text(location) or _location_text(
+            dash_storage.get_data("project_location")
+        )
+        if not location:
+            return html.Div([
+                dbc.Alert([
+                    html.H5("Location required", className="alert-heading"),
+                    html.P(
+                        "Enter a location above, or set Project Location on the Overview tab.",
+                        className="mb-0",
+                    ),
+                ], color="warning"),
+            ])
         
         try:
             # Get API key from data storage
@@ -738,7 +772,7 @@ def setup_environmental_impact_callbacks(app):
             temperature = temperature if temperature is not None else dash_storage.get_data("gemini_temperature") or 0.5
             
             # Call the AI function (this may take a moment)
-            df = get_mar_factors(location.strip(), model=model, temperature=temperature)
+            df = get_mar_factors(location, model=model, temperature=temperature)
             
             if df is None or df.empty:
                 return html.Div([

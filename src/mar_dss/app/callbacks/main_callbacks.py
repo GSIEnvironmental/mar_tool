@@ -739,13 +739,14 @@ def setup_main_callbacks(app, dashboard_instance):
             Output("top-tabs", "active_tab", allow_duplicate=True),
             Output("stratigraphy-data-store", "data", allow_duplicate=True),
             Output("groundwater-data-store", "data", allow_duplicate=True),
+            Output("project-location-store", "data", allow_duplicate=True),
         ],
         [Input("btn-new", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_new_project(n_clicks):
         """Handle creating a new project."""
-        noop = (dash.no_update,) * (len(MAIN_TAB_IDS) + 4)
+        noop = (dash.no_update,) * (len(MAIN_TAB_IDS) + 5)
         if n_clicks:
             # Clear all data storage (includes rule_defaults_overrides from rules.defaults).
             dash_storage.clear_data()
@@ -816,6 +817,7 @@ def setup_main_callbacks(app, dashboard_instance):
                 "overview",
                 stratigraphy_store_payload_from_storage(),
                 normalize_groundwater_data(dash_storage.get_data("groundwater_data") or []),
+                "",
             )
         return noop
 

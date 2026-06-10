@@ -556,6 +556,11 @@ def _build_root_layout() -> html.Div:
             dcc.Store(id="groundwater-dash-sync-ping", data=0),
             # Incremented on every (7) Analysis top-tab click (including re-clicks).
             dcc.Store(id="analysis-rerun-count", data=0),
+            dcc.Store(
+                id="project-location-store",
+                data=dash_storage.get_data("project_location") or "",
+                storage_type="memory",
+            ),
         ]
     )
 

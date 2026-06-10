@@ -416,6 +416,7 @@ def setup_overview_callbacks(app):
     @app.callback(
         Output("location-card-header", "children"),
         Output("project-location-input", "value"),
+        Output("project-location-store", "data", allow_duplicate=True),
         [
             Input("location-map", "relayoutData"),
             Input("project-location-input", "value"),
@@ -423,7 +424,7 @@ def setup_overview_callbacks(app):
             Input("project-location-input", "n_submit"),
             Input("project-location-input", "id"),
         ],
-        prevent_initial_call=False,
+        prevent_initial_call="initial_duplicate",
     )
     def update_overview_location_card_and_project_place(
         relayout_overview,
@@ -443,9 +444,9 @@ def setup_overview_callbacks(app):
 
         if trigger_id == "location-map":
             if not _relayout_has_mapbox_camera(relayout_overview):
-                return dash.no_update, dash.no_update
+                return dash.no_update, dash.no_update, dash.no_update
             hdr, loc_inp = _persist_shared_map_view_from_relayout(relayout_overview)
-            return hdr, loc_inp
+            return hdr, loc_inp, loc_inp
 
         if trigger_id == "project-location-input" and trigger_prop != "id":
             current_value = (project_location_value or "").strip()
@@ -455,9 +456,13 @@ def setup_overview_callbacks(app):
                     "overview_map_location_label",
                     f"Project Location — {current_value}",
                 )
-            return get_overview_map_header_text(), current_value
+            return get_overview_map_header_text(), current_value, current_value
 
-        return get_overview_map_header_text(), stored_project_location
+        return (
+            get_overview_map_header_text(),
+            stored_project_location,
+            stored_project_location,
+        )
 
     @app.callback(
         Output("water-source-location-card-header", "children"),
@@ -548,12 +553,13 @@ def setup_overview_callbacks(app):
         Output("top-tabs", "active_tab", allow_duplicate=True),
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
         Output("groundwater-data-store", "data", allow_duplicate=True),
+        Output("project-location-store", "data", allow_duplicate=True),
         [Input("btn-open", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_open_project(n_clicks):
         """Pick a CSV/JSON project file (Tk dialog) then load into storage."""
-        noop = (dash.no_update,) * 6
+        noop = (dash.no_update,) * 7
         if not n_clicks:
             return noop
 
@@ -589,6 +595,7 @@ def setup_overview_callbacks(app):
                     "overview",
                     dash.no_update,
                     dash.no_update,
+                    dash.no_update,
                 )
             fn = os.path.normpath(fn.strip())
 
@@ -604,6 +611,7 @@ def setup_overview_callbacks(app):
                 create_overview_content(),
                 path_out,
                 "overview",
+                dash.no_update,
                 dash.no_update,
                 dash.no_update,
             )
@@ -636,6 +644,7 @@ def setup_overview_callbacks(app):
             )
             strat_out = stratigraphy_store_payload_from_storage()
             gw_out = normalize_groundwater_data(dash_storage.get_data("groundwater_data") or [])
+            project_loc = (dash_storage.get_data("project_location") or "").strip()
             return (
                 [
                     dbc.Alert(
@@ -649,6 +658,7 @@ def setup_overview_callbacks(app):
                 "overview",
                 strat_out,
                 gw_out,
+                project_loc,
             )
         except Exception as e:
             return (
@@ -662,6 +672,7 @@ def setup_overview_callbacks(app):
                 create_overview_content(),
                 path_out,
                 "overview",
+                dash.no_update,
                 dash.no_update,
                 dash.no_update,
             )
