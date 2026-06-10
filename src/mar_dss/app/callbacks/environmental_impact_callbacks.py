@@ -16,17 +16,15 @@ from mar_dss.app.components.environmental_impact_tab import (
     COST_SCALE_TO_SCORE,
     ASSESSMENT_QUESTION_LABELS,
 )
-from mar_dss.app.callbacks.ai_environment import get_mar_factors, _normalize_stored_string, build_mar_factors_prompt
+from mar_dss.app.callbacks.ai_environment import (
+    get_mar_factors,
+    _normalize_stored_string,
+    build_mar_factors_prompt,
+    _location_text,
+)
 import mar_dss.app.utils.data_storage as dash_storage
 
 _RISK_LEVEL_CANONICAL = frozenset({"LOW RISK", "MODERATE RISK", "HIGH RISK"})
-
-
-def _location_text(value):
-    """Coerce stored or UI location values to a stripped string."""
-    if value is None:
-        return ""
-    return str(value).strip()
 
 
 def _mar_factors_success_banner(location, count):

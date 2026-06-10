@@ -2,10 +2,14 @@
 Callbacks for Legal Constraints tab - MAR legal/regulatory feasibility.
 """
 
-from dash import Input, Output, html
 import dash
+from dash import Input, Output, html, State
 import plotly.graph_objects as go
+import dash_table
+import dash_bootstrap_components as dbc
 import mar_dss.app.utils.data_storage as data_storage
+from mar_dss.app.callbacks.ai_environment import _normalize_stored_string, _location_text
+from mar_dss.app.callbacks.ai_regulations import build_mar_regulations_prompt, get_mar_regulations
 
 
 def _classify_branch(statuses):
@@ -76,6 +80,20 @@ def _required_permits(federal_nexus, wetlands, public_lands, method, uic_choice,
             out.append(item)
             seen.add(item)
     return out
+
+
+def _mar_regs_success_banner(location, count):
+    """Green banner shown after Gemini successfully returns regulations matrix."""
+    return dbc.Alert(
+        [
+            html.I(className="fas fa-check-circle me-2"),
+            html.Strong("Generation complete. "),
+            html.Span(f"{count} regulatory items were generated for {location}. "),
+            html.Span("Review the results below.", className="fw-semibold"),
+        ],
+        color="success",
+        className="py-2 mb-3",
+    )
 
 
 def setup_legal_constraints_callbacks(app):
@@ -516,5 +534,357 @@ def setup_legal_constraints_callbacks(app):
                     group_c.get("wells", "Compliant"),
                 )
         return [dash.no_update] * 9
+
+    @app.callback(
+        Output("mar-regs-gemini-api-key-input", "value"),
+        [
+            Input("mar-regs-gemini-api-key-input", "value"),
+            Input("mar-regs-gemini-api-key-input", "n_blur"),
+            Input("mar-regs-gemini-api-key-input", "n_submit"),
+            Input("mar-regs-gemini-api-key-input", "id"),
+        ],
+        prevent_initial_call=False,
+    )
+    def handle_mar_regs_gemini_api_key(value, n_blur, n_submit, component_id):
+        """Handle Gemini API key input on regulations sub-tab."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            saved_key = _normalize_stored_string(data_storage.get_data("gemini_api_key"))
+            data_storage.set_data("gemini_api_key", saved_key)
+            return saved_key
+        current_value = _normalize_stored_string(value)
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
+        if trigger_prop != "id":
+            data_storage.set_data("gemini_api_key", current_value)
+        return current_value
+
+    @app.callback(
+        Output("mar-regs-gemini-api-file-input", "value"),
+        [
+            Input("mar-regs-gemini-api-file-input", "value"),
+            Input("mar-regs-gemini-api-file-input", "n_blur"),
+            Input("mar-regs-gemini-api-file-input", "n_submit"),
+            Input("mar-regs-gemini-api-file-input", "id"),
+        ],
+        prevent_initial_call=False,
+    )
+    def handle_mar_regs_gemini_api_file(value, n_blur, n_submit, component_id):
+        """Handle Gemini API file path on regulations sub-tab."""
+        ctx = dash.callback_context
+        default_file = r"C:\workspace\api\gemini.txt"
+        if not ctx.triggered:
+            saved_file = data_storage.get_data("gemini_api_file") or default_file
+            data_storage.set_data("gemini_api_file", saved_file)
+            return saved_file
+        current_value = value if value else default_file
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
+        if trigger_prop != "id":
+            data_storage.set_data("gemini_api_file", current_value)
+        return current_value
+
+    @app.callback(
+        [
+            Output("mar-regs-gemini-model-select", "value"),
+            Output("mar-regs-temperature-slider", "value"),
+        ],
+        [
+            Input("mar-regs-gemini-model-select", "value"),
+            Input("mar-regs-temperature-slider", "value"),
+        ],
+        prevent_initial_call=False,
+    )
+    def save_mar_regs_gemini_settings(model, temperature):
+        """Save Gemini model and temperature from regulations sub-tab."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            saved_model = data_storage.get_data("gemini_model") or "gemini-2.5-flash"
+            saved_temp = float(data_storage.get_data("gemini_temperature") or 0.5)
+            data_storage.set_data("gemini_model", saved_model)
+            data_storage.set_data("gemini_temperature", saved_temp)
+            return saved_model, saved_temp
+        if model:
+            data_storage.set_data("gemini_model", model)
+        if temperature is not None:
+            data_storage.set_data("gemini_temperature", float(temperature))
+        current_model = data_storage.get_data("gemini_model") or "gemini-2.5-flash"
+        current_temp = float(data_storage.get_data("gemini_temperature") or 0.5)
+        return current_model, current_temp
+
+    @app.callback(
+        Output("mar-regs-location-input", "value"),
+        [
+            Input("project-location-store", "data"),
+            Input("mar-regs-location-input", "id"),
+        ],
+        prevent_initial_call=False,
+    )
+    def sync_mar_regs_location_from_project_location(store_location, _component_id):
+        """Keep regulations sub-tab location aligned with Overview Project Location."""
+        return _location_text(store_location or data_storage.get_data("project_location"))
+
+    @app.callback(
+        [
+            Output("mar-regs-prompt-display", "value"),
+            Output("mar-regs-prompt-feedback", "children"),
+        ],
+        Input("build-mar-regs-prompt-btn", "n_clicks"),
+        State("mar-regs-location-input", "value"),
+        prevent_initial_call=True,
+    )
+    def build_mar_regs_prompt_display(n_clicks, location):
+        """Fill the regulations prompt textarea for copy/paste into an external AI model."""
+        if not n_clicks:
+            return dash.no_update, dash.no_update
+
+        location = _location_text(location) or _location_text(data_storage.get_data("project_location"))
+        if not location:
+            return "", dbc.Alert(
+                "Enter a location first, or set Project Location on the Overview tab.",
+                color="warning",
+                className="py-2 mb-0 small",
+            )
+
+        prompt = build_mar_regulations_prompt(location)
+        feedback = html.Small(
+            "Prompt ready. Click Copy Prompt or select all text and paste into your AI model.",
+            className="text-success",
+        )
+        return prompt, feedback
+
+    app.clientside_callback(
+        """
+        function(n_clicks, prompt_text) {
+            if (!n_clicks) {
+                return window.dash_clientside.no_update;
+            }
+            if (!prompt_text) {
+                return "Build the prompt first, then click Copy Prompt.";
+            }
+            navigator.clipboard.writeText(prompt_text).catch(function() {});
+            return "Prompt copied to clipboard.";
+        }
+        """,
+        Output("mar-regs-prompt-feedback", "children", allow_duplicate=True),
+        Input("copy-mar-regs-prompt-btn", "n_clicks"),
+        State("mar-regs-prompt-display", "value"),
+        prevent_initial_call=True,
+    )
+
+    @app.callback(
+        Output("mar-regs-table-container", "children"),
+        Input("generate-mar-regs-btn", "n_clicks"),
+        [
+            State("mar-regs-location-input", "value"),
+            State("mar-regs-gemini-model-select", "value"),
+            State("mar-regs-temperature-slider", "value"),
+        ],
+        prevent_initial_call=True,
+    )
+    def generate_mar_regulations_table(n_clicks, location, model, temperature):
+        """Generate MAR regulations and permitting matrix using AI."""
+        if not n_clicks:
+            return dash.no_update
+
+        location = _location_text(location) or _location_text(data_storage.get_data("project_location"))
+        if not location:
+            return html.Div([
+                dbc.Alert([
+                    html.H5("Location required", className="alert-heading"),
+                    html.P(
+                        "Enter a location above, or set Project Location on the Overview tab.",
+                        className="mb-0",
+                    ),
+                ], color="warning"),
+            ])
+
+        try:
+            model = model or data_storage.get_data("gemini_model") or "gemini-2.5-flash"
+            temperature = (
+                temperature
+                if temperature is not None
+                else data_storage.get_data("gemini_temperature") or 0.5
+            )
+            df = get_mar_regulations(location, model=model, temperature=temperature)
+
+            if df is None or df.empty:
+                return html.Div([
+                    dbc.Alert([
+                        html.H5("No Data Generated", className="alert-heading"),
+                        html.P(
+                            "No regulatory items were generated. Please try again with a different location.",
+                            className="mb-0",
+                        ),
+                    ], color="warning"),
+                ])
+
+            priority_colors = {
+                "High": {"bg": "#f8d7da", "text": "#721c24"},
+                "Medium": {"bg": "#fff3cd", "text": "#856404"},
+                "Low": {"bg": "#d4edda", "text": "#155724"},
+            }
+            requirement_colors = {
+                "Mandatory": {"bg": "#f8d7da", "text": "#721c24"},
+                "Potentially Required": {"bg": "#fff3cd", "text": "#856404"},
+                "Recommended": {"bg": "#d4edda", "text": "#155724"},
+            }
+
+            style_data_conditional = []
+            non_priority_cols = [
+                "category",
+                "item",
+                "responsible_agency",
+                "requirement_level",
+                "trigger_or_applicability",
+                "why_it_matters",
+            ]
+            for idx, row in df.iterrows():
+                priority = str(row.get("priority", "")).strip()
+                if priority in priority_colors:
+                    colors = priority_colors[priority]
+                    style_data_conditional.append({
+                        "if": {"row_index": idx, "column_id": "priority"},
+                        "backgroundColor": colors["bg"],
+                        "color": colors["text"],
+                        "fontWeight": "bold",
+                    })
+                req_level = str(row.get("requirement_level", "")).strip()
+                if req_level in requirement_colors:
+                    colors = requirement_colors[req_level]
+                    style_data_conditional.append({
+                        "if": {"row_index": idx, "column_id": "requirement_level"},
+                        "backgroundColor": colors["bg"],
+                        "color": colors["text"],
+                        "fontWeight": "bold",
+                    })
+                if idx % 2 == 0:
+                    for col in non_priority_cols:
+                        style_data_conditional.append({
+                            "if": {"row_index": idx, "column_id": col},
+                            "backgroundColor": "#e3f2fd",
+                        })
+
+            style_header_conditional = [
+                {
+                    "if": {"column_id": col},
+                    "backgroundColor": "#0d6efd",
+                    "color": "white",
+                    "fontWeight": "bold",
+                }
+                for col in df.columns
+            ]
+
+            table = dash_table.DataTable(
+                id="mar-regs-datatable",
+                columns=[
+                    {"name": "Category", "id": "category"},
+                    {"name": "Regulation / Permit / Agency / Legal Consideration", "id": "item"},
+                    {"name": "Responsible Agency", "id": "responsible_agency"},
+                    {"name": "Priority", "id": "priority"},
+                    {"name": "Requirement Level", "id": "requirement_level"},
+                    {"name": "Trigger or Applicability", "id": "trigger_or_applicability"},
+                    {"name": "Why It Matters", "id": "why_it_matters"},
+                ],
+                data=df.to_dict("records"),
+                style_header={
+                    "backgroundColor": "#0d6efd",
+                    "color": "white",
+                    "fontWeight": "bold",
+                    "textAlign": "left",
+                    "border": "1px solid #dee2e6",
+                    "fontSize": "14px",
+                },
+                style_cell={
+                    "textAlign": "left",
+                    "padding": "12px",
+                    "fontFamily": "Arial, sans-serif",
+                    "fontSize": "14px",
+                    "whiteSpace": "normal",
+                    "height": "auto",
+                    "border": "1px solid #dee2e6",
+                    "minWidth": "120px",
+                    "maxWidth": "360px",
+                },
+                style_data={"border": "1px solid #dee2e6"},
+                style_data_conditional=style_data_conditional,
+                style_header_conditional=style_header_conditional,
+                page_size=20,
+                sort_action="native",
+                filter_action="native",
+                export_format="csv",
+                tooltip_data=[
+                    {
+                        column: {"value": str(value), "type": "markdown"}
+                        for column, value in row.items()
+                    }
+                    for row in df.to_dict("records")
+                ],
+                tooltip_duration=None,
+            )
+
+            category_counts = df["category"].value_counts().to_dict() if "category" in df.columns else {}
+            priority_high = len(df[df["priority"].astype(str).str.strip() == "High"]) if "priority" in df.columns else 0
+            priority_medium = len(df[df["priority"].astype(str).str.strip() == "Medium"]) if "priority" in df.columns else 0
+            priority_low = len(df[df["priority"].astype(str).str.strip() == "Low"]) if "priority" in df.columns else 0
+
+            return html.Div([
+                _mar_regs_success_banner(location, len(df)),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5(f"MAR Regulations & Permits for {location}", className="mb-0 text-primary"),
+                                html.Small(f"Total items: {len(df)}", className="text-muted"),
+                            ], className="bg-light"),
+                            dbc.CardBody([
+                                dbc.Alert([
+                                    html.P([
+                                        html.Strong("Important Disclaimer: "),
+                                        f"The regulatory and permitting analysis for {location} was produced using "
+                                        "the Google Gemini Large Language Model (LLM). Although this generation "
+                                        "incorporates site-specific parameters, we cannot guarantee its accuracy or "
+                                        "completeness. The data provided below should be used with caution and does "
+                                        "not constitute legal advice; confirm all requirements with qualified counsel "
+                                        "and the relevant agencies.",
+                                    ], className="mb-0"),
+                                ], color="warning", className="mb-4"),
+                                html.Div([
+                                    html.P([
+                                        html.Strong("Categories: "),
+                                        html.Span(
+                                            ", ".join(f"{cat}: {count}" for cat, count in category_counts.items())
+                                            or "N/A",
+                                        ),
+                                    ], className="mb-3"),
+                                    html.P([
+                                        html.Strong("Priorities: "),
+                                        html.Span(f"High: {priority_high}, ", className="text-danger"),
+                                        html.Span(f"Medium: {priority_medium}, ", className="text-warning"),
+                                        html.Span(f"Low: {priority_low}", className="text-success"),
+                                    ], className="mb-3"),
+                                ]),
+                                html.Div(table, style={"overflowX": "auto", "width": "100%"}),
+                            ]),
+                        ], className="mt-3"),
+                    ], width=12),
+                ]),
+            ])
+
+        except Exception as e:
+            return html.Div([
+                dbc.Alert([
+                    html.H5("Error generating regulations matrix", className="alert-heading"),
+                    html.P(f"An error occurred: {str(e)}", className="mb-0"),
+                ], color="danger"),
+            ])
+
+    @app.callback(
+        Output("mar-regs-temperature-display", "children"),
+        Input("mar-regs-temperature-slider", "value"),
+    )
+    def update_mar_regs_temperature_display(temperature):
+        """Display the current temperature value on regulations sub-tab."""
+        if temperature is not None:
+            return html.Span(f"Current value: {temperature:.1f}", className="text-muted")
+        return html.Span("Current value: 0.5", className="text-muted")
 
 

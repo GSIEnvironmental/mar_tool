@@ -33,6 +33,26 @@ def _normalize_api_key(value):
     return key or None
 
 
+def _location_text(value):
+    """Coerce stored or UI location values to a stripped string."""
+    return _normalize_stored_string(value)
+
+
+def _resolve_gemini_api_key():
+    """Resolve Gemini API key from storage, file, or environment."""
+    api_key = _normalize_api_key(dash_storage.get_data("gemini_api_key"))
+    if not api_key:
+        api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
+        if not api_file:
+            api_file = r"C:\workspace\api\gemini.txt"
+        if os.path.exists(api_file):
+            with open(api_file, "r") as f:
+                api_key = _normalize_api_key(f.read())
+    if not api_key:
+        api_key = _normalize_api_key(os.getenv("GEMINI_API_KEY"))
+    return api_key
+
+
 # --- REVISED MAR PROMPT ---
 
 def build_mar_factors_prompt(location):
@@ -98,23 +118,7 @@ def get_mar_factors(location, model="gemini-2.5-flash", temperature=0.5):
 
 
     # --- API Configuration and Execution ---
-
-    # Priority order: 1) data_storage, 2) file, 3) environment variable
-    api_key = _normalize_api_key(dash_storage.get_data("gemini_api_key"))
-    
-    if not api_key:
-        # Fallback to file - use saved path from data_storage or default
-        api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
-        if not api_file:
-            api_file = r"C:\workspace\api\gemini.txt"
-        if os.path.exists(api_file):
-            with open(api_file, "r") as f:
-                api_key = _normalize_api_key(f.read())
-    
-    if not api_key:
-        # Fallback to environment variable
-        api_key = _normalize_api_key(os.getenv("GEMINI_API_KEY"))
-
+    api_key = _resolve_gemini_api_key()
     if not api_key:
         raise ValueError("API Key not found. Please enter your Gemini API key in the control panel, set GEMINI_API_KEY environment variable, or check the file path.")
 

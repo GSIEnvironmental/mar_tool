@@ -16,6 +16,8 @@ from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 from mar_dss.app.components.environmental_impact_tab import (
     create_environmental_considerations_content,
 )
+from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
+import mar_dss.app.utils.data_storage as dash_storage
 
 
 def _section_card(header_text, body_children):
@@ -330,23 +332,235 @@ def create_basic_regulation_feasibility_content():
     ]
 
 
-def create_ai_powered_feasibility_content():
-    """Create the AI-Powered Feasibility content (sub-tab 2)."""
+def create_ai_regulations_permits_content():
+    """Create the AI-Powered Regulations and Permits content (sub-tab 2)."""
+    gemini_api_key = _normalize_stored_string(dash_storage.get_data("gemini_api_key"))
+    gemini_api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
+    if not gemini_api_file:
+        gemini_api_file = r"C:\workspace\api\gemini.txt"
+    project_location = _normalize_stored_string(dash_storage.get_data("project_location"))
+
     return [
+        dbc.Alert([
+            html.Div("Choose how to generate MAR regulatory and permitting requirements:", className="fw-bold mb-2"),
+            html.Ul([
+                html.Li([
+                    html.Span("Option 1 — ", className="fw-bold"),
+                    html.Span("Gemini with personal API", className="fw-bold text-success"),
+                    html.Span(": enter your API key (right), set location, and click ", className="text-muted"),
+                    html.Span("Generate Regulations Matrix", className="fw-semibold"),
+                    html.Span(".", className="text-muted"),
+                ], className="mb-2"),
+                html.Li([
+                    html.Span("Option 2 — ", className="fw-bold"),
+                    html.Span(
+                        "Create the prompt and use it in your chosen AI model",
+                        className="fw-bold text-primary",
+                    ),
+                    html.Span(": click ", className="text-muted"),
+                    html.Span("Build Prompt", className="fw-semibold"),
+                    html.Span(", then ", className="text-muted"),
+                    html.Span("Copy Prompt", className="fw-semibold"),
+                    html.Span(
+                        " and paste into ChatGPT, Claude, Copilot, or another tool.",
+                        className="text-muted",
+                    ),
+                ], className="mb-0"),
+            ], className="mb-0 ps-3"),
+        ], color="light", className="border mb-3 py-2"),
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader(
+                        "AI-Generated MAR Regulations & Permits",
+                        className="fw-bold bg-primary text-white py-2",
+                    ),
+                    dbc.CardBody([
+                        html.Label("Location:", className="fw-bold small mb-1"),
+                        dbc.InputGroup([
+                            dbc.Input(
+                                id="mar-regs-location-input",
+                                type="text",
+                                value=project_location,
+                                placeholder="City, State or City, Country",
+                                size="sm",
+                            ),
+                            dbc.Button(
+                                [
+                                    html.I(className="fas fa-gavel me-1"),
+                                    "Generate Regulations Matrix",
+                                ],
+                                id="generate-mar-regs-btn",
+                                color="success",
+                                size="sm",
+                                n_clicks=0,
+                                title="Call Gemini to build a regulatory and permitting matrix",
+                            ),
+                        ], className="mb-1"),
+                        html.Small(
+                            "Populated from Overview Project Location; edit if needed.",
+                            className="text-muted d-block mb-2",
+                        ),
+                        dcc.Loading(
+                            id="mar-regs-loading",
+                            type="circle",
+                            color="#198754",
+                            parent_style={"minHeight": "80px"},
+                            children=html.Div(
+                                id="mar-regs-table-container",
+                                className="mb-3",
+                            ),
+                        ),
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("Model:", className="fw-bold small mb-1"),
+                                dcc.Dropdown(
+                                    id="mar-regs-gemini-model-select",
+                                    options=[
+                                        {"label": "gemini-2.5-flash", "value": "gemini-2.5-flash"},
+                                        {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
+                                        {"label": "gemini-1.5-pro", "value": "gemini-1.5-pro"},
+                                        {"label": "gemini-pro", "value": "gemini-pro"},
+                                    ],
+                                    value=dash_storage.get_data("gemini_model") or "gemini-2.5-flash",
+                                    clearable=False,
+                                ),
+                            ], xs=12, md=6),
+                            dbc.Col([
+                                html.Label("Temperature:", className="fw-bold small mb-1"),
+                                dcc.Slider(
+                                    id="mar-regs-temperature-slider",
+                                    min=0.0,
+                                    max=2.0,
+                                    step=0.1,
+                                    value=float(dash_storage.get_data("gemini_temperature") or 0.5),
+                                    marks={0.0: "0", 1.0: "1", 2.0: "2"},
+                                    tooltip={"placement": "bottom", "always_visible": False},
+                                ),
+                                html.Div(id="mar-regs-temperature-display", className="mt-1"),
+                            ], xs=12, md=6, className="mt-2 mt-md-0"),
+                        ], className="g-2"),
+                    ], className="p-3"),
+                ]),
+            ], xs=12, lg=7, className="mb-3 mb-lg-0"),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader(
+                        "Gemini API Settings",
+                        className="fw-bold bg-primary text-white py-2",
+                    ),
+                    dbc.CardBody([
+                        html.Label("Gemini API Key:", className="fw-bold small mb-1"),
+                        dbc.Input(
+                            id="mar-regs-gemini-api-key-input",
+                            type="password",
+                            value=gemini_api_key,
+                            placeholder="Enter API key (optional if file/env set)",
+                            debounce=True,
+                            size="sm",
+                            className="mb-1",
+                        ),
+                        html.Small(
+                            "Optional if using Gemini here. Stored locally. "
+                            "Get a key at aistudio.google.com/apikey",
+                            className="text-muted d-block mb-3",
+                        ),
+                        html.Label("API Key File Path:", className="fw-bold small mb-1"),
+                        dbc.Input(
+                            id="mar-regs-gemini-api-file-input",
+                            type="text",
+                            value=gemini_api_file,
+                            placeholder=r"C:\workspace\api\gemini.txt",
+                            debounce=True,
+                            size="sm",
+                            className="mb-1",
+                        ),
+                        html.Small(
+                            "Fallback file if key is not entered above.",
+                            className="text-muted",
+                        ),
+                    ], className="p-3"),
+                ], className="h-100"),
+            ], xs=12, lg=5, className="mb-3 mb-lg-0"),
+        ], className="mb-3 g-3 align-items-stretch"),
         dbc.Card([
-            dbc.CardHeader("AI-Powered Regulatory Feasibility Analysis", className="fw-bold bg-info text-white"),
+            dbc.CardHeader(
+                "Use Your Own AI Model",
+                className="fw-bold bg-primary text-white py-2",
+            ),
             dbc.CardBody([
-                html.H5("AI-Powered Feasibility Assessment", className="mb-4 text-primary"),
-                html.P(
-                    "This AI-powered tool will analyze your project details and provide comprehensive regulatory feasibility assessment. "
-                    "Enter project information below to generate an AI-powered analysis.",
-                    className="text-muted mb-4"
+                html.Small(
+                    "Build the same prompt used for Gemini, then copy and paste it into "
+                    "ChatGPT, Claude, Copilot, or another AI tool if you prefer not to use Gemini.",
+                    className="text-muted d-block mb-2",
                 ),
-                html.Div([
-                    html.P("AI-powered feasibility analysis coming soon...", className="text-center text-muted")
-                ])
-            ])
-        ])
+                dbc.ButtonGroup([
+                    dbc.Button(
+                        [html.I(className="fas fa-file-alt me-1"), "Build Prompt"],
+                        id="build-mar-regs-prompt-btn",
+                        color="outline-primary",
+                        size="sm",
+                        n_clicks=0,
+                    ),
+                    dbc.Button(
+                        [html.I(className="fas fa-copy me-1"), "Copy Prompt"],
+                        id="copy-mar-regs-prompt-btn",
+                        color="outline-secondary",
+                        size="sm",
+                        n_clicks=0,
+                    ),
+                ], className="mb-2"),
+                html.Div(id="mar-regs-prompt-feedback", className="mb-2"),
+                dcc.Textarea(
+                    id="mar-regs-prompt-display",
+                    value="",
+                    readOnly=True,
+                    placeholder="Click Build Prompt to generate the text for your location…",
+                    style={
+                        "width": "100%",
+                        "minHeight": "180px",
+                        "fontFamily": "monospace",
+                        "fontSize": "12px",
+                        "resize": "vertical",
+                    },
+                ),
+            ], className="p-3"),
+        ], className="mb-3"),
+        dbc.Tooltip(
+            "Google Gemini API key (stored locally for this session)",
+            target="mar-regs-gemini-api-key-input",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Optional text file on disk containing the API key",
+            target="mar-regs-gemini-api-file-input",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Gemini model used for regulatory matrix generation",
+            target="mar-regs-gemini-model-select",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Sampling temperature: lower is more deterministic; higher is more varied",
+            target="mar-regs-temperature-slider",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Plain-language place name sent to the AI",
+            target="mar-regs-location-input",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Create the MAR regulations prompt for the current location",
+            target="build-mar-regs-prompt-btn",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Copy the prompt below to your clipboard",
+            target="copy-mar-regs-prompt-btn",
+            placement="top",
+        ),
     ]
 
 
@@ -364,10 +578,10 @@ def create_legal_constraints_content():
                             children=create_basic_regulation_feasibility_content(),
                         ),
                         dbc.Tab(
-                            label="(2) AI-Powered Feasibility",
-                    id=tab_nav_id("ai-powered-feasibility-tab"),
-                            tab_id="ai-powered-feasibility-tab",
-                            children=create_ai_powered_feasibility_content(),
+                            label="(2) AI-Powered Regulations and Permits",
+                            id=tab_nav_id("ai-regulations-permits-tab"),
+                            tab_id="ai-regulations-permits-tab",
+                            children=create_ai_regulations_permits_content(),
                         ),
                         dbc.Tab(
                             label="(3) AI-Powered Environmental, Ecological, and Cultural Factors",
@@ -384,8 +598,8 @@ def create_legal_constraints_content():
                     "Structured regulatory decision tree: site, water source, and water quality feasibility",
                 ),
                 tab_tooltip(
-                    "ai-powered-feasibility-tab",
-                    "AI-powered regulatory feasibility analysis (coming soon)",
+                    "ai-regulations-permits-tab",
+                    "AI-generated regulatory requirements, permits, agency coordination, and legal considerations for your site",
                 ),
                 tab_tooltip(
                     "environmental-considerations-tab",
