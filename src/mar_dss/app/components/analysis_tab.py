@@ -12,7 +12,6 @@ try:
     from mar_dss.app.components.dss_algorithm_tab import create_dss_algorithm_content
     from mar_dss.app.components.decision_sensitivity_tab import create_decision_sensitivity_content
     from mar_dss.app.components.decision_interpretation_tab import create_decision_interpretation_content
-    from mar_dss.app.components.scenarios_comparison_tab import create_scenarios_comparison_content
     from mar_dss.app.components.ai_generated_decision_tab import create_ai_generated_decision_content
     from mar_dss.app.components.data_export_tab import create_data_export_content
     from mar_dss.app.components.engineering_options_tab import create_cost_content
@@ -21,7 +20,6 @@ except ImportError:
     from .dss_algorithm_tab import create_dss_algorithm_content
     from .decision_sensitivity_tab import create_decision_sensitivity_content
     from .decision_interpretation_tab import create_decision_interpretation_content
-    from .scenarios_comparison_tab import create_scenarios_comparison_content
     from .ai_generated_decision_tab import create_ai_generated_decision_content
     from .data_export_tab import create_data_export_content
     from .engineering_options_tab import create_cost_content
@@ -29,9 +27,10 @@ except ImportError:
 
 def create_analysis_tab_content():
     """Create the Analysis tab with lazy-loaded sub-tabs."""
-    return [
-        dbc.Tabs(
-            [
+    analysis_subtabs = html.Div(
+        [
+            dbc.Tabs(
+                [
                 dbc.Tab(
                     label="Feasibilities", id=tab_nav_id("analysis-feasibilities"),
                     tab_id="analysis-feasibilities",
@@ -113,22 +112,6 @@ def create_analysis_tab_content():
                     },
                 ),
                 dbc.Tab(
-                    label="Scenarios Comparison", id=tab_nav_id("analysis-scenarios-comparison"),
-                    tab_id="analysis-scenarios-comparison",
-                    children=[html.Div(id="analysis-scenarios-comparison-content", children="Loading...")],  # Lazy load
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#6f42c1",
-                        "border": "1px solid #6f42c1"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#5a32a3",
-                        "border": "1px solid #5a32a3"
-                    },
-                ),
-                dbc.Tab(
                     label="AI Generated Decision", id=tab_nav_id("analysis-ai-decision"),
                     tab_id="analysis-ai-decision",
                     children=[html.Div(id="analysis-ai-decision-content", children="Loading...")],  # Lazy load
@@ -185,10 +168,6 @@ def create_analysis_tab_content():
             "Detailed explanation of decision algorithm results and rankings",
         ),
         tab_tooltip(
-            "analysis-scenarios-comparison",
-            "Compare multiple project scenarios side by side",
-        ),
-        tab_tooltip(
             "analysis-ai-decision",
             "AI-powered decision support and technology recommendations",
         ),
@@ -196,8 +175,27 @@ def create_analysis_tab_content():
             "analysis-data-export",
             "Export project data, reports, and analysis results",
         ),
+        ],
+    )
+
+    return [
+        dcc.Loading(
+            id="analysis-run-loading",
+            type="circle",
+            color="#0d6efd",
+            parent_style={"minHeight": "48px"},
+            children=html.Div(
+                [
+                    html.Div(
+                        id="analysis-run-status-row",
+                        className="analysis-run-status-row mb-2",
+                    ),
+                    analysis_subtabs,
+                ]
+            ),
+        ),
         # Hidden store to trigger knowledge graph initialization
         dcc.Store(id="knowledge-graph-store", data={"initialized": False}),
         # Store for feasibility metrics
-        dcc.Store(id="feasibility-metrics-store", data={"score": "0%", "cost": "$0 - $0"})
+        dcc.Store(id="feasibility-metrics-store", data={"score": "0%", "cost": "$0 - $0"}),
     ]

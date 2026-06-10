@@ -104,14 +104,12 @@ try:
     from mar_dss.app.components.dss_algorithm_tab import create_dss_algorithm_content
     from mar_dss.app.components.decision_sensitivity_tab import create_decision_sensitivity_content
     from mar_dss.app.components.decision_interpretation_tab import create_decision_interpretation_content
-    from mar_dss.app.components.scenarios_comparison_tab import create_scenarios_comparison_content
     from mar_dss.app.components.ai_generated_decision_tab import create_ai_generated_decision_content
     from mar_dss.app.components.data_export_tab import create_data_export_content
 except ImportError:
     from ..components.dss_algorithm_tab import create_dss_algorithm_content
     from ..components.decision_sensitivity_tab import create_decision_sensitivity_content
     from ..components.decision_interpretation_tab import create_decision_interpretation_content
-    from ..components.scenarios_comparison_tab import create_scenarios_comparison_content
     from ..components.ai_generated_decision_tab import create_ai_generated_decision_content
     from ..components.data_export_tab import create_data_export_content
 
@@ -938,18 +936,57 @@ def run_feasibility_analysis():
     
     return 1
 
+def _analysis_loading_banner():
+    """Banner shown while integrated analysis is running."""
+    return dbc.Alert(
+        [
+            dbc.Spinner(
+                size="sm",
+                color="primary",
+                type="border",
+                spinner_class_name="me-2",
+            ),
+            html.Strong("Analysis in progress."),
+            html.Span(
+                " Please wait while feasibility and cost results are calculated.",
+                className="ms-1",
+            ),
+        ],
+        color="info",
+        className="py-2 mb-0 d-flex align-items-center",
+    )
+
+
 def setup_analysis_callbacks(app):
     """Set up callbacks for lazy loading analysis tab content."""
 
     @app.callback(
-        Output("knowledge-graph-store", "data"),
+        Output("analysis-run-status-row", "children"),
+        [
+            Input("top-tabs", "active_tab"),
+            Input("analysis-rerun-count", "data"),
+            Input("analysis-tabs", "active_tab"),
+        ],
+        prevent_initial_call=True,
+    )
+    def show_analysis_loading_banner(active_tab, rerun_count, analysis_sub_tab):
+        """Show a status banner as soon as analysis is triggered."""
+        if active_tab != "analysis":
+            return []
+        return _analysis_loading_banner()
+
+    @app.callback(
+        [
+            Output("knowledge-graph-store", "data"),
+            Output("analysis-run-status-row", "children", allow_duplicate=True),
+        ],
         [
             Input("top-tabs", "active_tab"),
             Input("analysis-rerun-count", "data"),
             Input("analysis-tabs", "active_tab"),
         ],
         [State("stratigraphy-data-store", "data")],
-        prevent_initial_call=False,
+        prevent_initial_call="initial_duplicate",
     )
     def on_analysis_top_tab(active_tab, rerun_count, analysis_sub_tab, strat_store):
         """Re-run the integrated pipeline when Analysis is shown, re-clicked, or sub-tab changes.
@@ -960,7 +997,7 @@ def setup_analysis_callbacks(app):
         the Analysis top tab.
         """
         if active_tab != "analysis":
-            return dash.no_update
+            return dash.no_update, dash.no_update
 
         if strat_store is not None and isinstance(strat_store, list) and len(strat_store) > 0:
             rows = copy.deepcopy(strat_store)
@@ -984,7 +1021,7 @@ def setup_analysis_callbacks(app):
             "initialized": True,
             "graph_ready": True,
             "last_analysis_at": time.time(),
-        }
+        }, []
 
     
     # DISABLED: Callback removed because Feasibility Summary tab was removed
@@ -1173,16 +1210,6 @@ def setup_analysis_callbacks(app):
         raw = dash_storage.get_data("graph_computation_log")
         return format_computation_log_entries(raw)
 
-    @app.callback(
-        Output("analysis-scenarios-comparison-content", "children"),
-        [Input("analysis-tabs", "active_tab")],
-        prevent_initial_call=True
-    )
-    def load_scenarios_comparison_content(active_tab):
-        if active_tab == "analysis-scenarios-comparison":
-            return create_scenarios_comparison_content()
-        return "Loading..."
-    
     @app.callback(
         Output("analysis-ai-decision-content", "children"),
         [Input("analysis-tabs", "active_tab")],

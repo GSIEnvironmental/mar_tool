@@ -70,7 +70,19 @@
   background: #86efac;
 }
 
-/* Runoff Calculator: 1A / 1B impervious outlet options */
+/* Analysis tab: loading status between top tabs and analysis subtabs */
+#analysis-run-loading {
+  display: block;
+}
+
+#analysis-run-loading .dash-spinner {
+  margin-top: 0.25rem;
+}
+
+.analysis-run-status-row:empty {
+  display: none;
+}
+
 .runoff-outlet-radio-group-wrapper {
   width: 100%;
 }
