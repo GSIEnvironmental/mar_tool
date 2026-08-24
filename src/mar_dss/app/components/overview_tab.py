@@ -6,6 +6,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 import mar_dss.app.utils.data_storage as dash_storage
 import mar_dss.app.utils.helpers as helpers
+from mar_dss.app.utils.project_storage import normalize_stored_string
 
 try:
     from mar_dss.app.utils.project_file_path import format_project_path
@@ -74,7 +75,7 @@ def get_overview_map_header_text():
     label = dash_storage.get_data("overview_map_location_label")
     if label:
         return label
-    project_location = (dash_storage.get_data("project_location") or "").strip()
+    project_location = normalize_stored_string(dash_storage.get_data("project_location"))
     if project_location:
         return f"Project Location — {project_location}"
     return (
@@ -99,7 +100,7 @@ def get_overview_map_figure_params():
     lat = _float_storage("overview_map_lat", DEFAULT_OVERVIEW_MAP_LAT)
     lon = _float_storage("overview_map_lon", DEFAULT_OVERVIEW_MAP_LON)
     zoom = _float_storage("overview_map_zoom", DEFAULT_OVERVIEW_MAP_ZOOM)
-    marker = (dash_storage.get_data("project_location") or "").strip()
+    marker = normalize_stored_string(dash_storage.get_data("project_location"))
     if not marker:
         marker = f"{lat:.4f}, {lon:.4f}"
     return lat, lon, zoom, marker, get_overview_map_basemap()
@@ -129,7 +130,7 @@ def create_mar_purpose_section():
     else:
         analysis_date = datetime.now().strftime("%Y-%m-%d")
 
-    project_location = dash_storage.get_data("project_location") or ""
+    project_location = normalize_stored_string(dash_storage.get_data("project_location"))
     mar_purpose = dash_storage.get_data("mar_purpose") or ["secure_water_supply"]
     # Site description values (kept here so they live under this card)
     ground_slope = dash_storage.get_data("ground_surface_slope") or 0.5
@@ -152,7 +153,7 @@ def create_mar_purpose_section():
                 debounce=True,
                 style={"margin-bottom": "8px"},
             ),
-            html.Label("Project file path:", className="fw-bold small mb-1"),
+            html.Label("Project File Path:", className="fw-bold small mb-1"),
             dbc.InputGroup(
                 [
                     dbc.Input(

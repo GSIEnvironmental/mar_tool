@@ -6,9 +6,11 @@ via a short-lived subprocess (:mod:`mar_dss.app.utils._tk_open_project_dialog`).
 
 In PyInstaller builds, ``sys.executable`` is the app EXE (not Python) and worker
 ``.py`` files are not loose on disk. The frozen launcher handles
-``--mar-dss-tk-open-project`` / ``--mar-dss-tk-save-report`` modes instead.
+``--mar-dss-tk-open-project`` / ``--mar-dss-tk-save-project`` /
+``--mar-dss-tk-save-report`` modes instead.
 
-Return conventions for :func:`ask_open_project_path`:
+Return conventions for :func:`ask_open_project_path` and
+:func:`ask_save_project_path`:
 
 - Non-empty ``str``: user chose a path.
 - ``""``: dialog was shown and the user cancelled (do not fall back silently).
@@ -22,9 +24,11 @@ import sys
 from pathlib import Path
 
 _WORKER = Path(__file__).resolve().parent / "_tk_open_project_dialog.py"
+_SAVE_PROJECT_WORKER = Path(__file__).resolve().parent / "_tk_save_project_dialog.py"
 _SAVE_REPORT_WORKER = Path(__file__).resolve().parent / "_tk_save_report_dialog.py"
 
 _TK_OPEN_PROJECT_FLAG = "--mar-dss-tk-open-project"
+_TK_SAVE_PROJECT_FLAG = "--mar-dss-tk-save-project"
 _TK_SAVE_REPORT_FLAG = "--mar-dss-tk-save-report"
 
 
@@ -37,6 +41,8 @@ def _dialog_command(worker: Path, *args: str) -> list[str] | None:
     if _is_frozen():
         if worker.name == _WORKER.name:
             return [sys.executable, _TK_OPEN_PROJECT_FLAG, *args]
+        if worker.name == _SAVE_PROJECT_WORKER.name:
+            return [sys.executable, _TK_SAVE_PROJECT_FLAG, *args]
         if worker.name == _SAVE_REPORT_WORKER.name:
             return [sys.executable, _TK_SAVE_REPORT_FLAG, *args]
         return None
@@ -72,6 +78,14 @@ def _run_dialog_subprocess(cmd: list[str]) -> str | None:
 def ask_open_project_path():
     """Open an OS-native file picker for MAR DSS project CSV/JSON."""
     cmd = _dialog_command(_WORKER)
+    if cmd is None:
+        return None
+    return _run_dialog_subprocess(cmd)
+
+
+def ask_save_project_path(default_filename="mar_dss_project.csv"):
+    """Open an OS-native save dialog for a MAR DSS project CSV/JSON file."""
+    cmd = _dialog_command(_SAVE_PROJECT_WORKER, default_filename)
     if cmd is None:
         return None
     return _run_dialog_subprocess(cmd)

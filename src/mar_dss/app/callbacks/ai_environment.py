@@ -10,21 +10,9 @@ import mar_dss.app.utils.data_storage as dash_storage
 
 def _normalize_stored_string(value):
     """Treat None, NaN, and empty CSV sentinels as missing; else return stripped str."""
-    if value is None:
-        return ""
-    if isinstance(value, float):
-        import math
-        if math.isnan(value):
-            return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    if text.lower() in ("nan", "none", "<na>", "nat"):
-        return ""
-    return text
+    from mar_dss.app.utils.project_storage import normalize_stored_string
+
+    return normalize_stored_string(value)
 
 
 def _normalize_api_key(value):

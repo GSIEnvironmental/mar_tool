@@ -17,9 +17,21 @@ import pandas as pd
 try:
     from mar_dss.app.utils.native_file_dialog import ask_open_project_path
     from mar_dss.app.utils.project_file_path import format_project_path, split_project_path
+    from mar_dss.app.utils.project_storage import (
+        apply_project_storage_defaults,
+        is_missing_storage_value,
+        normalize_stored_string,
+        _parse_literal_if_needed,
+    )
 except ImportError:
     from ..utils.native_file_dialog import ask_open_project_path
     from ..utils.project_file_path import format_project_path, split_project_path
+    from ..utils.project_storage import (
+        apply_project_storage_defaults,
+        is_missing_storage_value,
+        normalize_stored_string,
+        _parse_literal_if_needed,
+    )
 
 # Import the overview content creation function
 try:
@@ -525,17 +537,10 @@ def setup_overview_callbacks(app):
             key = row["key"]
             value = row["value"]
 
-            if isinstance(value, str):
-                if value.startswith("[") and value.endswith("]"):
-                    try:
-                        value = ast.literal_eval(value)
-                    except (ValueError, SyntaxError):
-                        pass
-                elif value.startswith("{") and value.endswith("}"):
-                    try:
-                        value = ast.literal_eval(value)
-                    except (ValueError, SyntaxError):
-                        pass
+            if is_missing_storage_value(value):
+                continue
+
+            value = _parse_literal_if_needed(value)
 
             if key == "stratigraphy_data":
                 coerced = normalize_stratigraphy_list_from_raw(value)
@@ -544,6 +549,8 @@ def setup_overview_callbacks(app):
                 value = coerced
 
             dash_storage.set_data(key, value)
+
+        apply_project_storage_defaults()
 
     # Callback for Open button - load project from file (native picker when available)
     @app.callback(
@@ -623,9 +630,12 @@ def setup_overview_callbacks(app):
                     blob = json.load(f)
                 if isinstance(blob, dict):
                     for key, value in blob.items():
-                        dash_storage.set_data(key, value)
+                        if is_missing_storage_value(value):
+                            continue
+                        dash_storage.set_data(key, _parse_literal_if_needed(value))
                 else:
                     raise ValueError("JSON project must contain an object at the root.")
+                apply_project_storage_defaults()
             else:
                 df = pd.read_csv(fn)
                 if not {"key", "value"} <= set(df.columns):
@@ -644,7 +654,7 @@ def setup_overview_callbacks(app):
             )
             strat_out = stratigraphy_store_payload_from_storage()
             gw_out = normalize_groundwater_data(dash_storage.get_data("groundwater_data") or [])
-            project_loc = (dash_storage.get_data("project_location") or "").strip()
+            project_loc = normalize_stored_string(dash_storage.get_data("project_location"))
             return (
                 [
                     dbc.Alert(

@@ -2,7 +2,7 @@
 Main dashboard callbacks for MAR DSS.
 """
 import copy
-import tempfile
+import json
 import os
 from datetime import datetime
 import pandas as pd
@@ -13,6 +13,15 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, html, dependencies
 from dash.dependencies import ClientsideFunction
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.native_file_dialog import ask_save_project_path
+from mar_dss.app.utils.project_file_path import format_project_path, split_project_path
+from mar_dss.app.utils.project_storage import (
+    apply_project_storage_defaults,
+    is_missing_storage_value,
+    normalize_stored_string,
+    prepare_project_storage_for_export,
+    _parse_literal_if_needed,
+)
 
 # Import content creation functions
 try:
@@ -85,6 +94,58 @@ except ImportError:
         DEFAULT_OVERVIEW_MAP_BASEMAP,
     )
     from ..components.layout import MAIN_TAB_IDS, main_tab_panel_id
+
+
+_SKIP_PROJECT_EXPORT_KEYS = frozenset({
+    "decision_graph",
+    "feasibility_analysis_hash",
+    "graph_computation_log",
+    "graph_computation_log_text",
+})
+
+
+def _project_export_rows():
+    """Build key/value rows for CSV export from current storage."""
+    prepare_project_storage_for_export()
+    last_saved = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    dash_storage.set_data("last_saved", last_saved)
+
+    rows = []
+    for key, value in (dash_storage.get_data_storage() or {}).items():
+        if key in _SKIP_PROJECT_EXPORT_KEYS:
+            continue
+        rows.append([key, value])
+    return rows
+
+
+def _project_export_dict():
+    """Build a JSON-serializable project dict from current storage."""
+    prepare_project_storage_for_export()
+    last_saved = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    dash_storage.set_data("last_saved", last_saved)
+
+    clean_data = {}
+    for key, value in (dash_storage.get_data_storage() or {}).items():
+        if key in _SKIP_PROJECT_EXPORT_KEYS:
+            continue
+        try:
+            json.dumps(value)
+            clean_data[key] = value
+        except (TypeError, ValueError):
+            continue
+    return clean_data
+
+
+def _save_project_to_path(fn: str) -> None:
+    """Write the current project to ``fn`` as CSV or JSON based on extension."""
+    suffix = os.path.splitext(fn)[1].lower()
+    if suffix == ".json":
+        with open(fn, "w", encoding="utf-8") as f:
+            json.dump(_project_export_dict(), f, indent=2)
+        return
+
+    df = pd.DataFrame(_project_export_rows(), columns=["key", "value"])
+    df.to_csv(fn, index=False)
 
 
 def setup_main_callbacks(app, dashboard_instance):
@@ -638,98 +699,111 @@ def setup_main_callbacks(app, dashboard_instance):
         return layer_cards, summary, layers_data, layers_data
 
 
+    def _default_project_filename():
+        data = dash_storage.get_data_storage() or {}
+        return data.get("filename") or (
+            f"mar_dss_project_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        )
+
+    def _current_project_path():
+        data = dash_storage.get_data_storage() or {}
+        return format_project_path(data.get("workspace"), data.get("filename"))
+
+    def _save_project_via_picker(default_name=None):
+        """Native save dialog; returns (picked_path, path_out) or raises/returns cancel sentinels."""
+        default_name = default_name or _default_project_filename()
+        picked = ask_save_project_path(default_name)
+
+        if picked == "":
+            return None, dash.no_update
+
+        if picked is None:
+            manual_path = _current_project_path()
+            if not (manual_path or "").strip():
+                raise ValueError(
+                    "Native save dialog is unavailable here. Enter a full project "
+                    "file path above, then use Save."
+                )
+            picked = os.path.normpath(manual_path.strip())
+
+        parent = os.path.dirname(os.path.abspath(picked))
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent, exist_ok=True)
+
+        _save_project_to_path(picked)
+        workspace_dir, base_name = split_project_path(picked)
+        dash_storage.set_data("workspace", workspace_dir)
+        dash_storage.set_data("filename", base_name)
+        path_out = format_project_path(workspace_dir, base_name)
+        return picked, path_out
+
     # Callback for Save button - save current project
     @app.callback(
         Output("main-content-flash", "children"),
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
+        Output("project-path-input", "value", allow_duplicate=True),
         Output("top-tabs", "active_tab", allow_duplicate=True),
         [Input("btn-save", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_save_project(n_clicks):
         """Handle saving the current project."""
-        noop = (dash.no_update, dash.no_update, dash.no_update)
-        if n_clicks:
-            # Save current data to storage
-            try:
-                # Get current data from storage
-                data = dash_storage.get_data_storage()
-                if not data:
-                    data = {}
-                
-                # Add timestamp                
-                data["last_saved"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        noop = (dash.no_update, dash.no_update, dash.no_update, dash.no_update)
+        if not n_clicks:
+            return noop
 
-                # Ensure overview map view keys exist so CSV restores lat/lon/zoom
-                for _key, _default in (
-                    ("overview_map_lat", DEFAULT_OVERVIEW_MAP_LAT),
-                    ("overview_map_lon", DEFAULT_OVERVIEW_MAP_LON),
-                    ("overview_map_zoom", DEFAULT_OVERVIEW_MAP_ZOOM),
-                    ("overview_map_basemap", DEFAULT_OVERVIEW_MAP_BASEMAP),
-                ):
-                    if data.get(_key) is None:
-                        dash_storage.set_data(_key, _default)
-                        data[_key] = _default
-
-                if "workspace" in data:
-                    folder_path = data["workspace"]
-                else:
-                    # Create a temporary folder                    
-                    temp_dir = tempfile.mkdtemp(prefix="mar_dss_temp_")
-                    folder_path = temp_dir
-                if "filename" in data:
-                    filename = data["filename"]
-                else:
-                    # Create filename with timestamp
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"mar_dss_project_{timestamp}.csv"
-                fn = os.path.join(folder_path, filename)
-
-                # covert the data to pandas dataframe, keys are in a column called "key" and values are in a column called "value"
-                df_ = []
-                for key, value in data.items():
-                    if key in [
-                        "decision_graph",
-                        "feasibility_analysis_hash",
-                        "graph_computation_log",
-                        "graph_computation_log_text",
-                    ]:
-                        # skip graph objects / large logs when exporting simple CSV
-                        continue
-                    df_.append([key, value])
-                df = pd.DataFrame(df_, columns=["key", "value"])
-                df.to_csv(fn, index=False)
-
-                
-                # Save to storage
-                #dash_storage.set_data("all_data", data)
-                
-                import dash_bootstrap_components as dbc
+        try:
+            current_path = _current_project_path()
+            if not (current_path or "").strip():
+                result = _save_project_via_picker()
+                if result[0] is None:
+                    return noop
+                picked, path_out = result
                 return (
                     [
                         dbc.Alert(
-                            f"Project saved successfully at {fn}",
+                            f"Project saved successfully at {picked}",
                             color="success",
                             className="mb-3",
                         )
                     ],
                     create_overview_content(),
+                    path_out,
                     "overview",
                 )
-            except Exception as e:
-                import dash_bootstrap_components as dbc
-                return (
-                    [
-                        dbc.Alert(
-                            f"Error saving project: {str(e)}",
-                            color="danger",
-                            className="mb-3",
-                        )
-                    ],
-                    create_overview_content(),
-                    "overview",
-                )
-        return noop
+
+            fn = os.path.normpath(current_path.strip())
+            _save_project_to_path(fn)
+            workspace_dir, base_name = split_project_path(fn)
+            dash_storage.set_data("workspace", workspace_dir)
+            dash_storage.set_data("filename", base_name)
+            path_out = format_project_path(workspace_dir, base_name)
+
+            return (
+                [
+                    dbc.Alert(
+                        f"Project saved successfully at {fn}",
+                        color="success",
+                        className="mb-3",
+                    )
+                ],
+                create_overview_content(),
+                path_out,
+                "overview",
+            )
+        except Exception as e:
+            return (
+                [
+                    dbc.Alert(
+                        f"Error saving project: {str(e)}",
+                        color="danger",
+                        className="mb-3",
+                    )
+                ],
+                create_overview_content(),
+                dash.no_update,
+                "overview",
+            )
 
     # Callback for New button - create new project (clear lazy-mounted tabs so they reload)
     @app.callback(
@@ -821,146 +895,53 @@ def setup_main_callbacks(app, dashboard_instance):
             )
         return noop
 
-    # Callback for Save As button - save project with new name
+    # Callback for Save As button - native browse dialog (same pattern as Load)
     @app.callback(
         Output("main-content-flash", "children", allow_duplicate=True),
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
+        Output("project-path-input", "value", allow_duplicate=True),
         Output("top-tabs", "active_tab", allow_duplicate=True),
         [Input("btn-save-as", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_save_as_project(n_clicks):
-        """Handle saving the project with a new name."""
-        noop_as = (dash.no_update, dash.no_update, dash.no_update)
-        if n_clicks:
-            # Create a file dialog using dcc.Upload component
-            import dash_bootstrap_components as dbc
-            from dash import dcc
-            from datetime import datetime
-            
-            # Create a clean, serializable data structure
-            project_data = {
-                "project_name": dash_storage.get_data("project_name") or "",
-                "analysis_date": dash_storage.get_data("analysis_date") or "",
-                "mar_purpose": dash_storage.get_data("mar_purpose") or ["secure_water_supply"],
-                "last_saved": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "version": "1.0",
-                "description": "MAR DSS Project File"
-            }
-            
-            # Create JSON string for download
-            project_data = dash_storage.get_data_storage()
-            
-            # Create a clean, serializable copy to avoid circular references
-            clean_data = {}
-            for key, value in project_data.items():
-                # Skip feasibility_analysis_hash (internal caching, not needed in saved project)
-                if key in ["feasibility_analysis_hash"]:
-                    continue
-                try:
-                    # Test if the value can be serialized
-                    json.dumps(value)
-                    clean_data[key] = value
-                except (TypeError, ValueError):
-                    # Skip values that can't be serialized
-                    continue
-            
-            import json
-            json_string = json.dumps(clean_data, indent=2)
-            
-            # Create a download interface with file save dialog
-            from dash import dcc
+        """Pick a save location (Tk dialog) and write the current project there."""
+        noop_as = (dash.no_update, dash.no_update, dash.no_update, dash.no_update)
+        if not n_clicks:
+            return noop_as
+
+        try:
+            result = _save_project_via_picker(_default_project_filename())
+            if result[0] is None:
+                return noop_as
+            picked, path_out = result
             return (
                 [
                     dbc.Alert(
-                        "Save As - Click the download button below to save your project. The browser will open a file save dialog.",
-                        color="info",
-                        className="mb-3",
-                    ),
-                    dbc.Card(
-                        [
-                            dbc.CardBody(
-                                [
-                                    html.H5("Save Project As", className="card-title"),
-                                    html.P(
-                                        "Your project data will be saved as a JSON file that you can load later using the Open button."
-                                    ),
-                                    dbc.Button(
-                                        [
-                                            html.I(className="fas fa-download me-2"),
-                                            "Download Project File",
-                                        ],
-                                        id="download-project-btn",
-                                        color="success",
-                                        className="mb-3",
-                                    ),
-                                    dcc.Download(
-                                        id="download-project-file",
-                                        data=dict(
-                                            content=json_string, filename="mar_project.json"
-                                        ),
-                                    ),
-                                ]
-                            )
-                        ],
+                        f"Project saved successfully at {picked}",
+                        color="success",
                         className="mb-3",
                     ),
                 ],
                 create_overview_content(),
+                path_out,
                 "overview",
             )
-        return noop_as
+        except Exception as e:
+            return (
+                [
+                    dbc.Alert(
+                        f"Error saving project: {str(e)}",
+                        color="danger",
+                        className="mb-3",
+                    ),
+                ],
+                create_overview_content(),
+                dash.no_update,
+                "overview",
+            )
 
     setup_overview_callbacks(app)
-
-    # Callback for download button - trigger file download
-    @app.callback(
-        Output("download-project-file", "data"),
-        [Input("download-project-btn", "n_clicks")],
-        prevent_initial_call=True
-    )
-    def trigger_download(n_clicks):
-        """Trigger the project file download."""
-        if n_clicks:
-            # Create a clean, serializable data structure
-            # project_data = {
-            #     "project_name": dash_storage.get_data("project_name") or "",
-            #     "analysis_date": dash_storage.get_data("analysis_date") or "",
-            #     "mar_purpose": dash_storage.get_data("mar_purpose") or ["secure_water_supply"],
-            #     "last_saved": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            #     "version": "1.0",
-            #     "description": "MAR DSS Project File"
-            # }
-            
-            # Create JSON string for download
-            project_data = dash_storage.get_data_storage()
-            
-            # Create a clean, serializable copy to avoid circular references
-            clean_data = {}
-            for key, value in project_data.items():
-                # Skip feasibility_analysis_hash (internal caching, not needed in saved project)
-                if key in ["feasibility_analysis_hash"]:
-                    continue
-                try:
-                    # Test if the value can be serialized
-                    json.dumps(value)
-                    clean_data[key] = value
-                except (TypeError, ValueError):
-                    # Skip values that can't be serialized
-                    continue
-            
-            import json
-            json_string = json.dumps(clean_data, indent=2)
-            
-            # Generate filename with timestamp
-            from datetime import datetime
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"mar_project_{timestamp}.json"
-            
-            return dict(content=json_string, filename=filename)
-        return dash.no_update
-
-
     # Client-side resize to force Leaflet/Mapbox to re-render when tab becomes visible
     app.clientside_callback(
         ClientsideFunction(namespace="clientside", function_name="resizeMapOnTab"),

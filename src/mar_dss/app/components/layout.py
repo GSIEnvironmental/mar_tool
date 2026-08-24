@@ -167,6 +167,15 @@ def _build_action_buttons() -> dbc.ButtonGroup:
                 title="Save the current project to the workspace path and filename",
             ),
             dbc.Button(
+                [html.I(className="fas fa-file-export me-1"), "Save As"],
+                id="btn-save-as",
+                color="outline-success",
+                size="sm",
+                className="me-1",
+                style={"padding": "4px 8px"},
+                title="Browse for a location and file name to save the project",
+            ),
+            dbc.Button(
                 [html.I(className=("fas fa-plus me-1")), "New"],
                 id="btn-new",
                 color="outline-info",
