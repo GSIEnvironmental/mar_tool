@@ -426,8 +426,8 @@ def _build_main_card() -> dbc.Card:
                 dbc.Col([_build_tabs()], width=9),
                 dbc.Col([
                     html.Div([
-                        html.Label("Theme:", className="me-2"),
-                        dcc.Dropdown(
+                        html.Label("Theme:", className="me-2 mb-0"),
+                        dbc.Select(
                             id="theme-selector",
                             options=[
                                 {"label": "Cerulean", "value": "CERULEAN"},
@@ -437,7 +437,7 @@ def _build_main_card() -> dbc.Card:
                                 {"label": "Slate", "value": "SLATE"},
                             ],
                             value="CERULEAN",
-                            clearable=False,
+                            size="sm",
                             style={"width": "150px"},
                         ),
                         dbc.Tooltip(

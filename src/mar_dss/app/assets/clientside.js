@@ -127,12 +127,59 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
       return window.dash_clientside.no_update;
     },
 
-    initOverviewTooltips: function() {
-      // Initialize Bootstrap tooltips for overview tab elements
-      initOverviewTooltips(); // Immediately initialize tooltips when dashboard loads
+    disableAllTooltips: function() {
+      disableAllTooltipsInDocument();
       return window.dash_clientside.no_update;
     }
   }
 });
 
+function disableAllTooltipsInDocument(root) {
+  root = root || document;
+
+  root.querySelectorAll("[title]").forEach(function (el) {
+    var title = el.getAttribute("title");
+    if (!title) return;
+    if (!el.getAttribute("data-mar-title-backup")) {
+      el.setAttribute("data-mar-title-backup", title);
+    }
+    el.removeAttribute("title");
+  });
+
+  if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) {
+    root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+      try {
+        var instance = bootstrap.Tooltip.getInstance(el);
+        if (instance) instance.dispose();
+      } catch (eDispose) {}
+      el.removeAttribute("data-bs-toggle");
+    });
+  }
+}
+
+(function initTooltipDisabling() {
+  function run() {
+    disableAllTooltipsInDocument();
+    if (window.__marTooltipObserver) return;
+    window.__marTooltipObserver = new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) {
+          if (node && node.nodeType === 1) {
+            disableAllTooltipsInDocument(node);
+          }
+        });
+      });
+    });
+    window.__marTooltipObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run);
+  } else {
+    run();
+  }
+})();
 

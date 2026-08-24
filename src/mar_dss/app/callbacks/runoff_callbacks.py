@@ -17,6 +17,7 @@ import numpy as np
 import plotly.graph_objects as go
 from scipy.special import exp1
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import TOOLTIPS_ENABLED
 
 
 try:
@@ -291,8 +292,12 @@ def setup_runoff_callbacks(app):
             return no_update, no_update
 
         marker = dl.Marker(
-            position=[lat, lon], 
-            children=[dl.Tooltip(f"Selected: {lat:.4f}, {lon:.4f}")],
+            position=[lat, lon],
+            children=(
+                [dl.Tooltip(f"Selected: {lat:.4f}, {lon:.4f}")]
+                if TOOLTIPS_ENABLED
+                else []
+            ),
             icon={'iconUrl': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', 'iconSize': [25, 41], 'iconAnchor': [12, 41]}
         )
         

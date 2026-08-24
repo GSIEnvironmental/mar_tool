@@ -12,7 +12,7 @@ The project is feasible only if all three branches are Feasible or Conditionally
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip, slider_tooltip_kwargs
 from mar_dss.app.components.environmental_impact_tab import (
     create_environmental_considerations_content,
 )
@@ -474,7 +474,7 @@ def create_ai_regulations_permits_content():
                                     step=0.1,
                                     value=float(dash_storage.get_data("gemini_temperature") or 0.5),
                                     marks={0.0: "0", 1.0: "1", 2.0: "2"},
-                                    tooltip={"placement": "bottom", "always_visible": False},
+                                    tooltip=slider_tooltip_kwargs(),
                                 ),
                                 html.Div(id="mar-regs-temperature-display", className="mt-1"),
                             ], xs=12, md=6, className="mt-2 mt-md-0"),

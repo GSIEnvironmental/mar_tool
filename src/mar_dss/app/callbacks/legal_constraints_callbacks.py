@@ -10,6 +10,7 @@ import dash_bootstrap_components as dbc
 import mar_dss.app.utils.data_storage as data_storage
 from mar_dss.app.callbacks.ai_environment import _normalize_stored_string, _location_text
 from mar_dss.app.callbacks.ai_regulations import build_mar_regulations_prompt, get_mar_regulations
+from mar_dss.app.utils.tab_tooltips import dash_table_tooltip_kwargs
 
 
 def _classify_branch(statuses):
@@ -811,14 +812,13 @@ def setup_legal_constraints_callbacks(app):
                 sort_action="native",
                 filter_action="native",
                 export_format="csv",
-                tooltip_data=[
+                **dash_table_tooltip_kwargs([
                     {
                         column: {"value": str(value), "type": "markdown"}
                         for column, value in row.items()
                     }
                     for row in df.to_dict("records")
-                ],
-                tooltip_duration=None,
+                ]),
             )
 
             category_counts = df["category"].value_counts().to_dict() if "category" in df.columns else {}

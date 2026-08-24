@@ -24,6 +24,7 @@ from mar_dss.app.callbacks.ai_environment import (
     build_mar_factors_prompt,
     _location_text,
 )
+from mar_dss.app.utils.tab_tooltips import dash_table_tooltip_kwargs
 import mar_dss.app.utils.data_storage as dash_storage
 
 _RISK_LEVEL_CANONICAL = frozenset({"NOT AVAILABLE", "LOW RISK", "MODERATE RISK", "HIGH RISK"})
@@ -957,13 +958,12 @@ def setup_environmental_impact_callbacks(app):
                 sort_action="native",
                 filter_action="none",
                 export_format="csv",
-                tooltip_data=[
+                **dash_table_tooltip_kwargs([
                     {
                         column: {'value': str(value), 'type': 'markdown'}
                         for column, value in row.items()
                     } for row in df.to_dict('records')
-                ],
-                tooltip_duration=None
+                ]),
             )
             
             # Wrap table in a card with summary - in its own full-width row

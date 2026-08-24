@@ -7,6 +7,7 @@ from dash import dcc, html
 
 from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import slider_tooltip_kwargs
 
 
 def create_ai_generated_decision_content():
@@ -171,10 +172,7 @@ def create_ai_generated_decision_content():
                                                                     or 0.5
                                                                 ),
                                                                 marks={0.0: "0", 1.0: "1", 2.0: "2"},
-                                                                tooltip={
-                                                                    "placement": "bottom",
-                                                                    "always_visible": False,
-                                                                },
+                                                                tooltip=slider_tooltip_kwargs(),
                                                             ),
                                                             html.Div(
                                                                 id="ai-decision-temperature-display",

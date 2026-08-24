@@ -199,4 +199,44 @@
   box-shadow: 0 2px 10px rgba(13, 110, 253, 0.2);
 }
 
+/* Deactivate all UI tooltips (Bootstrap, sliders, tables, maps). */
+.tooltip,
+.popover,
+.rc-slider-tooltip,
+.dash-table-tooltip,
+.leaflet-tooltip {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Theme selector: follow Bootswatch body colors (fixes Darkly/Cyborg/Slate
+   white-on-white option list from dcc.Dropdown / react-select defaults). */
+#theme-selector .Select-control,
+#theme-selector .Select-menu-outer,
+#theme-selector .VirtualizedSelectOption,
+#theme-selector .Select-menu,
+#theme-selector .Select-option {
+  background-color: var(--bs-body-bg, #fff) !important;
+  color: var(--bs-body-color, #212529) !important;
+  border-color: var(--bs-border-color, #ced4da) !important;
+}
+
+#theme-selector .Select-value-label,
+#theme-selector .Select-placeholder,
+#theme-selector .Select-input > input {
+  color: var(--bs-body-color, #212529) !important;
+}
+
+#theme-selector .VirtualizedSelectFocusedOption,
+#theme-selector .Select-option.is-focused,
+#theme-selector .Select-option:hover {
+  background-color: var(--bs-secondary-bg, #e9ecef) !important;
+  color: var(--bs-body-color, #212529) !important;
+}
+
+#theme-selector .Select-arrow {
+  border-top-color: var(--bs-body-color, #212529) !important;
+}
 
