@@ -133,6 +133,37 @@ def compute_recharge_rate(x,y,t,del_h, spread_area, k,b,sy):
     recharge_rate = 2 * k * h2/(v1*t*s)    
     return recharge_rate
 
+def compute_recharge_mound(x,y,t,recharge_rate, spread_area, k,b,sy):
+
+    v = 4*t*k*b/sy
+    l = np.sqrt(spread_area)
+    a = l
+    p1 = (l+x)/np.sqrt(v)
+    p2 = (a+y)/np.sqrt(v)
+    s1 = compute_integral(p1, p2)
+
+    p1 = (l+x)/np.sqrt(v)
+    p2 = (a-y)/np.sqrt(v)
+    s2 = compute_integral(p1, p2)
+
+    p1 = (l-x)/np.sqrt(v)
+    p2 = (a+y)/np.sqrt(v)
+    s3 = compute_integral(p1, p2)
+
+    p1 = (l-x)/np.sqrt(v)
+    p2 = (a-y)/np.sqrt(v)
+    s4 = compute_integral(p1, p2)
+
+    s = s1+s2+s3+s4
+
+    
+    v1 =k*b/sy
+
+    #recharge_rate = 2 * k * h2/(v1*t*s)
+    h2 = recharge_rate * v1 * t * s / (2 * k)
+    del_h = np.power(h2, 0.5)    
+    return del_h
+
 def theis_drawdown_or_Q(Q_or_dh, T, S, r, t, compute_Q=True):
     """
     Computes the drawdown (dh) or pumping rate (Q) in a confined aquifer using 

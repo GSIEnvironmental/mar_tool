@@ -4,6 +4,7 @@ import pandas as pd
 from mar_dss.rules.analytical_solutions import (
     compute_mounding_grid,
     compute_recharge_rate,
+    compute_recharge_mound,
     mounding_integral_sum_at_point,
     theis_drawdown_or_Q,
 )
@@ -488,20 +489,32 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
     # Iterative calculation to find appropriate spread area
     max_iterations = 100  # Safety limit
     iteration = 0
+    spread_area = vol_possiblee / k_min_vadose
+    area = min(spread_area, max_available_area)
+    infl_rate = k_min_vadose
     while iteration < max_iterations:
-        spread_area = vol_possiblee / k_min_vadose
-        area = min(spread_area, max_available_area)
-        infl_rate = compute_recharge_rate(x=0, y=0,
-                                         t=t, del_h=dh,
+        
+        # infl_rate = compute_recharge_rate(x=0, y=0,
+        #                                  t=t, del_h=dh,
+        #                                  spread_area=area,
+        #                                  k=k_mean,
+        #                                  b=saturated_thickness, 
+        #                                  sy=sy_mean)
+
+        dh_actual = compute_recharge_mound(x=0, y=0,
+                                         t=t,
+                                         recharge_rate=infl_rate,
                                          spread_area=area,
                                          k=k_mean,
                                          b=saturated_thickness, 
                                          sy=sy_mean)
-        if infl_rate <= k_min_vadose:
-            infl_rate = k_min_vadose
+        if dh_actual <= dh:            
             break
         else:
-            vol_possiblee = vol_possiblee * 0.99
+            #vol_possiblee = vol_possiblee * 0.99           
+            infl_rate = infl_rate * 0.95
+                        
+               
       
         # vol = spread_area * infl_rate
         # if (infl_rate < k_min_vadose):  
@@ -517,7 +530,7 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
         
             
             
-        # iteration += 1
+        iteration += 1
 
         # if (infl_rate <= k_min_vadose) and (vol/vol_max_available >= 0.95):
         #     break
@@ -526,8 +539,7 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
     # if spread_area > max_available_area:
     #         spread_area = max_available_area
     # if infl_rate > k_min_vadose:
-    #     infl_rate = k_min_vadose
-            
+    #     infl_rate = k_min_vadose             
     return {"spread_area": spread_area, "infl_rate": infl_rate, "inf_k_ratio": infl_rate/k_min_vadose}
 
 def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df, gw_depth, Hmax, confined, unconfined):
