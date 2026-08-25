@@ -157,12 +157,9 @@ def create_mar_purpose_section():
             dbc.Input(
                 id="project-path-input",
                 type="text",
-                placeholder=(
-                    r"Example: C:\Projects\my_site\mar_dss_project.csv "
-                    "(folder + file name; use File → Open / Save As...)"
-                ),
+                placeholder="Set via Open / Save / Save As… (display only)",
                 value=project_file_path_initial,
-                debounce=True,
+                readonly=True,
                 className="mb-2",
             ),
             html.Label("Analysis Date:", className="fw-bold small mb-1"),
@@ -212,9 +209,9 @@ def create_mar_purpose_section():
             dbc.Input(
                 id="project-location-input",
                 type="text",
-                placeholder="Enter project location (e.g., Sacramento, CA)...",
+                placeholder="Set via map / Open project (display only)",
                 value=project_location,
-                debounce=True,
+                readonly=True,
                 style={"margin-bottom": "8px"},
             ),
             html.Label("Ground Surface Slope (%):", className="fw-bold small mb-1"),
