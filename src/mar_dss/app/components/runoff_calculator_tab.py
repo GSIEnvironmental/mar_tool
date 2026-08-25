@@ -441,15 +441,20 @@ def create_curve_number_tab():
                                             ),
                                         ], width=6),
                                     ]),
-                                    dbc.Checkbox(
-                                        id="use-site-coordinates-for-runoff-check",
-                                        label="Use site coordinates (Source Site from Water Source map)",
-                                        value=bool(
-                                            dash_storage.get_data(
-                                                "use_site_coords_for_runoff"
-                                            )
+                                    html.Div(
+                                        dbc.Checkbox(
+                                            id="use-site-coordinates-for-runoff-check",
+                                            label="Use site coordinates (Source Site from Water Source map)",
+                                            value=bool(
+                                                dash_storage.get_data(
+                                                    "use_site_coords_for_runoff"
+                                                )
+                                            ),
+                                            className="runoff-engineering-sync-check mb-0",
+                                            input_class_name="runoff-engineering-sync-input",
+                                            label_class_name="runoff-engineering-sync-label",
                                         ),
-                                        className="mb-3",
+                                        className="runoff-engineering-sync-card mb-3",
                                     ),
                                     dbc.Button(
                                         "Download Rain Statistics",
