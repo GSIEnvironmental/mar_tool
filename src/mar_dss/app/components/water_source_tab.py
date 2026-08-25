@@ -35,6 +35,21 @@ WATER_SOURCE_OPTIONS = [
 
 WATER_SOURCE_LABELS = {opt["value"]: opt["label"] for opt in WATER_SOURCE_OPTIONS}
 
+# Options (1)–(3): surface / stormwater / ag runoff — runoff calculator is the primary fit
+RUNOFF_RELEVANT_WATER_SOURCES = frozenset(
+    {
+        "surface_water_sources",
+        "urban_stormwater_runoff",
+        "rural_agricultural_runoff",
+    }
+)
+
+RUNOFF_CALCULATOR_SOURCE_WARNING = (
+    "The Runoff calculator is most appropriate when the water source is surface runoff "
+    "(options 1–3). You may still use it to get an estimate of available surface water, "
+    "but you may choose not to use it."
+)
+
 
 def _nearest_place_label(lat: float, lon: float) -> str | None:
     """Find nearest city/town/village name using Overpass, return a label or None.
@@ -931,6 +946,8 @@ def create_water_source_location_map_card():
 
 def _create_optional_runoff_calculations_card():
     """Card below Volume Estimates: nested Runoff Calculator and Watershed tabs."""
+    water_source = dash_storage.get_data("water_source") or "surface_water_sources"
+    show_warning = water_source not in RUNOFF_RELEVANT_WATER_SOURCES
     return dbc.Card(
         [
             dbc.CardHeader(
@@ -939,6 +956,18 @@ def _create_optional_runoff_calculations_card():
             ),
             dbc.CardBody(
                 [
+                    html.Div(
+                        id="optional-runoff-water-source-warning",
+                        children=(
+                            dbc.Alert(
+                                RUNOFF_CALCULATOR_SOURCE_WARNING,
+                                color="warning",
+                                className="mb-3",
+                            )
+                            if show_warning
+                            else []
+                        ),
+                    ),
                     html.Div(
                         [
                             dbc.Tabs(

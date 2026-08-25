@@ -1031,6 +1031,33 @@ def setup_main_callbacks(app, dashboard_instance):
         return current_selection
 
     @app.callback(
+        Output("optional-runoff-water-source-warning", "children"),
+        Input("water-source-dropdown", "value"),
+        prevent_initial_call=False,
+    )
+    def update_optional_runoff_water_source_warning(water_source):
+        """Warn when runoff calculator is used with a non-surface-runoff water source."""
+        try:
+            from mar_dss.app.components.water_source_tab import (
+                RUNOFF_CALCULATOR_SOURCE_WARNING,
+                RUNOFF_RELEVANT_WATER_SOURCES,
+            )
+        except ImportError:
+            from .components.water_source_tab import (
+                RUNOFF_CALCULATOR_SOURCE_WARNING,
+                RUNOFF_RELEVANT_WATER_SOURCES,
+            )
+
+        source = water_source or dash_storage.get_data("water_source") or "surface_water_sources"
+        if source in RUNOFF_RELEVANT_WATER_SOURCES:
+            return []
+        return dbc.Alert(
+            RUNOFF_CALCULATOR_SOURCE_WARNING,
+            color="warning",
+            className="mb-3",
+        )
+
+    @app.callback(
         Output("water-source-map-site-radio", "value"),
         [
             Input("water-source-map-site-radio", "value"),
