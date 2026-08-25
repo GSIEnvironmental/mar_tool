@@ -35,10 +35,21 @@ inputs:
     name: "Minimum Groundwater Depth"
     description: "Minimum depth of groundwater below ground surface before waterlogging issues occur"
     type: numeric
-    units: "m"
+    units: "ft"
     value: 5.0
     default: 5.0
     range: [0.0, 100.0]
+    certainty: 0.8
+    group: "Design Sizing"
+
+  - id: "max_mar_storage_depth"
+    name: "Maximum MAR Storage Depth"
+    description: "Maximum depth below ground surface available for MAR storage / mounding (ft)"
+    type: numeric
+    units: "ft"
+    value: 20.0
+    default: 20.0
+    range: [0.0, 500.0]
     certainty: 0.8
     group: "Design Sizing"
   

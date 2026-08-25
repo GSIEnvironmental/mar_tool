@@ -1050,6 +1050,12 @@ RULE_DEFAULT_SCALAR_ROWS = [
         "Rule cutoff comparing screen depth to defaults—not the construction depth limit above.",
     ),
     (
+        "d_gw_min",
+        "Minimum groundwater depth (ft)",
+        0.1,
+        "Shallowest allowed depth to water table (below ground). Used for operational GW depth and spreading-basin mound limits.",
+    ),
+    (
         "vadose_effective_porosity",
         "Vadose effective porosity (-)",
         0.01,

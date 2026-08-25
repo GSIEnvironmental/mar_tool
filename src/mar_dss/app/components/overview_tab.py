@@ -154,27 +154,15 @@ def create_mar_purpose_section():
                 style={"margin-bottom": "8px"},
             ),
             html.Label("Project File Path:", className="fw-bold small mb-1"),
-            dbc.InputGroup(
-                [
-                    dbc.Input(
-                        id="project-path-input",
-                        type="text",
-                        placeholder=(
-                            r"Example: C:\Projects\my_site\mar_dss_project.csv "
-                            "(folder + file name)"
-                        ),
-                        value=project_file_path_initial,
-                        debounce=True,
-                    ),
-                    dbc.Button(
-                        [html.I(className="fas fa-upload me-1"), "Load"],
-                        id="btn-open",
-                        color="outline-primary",
-                        size="sm",
-                        title="Browse for a CSV/JSON project file, or type a full path and click Load.",
-                        style={"padding": "4px 16px", "minWidth": "8rem"},
-                    ),
-                ],
+            dbc.Input(
+                id="project-path-input",
+                type="text",
+                placeholder=(
+                    r"Example: C:\Projects\my_site\mar_dss_project.csv "
+                    "(folder + file name; use File → Open / Save As...)"
+                ),
+                value=project_file_path_initial,
+                debounce=True,
                 className="mb-2",
             ),
             html.Label("Analysis Date:", className="fw-bold small mb-1"),
@@ -273,8 +261,7 @@ def create_mar_purpose_section():
                 placement="top",
             ),
             dbc.Tooltip(
-                "Full path to save/load the project CSV/JSON "
-                "(folder and file name). Save uses folder + filename if only one part is filled.",
+                "Full path to the project CSV/JSON. Use File → Open, Save, or Save As...",
                 target="project-path-input",
                 placement="top",
             ),

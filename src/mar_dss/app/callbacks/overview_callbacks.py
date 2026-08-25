@@ -592,7 +592,7 @@ def setup_overview_callbacks(app):
                     [
                         dbc.Alert(
                             "Native file picker is unavailable here. Enter a full project "
-                            "file path, then click Load.",
+                            "file path, then click Open.",
                             color="danger",
                             className="mb-3",
                         ),

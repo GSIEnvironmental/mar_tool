@@ -19,6 +19,7 @@ from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
     infer_dashboard_aquifer_type,
 )
+from mar_dss.rules.defaults import get_default as rule_defaults_get
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph, forward_run
 from mar_dss.base import DecisionGraph
 import pandas as pd
@@ -274,7 +275,25 @@ def get_graph_inputs():
         source_water_volume = dash_storage.get_data("monthly_flow")
         inputs["source_water_volume"] = source_water_volume
         
-        inputs["d_gw_min"] = 5.0
+        # From (3.2) Default Parameters / rules.defaults (override via rule_defaults_overrides)
+        try:
+            d_gw_min = float(rule_defaults_get("d_gw_min"))
+            if not np.isfinite(d_gw_min) or d_gw_min < 0:
+                d_gw_min = 5.0
+        except (TypeError, ValueError, KeyError):
+            d_gw_min = 5.0
+        inputs["d_gw_min"] = d_gw_min
+
+        max_mar_storage_depth = dash_storage.get_data("max_mar_storage_depth")
+        try:
+            max_mar_storage_depth = (
+                20.0 if max_mar_storage_depth is None else float(max_mar_storage_depth)
+            )
+            if not np.isfinite(max_mar_storage_depth) or max_mar_storage_depth < 0:
+                max_mar_storage_depth = 20.0
+        except (TypeError, ValueError):
+            max_mar_storage_depth = 20.0
+        inputs["max_mar_storage_depth"] = max_mar_storage_depth
         
         return inputs
         

@@ -14,6 +14,10 @@ defaults["max_dry_well_infiltration_rate_in_per_hr"] = 60000 #  ft^3/day
 defaults["max_dry_well_transfer_rate_gpm"] = 50
 defaults["max_drywell_depth_ft"] = 10
 
+# Minimum depth to water table below ground surface (ft) before waterlogging /
+# operational constraints bind. Used as graph input ``d_gw_min``.
+defaults["d_gw_min"] = 5.0
+
 
 # default effective porosity for vadose zone (if not available from stratigraphy)
 defaults["vadose_effective_porosity"] = 0.2 # porosity times moisture content

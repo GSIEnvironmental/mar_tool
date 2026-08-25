@@ -814,19 +814,22 @@ def setup_main_callbacks(app, dashboard_instance):
             Output("stratigraphy-data-store", "data", allow_duplicate=True),
             Output("groundwater-data-store", "data", allow_duplicate=True),
             Output("project-location-store", "data", allow_duplicate=True),
+            Output("project-path-input", "value", allow_duplicate=True),
         ],
         [Input("btn-new", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_new_project(n_clicks):
         """Handle creating a new project."""
-        noop = (dash.no_update,) * (len(MAIN_TAB_IDS) + 5)
+        noop = (dash.no_update,) * (len(MAIN_TAB_IDS) + 6)
         if n_clicks:
             # Clear all data storage (includes rule_defaults_overrides from rules.defaults).
             dash_storage.clear_data()
             
             # Reset to default values
             dash_storage.set_data("project_name", "")
+            dash_storage.set_data("workspace", "")
+            dash_storage.set_data("filename", "")
             dash_storage.set_data("analysis_date", "")
             dash_storage.set_data("mar_purpose", ["secure_water_supply"])
             dash_storage.set_data("ground_surface_slope", 0.5)
@@ -892,10 +895,70 @@ def setup_main_callbacks(app, dashboard_instance):
                 stratigraphy_store_payload_from_storage(),
                 normalize_groundwater_data(dash_storage.get_data("groundwater_data") or []),
                 "",
+                "",
             )
         return noop
 
-    # Callback for Save As button - native browse dialog (same pattern as Load)
+    @app.callback(
+        Output("close-project-modal", "is_open"),
+        [
+            Input("btn-close", "n_clicks"),
+            Input("btn-close-cancel", "n_clicks"),
+        ],
+        prevent_initial_call=True,
+    )
+    def toggle_close_project_modal(close_clicks, cancel_clicks):
+        """Open or dismiss the close-project confirmation dialog."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        triggered = ctx.triggered[0]["prop_id"].split(".")[0]
+        if triggered == "btn-close" and close_clicks:
+            return True
+        if triggered == "btn-close-cancel" and cancel_clicks:
+            return False
+        return dash.no_update
+
+    @app.callback(
+        Output("close-project-modal", "is_open", allow_duplicate=True),
+        Output("main-content-flash", "children", allow_duplicate=True),
+        Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
+        Output("top-tabs", "active_tab", allow_duplicate=True),
+        Input("btn-close-confirm", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def confirm_close_project(confirm_clicks):
+        """Clear the project file association after user confirms."""
+        if not confirm_clicks:
+            return (dash.no_update,) * 4
+
+        dash_storage.set_data("workspace", "")
+        dash_storage.set_data("filename", "")
+
+        return (
+            False,
+            [
+                dbc.Alert(
+                    "Closing MAR DSS… If this tab remains open, you may close it manually.",
+                    color="info",
+                    className="mb-3",
+                )
+            ],
+            create_overview_content(),
+            "overview",
+        )
+
+    app.clientside_callback(
+        ClientsideFunction(
+            namespace="clientside",
+            function_name="attemptCloseBrowserTab",
+        ),
+        Output("close-browser-hook", "children"),
+        Input("btn-close-confirm", "n_clicks"),
+        prevent_initial_call=True,
+    )
+
+    # Callback for Save As button - native browse dialog (same pattern as Open)
     @app.callback(
         Output("main-content-flash", "children", allow_duplicate=True),
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),

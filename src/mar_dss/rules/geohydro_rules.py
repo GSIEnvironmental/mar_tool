@@ -426,19 +426,29 @@ def check_topsoil_removable(top_soil_limiting, strat_df):
             return False
     else:
         return None # irrelevant if top soil is not limiting
-def compute_min_gw_depth(limiting_layer, strat_df, d_gw_min):
+def compute_min_gw_depth(limiting_layer, strat_df, d_gw_min, max_mar_storage_depth):
    
     if limiting_layer is None:
         return None # irrelevant for confined aquifer
-    d_gw_min = float(d_gw_min)    
+    d_gw_min = float(d_gw_min)
+    try:
+        max_mar = float(max_mar_storage_depth)
+        if not np.isfinite(max_mar) or max_mar < 0:
+            max_mar = 0.0
+    except (TypeError, ValueError):
+        max_mar = 0.0
+    # Effective operational floor: stricter of rule min and Maximum MAR Storage Depth
+    d_gw_minX = max(d_gw_min, max_mar)
+    
+
     limiting_layer = int(limiting_layer)
     k_min_vadose = strat_df.iloc[limiting_layer]["K"]
     if k_min_vadose >= get_default("k_min_vadose_threshold"):        
-        return d_gw_min
+        return d_gw_minX
     else:
         layer_bottom_depth = strat_df["thickness"].cumsum()
         limiting_layer_bottom_depth = layer_bottom_depth.iloc[limiting_layer]
-        return max(d_gw_min, limiting_layer_bottom_depth)
+        return max(d_gw_minX, limiting_layer_bottom_depth)
 
 
 
@@ -478,69 +488,72 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
     sy_mean = (sy_s.values * sat_thks.values).sum() / sat_thks.values.sum()
 
     dh = avg_gw_depth - op_gw_depth
+    t = 50  # long time for near steady state
+    vol_max_available = float(np.max(source_water_volume) / 30.25)
 
-    t = 50 # long time for near steady state
+    # No allowable mound height: size footprint by vadose K only.
+    if not np.isfinite(dh) or dh <= 0:
+        spread_area = min(vol_max_available / k_min_vadose, max_available_area)
+        return {
+            "spread_area": spread_area,
+            "infl_rate": k_min_vadose,
+            "inf_k_ratio": 1.0,
+        }
 
-    # todo: check if the average is the best way to estimate the spread area.
-    vol_max_available = (np.max(source_water_volume)/30.25)
-    vol_possiblee = vol_max_available
-    spread_area =  vol_max_available / (k_min_vadose)
-    
-    # Iterative calculation to find appropriate spread area
-    max_iterations = 100  # Safety limit
-    iteration = 0
-    spread_area = vol_possiblee / k_min_vadose
-    area = min(spread_area, max_available_area)
-    infl_rate = k_min_vadose
-    while iteration < max_iterations:
-        
-        # infl_rate = compute_recharge_rate(x=0, y=0,
-        #                                  t=t, del_h=dh,
-        #                                  spread_area=area,
-        #                                  k=k_mean,
-        #                                  b=saturated_thickness, 
-        #                                  sy=sy_mean)
+    # Footprint from vadose-limited sizing, capped by available land.
+    spread_area = min(vol_max_available / k_min_vadose, max_available_area)
+    if not np.isfinite(spread_area) or spread_area <= 0:
+        return {
+            "spread_area": 0.0,
+            "infl_rate": k_min_vadose,
+            "inf_k_ratio": 1.0,
+        }
 
-        dh_actual = compute_recharge_mound(x=0, y=0,
-                                         t=t,
-                                         recharge_rate=infl_rate,
-                                         spread_area=area,
-                                         k=k_mean,
-                                         b=saturated_thickness, 
-                                         sy=sy_mean)
-        if dh_actual <= dh:            
+    # Invert Hantush mound for rate at allowable head, then take vadose limit.
+    # try:
+    #     rate_mound_limited = float(
+    #         compute_recharge_rate(
+    #             x=0,
+    #             y=0,
+    #             t=t,
+    #             del_h=dh,
+    #             spread_area=spread_area,
+    #             k=k_min_vadose,
+    #             b=saturated_thickness,
+    #             sy=sy_mean,
+    #         )
+    #     )
+    # except Exception:
+    # rate_mound_limited = k_min_vadose
+
+    # if not np.isfinite(rate_mound_limited) or rate_mound_limited <= 0:
+    #     rate_mound_limited = k_min_vadose
+
+    infl_rate = k_min_vadose * 0.99
+
+    # del_h ∝ sqrt(rate): if numerical mound still exceeds, scale rate down.
+    max_iterations = 50
+    for _ in range(max_iterations):
+        dh_actual = compute_recharge_mound(
+            x=0,
+            y=0,
+            t=t,
+            recharge_rate=infl_rate,
+            spread_area=spread_area,
+            k=k_mean,
+            b=saturated_thickness,
+            sy=sy_mean,
+        )
+        if not np.isfinite(dh_actual) or dh_actual <= dh:
             break
-        else:
-            #vol_possiblee = vol_possiblee * 0.99           
-            infl_rate = infl_rate * 0.95
-                        
-               
-      
-        # vol = spread_area * infl_rate
-        # if (infl_rate < k_min_vadose):  
-        #    if vol<vol_max_available:
-        #         spread_area = spread_area * k_min_vadose/infl_rate
-                
-        #    else:
-        #         spread_area = spread_area * infl_rate/k_min_vadose
-        #    spread_area = min(spread_area, max_available_area)
-        # else:
-        #     # If spread area is too large, reduce it
-        #     spread_area = spread_area * infl_rate/ k_min_vadose 
-        
-            
-            
-        iteration += 1
+        scale = (dh / dh_actual) ** 2
+        infl_rate = max(infl_rate * scale * 0.99, 1e-12)
 
-        # if (infl_rate <= k_min_vadose) and (vol/vol_max_available >= 0.95):
-        #     break
-    
-    # Ensure we don't exceed max available area
-    # if spread_area > max_available_area:
-    #         spread_area = max_available_area
-    # if infl_rate > k_min_vadose:
-    #     infl_rate = k_min_vadose             
-    return {"spread_area": spread_area, "infl_rate": infl_rate, "inf_k_ratio": infl_rate/k_min_vadose}
+    return {
+        "spread_area": spread_area,
+        "infl_rate": infl_rate,
+        "inf_k_ratio": infl_rate / k_min_vadose if k_min_vadose else None,
+    }
 
 def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df, gw_depth, Hmax, confined, unconfined):
     regime = aquifer_inference_regime(strat_df, gw_depth)
@@ -612,6 +625,8 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
 
     # corrected drawdown for unconfined aquifer
     dh_corrected = dh - dh*dh/(2.0*saturated_thickness)
+    if dh_corrected < 0:
+        dh_corrected = 0
     transmissivity = k_mean * saturated_thickness
     Ss = sy_mean * saturated_thickness
     max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=dh_corrected, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)

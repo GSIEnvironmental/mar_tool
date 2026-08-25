@@ -199,7 +199,14 @@
   box-shadow: 0 2px 10px rgba(13, 110, 253, 0.2);
 }
 
-/* Deactivate all UI tooltips (Bootstrap, sliders, tables, maps). */
+.mar-file-toolbar .btn {
+  min-width: 5.5rem;
+}
+
+.mar-file-toolbar .btn-group > .btn + .btn {
+  margin-left: 0;
+}
+
 .tooltip,
 .popover,
 .rc-slider-tooltip,

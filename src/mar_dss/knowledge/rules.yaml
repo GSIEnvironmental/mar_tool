@@ -185,7 +185,7 @@ rules:
     type: numeric
     module: "geohydro_rules"
     function_name: "compute_min_gw_depth"
-    dependencies: [limiting_layer, strat_df, d_gw_min]
+    dependencies: [limiting_layer, strat_df, d_gw_min, max_mar_storage_depth]
     certainty: 1.0
     group: "Constraints"
     leaf: false

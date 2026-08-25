@@ -154,37 +154,82 @@ def _build_title_block() -> html.Div:
     )
 
 
-def _build_action_buttons() -> dbc.ButtonGroup:
-    return dbc.ButtonGroup(
+def _build_file_toolbar() -> html.Div:
+    """Desktop-style file commands in one row (Open/Save As use native file dialogs)."""
+    return html.Div(
+        dbc.ButtonGroup(
+            [
+                dbc.Button(
+                    [html.I(className="fas fa-file me-1"), "New"],
+                    id="btn-new",
+                    color="outline-secondary",
+                    size="sm",
+                    title="Start a new project with default values",
+                ),
+                dbc.Button(
+                    [html.I(className="fas fa-folder-open me-1"), "Open"],
+                    id="btn-open",
+                    color="outline-secondary",
+                    size="sm",
+                    title="Browse for a CSV/JSON project file to open",
+                ),
+                dbc.Button(
+                    [html.I(className="fas fa-times me-1"), "Close"],
+                    id="btn-close",
+                    color="outline-secondary",
+                    size="sm",
+                    title="Close MAR DSS (attempts to close this browser tab)",
+                ),
+                dbc.Button(
+                    [html.I(className="fas fa-save me-1"), "Save"],
+                    id="btn-save",
+                    color="outline-secondary",
+                    size="sm",
+                    title="Save to the project file path (or browse if path is empty)",
+                ),
+                dbc.Button(
+                    [html.I(className="fas fa-file-export me-1"), "Save As..."],
+                    id="btn-save-as",
+                    color="outline-secondary",
+                    size="sm",
+                    title="Browse for a location and file name to save the project",
+                ),
+            ],
+            size="sm",
+        ),
+        className="mar-file-toolbar mt-2",
+    )
+
+
+def _build_close_project_modal() -> dbc.Modal:
+    return dbc.Modal(
         [
-            dbc.Button(
-                [html.I(className=("fas fa-save me-1")), "Save"],
-                id="btn-save",
-                color=("outline-success"),
-                size="sm",
-                className="me-1",
-                style={"padding": "4px 8px"},
-                title="Save the current project to the workspace path and filename",
+            dbc.ModalHeader(dbc.ModalTitle("Close MAR DSS")),
+            dbc.ModalBody(
+                "Close MAR DSS? This will try to close this browser tab. "
+                "If your browser blocks that, the page will show a closed message "
+                "and you can close the tab manually."
             ),
-            dbc.Button(
-                [html.I(className="fas fa-file-export me-1"), "Save As"],
-                id="btn-save-as",
-                color="outline-success",
-                size="sm",
-                className="me-1",
-                style={"padding": "4px 8px"},
-                title="Browse for a location and file name to save the project",
-            ),
-            dbc.Button(
-                [html.I(className=("fas fa-plus me-1")), "New"],
-                id="btn-new",
-                color="outline-info",
-                size="sm",
-                style={"padding": "4px 8px"},
-                title="Start a new project (clear inputs depending on app logic)",
+            dbc.ModalFooter(
+                [
+                    dbc.Button(
+                        "Cancel",
+                        id="btn-close-cancel",
+                        color="secondary",
+                        n_clicks=0,
+                    ),
+                    dbc.Button(
+                        "Close",
+                        id="btn-close-confirm",
+                        color="primary",
+                        n_clicks=0,
+                    ),
+                ]
             ),
         ],
-        className="mb-1",
+        id="close-project-modal",
+        is_open=False,
+        centered=True,
     )
 
 
@@ -232,7 +277,7 @@ def _build_header() -> dbc.Row:
             dbc.Col(
                 [
                     html.Div(
-                        [_build_title_block(), _build_action_buttons()],
+                        [_build_title_block(), _build_file_toolbar()],
                         className="position-relative",
                     ),
                     html.Hr(className="my-2"),
@@ -572,6 +617,8 @@ def _build_root_layout() -> html.Div:
                 storage_type="memory",
             ),
             dcc.Store(id="peak-runoff-engineering-sync", data=None),
+            html.Div(id="close-browser-hook", style={"display": "none"}),
+            _build_close_project_modal(),
         ]
     )
 

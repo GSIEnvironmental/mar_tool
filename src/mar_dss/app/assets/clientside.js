@@ -127,6 +127,26 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
       return window.dash_clientside.no_update;
     },
 
+    attemptCloseBrowserTab: function(n_clicks) {
+      if (!n_clicks) {
+        return window.dash_clientside.no_update;
+      }
+      try {
+        window.open("", "_self");
+        window.close();
+      } catch (eClose) {}
+      setTimeout(function () {
+        if (!window.closed) {
+          document.body.innerHTML =
+            '<div style="font-family:Segoe UI,sans-serif;padding:3rem;text-align:center;">' +
+            "<h2>MAR DSS closed</h2>" +
+            "<p>You may close this browser tab.</p>" +
+            "</div>";
+        }
+      }, 250);
+      return window.dash_clientside.no_update;
+    },
+
     disableAllTooltips: function() {
       disableAllTooltipsInDocument();
       return window.dash_clientside.no_update;
