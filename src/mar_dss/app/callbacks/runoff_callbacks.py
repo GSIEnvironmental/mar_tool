@@ -1242,6 +1242,45 @@ def setup_runoff_callbacks(app):
                 pass
         
         return current_value
+
+    @app.callback(
+        Output("runoff-single-storm-latitude", "value", allow_duplicate=True),
+        Output("runoff-single-storm-longitude", "value", allow_duplicate=True),
+        Output("runoff-single-storm-latitude", "readonly"),
+        Output("runoff-single-storm-longitude", "readonly"),
+        Input("use-site-coordinates-for-runoff-check", "value"),
+        prevent_initial_call="initial_duplicate",
+    )
+    def apply_site_coordinates_to_runoff_latlon(use_site):
+        """Fill Step 2 lat/lon from Water Source Source Site when checkbox is checked."""
+        use_site = bool(use_site)
+        dash_storage.set_data("use_site_coords_for_runoff", use_site)
+        if not use_site:
+            return dash.no_update, dash.no_update, False, False
+
+        try:
+            from mar_dss.app.components.water_source_tab import (
+                ensure_water_source_site_coordinates,
+            )
+        except ImportError:
+            from ..components.water_source_tab import (
+                ensure_water_source_site_coordinates,
+            )
+
+        slat, slon, _, _ = ensure_water_source_site_coordinates()
+        dash_storage.set_data("runoff_single_storm_latitude", slat)
+        dash_storage.set_data("runoff_single_storm_longitude", slon)
+        return float(slat), float(slon), True, True
+
+    _RAIN_STATS_UNAVAILABLE_MSG = (
+        "No Rain Statistics is available. If the site is outside the USA, "
+        "the rain statistics must be entered manually."
+    )
+
+    def _rain_stats_unavailable_alert():
+        return dbc.Alert(
+            _RAIN_STATS_UNAVAILABLE_MSG, color="warning", className="mb-0"
+        )
     
     # Callback to save rain events per month to data storage
     @app.callback(
@@ -1294,7 +1333,7 @@ def setup_runoff_callbacks(app):
     def _create_rain_statistics_display(df_rain):
         """Create the rain statistics table display component."""
         if df_rain is None or df_rain.empty:
-            return html.P("No rain statistics data available.", className="text-warning")
+            return _rain_stats_unavailable_alert()
         
         # Create rain statistics table
         rain_statistics_table = dash_table.DataTable(
@@ -1373,6 +1412,7 @@ def setup_runoff_callbacks(app):
     # Callback for "Download Rain Statistics" button in Runoff for Single Storm card
     @app.callback(
         Output('rain-statistics-table-placeholder', 'children', allow_duplicate=True),
+        Output('rain-statistics-download-message', 'children'),
         Input('download-rain-statistics-btn', 'n_clicks'),
         [State('runoff-single-storm-latitude', 'value'),
          State('runoff-single-storm-longitude', 'value')],
@@ -1386,20 +1426,20 @@ def setup_runoff_callbacks(app):
                 df_rain = get_rain_data(lat, lon)
                 
                 if df_rain is None or df_rain.empty:
-                    return html.P("No rain statistics data available.", className="text-warning")
+                    return html.Div(), _rain_stats_unavailable_alert()
                 
                 # Save to data storage
                 rain_data_dict = df_rain.to_dict('records')
                 dash_storage.set_data("rain_statistics_table", rain_data_dict)
                 
                 # Create and return display
-                return _create_rain_statistics_display(df_rain)
+                return _create_rain_statistics_display(df_rain), html.Div()
                 
             except Exception as e:
                 print(f"Error downloading rain statistics: {e}")
-                return html.P(f"Error downloading rain statistics: {str(e)}", className="text-danger")
+                return html.Div(), _rain_stats_unavailable_alert()
         
-        return dash.no_update
+        return dash.no_update, dash.no_update
 
     # Helper function to create monthly runoff display
     def _create_monthly_runoff_display(monthly_rain):

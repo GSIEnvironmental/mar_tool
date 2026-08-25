@@ -1094,6 +1094,10 @@ def create_water_source_info_tab():
                                     [
                                         html.P(
                                             "Total monthly volume potentially available for MAR",
+                                            className="text-muted fs-6 mb-1",
+                                        ),
+                                        html.P(
+                                            "Runoff calculator in the following section can be used to estimate available surface water.",
                                             className="text-muted fs-6 mb-3",
                                         ),
                                         dbc.Row(

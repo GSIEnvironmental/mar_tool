@@ -426,8 +426,8 @@ def create_curve_number_tab():
                                                 value=38.5816,
                                                 debounce=True,
                                                 placeholder="Enter latitude",
-                                                className="mb-3"
-                                            )
+                                                className="mb-2",
+                                            ),
                                         ], width=6),
                                         dbc.Col([
                                             html.Label("Longitude:", className="fw-bold mb-2"),
@@ -437,10 +437,20 @@ def create_curve_number_tab():
                                                 value=-121.4944,
                                                 debounce=True,
                                                 placeholder="Enter longitude",
-                                                className="mb-3"
-                                            )
-                                        ], width=6)
+                                                className="mb-2",
+                                            ),
+                                        ], width=6),
                                     ]),
+                                    dbc.Checkbox(
+                                        id="use-site-coordinates-for-runoff-check",
+                                        label="Use site coordinates (Source Site from Water Source map)",
+                                        value=bool(
+                                            dash_storage.get_data(
+                                                "use_site_coords_for_runoff"
+                                            )
+                                        ),
+                                        className="mb-3",
+                                    ),
                                     dbc.Button(
                                         "Download Rain Statistics",
                                         id="download-rain-statistics-btn",
@@ -448,6 +458,7 @@ def create_curve_number_tab():
                                         className="mb-3",
                                         title="Fetch NOAA precipitation statistics for the coordinates entered",
                                     ),
+                                    html.Div(id="rain-statistics-download-message", className="mb-2"),
                                     html.Div(id="runoff-calculations-content", className="mt-3"),
                                     dbc.Row([
                                         dbc.Col([
@@ -552,6 +563,11 @@ def create_curve_number_tab():
         dbc.Tooltip(
             "Choose how impervious drainage connects to the storm system (affects composite CN)",
             target="impervious-outlet-option",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "When checked, Latitude/Longitude are filled from the Water Source Source Site marker",
+            target="use-site-coordinates-for-runoff-check",
             placement="top",
         ),
         dbc.Tooltip(
