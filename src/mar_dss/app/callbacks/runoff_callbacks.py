@@ -380,6 +380,27 @@ def setup_runoff_callbacks(app):
         prevent_initial_call=True,
     )
 
+    @app.callback(
+        Output("curve-number-selection-modal", "is_open"),
+        [
+            Input("open-curve-number-modal-btn", "n_clicks"),
+            Input("curve-number-modal-done-btn", "n_clicks"),
+        ],
+        State("curve-number-selection-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_curve_number_selection_modal(open_clicks, done_clicks, is_open):
+        """Open or close the Select Curve Number popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "open-curve-number-modal-btn":
+            return True
+        if trigger == "curve-number-modal-done-btn":
+            return False
+        return bool(is_open)
+
     # Callback 1: Handle map clicks to update coordinates (exact same as open3.py)
     @app.callback(
         [Output('selected-latitude', 'value'),

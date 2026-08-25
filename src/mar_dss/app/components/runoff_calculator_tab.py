@@ -265,6 +265,40 @@ def create_cover_soil_curve_number_content():
     ])
 
 
+def create_curve_number_selection_modal():
+    """Modal with impervious + pervious curve number selectors."""
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Select Curve Numbers"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                dbc.Row(
+                    [
+                        dbc.Col(create_impervious_curve_number_content(), md=6, className="mb-3 mb-md-0"),
+                        dbc.Col(create_cover_soil_curve_number_content(), md=6),
+                    ]
+                )
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Done",
+                    id="curve-number-modal-done-btn",
+                    color="primary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="curve-number-selection-modal",
+        is_open=False,
+        size="xl",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
 def create_results_card():
     """Create the runoff calculation results card component with tabs."""
     return dbc.Card([
@@ -383,10 +417,27 @@ def create_curve_number_tab():
                                             label_class_name="runoff-outlet-radio-label",
                                             label_checked_class_name="runoff-outlet-radio-label-checked",
                                         ),
-                                        className="runoff-outlet-radio-group-wrapper mb-4",
+                                        className="runoff-outlet-radio-group-wrapper mb-3",
                                     ),
-                                    html.Div(id="composite-cn-table", className="mt-3"),
-                                    dcc.Store(id="composite-cn-table-store", data=None)
+                                    html.P(
+                                        [
+                                            "Enter curve number values directly in the table below, ",
+                                            "or use typical values from ",
+                                            html.Strong("Select Curve Numbers"),
+                                            ".",
+                                        ],
+                                        className="text-muted small mb-2",
+                                    ),
+                                    dbc.Button(
+                                        "Select Curve Numbers",
+                                        id="open-curve-number-modal-btn",
+                                        color="primary",
+                                        className="mb-3",
+                                        title="Choose typical impervious and pervious curve number values",
+                                    ),
+                                    html.Div(id="composite-cn-table", className="mt-0"),
+                                    dcc.Store(id="composite-cn-table-store", data=None),
+                                    create_curve_number_selection_modal(),
                                 ], width=6),
                                 dbc.Col([
                                     html.Img(
@@ -398,14 +449,6 @@ def create_curve_number_tab():
                             ])
                         ])
                     ], className="mt-4 mb-4"),
-                    dbc.Row([
-                        dbc.Col([
-                            create_impervious_curve_number_content()
-                        ], width=6),
-                        dbc.Col([
-                            create_cover_soil_curve_number_content()
-                        ], width=6)
-                    ]),
                     dbc.Row([
                         dbc.Col([
                             dbc.Card([
@@ -565,6 +608,11 @@ def create_curve_number_tab():
                             ])
                         ], width=12)
                     ], className="mt-4"),
+        dbc.Tooltip(
+            "Open typical impervious and pervious curve number selectors",
+            target="open-curve-number-modal-btn",
+            placement="top",
+        ),
         dbc.Tooltip(
             "Choose how impervious drainage connects to the storm system (affects composite CN)",
             target="impervious-outlet-option",
