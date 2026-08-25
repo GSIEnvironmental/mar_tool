@@ -27,6 +27,23 @@ except ImportError:
 df = pd.DataFrame()
 
 
+def _download_progress_banner(message):
+    """Spinner + message shown while streams/watershed downloads run."""
+    return dbc.Alert(
+        [
+            dbc.Spinner(
+                size="sm",
+                color="primary",
+                type="border",
+                spinner_class_name="me-2",
+            ),
+            html.Strong(message),
+        ],
+        color="info",
+        className="py-2 mb-0 d-flex align-items-center",
+    )
+
+
 def _compute_composite_cn_rows(table_data, selected_option):
     """Fill Composite CN on a Parameter/Value row list; returns updated copy."""
     updated = [row.copy() for row in (table_data or [])]
@@ -527,15 +544,19 @@ def setup_runoff_callbacks(app):
         [Input('obtain-streams-btn', 'n_clicks')],
         [State('selected-latitude', 'value'),
          State('selected-longitude', 'value')],
-        prevent_initial_call=True
+        prevent_initial_call=True,
+        running=[
+            (
+                Output('status-message', 'children'),
+                _download_progress_banner("Downloading nearby stream information…"),
+                html.Div(""),
+            ),
+            (Output('obtain-streams-btn', 'disabled'), True, False),
+        ],
     )
     def update_streams(n_clicks, lat, lon):
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
             print(f"Searching streams for: {lat}, {lon}")
-            
-            # Show working message first
-            working_msg = html.Div("Working on obtaining nearby streams...", 
-                                  className="alert alert-info", role="alert")
             
             # The distance is set in the function call to 16093 meters (approx 10 miles)
             streams = get_streams_near_point(lat, lon) 
@@ -559,35 +580,24 @@ def setup_runoff_callbacks(app):
     @app.callback(
         [Output('watershed-layer', 'children'),
          Output('watershed-info-content', 'children'),
-         Output('rain-info-content', 'children'),
          Output('status-message', 'children', allow_duplicate=True)],
         [Input('get-watershed-btn', 'n_clicks')],
         [State('selected-latitude', 'value'),
          State('selected-longitude', 'value')],
-        prevent_initial_call=True
+        prevent_initial_call=True,
+        running=[
+            (
+                Output('status-message', 'children', allow_duplicate=True),
+                _download_progress_banner("Downloading watershed information…"),
+                html.Div(""),
+            ),
+            (Output('get-watershed-btn', 'disabled'), True, False),
+        ],
     )
     def get_watershed_info(n_clicks, lat, lon):
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
             print(f"Getting watershed info for: {lat}, {lon}")
             
-            # Show working message first
-            working_msg = html.Div("Working on obtaining watershed info...", 
-                                  className="alert alert-info", role="alert")
-            
-            # Get rain data
-            df_rain = None
-            monthly_rain = None
-            rain_table = None
-            monthly_rain_content = None
-            try:
-                df_rain = get_rain_data(lat, lon)
-            except Exception as e:
-                print(f"Error getting rain data: {e}")
-            try:
-                monthly_rain = get_monthly_rain(lat, lon)
-            except Exception as e:
-                print(f"Error getting monthly rain data: {e}")
-                monthly_rain_content = html.P(f"Error getting monthly rain data: {str(e)}", className="text-danger")
             # Get watershed data for the map
             try:
                 region = _get_state_from_coords(lat, lon)
@@ -661,160 +671,18 @@ def setup_runoff_callbacks(app):
                     print(f"Error creating watershed table: {table_error}")
                     watershed_table = html.P(f"Error creating table: {str(table_error)}", className="text-danger")
                 
-                # Generate monthly rain content (table and chart) with error handling
-                if monthly_rain_content is None:
-                    try:
-                        if monthly_rain is None or monthly_rain.empty:
-                            print("Monthly rain DataFrame is empty or None!")
-                            monthly_rain_content = html.P("No monthly rain data available.", className="text-warning")
-                        else:
-                            # Create monthly rain table
-                            monthly_rain_table = dash_table.DataTable(
-                                data=monthly_rain.to_dict('records'),
-                                columns=[{"name": i, "id": i} for i in monthly_rain.columns],
-                                style_cell={
-                                    'textAlign': 'left',
-                                    'padding': '10px',
-                                    'fontFamily': 'Arial, sans-serif',
-                                    'fontSize': '14px',
-                                    'border': '1px solid #ddd'
-                                },
-                                style_header={
-                                    'backgroundColor': '#f8f9fa',
-                                    'fontWeight': 'bold',
-                                    'border': '1px solid #ddd'
-                                },
-                                style_data={
-                                    'backgroundColor': 'white',
-                                    'border': '1px solid #ddd'
-                                },
-                                style_data_conditional=[
-                                    {
-                                        'if': {'row_index': 'odd'},
-                                        'backgroundColor': '#f8f9fa'
-                                    }
-                                ],
-                                page_size=len(monthly_rain),
-                                sort_action="native",
-                                filter_action="native",
-                                export_format="csv"
-                            )
-                            
-                            # Create bar chart for monthly rain
-                            fig = go.Figure(data=[
-                                go.Bar(
-                                    x=monthly_rain['Month'],
-                                    y=monthly_rain['Rain (inches)'],
-                                    marker_color='steelblue',
-                                    text=monthly_rain['Rain (inches)'].round(2),
-                                    textposition='outside'
-                                )
-                            ])
-                            fig.update_layout(
-                                title='Monthly Average Precipitation',
-                                xaxis_title='Month',
-                                yaxis_title='Rain (inches)',
-                                xaxis={'tickangle': -45},
-                                height=400,
-                                margin=dict(l=50, r=50, t=50, b=100)
-                            )
-                            monthly_rain_chart = dcc.Graph(figure=fig)
-                            
-                            # Create card with table and chart side by side
-                            monthly_rain_content = dbc.Card([
-                                dbc.CardHeader("Monthly Average Precipitation", className="fw-bold bg-primary text-white"),
-                                dbc.CardBody([
-                                    dbc.Row([
-                                        dbc.Col([monthly_rain_table], width=6),
-                                        dbc.Col([monthly_rain_chart], width=6)
-                                    ])
-                                ])
-                            ], className="mb-4")
-                    except Exception as monthly_error:
-                        print(f"Error creating monthly rain content: {monthly_error}")
-                        monthly_rain_content = html.P(f"Error creating monthly rain content: {str(monthly_error)}", className="text-danger")
-                
-                # Generate precipitation frequency table (df_rain) with error handling
-                try:
-                    if df_rain is None or df_rain.empty:
-                        print("Rain DataFrame is empty or None!")
-                        df_rain_table = html.P("No precipitation frequency data available.", className="text-warning")
-                    else:
-                        df_rain_table = dash_table.DataTable(
-                            data=df_rain.to_dict('records'),
-                            columns=[{"name": i, "id": i} for i in df_rain.columns],
-                            style_cell={
-                                'textAlign': 'left',
-                                'padding': '10px',
-                                'fontFamily': 'Arial, sans-serif',
-                                'fontSize': '14px',
-                                'border': '1px solid #ddd'
-                            },
-                            style_header={
-                                'backgroundColor': '#f8f9fa',
-                                'fontWeight': 'bold',
-                                'border': '1px solid #ddd'
-                            },
-                            style_data={
-                                'backgroundColor': 'white',
-                                'border': '1px solid #ddd'
-                            },
-                            style_data_conditional=[
-                                {
-                                    'if': {'row_index': 'odd'},
-                                    'backgroundColor': '#f8f9fa'
-                                }
-                            ],
-                            page_size=len(df_rain),  # Show all rows on one page
-                            sort_action="native",
-                            filter_action="native",
-                            export_format="csv"
-                        )
-                except Exception as rain_table_error:
-                    print(f"Error creating rain table: {rain_table_error}")
-                    df_rain_table = html.P(f"Error creating rain table: {str(rain_table_error)}", className="text-danger")
-                
-                # Create card for precipitation frequency table
-                df_rain_card = dbc.Card([
-                    dbc.CardHeader("Precipitation Frequency Estimates (NOAA Atlas 14).  Precipitation is in inches.", className="fw-bold bg-primary text-white"),
-                    dbc.CardBody([
-                        html.Small(
-                            "Note: The Annual Recurrence Interval (ARI), also known as the return period, is the average time interval between rainfall events of a given magnitude or greater. For example: An ARI of 100 years means that, on average, a precipitation event of that magnitude (e.g., 5.38 inches over 24-hr) or greater has a 1% chance (1/100) of being equaled or exceeded in any given year.",
-                            className="text-muted d-block mb-2"
-                        ),
-                        df_rain_table
-                    ])
-                ])
-                
-                # Combine monthly rain content and df_rain card
-                rain_info_content = html.Div([
-                    monthly_rain_content if monthly_rain_content else html.P("No monthly rain data available.", className="text-warning"),
-                    df_rain_card
-                ])
-                
                 print(f"Watershed table generated with {len(df)} rows")
-                if df_rain is not None:
-                    print(f"Rain table generated with {len(df_rain)} rows")
-                if monthly_rain is not None:
-                    print(f"Monthly rain table generated with {len(monthly_rain)} rows")
                 
                 # Show completion message
                 done_msg = html.Div("Done!", className="alert alert-success", role="alert")
-                return [watershed_layer], watershed_table, rain_info_content, done_msg
+                return [watershed_layer], watershed_table, done_msg
                 
             except Exception as e:
                 print(f"Error getting watershed data: {e}")
                 error_msg = html.Div("Error getting watershed data", className="alert alert-danger", role="alert")
-                # Create default rain info content
-                default_rain_content = html.Div([
-                    html.P("No data available.", className="text-warning")
-                ])
-                return [], html.P(f"Error getting watershed data: {str(e)}", className="text-danger"), default_rain_content, error_msg
+                return [], html.P(f"Error getting watershed data: {str(e)}", className="text-danger"), error_msg
         
-        default_rain_content = html.Div([
-            html.P("Click 'Get Watershed Info' to retrieve rain data.", className="text-muted")
-        ])
-        return [], html.Div("Click 'Get Watershed Info' to retrieve watershed data."), default_rain_content, html.Div("")
+        return [], html.Div("Click 'Get Watershed Info' to retrieve watershed data."), html.Div("")
 
     # Callback to save impervious outlet option (1A/1B) to data storage
     @app.callback(

@@ -139,13 +139,6 @@ def create_action_buttons():
             className="mb-3",
             title="Retrieve watershed boundaries and attributes for the area",
         ),
-        dbc.Button(
-            "Calculate Runoff",
-            id="calculate-runoff-btn",
-            color="primary",
-            className="me-2",
-            title="Run runoff estimates using current watershed and CN inputs",
-        ),
     ]
 
 
@@ -155,7 +148,13 @@ def create_controls_card():
         dbc.CardHeader("Analysis Controls", className="fw-bold bg-primary text-white"),
         dbc.CardBody([
             *create_action_buttons(),
-            html.Div(id="status-message", className="mt-3 mb-3"),
+            dcc.Loading(
+                id="watershed-action-loading",
+                type="circle",
+                color="#0d6efd",
+                parent_style={"minHeight": "48px"},
+                children=html.Div(id="status-message", className="mt-3 mb-3"),
+            ),
             html.Hr(),
             *create_coordinate_inputs(),
             html.Hr(),
@@ -300,47 +299,18 @@ def create_curve_number_selection_modal():
 
 
 def create_results_card():
-    """Create the runoff calculation results card component with tabs."""
+    """Create the watershed information results card."""
     return dbc.Card([
-        dbc.CardHeader("Runoff Calculation Results", className="fw-bold bg-primary text-white"),
+        dbc.CardHeader("Watershed Information", className="fw-bold bg-primary text-white"),
         dbc.CardBody([
-            html.Div(
-                [
-                    dbc.Tabs(
-                        [
-                            dbc.Tab(
-                                label="Watershed Info", id=tab_nav_id("watershed-tab"),
-                                tab_id="watershed-tab",
-                                children=[
-                                    html.Div(
-                                        id="watershed-info-content",
-                                        style={"minHeight": "400px", "overflow": "auto"},
-                                    )
-                                ],
-                            ),
-                            dbc.Tab(
-                                label="Rain Information", id=tab_nav_id("rain-tab"),
-                                tab_id="rain-tab",
-                                children=[
-                                    html.Div(
-                                        id="rain-info-content",
-                                        style={"minHeight": "400px", "overflow": "auto"},
-                                    )
-                                ],
-                            ),
-                        ],
-                        id="results-tabs",
-                        active_tab="watershed-tab",
-                    ),
-                    tab_tooltip(
-                        "watershed-tab",
-                        "Watershed area, land cover, and curve number summary",
-                    ),
-                    tab_tooltip(
-                        "rain-tab",
-                        "Rainfall intensity, duration, and precipitation inputs",
-                    ),
-                ]
+            dcc.Loading(
+                id="watershed-info-loading",
+                type="circle",
+                color="#0d6efd",
+                children=html.Div(
+                    id="watershed-info-content",
+                    style={"minHeight": "400px", "overflow": "auto"},
+                ),
             )
         ])
     ], style={'minHeight': '500px'})
