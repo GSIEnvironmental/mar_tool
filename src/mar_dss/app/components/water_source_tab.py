@@ -9,8 +9,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import requests
-from dash import dcc, dash_table, html
-from dash.dash_table.Format import Format, Scheme
+from dash import dcc, html
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 from .runoff_calculator_tab import create_runoff_calculator_tab, create_curve_number_tab
@@ -633,47 +632,80 @@ def flow_dicts_equal(a, b):
     return True
 
 
+def flow_dict_from_input_values(values, ids):
+    """Month→flow dict from pattern-matching monthly-flow-input values/ids."""
+    flow_data = {month: 0.0 for month in FLOW_MONTHS}
+    if not values or not ids:
+        return flow_data
+    for id_dict, raw in zip(ids, values):
+        if not isinstance(id_dict, dict):
+            continue
+        month = id_dict.get("month")
+        if month not in flow_data:
+            continue
+        try:
+            flow_data[month] = float(raw) if raw is not None else 0.0
+        except (TypeError, ValueError):
+            flow_data[month] = 0.0
+    return flow_data
+
+
 def _get_flow_store_data():
     """Get flow data in dictionary format for flow-data-store from dash_storage."""
     return flow_dict_from_list(dash_storage.get_data("monthly_flow"))
 
 
 def create_editable_flow_table(flow_data=None):
-    """Create an editable table for monthly flow data (stable component; do not remount)."""
-    records = flow_records_from_dict(flow_data)
-    return dash_table.DataTable(
+    """Excel-like monthly flow editor: values commit on blur (no Enter required)."""
+    if flow_data:
+        monthly_flows = [
+            float(flow_data.get(month, 0) or 0) for month in FLOW_MONTHS
+        ]
+    else:
+        monthly_flows = _normalize_monthly_flows(dash_storage.get_data("monthly_flow"))
+
+    rows = [
+        html.Tr(
+            [
+                html.Th("Month", className="text-center text-white py-2 px-2"),
+                html.Th("Flow (ft³/month)", className="text-center text-white py-2 px-2"),
+            ],
+            style={"backgroundColor": "#28a745"},
+        )
+    ]
+    for i, (month, flow) in enumerate(zip(FLOW_MONTHS, monthly_flows)):
+        rows.append(
+            html.Tr(
+                [
+                    html.Td(
+                        month,
+                        className="text-center align-middle fw-semibold py-1 px-2",
+                    ),
+                    html.Td(
+                        dbc.Input(
+                            id={"type": "monthly-flow-input", "month": month},
+                            type="number",
+                            value=flow,
+                            min=0,
+                            step=1,
+                            debounce=True,
+                            size="sm",
+                            className="text-center table-cell-input-borderless monthly-flow-input-borderless",
+                        ),
+                        className="text-center py-0 px-1 align-middle",
+                    ),
+                ],
+                style={"backgroundColor": "#f8f9fa" if i % 2 else "white"},
+            )
+        )
+
+    return html.Div(
+        html.Table(
+            rows,
+            className="table table-sm table-bordered mb-0",
+            style={"width": "300px", "maxWidth": "300px", "backgroundColor": "white"},
+        ),
         id="flow-data-table",
-        data=records,
-        columns=[
-            {"name": "Month", "id": "Month", "type": "text", "editable": False},
-            {
-                "name": FLOW_VALUE_COL,
-                "id": FLOW_VALUE_COL,
-                "type": "numeric",
-                "editable": True,
-                "format": Format(precision=1, scheme=Scheme.fixed),
-            },
-        ],
-        style_cell={
-            "textAlign": "center",
-            "padding": "8px",
-            "fontFamily": "Arial, sans-serif",
-            "fontSize": "14px",
-        },
-        style_header={
-            "backgroundColor": "#28a745",
-            "color": "white",
-            "fontWeight": "bold",
-        },
-        style_data={"backgroundColor": "white", "color": "black"},
-        style_data_conditional=[
-            {"if": {"row_index": "odd"}, "backgroundColor": "#f8f9fa"}
-        ],
-        editable=True,
-        row_deletable=False,
-        sort_action="none",
-        filter_action="none",
-        style_table={"width": "300px", "maxWidth": "300px"},
     )
 
 
@@ -1099,7 +1131,7 @@ def create_water_source_info_tab():
                                             ]
                                         ),
                                         dbc.Tooltip(
-                                            "Edit monthly flows (ft³/month); values feed charts and saved project data",
+                                            "Edit a cell and click away (or Tab); value saves without pressing Enter",
                                             target="flow-data-table",
                                             placement="top",
                                         ),

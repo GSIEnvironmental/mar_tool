@@ -6,7 +6,6 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from dash import dcc, html
 import dash_leaflet as dl
-from dash import dash_table
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
@@ -387,18 +386,6 @@ def create_curve_number_tab():
                                         className="runoff-outlet-radio-group-wrapper mb-4",
                                     ),
                                     html.Div(id="composite-cn-table", className="mt-3"),
-                                    html.Div(
-                                        dash_table.DataTable(
-                                            id="composite-cn-datatable",
-                                            data=[],
-                                            columns=[
-                                                {"name": "Parameter", "id": "Parameter", "editable": False},
-                                                {"name": "Value", "id": "Value", "editable": True, "type": "numeric"}
-                                            ]
-                                        ),
-                                        style={"display": "none"},
-                                        id="composite-cn-datatable-wrapper"
-                                    ),
                                     dcc.Store(id="composite-cn-table-store", data=None)
                                 ], width=6),
                                 dbc.Col([
@@ -465,45 +452,11 @@ def create_curve_number_tab():
                                     dbc.Row([
                                         dbc.Col([
                                             html.H6("Runoff Calculations", className="fw-bold mb-2"),
-                                            dash_table.DataTable(
+                                            dcc.Store(
                                                 id="runoff-calculations-table",
                                                 data=_get_runoff_calculations_data(),
-                                                columns=[
-                                                    {"name": "Parameter", "id": "Parameter", "editable": False},
-                                                    {"name": "Value", "id": "Value", "editable": True, "type": "numeric"}
-                                                ],
-                                                style_cell={
-                                                    'textAlign': 'left',
-                                                    'padding': '10px',
-                                                    'fontFamily': 'Arial, sans-serif',
-                                                    'fontSize': '14px',
-                                                    'border': '1px solid #4a90e2',
-                                                    'backgroundColor': '#e8f4f8'
-                                                },
-                                                style_header={
-                                                    'backgroundColor': '#2c5aa0',
-                                                    'color': 'white',
-                                                    'fontWeight': 'bold',
-                                                    'border': '1px solid #1a3d6b',
-                                                    'textAlign': 'center'
-                                                },
-                                                style_data={
-                                                    'backgroundColor': '#f0f8ff',
-                                                    'border': '1px solid #4a90e2',
-                                                    'color': '#1a1a1a'
-                                                },
-                                                style_data_conditional=[
-                                                    {
-                                                        'if': {'row_index': 'odd'},
-                                                        'backgroundColor': '#d6e9f5'
-                                                    },
-                                                    {
-                                                        'if': {'column_id': 'Parameter'},
-                                                        'backgroundColor': '#b8d4e3',
-                                                        'fontWeight': 'bold'
-                                                    }
-                                                ]
                                             ),
+                                            html.Div(id="runoff-calculations-table-view"),
                                             html.Div(
                                                 [
                                                     html.P(

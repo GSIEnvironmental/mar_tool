@@ -247,3 +247,55 @@
   border-top-color: var(--bs-body-color, #212529) !important;
 }
 
+/* Excel-like tables: hide input/select chrome inside table cells */
+table .table-cell-input-borderless,
+table .form-control.table-cell-input-borderless,
+.table .table-cell-input-borderless,
+.excel-cell-table .form-control,
+.excel-cell-table .form-select,
+#flow-data-table .form-control,
+#stratigraphy-table-body .form-control,
+#stratigraphy-table-body .form-select,
+#groundwater-table-body .form-control,
+#runoff-calculations-table-view .form-control,
+#composite-cn-table .form-control {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+table .table-cell-input-borderless:hover,
+.excel-cell-table .form-control:hover,
+.excel-cell-table .form-select:hover,
+#flow-data-table .form-control:hover,
+#stratigraphy-table-body .form-control:hover,
+#stratigraphy-table-body .form-select:hover,
+#groundwater-table-body .form-control:hover,
+#runoff-calculations-table-view .form-control:hover,
+#composite-cn-table .form-control:hover {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+table .table-cell-input-borderless:focus,
+.excel-cell-table .form-control:focus,
+.excel-cell-table .form-select:focus,
+#flow-data-table .form-control:focus,
+#stratigraphy-table-body .form-control:focus,
+#stratigraphy-table-body .form-select:focus,
+#groundwater-table-body .form-control:focus,
+#runoff-calculations-table-view .form-control:focus,
+#composite-cn-table .form-control:focus {
+  border-color: transparent !important;
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35) !important;
+  outline: none !important;
+}
+

@@ -3,20 +3,20 @@ Callbacks for the Runoff Calculator tab.
 """
 import os
 import dash
-from dash import Input, Output, html, no_update, State, dcc
+from dash import Input, Output, html, no_update, State, dcc, ALL, dash_table
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import pandas as pd
 import osmnx as ox
 import geopandas as gpd
 import json
-from dash import dash_table
 from mar_dss.pfdf.data.noaa.atlas14 import download
 import requests
 import numpy as np
 import plotly.graph_objects as go
 from scipy.special import exp1
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import build_param_value_table, rows_from_param_inputs
 from mar_dss.app.utils.tab_tooltips import TOOLTIPS_ENABLED
 
 
@@ -25,6 +25,127 @@ try:
 except ImportError:
     from ..components.runoff_calculator_tab import create_runoff_map
 df = pd.DataFrame()
+
+
+def _compute_composite_cn_rows(table_data, selected_option):
+    """Fill Composite CN on a Parameter/Value row list; returns updated copy."""
+    updated = [row.copy() for row in (table_data or [])]
+    if not updated or not selected_option:
+        return updated
+    if selected_option == "1A" and len(updated) >= 4:
+        try:
+            m11 = float(updated[0]["Value"]) if updated[0]["Value"] != "" else 0
+            m12 = float(updated[1]["Value"]) if updated[1]["Value"] != "" else 0
+            m13 = float(updated[2]["Value"]) if updated[2]["Value"] != "" else 0
+            updated[3]["Value"] = round(((m11 * m13) + (m12 * (100 - m13))) / 100, 2)
+        except (ValueError, TypeError, IndexError):
+            updated[3]["Value"] = 0
+    elif selected_option == "1B" and len(updated) >= 5:
+        try:
+            p11 = float(updated[0]["Value"]) if updated[0]["Value"] != "" else 0
+            p12 = float(updated[1]["Value"]) if updated[1]["Value"] != "" else 0
+            p13 = float(updated[2]["Value"]) if updated[2]["Value"] != "" else 20
+            p14 = float(updated[3]["Value"]) if updated[3]["Value"] != "" else 1
+            first_part = ((p11 * p13) + (p12 * (100 - p13))) / 100
+            second_part = ((p14 / 100) * p13 * (first_part - p12)) / 100
+            updated[4]["Value"] = round(first_part - second_part, 2)
+        except (ValueError, TypeError, IndexError):
+            updated[4]["Value"] = 0
+    return updated
+
+
+def _composite_cn_excel_table(table_data):
+    return build_param_value_table(
+        table_data or [],
+        input_type="composite-cn-value",
+        readonly_params=["Composite CN"],
+        highlight_params=["Composite CN"],
+    )
+
+
+def _runoff_calc_excel_table(table_data):
+    return build_param_value_table(
+        table_data or [],
+        input_type="runoff-calc-value",
+        highlight_params=["Runoff Volume (ft3)"],
+    )
+
+
+def _recompute_runoff_dependent_values(table_data):
+    """Recalculate storage/depth/ratio/volume from Area, CN, rainfall, abstraction."""
+    updated_data = [row.copy() for row in (table_data or [])]
+    composite_cn = None
+    rainfall = None
+    max_potential_storage = None
+    initial_abstraction = None
+    runoff_depth = None
+    area = None
+
+    for row in updated_data:
+        param = row.get("Parameter")
+        try:
+            value = float(row.get("Value", 0))
+        except (ValueError, TypeError):
+            continue
+        if param == "Composite Curve Number":
+            composite_cn = value
+        elif param == "24-hour Rainfall (inches)":
+            rainfall = value
+        elif param == "Maximum Potential Storage (inches)":
+            max_potential_storage = value
+        elif param == "Initial Abstraction":
+            initial_abstraction = value
+        elif param == "Runoff Depth (inches)":
+            runoff_depth = value
+        elif param == "Area (acres)":
+            area = value
+
+    if composite_cn is not None and composite_cn > 0:
+        max_potential_storage = (1000 / composite_cn) - 10
+        for row in updated_data:
+            if row.get("Parameter") == "Maximum Potential Storage (inches)":
+                row["Value"] = round(max_potential_storage, 2)
+                break
+
+    if rainfall is not None and initial_abstraction is not None and max_potential_storage is not None:
+        numerator = (rainfall - (initial_abstraction * max_potential_storage)) ** 2
+        denominator = rainfall + ((1 - initial_abstraction) * max_potential_storage)
+        runoff_depth = numerator / denominator if denominator > 0 else 0
+        for row in updated_data:
+            if row.get("Parameter") == "Runoff Depth (inches)":
+                row["Value"] = round(runoff_depth, 2)
+                break
+
+    if runoff_depth is not None and rainfall is not None and rainfall > 0:
+        runoff_precip_ratio = runoff_depth / rainfall
+        for row in updated_data:
+            if row.get("Parameter") == "Runoff/Precipitation Ratio":
+                row["Value"] = round(runoff_precip_ratio, 2)
+                break
+
+    if runoff_depth is not None and area is not None:
+        runoff_volume = runoff_depth * (area * 43560 / 12)
+        for row in updated_data:
+            if row.get("Parameter") == "Runoff Volume (ft3)":
+                row["Value"] = round(runoff_volume, 2)
+                break
+
+    return updated_data
+
+
+def _runoff_rows_equal(a, b):
+    if not a or not b or len(a) != len(b):
+        return False
+    for ra, rb in zip(a, b):
+        if ra.get("Parameter") != rb.get("Parameter"):
+            return False
+        try:
+            if abs(float(ra.get("Value", 0) or 0) - float(rb.get("Value", 0) or 0)) > 1e-9:
+                return False
+        except (TypeError, ValueError):
+            if ra.get("Value") != rb.get("Value"):
+                return False
+    return True
 
 
     
@@ -911,42 +1032,7 @@ def setup_runoff_callbacks(app):
                 except (ValueError, TypeError, IndexError):
                     table_data[4]["Value"] = 0
             
-            # Create the DataTable to display in the div
-            table = dash_table.DataTable(
-                id="composite-cn-datatable",
-                data=table_data,
-                columns=[
-                    {"name": "Parameter", "id": "Parameter", "editable": False},
-                    {"name": "Value", "id": "Value", "editable": True, "type": "numeric"}
-                ],
-                style_cell={
-                    'textAlign': 'left',
-                    'padding': '10px',
-                    'fontFamily': 'Arial, sans-serif',
-                    'fontSize': '14px',
-                    'border': '1px solid #ddd'
-                },
-                style_header={
-                    'backgroundColor': '#f8f9fa',
-                    'fontWeight': 'bold',
-                    'border': '1px solid #ddd'
-                },
-                style_data={
-                    'backgroundColor': 'white',
-                    'border': '1px solid #ddd'
-                },
-                style_data_conditional=[
-                    {
-                        'if': {'row_index': 'odd'},
-                        'backgroundColor': '#f8f9fa'
-                    },
-                    {
-                        'if': {'row_index': 3 if selected_option == "1A" else 4},
-                        'backgroundColor': '#e3f2fd',
-                        'fontWeight': 'bold'
-                    }
-                ]
-            )
+            table = _composite_cn_excel_table(table_data)
             # Save table data to storage
             dash_storage.set_data("composite_cn_datatable", table_data)
             return table, table_data
@@ -957,305 +1043,115 @@ def setup_runoff_callbacks(app):
     @app.callback(
         [Output('composite-cn-table', 'children', allow_duplicate=True),
          Output('composite-cn-table-store', 'data', allow_duplicate=True)],
-        [Input('composite-cn-datatable', 'data'),
-         Input('impervious-outlet-option', 'value')],
+        [
+            Input({"type": "composite-cn-value", "param": ALL}, "value"),
+            Input('impervious-outlet-option', 'value'),
+        ],
+        [
+            State({"type": "composite-cn-value", "param": ALL}, "id"),
+            State('composite-cn-table-store', 'data'),
+        ],
         prevent_initial_call=True
     )
-    def recompute_composite_cn_from_table(table_data, selected_option):
+    def recompute_composite_cn_from_table(values, selected_option, input_ids, store_data):
         """Recompute Composite CN when any table value is edited."""
-        if not table_data or not selected_option:
-            return dash.no_update, dash.no_update
-        
-        # Save table data to storage
-        dash_storage.set_data("composite_cn_datatable", table_data)
-        
-        # Make a copy to avoid modifying the original
-        updated_data = [row.copy() for row in table_data]
-        
-        # Compute Composite CN based on the formula
-        if selected_option == "1A":
-            # Formula: ((M11*M13)+(M12*(100-M13)))/100
-            try:
-                m11 = float(updated_data[0]["Value"]) if updated_data[0]["Value"] != "" else 0
-                m12 = float(updated_data[1]["Value"]) if updated_data[1]["Value"] != "" else 0
-                m13 = float(updated_data[2]["Value"]) if updated_data[2]["Value"] != "" else 0
-                composite_cn = ((m11 * m13) + (m12 * (100 - m13))) / 100
-                updated_data[3]["Value"] = round(composite_cn, 2)
-            except (ValueError, TypeError, IndexError):
-                updated_data[3]["Value"] = 0
-        elif selected_option == "1B":
-            # Formula: (((P11*P13)+(P12*(100-P13)))/100)-(((P14/100)*P13*((((P11*P13)+(P12*(100-P13)))/100)-P12))/100)
-            try:
-                p11 = float(updated_data[0]["Value"]) if updated_data[0]["Value"] != "" else 0
-                p12 = float(updated_data[1]["Value"]) if updated_data[1]["Value"] != "" else 0
-                p13 = float(updated_data[2]["Value"]) if updated_data[2]["Value"] != "" else 20
-                p14 = float(updated_data[3]["Value"]) if updated_data[3]["Value"] != "" else 1
-                first_part = ((p11 * p13) + (p12 * (100 - p13))) / 100
-                second_part = ((p14 / 100) * p13 * (first_part - p12)) / 100
-                composite_cn = first_part - second_part
-                updated_data[4]["Value"] = round(composite_cn, 2)
-            except (ValueError, TypeError, IndexError):
-                updated_data[4]["Value"] = 0
-        
-        # Update the table display
-        table = dash_table.DataTable(
-            id="composite-cn-datatable",
-            data=updated_data,
-            columns=[
-                {"name": "Parameter", "id": "Parameter", "editable": False},
-                {"name": "Value", "id": "Value", "editable": True, "type": "numeric"}
-            ],
-            style_cell={
-                'textAlign': 'left',
-                'padding': '10px',
-                'fontFamily': 'Arial, sans-serif',
-                'fontSize': '14px',
-                'border': '1px solid #ddd'
-            },
-            style_header={
-                'backgroundColor': '#f8f9fa',
-                'fontWeight': 'bold',
-                'border': '1px solid #ddd'
-            },
-            style_data={
-                'backgroundColor': 'white',
-                'border': '1px solid #ddd'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#f8f9fa'
-                },
-                {
-                    'if': {'row_index': 3 if selected_option == "1A" else 4},
-                    'backgroundColor': '#e3f2fd',
-                    'fontWeight': 'bold'
-                }
-            ]
-        )
-        
-        # Save updated data to storage
-        dash_storage.set_data("composite_cn_datatable", updated_data)
-        
-        return table, updated_data
-    
-    # Callback to sync Composite CN to runoff calculations table
-    @app.callback(
-        Output('runoff-calculations-table', 'data'),
-        [Input('composite-cn-table-store', 'data'),
-         Input('runoff-calculations-table', 'data')],
-        [State('runoff-calculations-table', 'data')],
-        prevent_initial_call=False
-    )
-    def sync_composite_cn_to_runoff_table(cn_store_data, table_data_trigger, current_table_data):
-        """Sync Composite CN value to runoff calculations table."""
         ctx = dash.callback_context
         if not ctx.triggered:
-            # Initial load - get saved data or use default data
-            saved_data = dash_storage.get_data("runoff_calculations_table")
-            if saved_data:
-                dash_storage.set_data("runoff_calculations_table", saved_data)
-                return saved_data
-            
-            default_data = [
+            return dash.no_update, dash.no_update
+
+        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        # Option changes are handled by update_composite_cn_table; skip here.
+        if trigger_id == "impervious-outlet-option":
+            return dash.no_update, dash.no_update
+
+        if not store_data or not selected_option or not input_ids:
+            return dash.no_update, dash.no_update
+
+        updated_data = rows_from_param_inputs(values, input_ids, store_data)
+        updated_data = _compute_composite_cn_rows(updated_data, selected_option)
+        dash_storage.set_data("composite_cn_datatable", updated_data)
+        return _composite_cn_excel_table(updated_data), updated_data
+
+    # Sync Composite CN into runoff calculations store (Excel table views that store)
+    @app.callback(
+        Output('runoff-calculations-table', 'data'),
+        Input('composite-cn-table-store', 'data'),
+        State('runoff-calculations-table', 'data'),
+        prevent_initial_call=True,
+    )
+    def sync_composite_cn_to_runoff_table(cn_store_data, current_table_data):
+        """Sync Composite CN value to runoff calculations table."""
+        if not cn_store_data:
+            return dash.no_update
+
+        composite_cn = None
+        for row in cn_store_data:
+            if row.get("Parameter") == "Composite CN":
+                try:
+                    composite_cn = float(row.get("Value", 0))
+                except (ValueError, TypeError):
+                    pass
+                break
+
+        if composite_cn is None:
+            return dash.no_update
+
+        max_potential_storage = (1000 / composite_cn) - 10 if composite_cn > 0 else 0
+
+        if current_table_data:
+            updated_data = [row.copy() for row in current_table_data]
+        else:
+            updated_data = [
                 {"Parameter": "Area (acres)", "Value": 10},
-                {"Parameter": "Composite Curve Number", "Value": 50},
+                {"Parameter": "Composite Curve Number", "Value": composite_cn},
                 {"Parameter": "24-hour Rainfall (inches)", "Value": 5},
-                {"Parameter": "Maximum Potential Storage (inches)", "Value": 10},
+                {"Parameter": "Maximum Potential Storage (inches)", "Value": max_potential_storage},
                 {"Parameter": "Initial Abstraction", "Value": 0.05},
                 {"Parameter": "Runoff Depth (inches)", "Value": 1},
                 {"Parameter": "Runoff/Precipitation Ratio", "Value": 0.2},
-                {"Parameter": "Runoff Volume (ft3)", "Value": 10000}
+                {"Parameter": "Runoff Volume (ft3)", "Value": 10000},
             ]
-            dash_storage.set_data("runoff_calculations_table", default_data)
-            return default_data
-        
-        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        
-        # If Composite CN store was updated, update the runoff table
-        if trigger_id == "composite-cn-table-store" and cn_store_data:
-            # Find Composite CN value
-            composite_cn = None
-            for row in cn_store_data:
-                if row.get("Parameter") == "Composite CN":
-                    try:
-                        composite_cn = float(row.get("Value", 0))
-                    except (ValueError, TypeError):
-                        pass
-                    break
-            
-            if composite_cn is not None:
-                # Calculate Maximum Potential Storage: (1000/D6) - 10 where D6 is Composite Curve Number
-                max_potential_storage = (1000 / composite_cn) - 10 if composite_cn > 0 else 0
-                
-                # Get current table data or use defaults
-                if current_table_data:
-                    updated_data = [row.copy() for row in current_table_data]
-                else:
-                    updated_data = [
-                        {"Parameter": "Area (acres)", "Value": 10},
-                        {"Parameter": "Composite Curve Number", "Value": composite_cn},
-                        {"Parameter": "24-hour Rainfall (inches)", "Value": 5},
-                        {"Parameter": "Maximum Potential Storage (inches)", "Value": max_potential_storage},
-                        {"Parameter": "Initial Abstraction", "Value": 0.05},
-                        {"Parameter": "Runoff Depth (inches)", "Value": 1},
-                        {"Parameter": "Runoff/Precipitation Ratio", "Value": 0.2},
-                        {"Parameter": "Runoff Volume (ft3)", "Value": 10000}
-                    ]
-                
-                # Get current values for Runoff Depth calculation
-                rainfall = 5  # default
-                initial_abstraction = 0.05  # default
-                for row in updated_data:
-                    if row.get("Parameter") == "24-hour Rainfall (inches)":
-                        try:
-                            rainfall = float(row.get("Value", 5))
-                        except (ValueError, TypeError):
-                            rainfall = 5
-                    elif row.get("Parameter") == "Initial Abstraction":
-                        try:
-                            initial_abstraction = float(row.get("Value", 0.05))
-                        except (ValueError, TypeError):
-                            initial_abstraction = 0.05
-                
-                # Calculate Runoff Depth: ((D7 - (D19 * D18))^2) / (D7 + ((1 - D19) * D18))
-                # D7: 24-hour Rainfall, D19: Initial Abstraction, D18: Maximum Potential Storage
-                numerator = (rainfall - (initial_abstraction * max_potential_storage)) ** 2
-                denominator = rainfall + ((1 - initial_abstraction) * max_potential_storage)
-                runoff_depth = numerator / denominator if denominator > 0 else 0
-                
-                # Calculate Runoff/Precipitation Ratio: D20 / D7
-                # D20: Runoff Depth, D7: 24-hour Rainfall
-                runoff_precip_ratio = runoff_depth / rainfall if rainfall > 0 else 0
-                
-                # Get Area value for Runoff Volume calculation
-                area = 10  # default
-                for row in updated_data:
-                    if row.get("Parameter") == "Area (acres)":
-                        try:
-                            area = float(row.get("Value", 10))
-                        except (ValueError, TypeError):
-                            area = 10
-                        break
-                
-                # Calculate Runoff Volume: D20 * (D5 * 43560 / 12)
-                # D5: Area (acres), D20: Runoff Depth (inches)
-                runoff_volume = runoff_depth * (area * 43560 / 12)
-                
-                # Update the Composite Curve Number, Maximum Potential Storage, Runoff Depth, Runoff/Precipitation Ratio, and Runoff Volume values
-                for row in updated_data:
-                    if row.get("Parameter") == "Composite Curve Number":
-                        row["Value"] = composite_cn
-                    elif row.get("Parameter") == "Maximum Potential Storage (inches)":
-                        row["Value"] = round(max_potential_storage, 2)
-                    elif row.get("Parameter") == "Runoff Depth (inches)":
-                        row["Value"] = round(runoff_depth, 2)
-                    elif row.get("Parameter") == "Runoff/Precipitation Ratio":
-                        row["Value"] = round(runoff_precip_ratio, 2)
-                    elif row.get("Parameter") == "Runoff Volume (ft3)":
-                        row["Value"] = round(runoff_volume, 2)
-                # Save to data storage
-                dash_storage.set_data("runoff_calculations_table", updated_data)
-                return updated_data
-        
-        # If table data was edited, check for changes and recalculate dependent values
-        if trigger_id == "runoff-calculations-table" and current_table_data:
-            updated_data = [row.copy() for row in current_table_data]
-            
-            # Extract current values from the table
-            composite_cn = None
-            rainfall = None
-            max_potential_storage = None
-            initial_abstraction = None
-            runoff_depth = None
-            area = None
-            
-            for row in updated_data:
-                param = row.get("Parameter")
-                try:
-                    value = float(row.get("Value", 0))
-                    if param == "Composite Curve Number":
-                        composite_cn = value
-                    elif param == "24-hour Rainfall (inches)":
-                        rainfall = value
-                    elif param == "Maximum Potential Storage (inches)":
-                        max_potential_storage = value
-                    elif param == "Initial Abstraction":
-                        initial_abstraction = value
-                    elif param == "Runoff Depth (inches)":
-                        runoff_depth = value
-                    elif param == "Area (acres)":
-                        area = value
-                except (ValueError, TypeError):
-                    pass
-            
-            # If Composite Curve Number was edited, recalculate Maximum Potential Storage
-            if composite_cn is not None and composite_cn > 0:
-                new_max_storage = (1000 / composite_cn) - 10
-                for row in updated_data:
-                    if row.get("Parameter") == "Maximum Potential Storage (inches)":
-                        row["Value"] = round(new_max_storage, 2)
-                        max_potential_storage = new_max_storage
-                        break
-            
-            # Recalculate Runoff Depth if any of the required values are available
-            # Formula: ((D7 - (D19 * D18))^2) / (D7 + ((1 - D19) * D18))
-            # D7: 24-hour Rainfall, D19: Initial Abstraction, D18: Maximum Potential Storage
-            if rainfall is not None and initial_abstraction is not None and max_potential_storage is not None:
-                numerator = (rainfall - (initial_abstraction * max_potential_storage)) ** 2
-                denominator = rainfall + ((1 - initial_abstraction) * max_potential_storage)
-                runoff_depth = numerator / denominator if denominator > 0 else 0
-                
-                # Update Runoff Depth in the table
-                for row in updated_data:
-                    if row.get("Parameter") == "Runoff Depth (inches)":
-                        row["Value"] = round(runoff_depth, 2)
-                        break
-            
-            # Recalculate Runoff/Precipitation Ratio: D20 / D7
-            # D20: Runoff Depth, D7: 24-hour Rainfall
-            if runoff_depth is not None and rainfall is not None and rainfall > 0:
-                runoff_precip_ratio = runoff_depth / rainfall
-                
-                # Update Runoff/Precipitation Ratio in the table
-                for row in updated_data:
-                    if row.get("Parameter") == "Runoff/Precipitation Ratio":
-                        row["Value"] = round(runoff_precip_ratio, 2)
-                        break
-            
-            # Recalculate Runoff Volume: D20 * (D5 * 43560 / 12)
-            # D5: Area (acres), D20: Runoff Depth (inches)
-            if runoff_depth is not None and area is not None:
-                runoff_volume = runoff_depth * (area * 43560 / 12)
-                
-                # Update Runoff Volume in the table
-                for row in updated_data:
-                    if row.get("Parameter") == "Runoff Volume (ft3)":
-                        row["Value"] = round(runoff_volume, 2)
-                        break
-            
-            # Save to data storage
-            dash_storage.set_data("runoff_calculations_table", updated_data)
-            return updated_data
-        
-        # If no changes, return current data but still save to storage if it exists
-        if current_table_data:
-            dash_storage.set_data("runoff_calculations_table", current_table_data)
-            return current_table_data
-        
-        return dash.no_update
-    
-    # Additional callback to ensure table data is saved when edited
+
+        for row in updated_data:
+            if row.get("Parameter") == "Composite Curve Number":
+                row["Value"] = composite_cn
+                break
+
+        updated_data = _recompute_runoff_dependent_values(updated_data)
+        dash_storage.set_data("runoff_calculations_table", updated_data)
+        return updated_data
+
     @app.callback(
-        Output('runoff-calculations-table', 'data', allow_duplicate=True),
-        Input('runoff-calculations-table', 'data'),
-        prevent_initial_call=True
+        Output("runoff-calculations-table-view", "children"),
+        Input("runoff-calculations-table", "data"),
+        prevent_initial_call=False,
     )
-    def save_runoff_calculations_table(table_data):
-        """Save runoff calculations table data to storage when edited."""
-        if table_data:
-            dash_storage.set_data("runoff_calculations_table", table_data)
-        return dash.no_update
+    def render_runoff_calculations_table(table_data):
+        """Render Excel-like runoff calculations inputs from the store."""
+        if not table_data:
+            saved = dash_storage.get_data("runoff_calculations_table")
+            table_data = saved
+        if not table_data:
+            return html.Div("No runoff calculation data.", className="text-muted")
+        return _runoff_calc_excel_table(table_data)
+
+    @app.callback(
+        Output("runoff-calculations-table", "data", allow_duplicate=True),
+        Input({"type": "runoff-calc-value", "param": ALL}, "value"),
+        State({"type": "runoff-calc-value", "param": ALL}, "id"),
+        State("runoff-calculations-table", "data"),
+        prevent_initial_call=True,
+    )
+    def apply_runoff_calc_input_edits(values, input_ids, current_table_data):
+        """Commit blur edits from runoff calc inputs and recompute dependents."""
+        if not current_table_data or not input_ids:
+            return dash.no_update
+        updated = rows_from_param_inputs(values, input_ids, current_table_data)
+        updated = _recompute_runoff_dependent_values(updated)
+        if _runoff_rows_equal(updated, current_table_data):
+            return dash.no_update
+        dash_storage.set_data("runoff_calculations_table", updated)
+        return updated
 
     # Callback to save runoff single storm latitude to data storage
     @app.callback(

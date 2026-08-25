@@ -432,7 +432,7 @@ def _build_stratigraphy_table_row(parameter, depth_id, conductivity_id, storage_
                     placeholder="0.0",
                     size="sm",
                     debounce=True,
-                    className="border-0"
+                    className="table-cell-input-borderless"
                 ),
                 style=style
             ),
@@ -443,7 +443,7 @@ def _build_stratigraphy_table_row(parameter, depth_id, conductivity_id, storage_
                     placeholder="0.0",
                     size="sm",
                     debounce=True,
-                    className="border-0"
+                    className="table-cell-input-borderless"
                 ),
                 style=style
             ),
@@ -454,7 +454,7 @@ def _build_stratigraphy_table_row(parameter, depth_id, conductivity_id, storage_
                     placeholder="0.0",
                     size="sm",
                     debounce=True,
-                    className="border-0"
+                    className="table-cell-input-borderless"
                 ),
                 style=style
             ),
@@ -588,7 +588,7 @@ def _build_stratigraphy_tab():
                         bordered=True,
                         hover=True,
                         responsive=True,
-                        className="mb-3"
+                        className="mb-3 excel-cell-table"
                     ),
                 ],
                 id="stratigraphy-content"
@@ -662,7 +662,7 @@ def _build_groundwater_level_tab():
                                 bordered=True,
                                 hover=True,
                                 responsive=True,
-                                className="mb-3"
+                                className="mb-3 excel-cell-table"
                             )
                         ], width=6)
                     ], className="mb-3"),

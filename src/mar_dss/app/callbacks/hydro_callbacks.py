@@ -857,7 +857,8 @@ def setup_hydro_callbacks(app):
                 id={"type": "layer-select", "index": i},
                 value=row["layer"],
                 options=[{"label": lith, "value": lith} for lith in SOIL_PROPERTIES.keys()],
-                size="sm"
+                size="sm",
+                className="table-cell-input-borderless",
             )
             
             # Create thickness input
@@ -866,7 +867,9 @@ def setup_hydro_callbacks(app):
                 value=row["thickness"],
                 type="number",
                 step="0.1",
-                size="sm"
+                size="sm",
+                debounce=True,
+                className="table-cell-input-borderless",
             )
             
             # Create input fields
@@ -875,7 +878,9 @@ def setup_hydro_callbacks(app):
                 value=row["conductivity"],
                 type="number",
                 step="0.001",
-                size="sm"
+                size="sm",
+                debounce=True,
+                className="table-cell-input-borderless",
             )
             
             storage_input = dbc.Input(
@@ -883,7 +888,9 @@ def setup_hydro_callbacks(app):
                 value=row["storage"],
                 type="number",
                 step="0.000001",
-                size="sm"
+                size="sm",
+                debounce=True,
+                className="table-cell-input-borderless",
             )
             
             yield_input = dbc.Input(
@@ -891,7 +898,9 @@ def setup_hydro_callbacks(app):
                 value=row["yield"],
                 type="number",
                 step="0.01",
-                size="sm"
+                size="sm",
+                debounce=True,
+                className="table-cell-input-borderless",
             )
             
             rows.append(html.Tr([
@@ -1077,6 +1086,8 @@ def setup_hydro_callbacks(app):
                 type="number",
                 step="0.1",
                 size="sm",
+                debounce=True,
+                className="table-cell-input-borderless",
             )
             rows_out.append(
                 html.Tr(
