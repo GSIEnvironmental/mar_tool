@@ -1126,8 +1126,13 @@ def create_water_source_info_tab():
                                             className="text-muted fs-6 mb-1",
                                         ),
                                         html.P(
-                                            "Runoff calculator in the following section can be used to estimate available surface water.",
-                                            className="text-muted fs-6 mb-3",
+                                            [
+                                                "Runoff calculator in the following section can be used to estimate available surface water. ",
+                                                "If you decide to use runoff calculator values as the recharge source, check the ",
+                                                html.Strong("Use Runoff For Recharge"),
+                                                " box in Step 3 below.",
+                                            ],
+                                            className="text-primary fs-6 mb-3",
                                         ),
                                         dbc.Row(
                                             [

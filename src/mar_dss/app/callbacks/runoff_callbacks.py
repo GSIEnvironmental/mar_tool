@@ -313,20 +313,72 @@ def _monthly_runoff_volumes_to_flow_list(monthly_runoff_records):
         if short not in MONTHS_SHORT:
             continue
         try:
-            by_month[short] = float(row.get("Runoff Volume (ft3)", 0) or 0)
+            by_month[short] = float(
+                row.get("Runoff Volume (ft3/month)", row.get("Runoff Volume (ft3)", 0))
+                or 0
+            )
         except (TypeError, ValueError):
             by_month[short] = 0.0
     return [by_month.get(month, 0.0) for month in MONTHS_SHORT]
 
 
 def _sync_runoff_volumes_to_monthly_flow():
-    """Copy Runoff Volume (ft3) from monthly runoff results into monthly_flow storage."""
+    """Copy monthly Runoff Volume (ft3/month) into monthly_flow storage."""
     saved_data = dash_storage.get_data("monthly_runoff_table")
     if not saved_data:
         return None
     monthly_flows = _monthly_runoff_volumes_to_flow_list(saved_data)
     dash_storage.set_data("monthly_flow", monthly_flows)
     return {month: flow for month, flow in zip(MONTHS_SHORT, monthly_flows)}
+
+
+def _param_from_runoff_table(table_data, parameter, default=None):
+    """Read a numeric Parameter/Value from the runoff calculations table."""
+    for row in table_data or []:
+        if row.get("Parameter") == parameter:
+            try:
+                return float(row.get("Value", default))
+            except (TypeError, ValueError):
+                return default
+    return default
+
+
+def build_monthly_runoff_calc_summary(table_data, rain_events, lat, lon):
+    """Explain which CN, events, area, and site drive section (B) calculations."""
+    cn = _param_from_runoff_table(table_data, "Composite Curve Number")
+    area = _param_from_runoff_table(table_data, "Area (acres)")
+    try:
+        events = float(rain_events) if rain_events is not None else None
+    except (TypeError, ValueError):
+        events = None
+    try:
+        lat_f = float(lat) if lat is not None else None
+        lon_f = float(lon) if lon is not None else None
+    except (TypeError, ValueError):
+        lat_f, lon_f = None, None
+
+    cn_txt = f"{cn:g}" if cn is not None else "—"
+    events_txt = f"{events:g}" if events is not None else "—"
+    area_txt = f"{area:g}" if area is not None else "—"
+    if lat_f is not None and lon_f is not None:
+        site_txt = f"{lat_f:.5f}, {lon_f:.5f}"
+    else:
+        site_txt = "—"
+
+    return html.P(
+        [
+            "This calculation is based on the composite curve number computed above (",
+            html.Strong(f"CN = {cn_txt}"),
+            "), number of rain events per month (",
+            html.Strong(events_txt),
+            "), watershed area (",
+            html.Strong(f"{area_txt} acres"),
+            "). Average precipitation is downloaded automatically from NASA POWER for this site (",
+            html.Strong(site_txt),
+            ").",
+        ],
+        className="mb-0",
+    )
 
 
 def _peak_runoff_volume_ft3(table_data=None):
@@ -400,6 +452,28 @@ def setup_runoff_callbacks(app):
         if trigger == "curve-number-modal-done-btn":
             return False
         return bool(is_open)
+
+    @app.callback(
+        Output("monthly-runoff-calc-summary", "children"),
+        [
+            Input("runoff-calculations-table", "data"),
+            Input("rain-events-per-month", "value"),
+            Input("runoff-single-storm-latitude", "value"),
+            Input("runoff-single-storm-longitude", "value"),
+        ],
+        prevent_initial_call=False,
+    )
+    def update_monthly_runoff_calc_summary(table_data, rain_events, lat, lon):
+        """Keep section (B) summary aligned with CN, events, area, and site coords."""
+        data = table_data or dash_storage.get_data("runoff_calculations_table")
+        events = rain_events
+        if events is None:
+            events = dash_storage.get_data("rain_events_per_month")
+        if lat is None:
+            lat = dash_storage.get_data("runoff_single_storm_latitude")
+        if lon is None:
+            lon = dash_storage.get_data("runoff_single_storm_longitude")
+        return build_monthly_runoff_calc_summary(data, events, lat, lon)
 
     # Callback 1: Handle map clicks to update coordinates (exact same as open3.py)
     @app.callback(
@@ -1467,6 +1541,15 @@ def setup_runoff_callbacks(app):
         """Create the monthly runoff table and chart display component."""
         if monthly_rain is None or monthly_rain.empty:
             return html.P("No monthly rain data available.", className="text-warning")
+
+        # Prefer ft3/month label; migrate older saved column name for display
+        if (
+            "Runoff Volume (ft3)" in monthly_rain.columns
+            and "Runoff Volume (ft3/month)" not in monthly_rain.columns
+        ):
+            monthly_rain = monthly_rain.rename(
+                columns={"Runoff Volume (ft3)": "Runoff Volume (ft3/month)"}
+            )
         
         # Create monthly rain table with different colors for each column
         # Define colors for each column
@@ -1474,7 +1557,7 @@ def setup_runoff_callbacks(app):
             'Month': {'header': '#2c5aa0', 'data': '#e8f4f8'},
             'Rain (inches)': {'header': '#28a745', 'data': '#d4edda'},
             'Runoff depth (inches)': {'header': '#ff6b35', 'data': '#ffe5d9'},
-            'Runoff Volume (ft3)': {'header': '#6f42c1', 'data': '#e9d5ff'}
+            'Runoff Volume (ft3/month)': {'header': '#6f42c1', 'data': '#e9d5ff'},
         }
         
         # Build conditional styling for columns
@@ -1683,7 +1766,7 @@ def setup_runoff_callbacks(app):
                     return html.P("No monthly rain data available.", className="text-warning"), dash.no_update
                 if len(runoff_volume)>0:
                     monthly_rain['Runoff depth (inches)'] = runoff_depth
-                    monthly_rain['Runoff Volume (ft3)'] = runoff_volume
+                    monthly_rain['Runoff Volume (ft3/month)'] = runoff_volume
                 
                 # Save to data storage
                 monthly_rain_dict = monthly_rain.to_dict('records')
@@ -1709,7 +1792,7 @@ def setup_runoff_callbacks(app):
         prevent_initial_call=True,
     )
     def apply_runoff_volumes_when_checked(use_runoff_for_recharge):
-        """Copy monthly Runoff Volume (ft3) into Volume Estimates when checkbox is checked."""
+        """Copy monthly Runoff Volume (ft3/month) into Volume Estimates when checkbox is checked."""
         if not use_runoff_for_recharge:
             return dash.no_update
         flow_data = _sync_runoff_volumes_to_monthly_flow()

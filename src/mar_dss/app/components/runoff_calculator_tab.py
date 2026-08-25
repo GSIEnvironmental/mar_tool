@@ -561,7 +561,11 @@ def create_curve_number_tab():
                             html.Strong("Use Runoff For Recharge"),
                             " box.",
                         ],
-                        className="mb-4",
+                        className="mb-2",
+                    ),
+                    html.Div(
+                        id="monthly-runoff-calc-summary",
+                        className="text-muted small mb-4",
                     ),
                     dbc.Row([
                         dbc.Col([
@@ -595,11 +599,16 @@ def create_curve_number_tab():
                                             )
                                         ], width="auto"),
                                         dbc.Col([
-                                            dbc.Checkbox(
-                                                id="use-runoff-for-recharge-check",
-                                                label="Use Runoff For Recharge",
-                                                value=False,
-                                                className="mb-3 ms-3"
+                                            html.Div(
+                                                dbc.Checkbox(
+                                                    id="use-runoff-for-recharge-check",
+                                                    label="Use Runoff For Recharge",
+                                                    value=False,
+                                                    className="runoff-engineering-sync-check mb-0",
+                                                    input_class_name="runoff-engineering-sync-input",
+                                                    label_class_name="runoff-engineering-sync-label",
+                                                ),
+                                                className="runoff-engineering-sync-card mb-3 ms-3",
                                             )
                                         ], width="auto")
                                     ]),

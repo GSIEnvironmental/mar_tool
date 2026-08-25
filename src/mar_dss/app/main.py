@@ -72,6 +72,8 @@ class DashboardApp:
             suppress_callback_exceptions=True,
             assets_folder=str(_APP_DIR / "assets"),
         )
+        # Browser tab icon (served from assets/)
+        self.app._favicon = "mar_icon2.PNG"
         self.current_theme = "CERULEAN"
         self.setup_layout()
         self.setup_callbacks()
