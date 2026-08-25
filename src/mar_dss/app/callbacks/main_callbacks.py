@@ -348,52 +348,99 @@ def setup_main_callbacks(app, dashboard_instance):
         )
 
 
-    # Add callback to sync flow-data-store with dash_storage when tab is accessed
+    # Sync flow-data-store from dash_storage when Water Source tab is shown
     @app.callback(
         Output("flow-data-store", "data"),
-        [
-            Input("top-tabs", "active_tab"),
-        ],
-        prevent_initial_call=False
+        Input("top-tabs", "active_tab"),
+        State("flow-data-store", "data"),
+        prevent_initial_call=False,
     )
-    def sync_flow_data_store(active_tab):
-        """Sync flow-data-store with dash_storage when water source tab is accessed."""
-        # Get flow data from dash_storage
-        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        default_flows = [4500, 4200, 2800, 2200, 1800, 1500, 1200, 1000, 1300, 2000, 3800, 4100]
-        monthly_flows_raw = dash_storage.get_data("monthly_flow")
-        
-        # Handle case where data might be loaded as string from CSV
-        if monthly_flows_raw is None:
-            monthly_flows = default_flows
-        elif isinstance(monthly_flows_raw, str):
-            # Try to parse string representation of list
-            try:
-                import ast
-                monthly_flows = ast.literal_eval(monthly_flows_raw)
-                if not isinstance(monthly_flows, list) or len(monthly_flows) != 12:
-                    monthly_flows = default_flows
-            except (ValueError, SyntaxError):
-                monthly_flows = default_flows
-        elif isinstance(monthly_flows_raw, list):
-            monthly_flows = monthly_flows_raw
-        else:
-            monthly_flows = default_flows
-        
-        # Ensure we have exactly 12 values
-        if len(monthly_flows) != 12:
-            monthly_flows = default_flows
-        
-        # Ensure all values are numeric
+    def sync_flow_data_store(active_tab, current_store):
+        """Refresh flow store from project storage when opening Water Source."""
+        if active_tab != "water-source":
+            return dash.no_update
+
         try:
-            monthly_flows = [float(flow) if flow is not None else 0.0 for flow in monthly_flows]
-        except (ValueError, TypeError):
-            monthly_flows = default_flows
-        
-        # Convert list to dictionary format
-        flow_data = {month: flow for month, flow in zip(months, monthly_flows)}
+            from mar_dss.app.components.water_source_tab import (
+                flow_dict_from_list,
+                flow_dicts_equal,
+            )
+        except ImportError:
+            from .components.water_source_tab import (
+                flow_dict_from_list,
+                flow_dicts_equal,
+            )
+
+        flow_data = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
+        if flow_dicts_equal(current_store, flow_data):
+            return dash.no_update
         return flow_data
-    
+
+    # Push store → table data (no remount — remounting was wiping in-progress edits)
+    @app.callback(
+        Output("flow-data-table", "data"),
+        Input("flow-data-store", "data"),
+        State("flow-data-table", "data"),
+        prevent_initial_call=False,
+    )
+    def apply_flow_store_to_table(flow_data, current_table):
+        """Update monthly flow table rows when the store changes (e.g. runoff sync)."""
+        try:
+            from mar_dss.app.components.water_source_tab import (
+                flow_dict_from_records,
+                flow_dicts_equal,
+                flow_records_from_dict,
+            )
+        except ImportError:
+            from .components.water_source_tab import (
+                flow_dict_from_records,
+                flow_dicts_equal,
+                flow_records_from_dict,
+            )
+
+        records = flow_records_from_dict(flow_data)
+        if flow_dicts_equal(flow_dict_from_records(current_table), flow_dict_from_records(records)):
+            return dash.no_update
+        return records
+
+    # Table edits → persist + chart + keep store aligned
+    @app.callback(
+        Output("monthly-flow-chart", "figure"),
+        Output("flow-data-store", "data", allow_duplicate=True),
+        Input("flow-data-table", "data"),
+        State("flow-data-store", "data"),
+        prevent_initial_call=True,
+    )
+    def update_monthly_flow_chart_from_table(table_data, current_store):
+        """Update the monthly flow chart based on table data and save to data storage."""
+        try:
+            from mar_dss.app.components.water_source_tab import (
+                FLOW_MONTHS,
+                create_monthly_flow_chart,
+                flow_dict_from_records,
+                flow_dicts_equal,
+            )
+        except ImportError:
+            from .components.water_source_tab import (
+                FLOW_MONTHS,
+                create_monthly_flow_chart,
+                flow_dict_from_records,
+                flow_dicts_equal,
+            )
+
+        if not table_data:
+            return create_monthly_flow_chart(), dash.no_update
+
+        flow_data = flow_dict_from_records(table_data)
+        monthly_flows = [flow_data[month] for month in FLOW_MONTHS]
+        dash_storage.set_data("monthly_flow", monthly_flows)
+
+        store_out = dash.no_update
+        if not flow_dicts_equal(current_store, flow_data):
+            store_out = flow_data
+
+        return create_monthly_flow_chart(flow_data), store_out
+
     # Add callback to sync stratigraphy-data-store with dash_storage when hydrogeology tab is accessed
     @app.callback(
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
@@ -407,7 +454,7 @@ def setup_main_callbacks(app, dashboard_instance):
         if active_tab == "hydrogeology":
             return stratigraphy_store_payload_from_storage()
         return dash.no_update
-    
+
     # Add callback to sync groundwater-data-store with dash_storage when hydrogeology tab is accessed
     @app.callback(
         Output("groundwater-data-store", "data", allow_duplicate=True),
@@ -422,68 +469,6 @@ def setup_main_callbacks(app, dashboard_instance):
             stored_data = dash_storage.get_data("groundwater_data")
             return normalize_groundwater_data(stored_data if stored_data else [])
         return dash.no_update
-
-    # Add callback to create the editable table
-    @app.callback(
-        Output("flow-table-container", "children"),
-        [Input("flow-data-store", "data")],
-    )
-    def create_flow_table(flow_data):
-        """Create the editable flow table."""
-        try:
-            from mar_dss.app.components.water_source_tab import (
-                create_editable_flow_table,
-            )
-        except ImportError:
-            from .components.water_source_tab import (
-                create_editable_flow_table,
-            )
-
-        return create_editable_flow_table(flow_data)
-
-    # Add callback for updating monthly flow chart from table and saving to data storage
-    @app.callback(
-        Output("monthly-flow-chart", "figure"),
-        [Input("flow-data-table", "data")],
-    )
-    def update_monthly_flow_chart_from_table(table_data):
-        """Update the monthly flow chart based on table data and save to data storage."""
-        if not table_data:
-            # Return default chart if no data
-            try:
-                from mar_dss.app.components.water_source_tab import (
-                    create_monthly_flow_chart,
-                )
-            except ImportError:
-                from .components.water_source_tab import (
-                    create_monthly_flow_chart,
-                )
-            return create_monthly_flow_chart()
-
-        # Extract flow data from table and save to data storage as list of 12 values
-        monthly_flows = []
-        flow_data = {}
-        for row in table_data:
-            month = row["Month"]
-            flow = row.get("Flow (ft³/month)", 0)
-            flow_value = flow if flow is not None else 0
-            flow_data[month] = flow_value
-            monthly_flows.append(flow_value)
-        
-        # Save to data storage as list of 12 values
-        dash_storage.set_data("monthly_flow", monthly_flows)
-
-        # Create chart with the data
-        try:
-            from mar_dss.app.components.water_source_tab import (
-                create_monthly_flow_chart,
-            )
-        except ImportError:
-            from .components.water_source_tab import (
-                create_monthly_flow_chart,
-            )
-
-        return create_monthly_flow_chart(flow_data)
 
     def manage_stratigraphy_layers(
         add_clicks,

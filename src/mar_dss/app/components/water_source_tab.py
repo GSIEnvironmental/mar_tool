@@ -542,91 +542,139 @@ def create_monthly_flow_chart(flow_data=None):
     return fig
 
 
+FLOW_MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
+FLOW_DEFAULTS = [4500, 4200, 2800, 2200, 1800, 1500, 1200, 1000, 1300, 2000, 3800, 4100]
+FLOW_VALUE_COL = "Flow (ft³/month)"
+
+
+def _normalize_monthly_flows(monthly_flows_raw):
+    """Return a length-12 float list from storage / CSV / list input."""
+    monthly_flows = monthly_flows_raw
+    if monthly_flows is None:
+        monthly_flows = FLOW_DEFAULTS
+    elif isinstance(monthly_flows, str):
+        try:
+            import ast
+
+            monthly_flows = ast.literal_eval(monthly_flows)
+            if not isinstance(monthly_flows, list) or len(monthly_flows) != 12:
+                monthly_flows = FLOW_DEFAULTS
+        except (ValueError, SyntaxError):
+            monthly_flows = FLOW_DEFAULTS
+    elif not isinstance(monthly_flows, list) or len(monthly_flows) != 12:
+        monthly_flows = FLOW_DEFAULTS
+
+    try:
+        return [float(flow) if flow is not None else 0.0 for flow in monthly_flows]
+    except (ValueError, TypeError):
+        return list(FLOW_DEFAULTS)
+
+
+def flow_dict_from_list(monthly_flows):
+    """Jan–Dec dict from a 12-value list."""
+    flows = _normalize_monthly_flows(monthly_flows)
+    return {month: flow for month, flow in zip(FLOW_MONTHS, flows)}
+
+
+def flow_records_from_dict(flow_data=None):
+    """DataTable records from a month→flow dict (or storage defaults)."""
+    if flow_data:
+        monthly_flows = [
+            float(flow_data.get(month, 0) or 0) for month in FLOW_MONTHS
+        ]
+    else:
+        monthly_flows = _normalize_monthly_flows(dash_storage.get_data("monthly_flow"))
+    return [
+        {"Month": month, FLOW_VALUE_COL: flow}
+        for month, flow in zip(FLOW_MONTHS, monthly_flows)
+    ]
+
+
+def flow_dict_from_records(table_data):
+    """Month→flow dict from DataTable records."""
+    flow_data = {month: 0.0 for month in FLOW_MONTHS}
+    if not table_data:
+        return flow_data
+    for row in table_data:
+        month = row.get("Month")
+        if month not in flow_data:
+            continue
+        raw = row.get(FLOW_VALUE_COL, 0)
+        try:
+            flow_data[month] = float(raw) if raw is not None else 0.0
+        except (TypeError, ValueError):
+            flow_data[month] = 0.0
+    return flow_data
+
+
+def flow_dicts_equal(a, b):
+    """Compare month→flow maps with numeric tolerance."""
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        return False
+    for month in FLOW_MONTHS:
+        try:
+            if abs(float(a.get(month, 0) or 0) - float(b.get(month, 0) or 0)) > 1e-9:
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
 def _get_flow_store_data():
     """Get flow data in dictionary format for flow-data-store from dash_storage."""
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    default_flows = [4500, 4200, 2800, 2200, 1800, 1500, 1200, 1000, 1300, 2000, 3800, 4100]
-    monthly_flows = dash_storage.get_data("monthly_flow") or default_flows
-    
-    # Ensure we have exactly 12 values
-    if len(monthly_flows) != 12:
-        monthly_flows = default_flows
-    
-    # Convert list to dictionary format
-    return {month: flow for month, flow in zip(months, monthly_flows)}
+    return flow_dict_from_list(dash_storage.get_data("monthly_flow"))
 
 
 def create_editable_flow_table(flow_data=None):
-    """Create an editable table for monthly flow data."""
-    months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-    ]
-    default_flows = [4500, 4200, 2800, 2200, 1800, 1500, 1200, 1000, 1300, 2000, 3800, 4100]
-    if flow_data:
-        monthly_flows = [float(flow_data.get(month, 0) or 0) for month in months]
-    else:
-        monthly_flows = dash_storage.get_data("monthly_flow") or default_flows
-
-    # Ensure we have exactly 12 values
-    if len(monthly_flows) != 12:
-        monthly_flows = default_flows
-    
-    df = pd.DataFrame(
-        {
-            "Month": months,
-            "Flow (ft³/month)": monthly_flows,
-        }
+    """Create an editable table for monthly flow data (stable component; do not remount)."""
+    records = flow_records_from_dict(flow_data)
+    return dash_table.DataTable(
+        id="flow-data-table",
+        data=records,
+        columns=[
+            {"name": "Month", "id": "Month", "type": "text", "editable": False},
+            {
+                "name": FLOW_VALUE_COL,
+                "id": FLOW_VALUE_COL,
+                "type": "numeric",
+                "editable": True,
+                "format": Format(precision=1, scheme=Scheme.fixed),
+            },
+        ],
+        style_cell={
+            "textAlign": "center",
+            "padding": "8px",
+            "fontFamily": "Arial, sans-serif",
+            "fontSize": "14px",
+        },
+        style_header={
+            "backgroundColor": "#28a745",
+            "color": "white",
+            "fontWeight": "bold",
+        },
+        style_data={"backgroundColor": "white", "color": "black"},
+        style_data_conditional=[
+            {"if": {"row_index": "odd"}, "backgroundColor": "#f8f9fa"}
+        ],
+        editable=True,
+        row_deletable=False,
+        sort_action="none",
+        filter_action="none",
+        style_table={"width": "300px", "maxWidth": "300px"},
     )
-    table = html.Div(
-        [
-            dash_table.DataTable(
-                id="flow-data-table",
-                data=df.to_dict("records"),
-                columns=[
-                    {"name": "Month", "id": "Month", "type": "text", "editable": False},
-                    {
-                        "name": "Flow (ft³/month)",
-                        "id": "Flow (ft³/month)",
-                        "type": "numeric",
-                        "editable": True,
-                        "format": Format(precision=1, scheme=Scheme.fixed),
-                    },
-                ],
-                style_cell={
-                    "textAlign": "center",
-                    "padding": "8px",
-                    "fontFamily": "Arial, sans-serif",
-                    "fontSize": "14px",
-                },
-                style_header={
-                    "backgroundColor": "#28a745",
-                    "color": "white",
-                    "fontWeight": "bold",
-                },
-                style_data={"backgroundColor": "white", "color": "black"},
-                style_data_conditional=[
-                    {"if": {"row_index": "odd"}, "backgroundColor": "#f8f9fa"}
-                ],
-                editable=True,
-                row_deletable=False,
-                sort_action="none",
-                filter_action="none",
-                style_table={"width": "300px", "maxWidth": "300px"},
-            )
-        ]
-    )
-    return table
 
 
 def create_water_source_location_map_card():
@@ -1028,7 +1076,9 @@ def create_water_source_info_tab():
                                                             id="flow-data-store",
                                                             data=_get_flow_store_data(),
                                                         ),
-                                                        html.Div(id="flow-table-container"),
+                                                        create_editable_flow_table(
+                                                            _get_flow_store_data()
+                                                        ),
                                                     ],
                                                     width=4,
                                                 ),

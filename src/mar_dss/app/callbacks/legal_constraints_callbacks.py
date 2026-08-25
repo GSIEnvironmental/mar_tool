@@ -3,9 +3,8 @@ Callbacks for Legal Constraints tab - MAR legal/regulatory feasibility.
 """
 
 import dash
-from dash import Input, Output, html, State
+from dash import Input, Output, html, State, dash_table
 import plotly.graph_objects as go
-import dash_table
 import dash_bootstrap_components as dbc
 import mar_dss.app.utils.data_storage as data_storage
 from mar_dss.app.callbacks.ai_environment import _normalize_stored_string, _location_text

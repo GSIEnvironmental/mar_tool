@@ -3,9 +3,8 @@ Callbacks for Environmental Impact tab - MAR Source Water Suitability Assessment
 """
 
 import dash
-from dash import Input, Output, html, State, dcc
+from dash import Input, Output, html, State, dcc, dash_table
 import plotly.graph_objects as go
-import dash_table
 import pandas as pd
 import dash_bootstrap_components as dbc
 from mar_dss.app.components.environmental_impact_tab import (
