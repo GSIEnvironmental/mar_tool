@@ -635,6 +635,27 @@ def setup_runoff_callbacks(app):
         return bool(is_open)
 
     @app.callback(
+        Output("watershed-info-help-modal", "is_open"),
+        [
+            Input("watershed-info-help-btn", "n_clicks"),
+            Input("watershed-info-help-close-btn", "n_clicks"),
+        ],
+        State("watershed-info-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_watershed_info_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Watershed Information help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "watershed-info-help-btn":
+            return True
+        if trigger == "watershed-info-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
         Output("monthly-runoff-calc-summary", "children"),
         [
             Input("runoff-calculations-table", "data"),
@@ -661,7 +682,8 @@ def setup_runoff_callbacks(app):
         [Output('selected-latitude', 'value'),
          Output('selected-longitude', 'value'),
          Output('runoff-results', 'children')],
-        [Input('runoff-map', 'clickData')]
+        [Input('runoff-map', 'clickData')],
+        prevent_initial_call=False,
     )
     def update_coordinates_on_click(clickData):
         print(f"Callback triggered with: {clickData}")  # Debug print
@@ -682,11 +704,12 @@ def setup_runoff_callbacks(app):
         [Output('marker-layer', 'children'),
          Output('runoff-map', 'center')],
         [Input('selected-latitude', 'value'),
-         Input('selected-longitude', 'value')]
+         Input('selected-longitude', 'value')],
+        prevent_initial_call=False,
     )
     def update_marker_on_coordinate_change(lat, lon):
         if lat is None or lon is None:
-            return no_update, no_update
+            return [], dash.no_update
 
         marker = dl.Marker(
             position=[lat, lon],
@@ -828,6 +851,52 @@ def setup_runoff_callbacks(app):
                 return [], html.P(f"Error getting watershed data: {str(e)}", className="text-danger"), error_msg
         
         return [], html.Div("Click 'Get Watershed Info' to retrieve watershed data."), html.Div("")
+
+    @app.callback(
+        [
+            Output("marker-layer", "children", allow_duplicate=True),
+            Output("stations-layer", "children", allow_duplicate=True),
+            Output("watershed-layer", "children", allow_duplicate=True),
+            Output("watershed-info-content", "children", allow_duplicate=True),
+            Output("status-message", "children", allow_duplicate=True),
+            Output("runoff-results", "children", allow_duplicate=True),
+            Output("selected-latitude", "value", allow_duplicate=True),
+            Output("selected-longitude", "value", allow_duplicate=True),
+        ],
+        Input("reset-watershed-map-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def reset_watershed_map_layers(n_clicks):
+        """Clear overlays so the user can pick a new drainage point and re-run analysis."""
+        if not n_clicks:
+            return (
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+            )
+        return (
+            [],
+            [],
+            [],
+            html.Div(
+                "Map cleared. Click the map to select a new drainage point, then use "
+                "Obtain nearby streams and Get Watershed Info again.",
+                className="text-muted",
+            ),
+            html.Div(
+                "Drainage point and map layers reset. Click the map to choose a new point.",
+                className="alert alert-info",
+                role="alert",
+            ),
+            "Map ready - click to set a new drainage point",
+            None,
+            None,
+        )
 
     # Callback to save impervious outlet option (1A/1B) to data storage
     @app.callback(
@@ -1390,52 +1459,63 @@ def setup_runoff_callbacks(app):
             _RAIN_STATS_UNAVAILABLE_MSG, color="warning", className="mb-0"
         )
     
-    # Callback to save rain events per month to data storage
+    # Load saved rain events per month on startup (does not commit while typing)
     @app.callback(
-        Output('rain-events-per-month', 'value'),
-        [
-            Input('rain-events-per-month', 'value'),
-            Input('rain-events-per-month', 'n_blur'),
-            Input('rain-events-per-month', 'n_submit'),
-            Input('rain-events-per-month', 'id')
-        ],
-        prevent_initial_call=False
+        Output("rain-events-per-month", "value"),
+        Input("rain-events-per-month", "id"),
+        prevent_initial_call=False,
     )
-    def handle_rain_events_per_month(value, n_blur, n_submit, component_id):
-        """Handle rain events per month input and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            rain_events = dash_storage.get_data("rain_events_per_month")
-            if rain_events is None:
-                rain_events = 3.0  # Default value
-            else:
-                try:
-                    rain_events = float(rain_events)
-                except (ValueError, TypeError):
-                    rain_events = 3.0
-            dash_storage.set_data("rain_events_per_month", rain_events)
-            return rain_events
-        
-        # Get the current value from the input
-        current_value = value if value is not None else 3.0
-        
-        # Determine which trigger caused the callback
-        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
-        # Save rain events for all triggers except initial load
-        if trigger_prop != "id":
+    def load_rain_events_per_month(_component_id):
+        """Restore rain events per month from project storage."""
+        saved = dash_storage.get_data("rain_events_per_month")
+        if saved is None:
+            value = 3.0
+        else:
             try:
-                current_value = float(current_value)
-                if current_value <= 0:
-                    current_value = 3.0  # Ensure positive value
-                dash_storage.set_data("rain_events_per_month", current_value)
+                value = float(saved)
             except (ValueError, TypeError):
-                pass
-        
-        return current_value
+                value = 3.0
+        if value <= 0:
+            value = 3.0
+        dash_storage.set_data("rain_events_per_month", value)
+        return value
+
+    @app.callback(
+        [
+            Output("rain-events-per-month", "value", allow_duplicate=True),
+            Output("rain-events-per-month", "invalid"),
+            Output("rain-events-per-month-feedback", "children"),
+        ],
+        [
+            Input("rain-events-per-month", "n_blur"),
+            Input("rain-events-per-month", "n_submit"),
+        ],
+        State("rain-events-per-month", "value"),
+        prevent_initial_call=True,
+    )
+    def commit_rain_events_per_month(_n_blur, _n_submit, raw_value):
+        """Commit rain events on blur/Enter; revert and show error if not a positive number."""
+        saved = dash_storage.get_data("rain_events_per_month")
+        try:
+            last_valid = float(saved) if saved is not None else 3.0
+        except (ValueError, TypeError):
+            last_valid = 3.0
+        if last_valid <= 0:
+            last_valid = 3.0
+
+        if raw_value is None or raw_value == "":
+            return last_valid, True, "Enter a number."
+
+        try:
+            value = float(raw_value)
+        except (ValueError, TypeError):
+            return last_valid, True, "Enter a valid number."
+
+        if value <= 0:
+            return last_valid, True, "Enter a positive number."
+
+        dash_storage.set_data("rain_events_per_month", value)
+        return value, False, ""
 
     # Helper function to create rain statistics table display
     def _create_rain_statistics_display(df_rain):

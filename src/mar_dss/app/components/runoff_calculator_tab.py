@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from dash import dcc, html
 import dash_leaflet as dl
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import INPUT_CELL_BG
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
@@ -284,8 +285,19 @@ def create_action_buttons():
             "Get Watershed Info",
             id="get-watershed-btn",
             color="info",
-            className="mb-3",
+            className="me-2 mb-3",
             title="Retrieve watershed boundaries and attributes for the area",
+        ),
+        dbc.Button(
+            "Reset drainage point",
+            id="reset-watershed-map-btn",
+            color="secondary",
+            outline=True,
+            className="mb-3",
+            title=(
+                "Clear the drainage marker, streams, and watershed overlay so you can "
+                "click the map and choose a new drainage point"
+            ),
         ),
     ]
 
@@ -319,6 +331,11 @@ def create_controls_card():
             dbc.Tooltip(
                 "Longitude from map click or manual entry (decimal degrees)",
                 target="selected-longitude",
+                placement="top",
+            ),
+            dbc.Tooltip(
+                "Clear marker, streams, and watershed so you can pick a new drainage point",
+                target="reset-watershed-map-btn",
                 placement="top",
             ),
         ])
@@ -1022,7 +1039,9 @@ def _optional_runoff_help_body():
                 html.Strong("Use Runoff For Recharge"),
                 " in section (B) to copy results into Volume Estimates. The ",
                 html.Strong("Watershed Information"),
-                " tab provides an interactive map, nearby streams, and watershed "
+                " tab (use the ",
+                html.Strong("?"),
+                " there) provides an interactive map, nearby streams, and watershed "
                 "delineation to obtain drainage area and basin characteristics.",
             ],
             className="mb-0",
@@ -1054,6 +1073,173 @@ def create_optional_runoff_calculations_help_modal():
         scrollable=True,
         backdrop=True,
         keyboard=True,
+    )
+
+
+def create_watershed_information_help_modal():
+    """Help modal for the Watershed Information tab."""
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Watershed Information Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.H6("Primary goal", className="fw-bold mb-2"),
+                    html.P(
+                        [
+                            "The main purpose of this tab is to obtain ",
+                            html.Strong("watershed information"),
+                            "—such as ",
+                            html.Strong("drainage area"),
+                            ", ",
+                            html.Strong("land use"),
+                            ", and related basin characteristics—for your selected map "
+                            "location. Use these values on the ",
+                            html.Strong("Runoff Calculator"),
+                            " tab: enter ",
+                            html.Strong("Area (acres)"),
+                            " in the Runoff Calculations table and use land-cover / "
+                            "impervious-cover information when choosing curve numbers in ",
+                            html.Strong("Step 1 (Composite Curve Number)"),
+                            ".",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        "After streams are shown, choose the drainage outlet by clicking "
+                        "on a stream. Keep the marker on the stream line so watershed "
+                        "delineation is accurate.",
+                        className="text-muted mb-3",
+                    ),
+                    html.H6("Workflow", className="fw-bold mb-2"),
+                    html.Ol(
+                        [
+                            html.Li([
+                                "Click the ",
+                                html.Strong("Runoff Analysis Map"),
+                                " near your site of interest—the coordinates appear in ",
+                                html.Strong("Analysis Controls"),
+                                " and can be edited manually.",
+                            ]),
+                            html.Li([
+                                "Click ",
+                                html.Strong("Obtain nearby streams"),
+                                " to download and display stream features near the selected "
+                                "point (within approximately 10 miles) as blue lines on the map.",
+                            ]),
+                            html.Li([
+                                "Select a ",
+                                html.Strong("point of drainage"),
+                                " by clicking on the stream where you want the watershed "
+                                "outlet. Place the marker ",
+                                html.Strong("directly on the stream"),
+                                "—if there is space between the marker and the stream, the "
+                                "watershed may not be calculated correctly.",
+                            ]),
+                            html.Li([
+                                "Click ",
+                                html.Strong("Get Watershed Info"),
+                                " to delineate the watershed for that drainage point. The "
+                                "watershed boundary appears in red on the map; basin characteristics "
+                                "(area, land use, and other parameters) load in the ",
+                                html.Strong("Watershed Information"),
+                                " results table below the map.",
+                            ]),
+                            html.Li([
+                                "To choose a different drainage point after streams or a "
+                                "watershed are shown, click ",
+                                html.Strong("Reset drainage point"),
+                                " to clear the marker and map overlays, then click the map "
+                                "(or a stream) again and re-run ",
+                                html.Strong("Obtain nearby streams"),
+                                " and/or ",
+                                html.Strong("Get Watershed Info"),
+                                ".",
+                            ]),
+                            html.Li([
+                                "Review the results table and transfer values to the Runoff "
+                                "Calculator tab: copy ",
+                                html.Strong("Area (acres)"),
+                                " into the Runoff Calculations table, and use land-use / "
+                                "cover information to select appropriate impervious and pervious "
+                                "curve numbers in ",
+                                html.Strong("Step 1"),
+                                ".",
+                            ]),
+                        ],
+                        className="mb-4 ps-3",
+                    ),
+                    html.H6("Map symbols", className="fw-bold mb-2"),
+                    html.Ul(
+                        [
+                            html.Li([
+                                html.Strong("Red marker"),
+                                " — selected ",
+                                html.Strong("point of drainage"),
+                                " (the latitude/longitude used by ",
+                                html.Strong("Get Watershed Info"),
+                                "). Place it ",
+                                html.Strong("directly on a stream"),
+                                "; a gap between the red marker and the stream can cause "
+                                "incorrect watershed results.",
+                            ]),
+                            html.Li([
+                                html.Strong("Blue lines"),
+                                " — nearby streams loaded by ",
+                                html.Strong("Obtain nearby streams"),
+                                ". Use these to choose where to put the red drainage marker.",
+                            ]),
+                            html.Li([
+                                html.Strong("Red outline / shaded area"),
+                                " — delineated watershed boundary after ",
+                                html.Strong("Get Watershed Info"),
+                                ".",
+                            ]),
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            "On the Runoff Calculator tab, check ",
+                            html.Strong("Use site coordinates"),
+                            " to copy the Water Source site location into rainfall download "
+                            "and single-storm runoff fields.",
+                        ],
+                        className="small text-muted mb-0",
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="watershed-info-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="watershed-info-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
+def _watershed_info_tab_header_with_help():
+    """Watershed Information tab title with help button."""
+    return _runoff_section_header(
+        "Watershed Information",
+        help_button=html.Button(
+            "?",
+            id="watershed-info-help-btn",
+            type="button",
+            className="mar-help-btn",
+            title="Help: watershed map, streams, and delineation",
+        ),
     )
 
 
@@ -1303,16 +1489,33 @@ def create_curve_number_tab():
                                             className="fw-bold mb-3"),
                                     dbc.Row([
                                         dbc.Col([
-                                            html.Label("Average number of rain events per month:", 
-                                                       className="form-label mb-2"),
-                                            dbc.Input(
-                                                id="rain-events-per-month",
-                                                type="number",
-                                                value=3.0,
-                                                min=0.1,
-                                                step=0.1,
-                                                className="mb-3"
-                                            )
+                                            html.Label(
+                                                "Average number of rain events per month:",
+                                                className="form-label mb-2",
+                                            ),
+                                            html.Div(
+                                                [
+                                                    dbc.Input(
+                                                        id="rain-events-per-month",
+                                                        type="number",
+                                                        value=3.0,
+                                                        step=0.1,
+                                                        className="text-center table-cell-input-borderless excel-cell-input",
+                                                        style={"maxWidth": "100px"},
+                                                    ),
+                                                    dbc.FormFeedback(
+                                                        id="rain-events-per-month-feedback",
+                                                        type="invalid",
+                                                    ),
+                                                ],
+                                                className="excel-rain-events-cell d-inline-block mb-3",
+                                                style={
+                                                    "backgroundColor": INPUT_CELL_BG,
+                                                    "border": "1px solid #dee2e6",
+                                                    "borderRadius": "2px",
+                                                    "padding": "2px 4px",
+                                                },
+                                            ),
                                         ], width="auto"),
                                     ]),
                                     dbc.Row([
@@ -1395,9 +1598,8 @@ def create_curve_number_tab():
 def create_runoff_calculator_tab():
     """Create the content for the Watershed Information tab."""
     return [
-        html.H3("Watershed Information", className="mb-4"),
-        html.P("Calculate and analyze runoff patterns for your MAR project location.", className="mb-4"),
-
+        _watershed_info_tab_header_with_help(),
+        create_watershed_information_help_modal(),
         html.Div(
             [
                 dbc.Tabs(
