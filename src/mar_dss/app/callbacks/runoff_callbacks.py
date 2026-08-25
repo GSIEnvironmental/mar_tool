@@ -16,7 +16,17 @@ import numpy as np
 import plotly.graph_objects as go
 from scipy.special import exp1
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.utils.excel_table import build_param_value_table, rows_from_param_inputs
+from mar_dss.app.utils.excel_table import (
+    INPUT_CELL_BG,
+    build_param_value_table,
+    build_table_legend,
+    datatable_base_style_cell,
+    datatable_base_style_header,
+    datatable_column_styles,
+    datatable_computed_data_style,
+    rows_from_param_inputs,
+    wrap_table_with_legend,
+)
 from mar_dss.app.utils.tab_tooltips import TOOLTIPS_ENABLED
 
 
@@ -72,19 +82,47 @@ def _compute_composite_cn_rows(table_data, selected_option):
 
 
 def _composite_cn_excel_table(table_data):
-    return build_param_value_table(
-        table_data or [],
-        input_type="composite-cn-value",
-        readonly_params=["Composite CN"],
-        highlight_params=["Composite CN"],
+    computed = {"Composite CN"}
+    editable = {
+        str(row.get("Parameter", ""))
+        for row in (table_data or [])
+        if str(row.get("Parameter", "")) not in computed
+    }
+    return wrap_table_with_legend(
+        build_param_value_table(
+            table_data or [],
+            input_type="composite-cn-value",
+            readonly_params=computed,
+            input_highlight_params=editable,
+            computed_highlight_params=computed,
+        )
     )
 
 
+RUNOFF_CALC_EDITABLE_PARAMS = (
+    "Area (acres)",
+    "24-hour Rainfall (inches)",
+    "Initial Abstraction",
+)
+
+RUNOFF_CALC_COMPUTED_PARAMS = (
+    "Composite Curve Number",
+    "Maximum Potential Storage (inches)",
+    "Runoff Depth (inches)",
+    "Runoff/Precipitation Ratio",
+    "Runoff Volume (ft3)",
+)
+
+
 def _runoff_calc_excel_table(table_data):
-    return build_param_value_table(
-        table_data or [],
-        input_type="runoff-calc-value",
-        highlight_params=["Runoff Volume (ft3)"],
+    return wrap_table_with_legend(
+        build_param_value_table(
+            table_data or [],
+            input_type="runoff-calc-value",
+            readonly_params=RUNOFF_CALC_COMPUTED_PARAMS,
+            input_highlight_params=RUNOFF_CALC_EDITABLE_PARAMS,
+            computed_highlight_params=RUNOFF_CALC_COMPUTED_PARAMS,
+        )
     )
 
 
@@ -471,6 +509,132 @@ def setup_runoff_callbacks(app):
         return bool(is_open)
 
     @app.callback(
+        Output("runoff-calculations-help-modal", "is_open"),
+        [
+            Input("runoff-calculations-help-btn", "n_clicks"),
+            Input("runoff-calculations-help-close-btn", "n_clicks"),
+        ],
+        State("runoff-calculations-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_runoff_calculations_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Runoff Calculations help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "runoff-calculations-help-btn":
+            return True
+        if trigger == "runoff-calculations-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("single-storm-runoff-help-modal", "is_open"),
+        [
+            Input("single-storm-runoff-help-btn", "n_clicks"),
+            Input("single-storm-runoff-help-close-btn", "n_clicks"),
+        ],
+        State("single-storm-runoff-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_single_storm_runoff_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Runoff for Single Storm help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "single-storm-runoff-help-btn":
+            return True
+        if trigger == "single-storm-runoff-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("curve-number-selection-help-modal", "is_open"),
+        [
+            Input("curve-number-selection-help-btn", "n_clicks"),
+            Input("curve-number-selection-help-close-btn", "n_clicks"),
+        ],
+        State("curve-number-selection-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_curve_number_selection_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Select Curve Numbers options help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "curve-number-selection-help-btn":
+            return True
+        if trigger == "curve-number-selection-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("composite-cn-help-modal", "is_open"),
+        [
+            Input("composite-cn-help-btn", "n_clicks"),
+            Input("composite-cn-help-close-btn", "n_clicks"),
+        ],
+        State("composite-cn-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_composite_cn_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the composite curve number table help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "composite-cn-help-btn":
+            return True
+        if trigger == "composite-cn-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("peak-runoff-help-modal", "is_open"),
+        [
+            Input("peak-runoff-help-btn", "n_clicks"),
+            Input("peak-runoff-help-close-btn", "n_clicks"),
+        ],
+        State("peak-runoff-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_peak_runoff_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the (A) Peak Runoff Calculations help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "peak-runoff-help-btn":
+            return True
+        if trigger == "peak-runoff-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("monthly-runoff-recharge-help-modal", "is_open"),
+        [
+            Input("monthly-runoff-recharge-help-btn", "n_clicks"),
+            Input("monthly-runoff-recharge-help-close-btn", "n_clicks"),
+        ],
+        State("monthly-runoff-recharge-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_monthly_runoff_recharge_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the (B) Average monthly runoff for recharge help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "monthly-runoff-recharge-help-btn":
+            return True
+        if trigger == "monthly-runoff-recharge-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
         Output("monthly-runoff-calc-summary", "children"),
         [
             Input("runoff-calculations-table", "data"),
@@ -640,32 +804,13 @@ def setup_runoff_callbacks(app):
                         watershed_table = dash_table.DataTable(
                             data=df.to_dict('records'),
                             columns=[{"name": i, "id": i} for i in df.columns],
-                            style_cell={
-                                'textAlign': 'left',
-                                'padding': '10px',
-                                'fontFamily': 'Arial, sans-serif',
-                                'fontSize': '14px',
-                                'border': '1px solid #ddd'
-                            },
-                            style_header={
-                                'backgroundColor': '#f8f9fa',
-                                'fontWeight': 'bold',
-                                'border': '1px solid #ddd'
-                            },
-                            style_data={
-                                'backgroundColor': 'white',
-                                'border': '1px solid #ddd'
-                            },
-                            style_data_conditional=[
-                                {
-                                    'if': {'row_index': 'odd'},
-                                    'backgroundColor': '#f8f9fa'
-                                }
-                            ],
-                            page_size=len(df),  # Show all rows on one page
+                            style_cell=datatable_base_style_cell(),
+                            style_header=datatable_base_style_header(),
+                            style_data=datatable_computed_data_style(),
+                            page_size=len(df),
                             sort_action="native",
                             filter_action="native",
-                            export_format="csv"
+                            export_format="csv",
                         )
                 except Exception as table_error:
                     print(f"Error creating watershed table: {table_error}")
@@ -1302,32 +1447,13 @@ def setup_runoff_callbacks(app):
         rain_statistics_table = dash_table.DataTable(
             data=df_rain.to_dict('records'),
             columns=[{"name": i, "id": i} for i in df_rain.columns],
-            style_cell={
-                'textAlign': 'left',
-                'padding': '10px',
-                'fontFamily': 'Arial, sans-serif',
-                'fontSize': '14px',
-                'border': '1px solid #ddd'
-            },
-            style_header={
-                'backgroundColor': '#f8f9fa',
-                'fontWeight': 'bold',
-                'border': '1px solid #ddd'
-            },
-            style_data={
-                'backgroundColor': 'white',
-                'border': '1px solid #ddd'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#f8f9fa'
-                }
-            ],
+            style_cell=datatable_base_style_cell(),
+            style_header=datatable_base_style_header(),
+            style_data=datatable_computed_data_style(),
             page_size=len(df_rain),
             sort_action="native",
             filter_action="native",
-            export_format="csv"
+            export_format="csv",
         )
         
         # Return table with heading
@@ -1337,7 +1463,8 @@ def setup_runoff_callbacks(app):
                 "Note: The Annual Recurrence Interval (ARI), also known as the return period, is the average time interval between rainfall events of a given magnitude or greater. For example: An ARI of 100 years means that, on average, a precipitation event of that magnitude (e.g., 5.38 inches over 24-hr) or greater has a 1% chance (1/100) of being equaled or exceeded in any given year.",
                 className="text-muted d-block mb-2"
             ),
-            rain_statistics_table
+            rain_statistics_table,
+            build_table_legend(),
         ])
     
     # Callback to load rain statistics table from storage on initial load
@@ -1419,57 +1546,25 @@ def setup_runoff_callbacks(app):
                 columns={"Runoff Volume (ft3)": "Runoff Volume (ft3/month)"}
             )
         
-        # Create monthly rain table with different colors for each column
-        # Define colors for each column
-        column_colors = {
-            'Month': {'header': '#2c5aa0', 'data': '#e8f4f8'},
-            'Rain (inches)': {'header': '#28a745', 'data': '#d4edda'},
-            'Runoff depth (inches)': {'header': '#ff6b35', 'data': '#ffe5d9'},
-            'Runoff Volume (ft3/month)': {'header': '#6f42c1', 'data': '#e9d5ff'},
-        }
-        
-        # Build conditional styling for columns
-        style_data_conditional = []
-        style_header_conditional = []
-        
-        for col in monthly_rain.columns:
-            if col in column_colors:
-                style_data_conditional.append({
-                    'if': {'column_id': col},
-                    'backgroundColor': column_colors[col]['data']
-                })
-                style_header_conditional.append({
-                    'if': {'column_id': col},
-                    'backgroundColor': column_colors[col]['header'],
-                    'color': 'white'
-                })
-        
+        # Column styling: Month = label; all value columns = calculated (blue)
+        monthly_columns = list(monthly_rain.columns)
+        label_cols = [c for c in monthly_columns if c == "Month"]
+        computed_cols = [c for c in monthly_columns if c != "Month"]
+
         monthly_rain_table = dash_table.DataTable(
             data=monthly_rain.to_dict('records'),
-            columns=[{"name": i, "id": i} for i in monthly_rain.columns],
-            style_cell={
-                'textAlign': 'left',
-                'padding': '10px',
-                'fontFamily': 'Arial, sans-serif',
-                'fontSize': '14px',
-                'border': '1px solid #ddd'
-            },
-            style_header={
-                'backgroundColor': '#f8f9fa',
-                'fontWeight': 'bold',
-                'border': '1px solid #ddd',
-                'color': 'black'
-            },
-            style_data={
-                'backgroundColor': 'white',
-                'border': '1px solid #ddd'
-            },
-            style_data_conditional=style_data_conditional,
-            style_header_conditional=style_header_conditional,
+            columns=[{"name": i, "id": i} for i in monthly_columns],
+            style_cell=datatable_base_style_cell(textAlign="left"),
+            style_header=datatable_base_style_header(),
+            style_data=datatable_computed_data_style(),
+            style_data_conditional=datatable_column_styles(
+                label_columns=label_cols,
+                computed_columns=computed_cols,
+            ),
             page_size=len(monthly_rain),
             sort_action="native",
             filter_action="native",
-            export_format="csv"
+            export_format="csv",
         )
         
         # Create grouped bar chart for monthly rain and runoff depth
@@ -1511,10 +1606,15 @@ def setup_runoff_callbacks(app):
         monthly_rain_chart = dcc.Graph(figure=fig)
         
         # Return table and chart side by side
-        return dbc.Row([
-            dbc.Col([monthly_rain_table], width=6),
-            dbc.Col([monthly_rain_chart], width=6)
-        ])
+        return html.Div(
+            [
+                dbc.Row([
+                    dbc.Col([monthly_rain_table], width=6),
+                    dbc.Col([monthly_rain_chart], width=6),
+                ]),
+                build_table_legend(),
+            ]
+        )
     
     # Callback to load monthly runoff data from storage on initial load
     @app.callback(

@@ -907,6 +907,26 @@ def setup_main_callbacks(app, dashboard_instance):
         return dash.no_update
 
     @app.callback(
+        Output("about-modal", "is_open"),
+        [
+            Input("btn-about", "n_clicks"),
+            Input("btn-about-close", "n_clicks"),
+        ],
+        prevent_initial_call=True,
+    )
+    def toggle_about_modal(about_clicks, close_clicks):
+        """Open or dismiss the About MAR-Tool dialog."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        triggered = ctx.triggered[0]["prop_id"].split(".")[0]
+        if triggered == "btn-about" and about_clicks:
+            return True
+        if triggered == "btn-about-close" and close_clicks:
+            return False
+        return dash.no_update
+
+    @app.callback(
         Output("close-project-modal", "is_open", allow_duplicate=True),
         Output("main-content-flash", "children", allow_duplicate=True),
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
@@ -1002,6 +1022,69 @@ def setup_main_callbacks(app, dashboard_instance):
         ],
         prevent_initial_call=True,
     )
+
+    @app.callback(
+        Output("water-source-config-help-modal", "is_open"),
+        [
+            Input("water-source-config-help-btn", "n_clicks"),
+            Input("water-source-config-help-close-btn", "n_clicks"),
+        ],
+        State("water-source-config-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_water_source_configuration_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Water Source Configuration help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "water-source-config-help-btn":
+            return True
+        if trigger == "water-source-config-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("volume-estimates-help-modal", "is_open"),
+        [
+            Input("volume-estimates-help-btn", "n_clicks"),
+            Input("volume-estimates-help-close-btn", "n_clicks"),
+        ],
+        State("volume-estimates-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_volume_estimates_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Volume Estimates help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "volume-estimates-help-btn":
+            return True
+        if trigger == "volume-estimates-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("optional-runoff-help-modal", "is_open"),
+        [
+            Input("optional-runoff-help-btn", "n_clicks"),
+            Input("optional-runoff-help-close-btn", "n_clicks"),
+        ],
+        State("optional-runoff-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_optional_runoff_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Optional Runoff Calculations help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "optional-runoff-help-btn":
+            return True
+        if trigger == "optional-runoff-help-close-btn":
+            return False
+        return bool(is_open)
 
     # Callback for water source dropdown - saves to data storage
     @app.callback(

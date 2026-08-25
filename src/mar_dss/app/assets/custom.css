@@ -299,3 +299,69 @@ table .table-cell-input-borderless:focus,
   outline: none !important;
 }
 
+.excel-legend-swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.excel-legend-input {
+  background-color: #fff8e1;
+}
+
+.excel-legend-computed {
+  background-color: #e3f2fd;
+}
+
+.excel-cell-table .excel-cell-computed {
+  color: #0d47a1;
+}
+
+/* Read-only computed tables: blue value columns, white label/first column */
+.excel-computed-table tbody td {
+  background-color: #e3f2fd;
+  color: #0d47a1;
+}
+
+.excel-computed-table tbody td:first-child {
+  background-color: #ffffff;
+  color: inherit;
+  font-weight: 600;
+}
+
+.runoff-calculations-help-btn,
+.mar-help-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 2px solid #6c757d;
+  background-color: #28a745;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.runoff-calculations-help-btn:hover,
+.mar-help-btn:hover {
+  background-color: #218838;
+  border-color: #6c757d;
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.runoff-calculations-help-btn:focus,
+.mar-help-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.35);
+}

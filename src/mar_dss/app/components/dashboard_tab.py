@@ -374,7 +374,7 @@ def create_dashboard_content():
                                                                         ])
                                                                     ])
                                                                 ],
-                                                                className="table table-striped"
+                                                                className="table table-striped excel-computed-table"
                                                             )
                                                         ]
                                                     )
@@ -531,7 +531,7 @@ def create_dashboard_content():
                                                                         ])
                                                                     ])
                                                                 ],
-                                                                className="table table-striped table-hover"
+                                                                className="table table-striped table-hover excel-computed-table"
                                                             )
                                                         ]
                                                     )

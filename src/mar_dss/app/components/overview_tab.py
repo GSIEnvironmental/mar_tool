@@ -106,6 +106,103 @@ def get_overview_map_figure_params():
     return lat, lon, zoom, marker, get_overview_map_basemap()
 
 
+def create_starting_information_help_modal():
+    """Help modal for MAR-Tool Starting Information inputs and decision use."""
+    help_items = [
+        (
+            "Project Name",
+            "A descriptive label for your MAR project. Used in saved project files, "
+            "generated reports, and AI-assisted decision summaries.",
+        ),
+        (
+            "Project File Path",
+            "Display-only path to the current project file. Set with File → Open, Save, "
+            "or Save As so your work can be reloaded later.",
+        ),
+        (
+            "Analysis Date",
+            "The date of this feasibility assessment. Recorded in project data, reports, "
+            "and AI decision context.",
+        ),
+        (
+            "MAR Purpose",
+            "Select one or more project objectives (water supply, aquifer storage, flood "
+            "reduction, seawater intrusion, water quality). These goals frame the assessment "
+            "and are passed to the knowledge graph and AI engineering recommendations so "
+            "technology options align with what you are trying to achieve.",
+        ),
+        (
+            "Project Location",
+            "Geographic site location, set by panning/zooming the map on this tab or when "
+            "opening a saved project. Used for mapping, regional rainfall and watershed tools, "
+            "and location context in feasibility and AI decisions.",
+        ),
+        (
+            "Ground Surface Slope (%)",
+            "Average site slope as a percentage. Feeds the decision graph "
+            "(ground surface slope significance) and surface recharge suitability. Gentle "
+            "slopes favor surface spreading; moderate or steep slopes can increase earthwork "
+            "costs or make injection wells or dry wells more attractive.",
+        ),
+        (
+            "Available Land Area for Recharge (acres)",
+            "Total land area that could host recharge facilities. Caps spread area in "
+            "hydrogeologic sizing rules and sets default engineering limits (for example, "
+            "maximum infiltration area is derived from this value). Also affects cost and "
+            "feasibility calculations in the Analysis tab.",
+        ),
+        (
+            "Land Use",
+            "Primary land use at the site (residential, commercial/industrial, agricultural, "
+            "or open space). Included in project context for AI-assisted decisions and informs "
+            "assumptions about infiltration, disturbance, and site suitability.",
+        ),
+    ]
+
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("MAR-Tool Starting Information Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "These inputs establish the project context for MAR-Tool. They are "
+                        "saved with your project and flow into hydrogeologic rules, engineering "
+                        "sizing, cost analysis, and AI-generated decision support on later tabs.",
+                        className="text-muted mb-3",
+                    ),
+                    html.Dl(
+                        [
+                            item
+                            for title, description in help_items
+                            for item in (
+                                html.Dt(title, className="fw-bold"),
+                                html.Dd(description, className="mb-3"),
+                            )
+                        ]
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="starting-info-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="starting-info-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
 def create_mar_purpose_section():
     """Create MAR Project Purpose section for overview with tooltips."""
     project_name = dash_storage.get_data("project_name")
@@ -139,10 +236,23 @@ def create_mar_purpose_section():
 
     return dbc.Card([
         dbc.CardHeader(
-            "MAR-Tool Starting Information",
-            className="fw-bold bg-primary text-white",
+            html.Div(
+                [
+                    html.Span("MAR-Tool Starting Information", className="fw-bold"),
+                    html.Button(
+                        "?",
+                        id="starting-info-help-btn",
+                        type="button",
+                        className="mar-help-btn",
+                        title="Help: explain starting information and decision use",
+                    ),
+                ],
+                className="d-flex align-items-center justify-content-between w-100",
+            ),
+            className="bg-primary text-white py-2",
         ),
         dbc.CardBody([
+            create_starting_information_help_modal(),
             html.H6("Project Setup", className="fw-bold mb-2"),
             html.Label("Project Name:", className="fw-bold small mb-1"),
             dbc.Input(

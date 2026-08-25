@@ -180,6 +180,27 @@ def _persist_shared_map_view_from_relayout(relayout_data):
 
 def setup_overview_callbacks(app):
     """Set up all overview-related callbacks."""
+
+    @app.callback(
+        Output("starting-info-help-modal", "is_open"),
+        [
+            Input("starting-info-help-btn", "n_clicks"),
+            Input("starting-info-help-close-btn", "n_clicks"),
+        ],
+        State("starting-info-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_starting_information_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the MAR-Tool Starting Information help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "starting-info-help-btn":
+            return True
+        if trigger == "starting-info-help-close-btn":
+            return False
+        return bool(is_open)
     
     # Combined callback for project name input - handles all triggers
     @app.callback(

@@ -10,6 +10,11 @@ import mar_dss.app.utils.data_storage as data_storage
 from mar_dss.app.callbacks.ai_environment import _normalize_stored_string, _location_text
 from mar_dss.app.callbacks.ai_regulations import build_mar_regulations_prompt, get_mar_regulations
 from mar_dss.app.utils.tab_tooltips import dash_table_tooltip_kwargs
+from mar_dss.app.utils.excel_table import (
+    datatable_base_style_cell,
+    datatable_base_style_header,
+    datatable_computed_data_style,
+)
 
 
 def _classify_branch(statuses):
@@ -729,14 +734,6 @@ def setup_legal_constraints_callbacks(app):
             }
 
             style_data_conditional = []
-            non_priority_cols = [
-                "category",
-                "item",
-                "responsible_agency",
-                "requirement_level",
-                "trigger_or_applicability",
-                "why_it_matters",
-            ]
             for idx, row in df.iterrows():
                 priority = str(row.get("priority", "")).strip()
                 if priority in priority_colors:
@@ -756,22 +753,6 @@ def setup_legal_constraints_callbacks(app):
                         "color": colors["text"],
                         "fontWeight": "bold",
                     })
-                if idx % 2 == 0:
-                    for col in non_priority_cols:
-                        style_data_conditional.append({
-                            "if": {"row_index": idx, "column_id": col},
-                            "backgroundColor": "#e3f2fd",
-                        })
-
-            style_header_conditional = [
-                {
-                    "if": {"column_id": col},
-                    "backgroundColor": "#0d6efd",
-                    "color": "white",
-                    "fontWeight": "bold",
-                }
-                for col in df.columns
-            ]
 
             table = dash_table.DataTable(
                 id="mar-regs-datatable",
@@ -785,28 +766,21 @@ def setup_legal_constraints_callbacks(app):
                     {"name": "Why It Matters", "id": "why_it_matters"},
                 ],
                 data=df.to_dict("records"),
-                style_header={
-                    "backgroundColor": "#0d6efd",
-                    "color": "white",
-                    "fontWeight": "bold",
-                    "textAlign": "left",
-                    "border": "1px solid #dee2e6",
-                    "fontSize": "14px",
-                },
-                style_cell={
-                    "textAlign": "left",
-                    "padding": "12px",
-                    "fontFamily": "Arial, sans-serif",
-                    "fontSize": "14px",
-                    "whiteSpace": "normal",
-                    "height": "auto",
-                    "border": "1px solid #dee2e6",
-                    "minWidth": "120px",
-                    "maxWidth": "360px",
-                },
-                style_data={"border": "1px solid #dee2e6"},
+                style_header=datatable_base_style_header(
+                    textAlign="left",
+                    fontSize="14px",
+                ),
+                style_cell=datatable_base_style_cell(
+                    textAlign="left",
+                    padding="12px",
+                    fontSize="14px",
+                    whiteSpace="normal",
+                    height="auto",
+                    minWidth="120px",
+                    maxWidth="360px",
+                ),
+                style_data=datatable_computed_data_style(border="1px solid #dee2e6"),
                 style_data_conditional=style_data_conditional,
-                style_header_conditional=style_header_conditional,
                 page_size=20,
                 sort_action="native",
                 filter_action="native",

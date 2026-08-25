@@ -9,6 +9,12 @@ import json
 import pandas as pd
 import plotly.graph_objects as go
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import (
+    datatable_base_style_cell,
+    datatable_base_style_header,
+    datatable_column_styles,
+    datatable_computed_data_style,
+)
 from mar_dss.app.utils.cost_storage import (
     CAPITAL_COST_TOTAL_KEYS,
     MAINTENANCE_COST_TOTAL_KEYS,
@@ -278,29 +284,13 @@ def setup_cost_callbacks(app):
                 {"name": "Parameter", "id": "Parameter"},
                 {"name": "Value", "id": "Value"}
             ],
-            style_cell={
-                "textAlign": "left",
-                "padding": "10px",
-                "fontSize": "14px",
-                "fontFamily": "Arial, sans-serif"
-            },
-            style_header={
-                "backgroundColor": "#2c3e50",
-                "color": "white",
-                "fontWeight": "bold",
-                "textAlign": "center"
-            },
-            style_data={
-                "whiteSpace": "normal",
-                "height": "auto",
-                "border": "1px solid #dee2e6"
-            },
-            style_data_conditional=[
-                {
-                    "if": {"row_index": "odd"},
-                    "backgroundColor": "#f8f9fa"
-                }
-            ],
+            style_cell=datatable_base_style_cell(textAlign="left"),
+            style_header=datatable_base_style_header(),
+            style_data=datatable_computed_data_style(whiteSpace="normal", height="auto"),
+            style_data_conditional=datatable_column_styles(
+                label_columns=["Parameter"],
+                computed_columns=["Value"],
+            ),
             style_cell_conditional=[
                 {
                     "if": {"column_id": "Parameter"},
@@ -971,41 +961,15 @@ def setup_cost_callbacks(app):
         
         # Fill NaN values with empty strings for better display
         capital_df = capital_df.fillna('')
-        
-        # Get unique categories and assign colors
-        categories = capital_df['Category'].dropna().unique() if 'Category' in capital_df.columns else []
-        # Color palette for categories
-        category_colors = [
-            '#e8f5e9',  # Light green
-            '#e3f2fd',  # Light blue
-            '#fff3e0',  # Light orange
-            '#f3e5f5',  # Light purple
-            '#fce4ec',  # Light pink
-            '#e0f2f1',  # Light teal
-            '#fff9c4',  # Light yellow
-            '#e1f5fe',  # Light cyan
-        ]
-        
-        # Create conditional styling for categories
-        category_styles = []
-        for idx, category in enumerate(categories):
-            if category and str(category).strip() != '':
-                color = category_colors[idx % len(category_colors)]
-                category_styles.append({
-                    'if': {
-                        'filter_query': f'{{Category}} = "{category}"'
-                    },
-                    'backgroundColor': color
-                })
-        
-        # Add summary row styling
+
         summary_styles = [
             {
                 'if': {
                     'filter_query': '{Row Label} contains "Total" || {Row Label} contains "Subtotal" || {Row Label} contains "Capital" || {Item} = null'
                 },
-                'backgroundColor': '#ecf0f1',
-                'fontWeight': 'bold'
+                'backgroundColor': '#bbdefb',
+                'fontWeight': 'bold',
+                'color': '#0d47a1',
             }
         ]
         
@@ -1014,22 +978,10 @@ def setup_cost_callbacks(app):
             columns=[
                 {'name': col, 'id': col} for col in capital_df.columns
             ],
-            style_cell={
-                'textAlign': 'left',
-                'padding': '10px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#2c3e50',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data={
-                'whiteSpace': 'normal',
-                'height': 'auto'
-            },
-            style_data_conditional=category_styles + summary_styles,
+            style_cell=datatable_base_style_cell(textAlign='left'),
+            style_header=datatable_base_style_header(),
+            style_data=datatable_computed_data_style(whiteSpace='normal', height='auto'),
+            style_data_conditional=summary_styles,
             page_size=50
         )
         
@@ -1075,30 +1027,15 @@ def setup_cost_callbacks(app):
         
         # Fill NaN values with empty strings for better display
         maintenance_df = maintenance_df.fillna('')
-        
-        # Get unique categories and assign colors (same as capital cost table)
-        maintenance_categories = maintenance_df['Category'].dropna().unique() if 'Category' in maintenance_df.columns else []
-        
-        # Create conditional styling for categories
-        maintenance_category_styles = []
-        for idx, category in enumerate(maintenance_categories):
-            if category and str(category).strip() != '':
-                color = category_colors[idx % len(category_colors)]
-                maintenance_category_styles.append({
-                    'if': {
-                        'filter_query': f'{{Category}} = "{category}"'
-                    },
-                    'backgroundColor': color
-                })
-        
-        # Add summary row styling for maintenance costs
+
         maintenance_summary_styles = [
             {
                 'if': {
                     'filter_query': '{Row Label} contains "Total" || {Row Label} contains "Subtotal" || {Row Label} contains "Maintenance" || {Item} = null'
                 },
-                'backgroundColor': '#ecf0f1',
-                'fontWeight': 'bold'
+                'backgroundColor': '#bbdefb',
+                'fontWeight': 'bold',
+                'color': '#0d47a1',
             }
         ]
         
@@ -1107,22 +1044,10 @@ def setup_cost_callbacks(app):
             columns=[
                 {'name': col, 'id': col} for col in maintenance_df.columns
             ],
-            style_cell={
-                'textAlign': 'left',
-                'padding': '10px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#2c3e50',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data={
-                'whiteSpace': 'normal',
-                'height': 'auto'
-            },
-            style_data_conditional=maintenance_category_styles + maintenance_summary_styles,
+            style_cell=datatable_base_style_cell(textAlign='left'),
+            style_header=datatable_base_style_header(),
+            style_data=datatable_computed_data_style(whiteSpace='normal', height='auto'),
+            style_data_conditional=maintenance_summary_styles,
             page_size=50
         )
         
@@ -1262,30 +1187,15 @@ def setup_cost_callbacks(app):
             columns=[
                 {'name': col, 'id': col} for col in npv_df.columns
             ],
-            style_cell={
-                'textAlign': 'left',
-                'padding': '10px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#2c3e50',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data={
-                'whiteSpace': 'normal',
-                'height': 'auto'
-            },
+            style_cell=datatable_base_style_cell(textAlign='left'),
+            style_header=datatable_base_style_header(),
+            style_data=datatable_computed_data_style(whiteSpace='normal', height='auto'),
             style_data_conditional=[
                 {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#f8f9fa'
-                },
-                {
                     'if': {'row_index': len(npv_df) - 1},
-                    'backgroundColor': '#ecf0f1',
-                    'fontWeight': 'bold'
+                    'backgroundColor': '#bbdefb',
+                    'fontWeight': 'bold',
+                    'color': '#0d47a1',
                 }
             ],
             page_size=25

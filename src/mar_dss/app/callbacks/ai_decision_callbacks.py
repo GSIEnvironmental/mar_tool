@@ -7,6 +7,10 @@ import plotly.graph_objects as go
 from dash import Input, Output, State, dcc, dash_table, html
 
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import (
+    datatable_computed_data_style,
+    datatable_column_styles,
+)
 from mar_dss.app.callbacks.ai_engineering_decision import (
     build_engineering_decision_prompt,
     get_engineering_decision_scores,
@@ -109,7 +113,7 @@ def _scores_datatable(scores_df):
         ],
         data=display_df.to_dict("records"),
         style_header={
-            "backgroundColor": "#0d6efd",
+            "backgroundColor": "#2c5aa0",
             "color": "white",
             "fontWeight": "bold",
             "textAlign": "left",
@@ -127,8 +131,12 @@ def _scores_datatable(scores_df):
             "minWidth": "120px",
             "maxWidth": "420px",
         },
-        style_data={"border": "1px solid #dee2e6"},
-        style_data_conditional=style_data_conditional,
+        style_data=datatable_computed_data_style(border="1px solid #dee2e6"),
+        style_data_conditional=style_data_conditional
+        + datatable_column_styles(
+            label_columns=["engineering_option"],
+            computed_columns=["feasibility_score", "score_summary"],
+        ),
         sort_action="native",
         export_format="csv",
     )
@@ -148,14 +156,6 @@ def _explanations_datatable(explanations_df):
                     "fontWeight": "bold",
                 }
             )
-        if idx % 2 == 0:
-            for col in ("topic", "detail", "related_option"):
-                style_data_conditional.append(
-                    {
-                        "if": {"row_index": idx, "column_id": col},
-                        "backgroundColor": "#f8f9fa",
-                    }
-                )
 
     return dash_table.DataTable(
         id="ai-decision-explanations-datatable",
@@ -167,7 +167,7 @@ def _explanations_datatable(explanations_df):
         ],
         data=explanations_df.to_dict("records"),
         style_header={
-            "backgroundColor": "#495057",
+            "backgroundColor": "#2c5aa0",
             "color": "white",
             "fontWeight": "bold",
             "textAlign": "left",
@@ -185,8 +185,11 @@ def _explanations_datatable(explanations_df):
             "minWidth": "120px",
             "maxWidth": "480px",
         },
-        style_data={"border": "1px solid #dee2e6"},
-        style_data_conditional=style_data_conditional,
+        style_data=datatable_computed_data_style(border="1px solid #dee2e6"),
+        style_data_conditional=style_data_conditional
+        + datatable_column_styles(
+            computed_columns=["topic", "detail", "related_option"],
+        ),
         page_size=15,
         sort_action="native",
         filter_action="native",

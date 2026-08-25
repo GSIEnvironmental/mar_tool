@@ -11,6 +11,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import build_table_legend
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 from mar_dss.mar.options import mar_options
 from mar_dss.rules.defaults import get_default
@@ -588,8 +589,9 @@ def _build_stratigraphy_tab():
                         bordered=True,
                         hover=True,
                         responsive=True,
-                        className="mb-3 excel-cell-table"
+                        className="mb-1 excel-cell-table"
                     ),
+                    build_table_legend(compact=True),
                 ],
                 id="stratigraphy-content"
             )
@@ -662,8 +664,9 @@ def _build_groundwater_level_tab():
                                 bordered=True,
                                 hover=True,
                                 responsive=True,
-                                className="mb-3 excel-cell-table"
-                            )
+                                className="mb-1 excel-cell-table"
+                            ),
+                            build_table_legend(compact=True),
                         ], width=6)
                     ], className="mb-3"),
                     # groundwater-data-store is defined in layout._build_root_layout (always mounted).

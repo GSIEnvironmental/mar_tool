@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, callback_context, dcc, html, State
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import input_cell_style, label_cell_style
 from mar_dss.app.components.hydro_tab import (
     GROUNDWATER_MONTH_NAMES,
     RULE_DEFAULT_SCALAR_ROWS,
@@ -904,18 +905,19 @@ def setup_hydro_callbacks(app):
             )
             
             rows.append(html.Tr([
-                html.Td(checkbox),
-                html.Td(layer_dropdown),
+                html.Td(checkbox, style=input_cell_style()),
+                html.Td(layer_dropdown, style=input_cell_style()),
                 html.Td(
                     html.Div(
                         recharge_checkbox,
                         className="d-flex justify-content-center align-items-center",
-                    )
+                    ),
+                    style=input_cell_style(),
                 ),
-                html.Td(thickness_input),
-                html.Td(conductivity_input),
-                html.Td(storage_input),
-                html.Td(yield_input),
+                html.Td(thickness_input, style=input_cell_style()),
+                html.Td(conductivity_input, style=input_cell_style()),
+                html.Td(storage_input, style=input_cell_style()),
+                html.Td(yield_input, style=input_cell_style()),
             ]))
         
         return rows
@@ -1095,8 +1097,9 @@ def setup_hydro_callbacks(app):
                         html.Td(
                             row["month"],
                             className="align-middle small text-muted fw-semibold",
+                            style=label_cell_style(i),
                         ),
-                        html.Td(elevation_input),
+                        html.Td(elevation_input, style=input_cell_style()),
                     ]
                 )
             )

@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import computed_cell_style
 from mar_dss.app.utils.cost_storage import (
     CAPITAL_COST_TOTAL_KEYS,
     MAINTENANCE_COST_TOTAL_KEYS,
@@ -353,8 +354,30 @@ def _create_decision_matrix_table(df, weights):
     # Create table body using actual DataFrame column names
     body = [html.Tbody([
         html.Tr([
-            html.Td(option_name, style={"position": "sticky", "left": 0, "backgroundColor": "white", "zIndex": 1, "fontSize": "0.85rem", "padding": "0.5rem"})] +
-            [html.Td(f"{df.loc[option_name, col]:.1f}%", style={"textAlign": "center", "fontSize": "0.85rem", "padding": "0.5rem"}) for col in df.columns]
+            html.Td(
+                option_name,
+                style={
+                    "position": "sticky",
+                    "left": 0,
+                    "backgroundColor": "white",
+                    "zIndex": 1,
+                    "fontSize": "0.85rem",
+                    "padding": "0.5rem",
+                    "fontWeight": "600",
+                },
+            )]
+            + [
+                html.Td(
+                    f"{df.loc[option_name, col]:.1f}%",
+                    style={
+                        **computed_cell_style(),
+                        "textAlign": "center",
+                        "fontSize": "0.85rem",
+                        "padding": "0.5rem",
+                    },
+                )
+                for col in df.columns
+            ]
         )
         for option_name in df.index
     ])]

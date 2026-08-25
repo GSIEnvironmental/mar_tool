@@ -25,6 +25,11 @@ from mar_dss.app.callbacks.ai_environment import (
 )
 from mar_dss.app.utils.tab_tooltips import dash_table_tooltip_kwargs
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import (
+    datatable_base_style_cell,
+    datatable_base_style_header,
+    datatable_computed_data_style,
+)
 
 _RISK_LEVEL_CANONICAL = frozenset({"NOT AVAILABLE", "LOW RISK", "MODERATE RISK", "HIGH RISK"})
 
@@ -217,15 +222,15 @@ def generate_required_treatment_summary(risks_and_treatments):
             id='env-treatment-summary-table',
             columns=[{"name": i, "id": i} for i in df.columns],
             data=df.to_dict('records'),
-            style_header={
-                'backgroundColor': '#e9ecef',
-                'fontWeight': 'bold'
-            },
-            style_cell={
-                'textAlign': 'left',
-                'minWidth': '100px', 'width': '100px', 'maxWidth': '300px',
-                'whiteSpace': 'normal'
-            }
+            style_header=datatable_base_style_header(textAlign='left'),
+            style_cell=datatable_base_style_cell(
+                textAlign='left',
+                minWidth='100px',
+                width='100px',
+                maxWidth='300px',
+                whiteSpace='normal',
+            ),
+            style_data=datatable_computed_data_style(whiteSpace='normal'),
         ),
         className='treatment-table'
     )
@@ -897,30 +902,6 @@ def setup_environmental_impact_callbacks(app):
                         'fontWeight': 'bold'
                     })
             
-            # Add alternating row colors (light blue) for all columns except priority
-            # Apply to each non-priority column separately
-            for idx in range(len(df)):
-                if idx % 2 == 0:  # Even rows get light blue
-                    for col in ['category', 'data_point', 'justification']:
-                        style_data_conditional.append({
-                            'if': {
-                                'row_index': idx,
-                                'column_id': col
-                            },
-                            'backgroundColor': '#e3f2fd'
-                        })
-            
-            # Create conditional styling for headers - all green
-            style_header_conditional = [
-                {
-                    'if': {'column_id': col},
-                    'backgroundColor': '#28a745',  # Green background
-                    'color': 'white',
-                    'fontWeight': 'bold'
-                }
-                for col in df.columns
-            ]
-            
             # Create the table
             table = dash_table.DataTable(
                 id='mar-factors-datatable',
@@ -931,28 +912,19 @@ def setup_environmental_impact_callbacks(app):
                     {"name": "Justification", "id": "justification"}
                 ],
                 data=df.to_dict('records'),
-                style_header={
-                    'backgroundColor': '#28a745',  # Green background
-                    'color': 'white',
-                    'fontWeight': 'bold',
-                    'textAlign': 'left',
-                    'border': '1px solid #dee2e6',
-                    'fontSize': '16px'
-                },
-                style_cell={
-                    'textAlign': 'left',
-                    'padding': '12px',
-                    'fontFamily': 'Arial, sans-serif',
-                    'fontSize': '15px',
-                    'whiteSpace': 'normal',
-                    'height': 'auto',
-                    'border': '1px solid #dee2e6'
-                },
-                style_data={
-                    'border': '1px solid #dee2e6'
-                },
+                style_header=datatable_base_style_header(
+                    textAlign='left',
+                    fontSize='16px',
+                ),
+                style_cell=datatable_base_style_cell(
+                    textAlign='left',
+                    padding='12px',
+                    fontSize='15px',
+                    whiteSpace='normal',
+                    height='auto',
+                ),
+                style_data=datatable_computed_data_style(),
                 style_data_conditional=style_data_conditional,
-                style_header_conditional=style_header_conditional,
                 page_size=20,
                 sort_action="native",
                 filter_action="none",

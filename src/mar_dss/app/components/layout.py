@@ -194,6 +194,13 @@ def _build_file_toolbar() -> html.Div:
                     size="sm",
                     title="Browse for a location and file name to save the project",
                 ),
+                dbc.Button(
+                    [html.I(className="fas fa-info-circle me-1"), "About"],
+                    id="btn-about",
+                    color="outline-secondary",
+                    size="sm",
+                    title="About MAR-Tool",
+                ),
             ],
             size="sm",
         ),
@@ -230,6 +237,54 @@ def _build_close_project_modal() -> dbc.Modal:
         id="close-project-modal",
         is_open=False,
         centered=True,
+    )
+
+
+def _build_about_modal() -> dbc.Modal:
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("About MAR-Tool")),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "MAR-Tool (Managed Aquifer Recharge Prefeasibility Decision Support "
+                        "System) is a web-based dashboard for evaluating Managed Aquifer "
+                        "Recharge (MAR) projects. It guides users from project setup and site "
+                        "characterization through water source assessment, hydrogeology, "
+                        "environmental and regulatory review, engineering options, integrated "
+                        "feasibility analysis, and decision support.",
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            "MAR-Tool was developed in cooperation between the ",
+                            html.Strong(
+                                "Environmental Security Technology Certification Program (ESTCP)"
+                            ),
+                            ", ",
+                            html.Strong(
+                                "Naval Facilities Engineering Systems Command (NAVFAC)"
+                            ),
+                            ", and ",
+                            html.Strong("GSI Environmental Inc."),
+                        ],
+                        className="mb-0",
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="btn-about-close",
+                    color="secondary",
+                    n_clicks=0,
+                )
+            ),
+        ],
+        id="about-modal",
+        is_open=False,
+        centered=True,
+        scrollable=True,
     )
 
 
@@ -619,6 +674,7 @@ def _build_root_layout() -> html.Div:
             dcc.Store(id="peak-runoff-engineering-sync", data=None),
             html.Div(id="close-browser-hook", style={"display": "none"}),
             _build_close_project_modal(),
+            _build_about_modal(),
         ]
     )
 

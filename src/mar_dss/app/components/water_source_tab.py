@@ -11,8 +11,13 @@ import plotly.graph_objects as go
 import requests
 from dash import dcc, html
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.excel_table import INPUT_CELL_BG, build_table_legend, label_cell_style
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
-from .runoff_calculator_tab import create_runoff_calculator_tab, create_curve_number_tab
+from .runoff_calculator_tab import (
+    create_runoff_calculator_tab,
+    create_curve_number_tab,
+    create_optional_runoff_calculations_help_modal,
+)
 
 WATER_SOURCE_OPTIONS = [
     {
@@ -695,6 +700,7 @@ def create_editable_flow_table(flow_data=None):
                     html.Td(
                         month,
                         className="text-center align-middle fw-semibold py-1 px-2",
+                        style=label_cell_style(i),
                     ),
                     html.Td(
                         dbc.Input(
@@ -705,21 +711,24 @@ def create_editable_flow_table(flow_data=None):
                             step=1,
                             debounce=True,
                             size="sm",
-                            className="text-center table-cell-input-borderless monthly-flow-input-borderless",
+                            className="text-center table-cell-input-borderless monthly-flow-input-borderless excel-cell-input",
                         ),
                         className="text-center py-0 px-1 align-middle",
+                        style={"backgroundColor": INPUT_CELL_BG},
                     ),
                 ],
-                style={"backgroundColor": "#f8f9fa" if i % 2 else "white"},
             )
         )
 
     return html.Div(
-        html.Table(
-            rows,
-            className="table table-sm table-bordered mb-0",
-            style={"width": "300px", "maxWidth": "300px", "backgroundColor": "white"},
-        ),
+        [
+            html.Table(
+                rows,
+                className="table table-sm table-bordered mb-0 excel-cell-table",
+                style={"width": "300px", "maxWidth": "300px", "backgroundColor": "white"},
+            ),
+            build_table_legend(compact=True),
+        ],
         id="flow-data-table",
     )
 
@@ -951,11 +960,27 @@ def _create_optional_runoff_calculations_card():
     return dbc.Card(
         [
             dbc.CardHeader(
-                "Optional Runoff Calculations",
-                className="fw-bold bg-primary text-white py-2",
+                html.Div(
+                    [
+                        html.Span(
+                            "Optional Runoff Calculations",
+                            className="fw-bold",
+                        ),
+                        html.Button(
+                            "?",
+                            id="optional-runoff-help-btn",
+                            type="button",
+                            className="mar-help-btn",
+                            title="Help: optional runoff calculations sections",
+                        ),
+                    ],
+                    className="d-flex align-items-center justify-content-between w-100",
+                ),
+                className="bg-primary text-white py-2",
             ),
             dbc.CardBody(
                 [
+                    create_optional_runoff_calculations_help_modal(),
                     html.Div(
                         id="optional-runoff-water-source-warning",
                         children=(
@@ -1028,6 +1053,166 @@ def _create_optional_runoff_calculations_card():
     )
 
 
+def create_water_source_configuration_help_modal():
+    """Help modal for Water Source Configuration inputs and decision use."""
+    help_items = [
+        (
+            "Water Source",
+            "Select the primary water supply for MAR (surface water, stormwater, "
+            "agricultural runoff, treated wastewater, groundwater, or other). This "
+            "choice drives cost and design assumptions, environmental and regulatory "
+            "context, and whether the optional runoff calculator is the best fit "
+            "(most appropriate for options 1–3).",
+        ),
+        (
+            "Source Site Coordinate",
+            "Latitude and longitude where water is obtained or enters the system. "
+            "Set by selecting Source Site on the map and clicking the desired location. "
+            "Used for regional data, runoff tools, conveyance distance, and project context "
+            "in feasibility and AI-assisted decisions.",
+        ),
+        (
+            "Recharge Site Coordinate",
+            "Latitude and longitude of the MAR recharge project site. Set by selecting "
+            "Recharge Site on the map and clicking the location. Paired with the source "
+            "site for distance and siting in engineering and decision analysis.",
+        ),
+        (
+            "Distance from water source to MAR project site",
+            "Great-circle distance (miles) between source and recharge coordinates. "
+            "Informs conveyance length, engineering design, and cost estimates on later tabs.",
+        ),
+        (
+            "Map (adjacent card)",
+            "Use the map to place source (red) and recharge (blue) markers, choose a "
+            "basemap, and pan/zoom. The saved view is shared with the Overview tab project "
+            "location map.",
+        ),
+    ]
+
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Water Source Configuration Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "Define where MAR water comes from and how it relates to the "
+                        "recharge site. These settings are saved with your project and flow "
+                        "into volume estimates, runoff tools, engineering options, cost "
+                        "analysis, and decision support.",
+                        className="text-muted mb-3",
+                    ),
+                    html.Dl(
+                        [
+                            item
+                            for title, description in help_items
+                            for item in (
+                                html.Dt(title, className="fw-bold"),
+                                html.Dd(description, className="mb-3"),
+                            )
+                        ]
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="water-source-config-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="water-source-config-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
+def create_volume_estimates_help_modal():
+    """Help modal for Volume Estimates inputs and decision use."""
+    help_items = [
+        (
+            "Monthly Average Flow (ft³/month)",
+            "Enter the volume of water potentially available for MAR in each calendar "
+            "month. Values are averages (not a single storm). The sum of "
+            "all twelve months approximates annual supply. Edit a cell and click away or "
+            "Tab to save; no Enter key is required.",
+        ),
+        (
+            "Monthly Flow Chart",
+            "Visual summary of the table: monthly bars and cumulative annual flow. "
+            "Updates automatically when table values change.",
+        ),
+        (
+            "Runoff calculator (optional)",
+            [
+                "Runoff calculator in the following section can be used to estimate "
+                "available surface water. If you decide to use runoff calculator values "
+                "as the recharge source, check the ",
+                html.Strong("Use Runoff For Recharge"),
+                " box in Step 3 below.",
+            ],
+        ),
+        (
+            "Use in MAR-Tool decisions",
+            "Monthly flows become source water volume in the integrated feasibility "
+            "analysis. They drive spread-area sizing, injection and dry-well counts, "
+            "annual recharge comparisons, and water-balance checks against aquifer "
+            "storage and operational limits on the Analysis tab.",
+        ),
+    ]
+
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Volume Estimates Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "Document how much water may be available for MAR each month. "
+                        "These volumes are saved with your project and feed engineering "
+                        "sizing, cost analysis, and feasibility decision rules.",
+                        className="text-muted mb-3",
+                    ),
+                    html.Dl(
+                        [
+                            item
+                            for title, description in help_items
+                            for item in (
+                                html.Dt(title, className="fw-bold"),
+                                html.Dd(description, className="mb-3"),
+                            )
+                        ]
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="volume-estimates-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="volume-estimates-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
 def create_water_source_info_tab():
     """Create the content for the Water Source Information tab."""
     # Get existing values from data storage if available
@@ -1052,11 +1237,27 @@ def create_water_source_info_tab():
                         dbc.Card(
                             [
                                 dbc.CardHeader(
-                                    "Water Source Configuration",
-                                    className="fw-bold bg-primary text-white py-2",
+                                    html.Div(
+                                        [
+                                            html.Span(
+                                                "Water Source Configuration",
+                                                className="fw-bold",
+                                            ),
+                                            html.Button(
+                                                "?",
+                                                id="water-source-config-help-btn",
+                                                type="button",
+                                                className="mar-help-btn",
+                                                title="Help: explain water source configuration",
+                                            ),
+                                        ],
+                                        className="d-flex align-items-center justify-content-between w-100",
+                                    ),
+                                    className="bg-primary text-white py-2",
                                 ),
                                 dbc.CardBody(
                                     [
+                                        create_water_source_configuration_help_modal(),
                                         html.Div(
                                             id="water-source-site-coordinates-summary",
                                             children=(
@@ -1116,11 +1317,27 @@ def create_water_source_info_tab():
                         dbc.Card(
                             [
                                 dbc.CardHeader(
-                                    "Volume Estimates",
-                                    className="fw-bold bg-primary text-white py-2",
+                                    html.Div(
+                                        [
+                                            html.Span(
+                                                "Volume Estimates",
+                                                className="fw-bold",
+                                            ),
+                                            html.Button(
+                                                "?",
+                                                id="volume-estimates-help-btn",
+                                                type="button",
+                                                className="mar-help-btn",
+                                                title="Help: explain volume estimates",
+                                            ),
+                                        ],
+                                        className="d-flex align-items-center justify-content-between w-100",
+                                    ),
+                                    className="bg-primary text-white py-2",
                                 ),
                                 dbc.CardBody(
                                     [
+                                        create_volume_estimates_help_modal(),
                                         html.P(
                                             "Total monthly volume potentially available for MAR",
                                             className="text-muted fs-6 mb-1",

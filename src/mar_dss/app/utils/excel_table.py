@@ -7,6 +7,102 @@ from typing import Any, Iterable, Optional, Sequence
 import dash_bootstrap_components as dbc
 from dash import html
 
+INPUT_CELL_BG = "#fff8e1"
+COMPUTED_CELL_BG = "#e3f2fd"
+TABLE_HEADER_BG = "#2c5aa0"
+
+
+def input_cell_style() -> dict[str, str]:
+    return {"backgroundColor": INPUT_CELL_BG}
+
+
+def computed_cell_style() -> dict[str, str]:
+    return {"backgroundColor": COMPUTED_CELL_BG}
+
+
+def label_cell_style(row_index: int = 0) -> dict[str, str]:
+    return {"backgroundColor": "#f8f9fa" if row_index % 2 else "white"}
+
+
+def build_table_legend(*, compact: bool = False) -> html.Div:
+    """Legend for amber = enter value, blue = calculated."""
+    gap = "gap-1" if compact else "gap-1"
+    return html.Div(
+        [
+            html.Span(className="excel-legend-swatch excel-legend-input me-1"),
+            html.Span("Enter value", className="small me-3"),
+            html.Span(className="excel-legend-swatch excel-legend-computed me-1"),
+            html.Span("Calculated", className="small"),
+        ],
+        className=f"d-flex align-items-center mt-2 mb-0 text-muted {gap}",
+    )
+
+
+def datatable_base_style_cell(**overrides: Any) -> dict[str, Any]:
+    style = {
+        "textAlign": "left",
+        "padding": "10px",
+        "fontFamily": "Arial, sans-serif",
+        "fontSize": "14px",
+        "border": "1px solid #ddd",
+    }
+    style.update(overrides)
+    return style
+
+
+def datatable_base_style_header(**overrides: Any) -> dict[str, Any]:
+    style = {
+        "backgroundColor": TABLE_HEADER_BG,
+        "color": "white",
+        "fontWeight": "bold",
+        "border": "1px solid #ddd",
+        "textAlign": "center",
+    }
+    style.update(overrides)
+    return style
+
+
+def datatable_computed_data_style(**overrides: Any) -> dict[str, Any]:
+    style = {
+        "backgroundColor": COMPUTED_CELL_BG,
+        "border": "1px solid #ddd",
+        "color": "#0d47a1",
+    }
+    style.update(overrides)
+    return style
+
+
+def datatable_column_styles(
+    *,
+    computed_columns: Optional[Iterable[str]] = None,
+    input_columns: Optional[Iterable[str]] = None,
+    label_columns: Optional[Iterable[str]] = None,
+) -> list[dict[str, Any]]:
+    """Conditional column backgrounds for dash_table.DataTable."""
+    styles: list[dict[str, Any]] = []
+    for col in computed_columns or ():
+        styles.append(
+            {"if": {"column_id": col}, "backgroundColor": COMPUTED_CELL_BG, "color": "#0d47a1"}
+        )
+    for col in input_columns or ():
+        styles.append({"if": {"column_id": col}, "backgroundColor": INPUT_CELL_BG})
+    for col in label_columns or ():
+        styles.append(
+            {
+                "if": {"column_id": col},
+                "backgroundColor": "#ffffff",
+                "fontWeight": "600",
+            }
+        )
+    return styles
+
+
+def wrap_table_with_legend(table_component, *, show_legend: bool = True):
+    """Wrap a table component with the standard color legend."""
+    if not show_legend:
+        return table_component
+    return html.Div([table_component, build_table_legend()])
+
 
 def _as_float(raw: Any, default: float = 0.0) -> float:
     try:
@@ -17,12 +113,32 @@ def _as_float(raw: Any, default: float = 0.0) -> float:
         return default
 
 
+def _cell_background(
+    param: str,
+    row_index: int,
+    *,
+    readonly: set[str],
+    input_highlight: set[str],
+    computed_highlight: set[str],
+    legacy_highlight: set[str],
+) -> str:
+    if param in computed_highlight or (param in readonly and param not in input_highlight):
+        return COMPUTED_CELL_BG
+    if param in input_highlight:
+        return INPUT_CELL_BG
+    if param in legacy_highlight:
+        return COMPUTED_CELL_BG
+    return "#f8f9fa" if row_index % 2 else "white"
+
+
 def build_param_value_table(
     rows: Sequence[dict],
     *,
     input_type: str,
     readonly_params: Optional[Iterable[str]] = None,
     highlight_params: Optional[Iterable[str]] = None,
+    input_highlight_params: Optional[Iterable[str]] = None,
+    computed_highlight_params: Optional[Iterable[str]] = None,
     table_class: str = "table table-sm table-bordered mb-0 excel-cell-table",
 ) -> html.Table:
     """Build a two-column Parameter / Value table with borderless number inputs.
@@ -32,7 +148,9 @@ def build_param_value_table(
     (``{"type": input_type, "param": <Parameter>}``).
     """
     readonly = set(readonly_params or [])
-    highlight = set(highlight_params or [])
+    input_highlight = set(input_highlight_params or [])
+    computed_highlight = set(computed_highlight_params or [])
+    legacy_highlight = set(highlight_params or [])
 
     body_rows = [
         html.Tr(
@@ -48,13 +166,26 @@ def build_param_value_table(
         param = str(row.get("Parameter", ""))
         value = row.get("Value", 0)
         is_ro = param in readonly
-        bg = "#e3f2fd" if param in highlight else ("#f8f9fa" if i % 2 else "white")
+        bg = _cell_background(
+            param,
+            i,
+            readonly=readonly,
+            input_highlight=input_highlight,
+            computed_highlight=computed_highlight,
+            legacy_highlight=legacy_highlight,
+        )
+        is_computed = param in computed_highlight or (
+            is_ro and param not in input_highlight
+        )
 
         if is_ro:
             value_cell = html.Td(
                 html.Span(
                     f"{_as_float(value):g}",
-                    className="d-block text-center fw-semibold py-1",
+                    className=(
+                        "d-block text-center fw-semibold py-1 "
+                        + ("excel-cell-computed" if is_computed else "")
+                    ),
                 ),
                 className="align-middle py-0 px-1",
             )
@@ -66,7 +197,7 @@ def build_param_value_table(
                     value=_as_float(value),
                     debounce=True,
                     size="sm",
-                    className="text-center table-cell-input-borderless",
+                    className="text-center table-cell-input-borderless excel-cell-input",
                 ),
                 className="align-middle py-0 px-1",
             )

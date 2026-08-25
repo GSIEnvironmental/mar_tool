@@ -194,7 +194,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                 bordered=True,
                 hover=True,
                 responsive=True,
-                className="mb-2 table-sm",
+                className="mb-2 table-sm excel-computed-table",
                 style={"fontSize": "0.85rem"}
             )
         )
@@ -255,7 +255,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                 bordered=True,
                 hover=True,
                 responsive=True,
-                className="mb-2 table-sm",
+                className="mb-2 table-sm excel-computed-table",
                 style={"fontSize": "0.85rem"}
             )
         )
@@ -299,7 +299,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                 bordered=True,
                 hover=True,
                 responsive=True,
-                className="mb-2 table-sm",
+                className="mb-2 table-sm excel-computed-table",
                 style={"fontSize": "0.85rem"}
             )
         )
@@ -668,7 +668,7 @@ def create_decision_interpretation_content():
                 bordered=True,
                 hover=True,
                 responsive=True,
-                className="mb-2 table-sm",
+                className="mb-2 table-sm excel-computed-table",
                 style={"fontSize": "0.85rem"}
             ),
             
