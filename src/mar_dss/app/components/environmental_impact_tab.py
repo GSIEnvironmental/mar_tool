@@ -348,7 +348,7 @@ def create_water_quality_content():
                                 # 1.A: Physical Clogging Risk (TSS/Turbidity)
                                 html.Div([
                                     html.P("1.A: Physical Clogging (TSS/Turbidity)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is TSS/Turbidity HIGH?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Is TSS/Turbidity HIGH?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step1-input",
                                 options=water_quality_risk_options(
@@ -365,7 +365,7 @@ def create_water_quality_content():
                     # 1.B: DOC/TOC (Organic Matter Fouling)
                                 html.Div([
                                     html.P("1.B: Organic Matter Fouling (DOC/TOC)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is Dissolved Organic Carbon (DOC/TOC) HIGH?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Is Dissolved Organic Carbon (DOC/TOC) HIGH?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step2a-input",
                                 options=water_quality_risk_options(
@@ -394,7 +394,7 @@ def create_water_quality_content():
                                 # 2.A: pH/Alkalinity
                                 html.Div([
                                     html.P("2.A: pH/Alkalinity Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is pH/Alkalinity Significantly Different from Native Groundwater?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Is pH/Alkalinity Significantly Different from Native Groundwater?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step2b-input",
                                 options=water_quality_risk_options(
@@ -411,7 +411,7 @@ def create_water_quality_content():
                     # 2.B: Salinity Risk (TDS/Salinity)
                                 html.Div([
                                     html.P("2.B: Salinity Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is TDS/Salinity significantly higher than Native Groundwater?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Is TDS/Salinity significantly higher than Native Groundwater?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step3-input",
                                 options=water_quality_risk_options(
@@ -428,7 +428,7 @@ def create_water_quality_content():
                     # 2.C: Redox Compatibility
                                 html.Div([
                                     html.P("2.C: Redox Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is Source Water Redox State Incompatible with Native Aquifer?", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Is Source Water Redox State Incompatible with Native Aquifer?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step5b-input",
                                 options=water_quality_risk_options(
@@ -459,7 +459,7 @@ def create_water_quality_content():
                                 # 3.A: Inorganic Contaminants
                                 html.Div([
                                     html.P("3.A: Inorganic Contaminants (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Are key Inorganic Contaminants above Regulatory Limits?", className="text-muted mb-1 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Are key Inorganic Contaminants above Regulatory Limits?", className="text-muted mb-1 small fw-bold", style={"fontSize": "0.8rem"}),
                                     html.P("(Arsenic >10 µg/L, Nitrate >50 mg/L, Heavy Metals, Fluoride >1.5 mg/L, Selenium, Boron)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
                                 id="env-step4-input",
@@ -477,7 +477,7 @@ def create_water_quality_content():
                     # 3.B: Emerging Contaminants
                                 html.Div([
                                     html.P("3.B: Emerging Contaminants", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Are Emerging Contaminants Present at Risky Levels?", className="text-muted mb-1 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Are Emerging Contaminants Present at Risky Levels?", className="text-muted mb-1 small fw-bold", style={"fontSize": "0.8rem"}),
                                     html.P("(PFAS >10-70 ng/L, Pharmaceuticals, EDCs, Pesticides, Microplastics)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
                                 id="env-step5a-input",
@@ -495,7 +495,7 @@ def create_water_quality_content():
                     # 3.C: Pathogen Risk
                                 html.Div([
                                     html.P("3.C: Pathogen Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Are pathogens present at risky levels?", className="text-muted mb-1 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Are pathogens present at risky levels?", className="text-muted mb-1 small fw-bold", style={"fontSize": "0.8rem"}),
                                     html.P("(Consider source type: wastewater > stormwater > surface water > groundwater)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
                             dcc.RadioItems(
                                 id="env-step6-input",
@@ -525,7 +525,7 @@ def create_water_quality_content():
                                 # 4.A: Vadose Zone Pollution
                                 html.Div([
                                     html.P("4.A: Vadose Zone Pollution", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Indicates presence of pollution in the vadose zone.", className="text-muted mb-2 small", style={"fontSize": "0.8rem"}),
+                                    html.P("Indicates presence of pollution in the vadose zone.", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
                             dcc.RadioItems(
                                 id="env-step7-input",
                                 options=[

@@ -348,7 +348,11 @@ def setup_environmental_impact_callbacks(app):
                     f"{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}",
                     className="font-weight-bold",
                 ),
-                html.Span(f" - Score: {score} pt(s)", className="float-right badge badge-" + score_data['color'])
+                html.Span(
+                    f"Score: {score} pt(s)",
+                    className="fw-semibold",
+                    style={"color": "#000"},
+                ),
             ], className="d-flex justify-content-between mb-1 p-2 rounded", style={
                 "background-color": bg_color,
                 "color": text_color,
@@ -506,10 +510,15 @@ def setup_environmental_impact_callbacks(app):
                     if cost_per_ft3 > 0:
                         cost_details_html.append(html.Div([
                             html.Span(f"{detail['risk_factor']}: {detail['technology']}", className="font-weight-bold"),
-                            html.Span(f" - ${cost_per_ft3:.2f}/ft³", className="float-right badge badge-warning")
+                            html.Span(
+                                f"${cost_per_ft3:.2f}/ft³",
+                                className="fw-semibold",
+                                style={"color": "#000"},
+                            ),
                         ], className="d-flex justify-content-between mb-1 p-2 rounded", style={
                             "background-color": "#fff3cd",
-                            "border-left": "4px solid #ffc107"
+                            "border-left": "4px solid #ffc107",
+                            "color": "#000",
                         }))
             
             # Vadose Zone Remediation Section
@@ -533,10 +542,15 @@ def setup_environmental_impact_callbacks(app):
                     if cost_per_acreft > 0:
                         cost_details_html.append(html.Div([
                             html.Span(f"{detail['risk_factor']}: {detail['technology']}", className="font-weight-bold"),
-                            html.Span(f" - ${cost_per_acreft:,.0f}/acre-ft", className="float-right badge badge-danger")
+                            html.Span(
+                                f"${cost_per_acreft:,.0f}/acre-ft",
+                                className="fw-semibold",
+                                style={"color": "#000"},
+                            ),
                         ], className="d-flex justify-content-between mb-1 p-2 rounded", style={
                             "background-color": "#f8d7da",
-                            "border-left": "4px solid #dc3545"
+                            "border-left": "4px solid #dc3545",
+                            "color": "#000",
                         }))
         else:
             cost_details_html = [
