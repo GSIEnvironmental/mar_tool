@@ -365,3 +365,5 @@ table .table-cell-input-borderless:focus,
   outline: none;
   box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.35);
 }
+
+/* Global muted→black lives in force_black_text.css (loaded after theme). */

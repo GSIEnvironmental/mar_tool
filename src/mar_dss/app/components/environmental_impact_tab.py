@@ -28,6 +28,15 @@ def water_quality_risk_options(low_label, moderate_label, high_label):
     ]
 
 
+# Radio option text in Water Quality assessment cards (black, not muted grey)
+_WQ_RADIO_LABEL_STYLE = {
+    "display": "block",
+    "margin-bottom": "4px",
+    "fontSize": "0.75rem",
+    "color": "#000",
+}
+
+
 # 1. Decision Logic and Scoring (Maps parameter input to score, treatment, and recommendations)
 DECISION_LOGIC = {
     "step1_tss": {
@@ -318,6 +327,8 @@ def create_water_quality_content():
     vadose_zone_pollution = dash_storage.get_data("vadose_zone_pollution") or "None"
     
     return [
+        html.Div(
+            [
         # Water Quality Parameters card removed per request.
         # Main content row - Compact layout with 4 cards in grid
         dbc.Row([
@@ -347,7 +358,7 @@ def create_water_quality_content():
                                 ),
                                 value=tss_turbidity_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ], className="mb-3"),
                     
@@ -364,7 +375,7 @@ def create_water_quality_content():
                                 ),
                                 value=doc_toc_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ])
                             ], style={"padding": "0.75rem"})
@@ -393,7 +404,7 @@ def create_water_quality_content():
                                 ),
                                 value=ph_alkalinity_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ], className="mb-3"),
                     
@@ -410,7 +421,7 @@ def create_water_quality_content():
                                 ),
                                 value=tds_salinity_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ], className="mb-3"),
                     
@@ -427,7 +438,7 @@ def create_water_quality_content():
                                 ),
                                 value=redox_compatibility_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ])
                             ], style={"padding": "0.75rem"})
@@ -459,7 +470,7 @@ def create_water_quality_content():
                                 ),
                                 value=inorganic_contaminants_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ], className="mb-3"),
                     
@@ -477,7 +488,7 @@ def create_water_quality_content():
                                 ),
                                 value=emerging_contaminants_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ], className="mb-3"),
                     
@@ -495,7 +506,7 @@ def create_water_quality_content():
                                 ),
                                 value=pathogen_risk,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ])
                             ], style={"padding": "0.75rem"})
@@ -509,7 +520,7 @@ def create_water_quality_content():
                     dbc.Card([
                         dbc.CardHeader([
                                 html.H6("4. Need for Remediation", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
-                            ], className="bg-secondary py-2"),
+                            ], className="py-2", style={"backgroundColor": "#5a32a3"}),
                         dbc.CardBody([
                                 # 4.A: Vadose Zone Pollution
                                 html.Div([
@@ -524,7 +535,7 @@ def create_water_quality_content():
                                 ],
                                 value=vadose_zone_pollution,
                                         className="d-flex flex-column small",
-                                        labelStyle={'display': 'block', 'margin-bottom': '4px', 'fontSize': '0.75rem'}
+                                        labelStyle=_WQ_RADIO_LABEL_STYLE
                                     )
                                 ])
                             ], style={"padding": "0.75rem"})
@@ -690,6 +701,9 @@ def create_water_quality_content():
             "Order-of-magnitude treatment cost index from selected technologies",
             target="env-cost-gauge",
             placement="top",
+        ),
+            ],
+            className="water-quality-tab",
         ),
     ]
 

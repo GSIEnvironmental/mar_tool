@@ -79,6 +79,15 @@ def _create_theme_link(initial_theme: str = "CERULEAN") -> html.Link:
     )
 
 
+def _create_black_text_override_link() -> html.Link:
+    """Must follow theme-css so Bootswatch muted greys are overridden."""
+    return html.Link(
+        id="black-text-override-css",
+        rel="stylesheet",
+        href="/assets/force_black_text.css?v=2",
+    )
+
+
 # ------------------------------
 # Header builders
 # ------------------------------
@@ -642,6 +651,7 @@ def _build_root_layout() -> html.Div:
     return html.Div(
         [
             _create_theme_link("CERULEAN"),
+            _create_black_text_override_link(),
             dbc.Container(
                 [
                     _build_header(),
@@ -649,6 +659,7 @@ def _build_root_layout() -> html.Div:
                 ],
                 fluid=True,
                 id="app-container",
+                className="mar-theme-light",
             ),
             dcc.Store(
                 id="stratigraphy-data-store",

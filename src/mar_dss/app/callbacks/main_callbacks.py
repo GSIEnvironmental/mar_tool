@@ -274,31 +274,32 @@ def setup_main_callbacks(app, dashboard_instance):
         return patch
 
     @app.callback(
-        [Output("theme-selector", "value"), Output("theme-css", "href")],
+        [
+            Output("theme-selector", "value"),
+            Output("theme-css", "href"),
+            Output("app-container", "className"),
+        ],
         [Input("theme-selector", "value")],
     )
     def update_theme(selected_theme):
         """Update theme based on selection."""
-        if selected_theme:
-            dashboard_instance.current_theme = selected_theme
-
-            # Map theme names to their CDN URLs
-            theme_urls = {
-                "CERULEAN": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/cerulean/bootstrap.min.css",
-                "DARKLY": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/darkly/bootstrap.min.css",
-                "FLATLY": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/flatly/bootstrap.min.css",
-                "CYBORG": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/cyborg/bootstrap.min.css",
-                "SLATE": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/slate/bootstrap.min.css",
-            }
-
-            theme_url = theme_urls.get(
-                selected_theme, theme_urls["CERULEAN"]
-            )
-            return selected_theme, theme_url
-        return (
-            "CERULEAN",
-            "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/cerulean/bootstrap.min.css",
+        theme_urls = {
+            "CERULEAN": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/cerulean/bootstrap.min.css",
+            "DARKLY": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/darkly/bootstrap.min.css",
+            "FLATLY": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/flatly/bootstrap.min.css",
+            "CYBORG": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/cyborg/bootstrap.min.css",
+            "SLATE": "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/slate/bootstrap.min.css",
+        }
+        theme = selected_theme or "CERULEAN"
+        dashboard_instance.current_theme = theme
+        theme_url = theme_urls.get(theme, theme_urls["CERULEAN"])
+        # Dark themes need light text; light themes force muted greys → black
+        body_theme_class = (
+            "mar-theme-dark"
+            if theme in ("DARKLY", "CYBORG", "SLATE")
+            else "mar-theme-light"
         )
+        return theme, theme_url, body_theme_class
 
     @app.callback(
         [

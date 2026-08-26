@@ -1313,7 +1313,7 @@ def _create_spider_plots(dss_results, categorized_data):
                     label = (
                         f'{category}\n'
                         f'<span style="color:{style["color"]};">{score:.0f}%</span> '
-                        f'<span style="color:#6c757d;">N/A</span>'
+                        f'<span style="color:#000;">N/A</span>'
                     )
             else:
                 label = (

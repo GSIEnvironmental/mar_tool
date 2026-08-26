@@ -141,7 +141,7 @@ def _xy_view_empty_figure():
                 yref="paper",
                 text='Click "Show Contour Lines" to display the plan view with head contours.',
                 showarrow=False,
-                font=dict(size=14, color="#6c757d"),
+                font=dict(size=14, color="#000"),
                 xanchor="center",
                 yanchor="middle",
             )
@@ -516,7 +516,28 @@ def setup_hydro_callbacks(app):
         if trigger == "groundwater-level-help-close-btn":
             return False
         return bool(is_open)
-    
+
+    @app.callback(
+        Output("default-parameters-help-modal", "is_open"),
+        [
+            Input("default-parameters-help-btn", "n_clicks"),
+            Input("default-parameters-help-close-btn", "n_clicks"),
+        ],
+        State("default-parameters-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_default_parameters_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the (3.2) Default Parameters help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "default-parameters-help-btn":
+            return True
+        if trigger == "default-parameters-help-close-btn":
+            return False
+        return bool(is_open)
+
     # Persist inferred aquifer type (no manual aquifer-type control)
     @app.callback(
         Output("aq-type-inferred-store", "data"),
