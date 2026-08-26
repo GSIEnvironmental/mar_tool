@@ -93,6 +93,28 @@ def _render_initial_feasibility_status(status_line: str):
     return html.Span(status_line, className="fs-6 text-muted")
 
 
+def _initial_feasibility_error_alert(err: BaseException):
+    """User-facing alert when feasibility evaluation fails (missing/invalid inputs)."""
+    detail = str(err).strip() or type(err).__name__
+    return dbc.Alert(
+        [
+            html.Div(
+                "Some input information is not correct or missing.",
+                className="fw-semibold mb-2",
+            ),
+            html.Div(
+                [
+                    html.Strong("Error: "),
+                    html.Code(detail, className="small"),
+                ],
+                className="mb-0",
+            ),
+        ],
+        color="danger",
+        className="mb-0",
+    )
+
+
 def _aquitard_k_input_str(k: float) -> str:
     """Plain-text field display for aquitard K (no scientific spinners); trim trailing zeros."""
     if k is None or not math.isfinite(k) or k <= 0.0:
@@ -1685,6 +1707,17 @@ def setup_hydro_callbacks(app):
             State("aquitard-conductivity-input", "value"),
         ],
         prevent_initial_call=True,
+        running=[
+            (Output("check-initial-feasibility-btn", "disabled"), True, False),
+            (
+                Output("check-initial-feasibility-btn", "children"),
+                [
+                    dbc.Spinner(size="sm", color="light", spinner_class_name="me-2"),
+                    "Checking…",
+                ],
+                "Check Initial Feasibility",
+            ),
+        ],
     )
     def update_initial_feasibility_traffic(
         _n_clicks,
@@ -1722,10 +1755,8 @@ def setup_hydro_callbacks(app):
             inputs = get_graph_inputs()
             graph = get_session_graph()
             if graph is None:
-                return dbc.Alert(
-                    "Decision graph is not available.",
-                    color="warning",
-                    className="mb-0 small",
+                return _initial_feasibility_error_alert(
+                    ValueError("Decision graph is not available.")
                 )
             evaluate_and_store_decision_graph(graph, inputs)
 
@@ -1796,21 +1827,11 @@ def setup_hydro_callbacks(app):
                 ),
                 className="initial-feasibility-traffic initial-feasibility-traffic--evaluated mt-1",
             )
-        except ValueError as err:
-            return dbc.Alert(
-                f"Cannot evaluate feasibility: {err}",
-                color="warning",
-                className="mb-0 small",
-            )
         except Exception as err:
             import traceback
 
             traceback.print_exc()
-            return dbc.Alert(
-                f"Error: {err}",
-                color="danger",
-                className="mb-0 small",
-            )
+            return _initial_feasibility_error_alert(err)
 
     # --- Dashboard overrides for mar_dss.rules.defaults (geohydro rule parameters) ---
     for _row in RULE_DEFAULT_SCALAR_ROWS:

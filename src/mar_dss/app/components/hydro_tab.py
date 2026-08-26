@@ -340,9 +340,15 @@ def _build_hydro_tab_header():
                                         dbc.Row(
                                             [
                                                 dbc.Col(
-                                                    html.Div(
-                                                        id="initial-feasibility-traffic-output",
-                                                        children=_build_initial_feasibility_traffic_placeholder(),
+                                                    dcc.Loading(
+                                                        id="initial-feasibility-loading",
+                                                        type="circle",
+                                                        color="#198754",
+                                                        children=html.Div(
+                                                            id="initial-feasibility-traffic-output",
+                                                            children=_build_initial_feasibility_traffic_placeholder(),
+                                                            style={"minHeight": "4.5rem"},
+                                                        ),
                                                     ),
                                                     xs=12,
                                                     md=9,
