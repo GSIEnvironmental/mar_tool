@@ -127,7 +127,7 @@ def _xy_view_empty_figure():
     """No geometry or contours until the user clicks *Show Contour Lines*."""
     fig = go.Figure()
     fig.update_layout(
-        title=dict(text="XY View", x=0.5, xanchor="center", font=dict(size=16)),
+        title=dict(text="Plan View", x=0.5, xanchor="center", font=dict(size=16)),
         template="plotly_white",
         height=500,
         margin=dict(l=50, r=50, t=60, b=50),
@@ -720,49 +720,60 @@ def setup_hydro_callbacks(app):
     # Callback to save max MAR storage depth to data storage
     @app.callback(
         Output("max-mar-storage-depth", "value"),
+        Input("max-mar-storage-depth", "id"),
+        prevent_initial_call=False,
+    )
+    def load_max_mar_storage_depth(_component_id):
+        """Restore max MAR storage depth from project storage."""
+        depth = dash_storage.get_data("max_mar_storage_depth")
+        if depth is not None:
+            try:
+                depth = float(depth)
+            except (ValueError, TypeError):
+                depth = 20.0
+        else:
+            depth = 20.0
+        if depth < 0:
+            depth = 20.0
+        dash_storage.set_data("max_mar_storage_depth", depth)
+        return depth
+
+    @app.callback(
         [
-            Input("max-mar-storage-depth", "value"),
+            Output("max-mar-storage-depth", "value", allow_duplicate=True),
+            Output("max-mar-storage-depth", "invalid"),
+            Output("max-mar-storage-depth-feedback", "children"),
+        ],
+        [
             Input("max-mar-storage-depth", "n_blur"),
             Input("max-mar-storage-depth", "n_submit"),
-            Input("max-mar-storage-depth", "id")
         ],
-        prevent_initial_call=False
+        State("max-mar-storage-depth", "value"),
+        prevent_initial_call=True,
     )
-    def handle_max_mar_storage_depth_input(value, n_blur, n_submit, component_id):
-        """Handle max MAR storage depth input and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value and ensure it's a float, then save it
-            depth = dash_storage.get_data("max_mar_storage_depth")
-            if depth is not None:
-                try:
-                    depth = float(depth)
-                except (ValueError, TypeError):
-                    depth = 20.0
-            else:
-                depth = 20.0
-            dash_storage.set_data("max_mar_storage_depth", depth)
-            return depth
-        
-        # Get the current value and convert to float
-        if value is not None:
-            try:
-                current_value = float(value)
-            except (ValueError, TypeError):
-                current_value = 20.0
-        else:
-            current_value = 20.0
-        
-        # Determine which trigger caused the callback
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
-        # Save for all triggers except initial load (ensure it's saved as float)
-        if trigger_prop != "id":
-            dash_storage.set_data("max_mar_storage_depth", current_value)
-        
-        return current_value
-    
+    def commit_max_mar_storage_depth(_n_blur, _n_submit, raw_value):
+        """Commit storage depth on blur/Enter; reject negative values."""
+        saved = dash_storage.get_data("max_mar_storage_depth")
+        try:
+            last_valid = float(saved) if saved is not None else 20.0
+        except (ValueError, TypeError):
+            last_valid = 20.0
+        if last_valid < 0:
+            last_valid = 20.0
+
+        if raw_value is None or raw_value == "":
+            return last_valid, True, "Enter a number."
+
+        try:
+            value = float(raw_value)
+        except (ValueError, TypeError):
+            return last_valid, True, "Enter a valid number."
+
+        if value < 0:
+            return last_valid, True, "Maximum MAR Storage Depth cannot be negative."
+
+        dash_storage.set_data("max_mar_storage_depth", value)
+        return value, False, ""
     # Callback to save extension length to data storage
     @app.callback(
         Output("extension-length", "value"),
@@ -1349,7 +1360,17 @@ def setup_hydro_callbacks(app):
         
         # Create the plot
         fig = go.Figure()
-        
+
+        try:
+            gs_f = float(gs_use) if gs_use is not None and str(gs_use).strip() != "" else None
+        except (TypeError, ValueError):
+            gs_f = None
+
+        def _elev_at_depth(depth_ft):
+            if gs_f is None:
+                return None
+            return gs_f - float(depth_ft)
+
         # Calculate cumulative depths for layering
         cumulative_depth = 0
         layer_names = []
@@ -1370,23 +1391,31 @@ def setup_hydro_callbacks(app):
                 recharge_target_mid_depth = cumulative_depth + thick_f / 2.0
                 recharge_target_layer_name = layer_name
 
+            top_d = cumulative_depth
+            bot_d = cumulative_depth + thick_f
+            elev_hover = ""
+            if gs_f is not None:
+                elev_hover = (
+                    f"<br>Elevation: {_elev_at_depth(top_d):.1f} - {_elev_at_depth(bot_d):.1f} ft"
+                )
+
             # Add layer rectangle
             fig.add_trace(go.Scatter(
                 x=[0, 1, 1, 0, 0],  # Rectangle coordinates
                 y=[
-                    cumulative_depth,
-                    cumulative_depth,
-                    cumulative_depth + thick_f,
-                    cumulative_depth + thick_f,
-                    cumulative_depth,
+                    top_d,
+                    top_d,
+                    bot_d,
+                    bot_d,
+                    top_d,
                 ],
                 fill='toself',
                 fillcolor=layer_colors.get(layer_name, "#808080"),  # Default gray if layer not found
                 line=dict(color='black', width=1),
                 name=layer_name,
                 hovertemplate=(
-                    f'<b>{layer_name}</b><br>Thickness: {thick_f:.1f} ft<br>'
-                    f'Depth: {cumulative_depth:.1f} - {cumulative_depth + thick_f:.1f} ft<extra></extra>'
+                    f"<b>{layer_name}</b><br>Thickness: {thick_f:.1f} ft<br>"
+                    f"Depth: {top_d:.1f} - {bot_d:.1f} ft bgs{elev_hover}<extra></extra>"
                 ),
                 showlegend=True
             ))
@@ -1427,13 +1456,22 @@ def setup_hydro_callbacks(app):
                 line=dict(color="#0d6efd", width=2, dash="dash"),
                 hovertemplate=(
                     "<b>Water table (min monthly elev)</b><br>"
-                    f"Depth: {wt_depth_plot:.1f} ft bgs<br>"
-                    "<extra></extra>"
+                    f"Depth: {wt_depth_plot:.1f} ft bgs"
+                    + (
+                        f"<br>Elevation: {_elev_at_depth(wt_depth_plot):.1f} ft"
+                        if gs_f is not None
+                        else ""
+                    )
+                    + "<extra></extra>"
                 ),
             )
         )
 
         if recharge_target_mid_depth is not None:
+            elev_mid = _elev_at_depth(recharge_target_mid_depth)
+            elev_hover = (
+                f"<br>Elevation at midpoint: {elev_mid:.1f} ft" if elev_mid is not None else ""
+            )
             fig.add_trace(
                 go.Scatter(
                     x=[0.18],
@@ -1450,44 +1488,75 @@ def setup_hydro_callbacks(app):
                         "<b>Recharge target layer</b><br>"
                         f"{recharge_target_layer_name or ''}<br>"
                         f"Depth at layer midpoint: {recharge_target_mid_depth:.1f} ft bgs"
+                        f"{elev_hover}"
                         "<extra></extra>"
                     ),
                     showlegend=True,
                 )
             )
 
-        # Update layout
-        fig.update_layout(
+        # Depth increases downward (0 at top). Elevation = GS − depth (GS at top).
+        y_depth_range = [max(total_depth, 0.0), 0.0]
+        layout_kwargs = dict(
             title={
-                'text': 'Stratigraphy Cross Section',
-                'x': 0.5,
-                'xanchor': 'center',
-                'font': {'size': 16}
+                "text": "Stratigraphy Cross Section",
+                "x": 0.5,
+                "xanchor": "center",
+                "font": {"size": 16},
             },
             xaxis_title="",
-            yaxis_title="Depth (ft)",
-            yaxis=dict(autorange="reversed"),  # Reverse y-axis so surface is at top
+            yaxis=dict(
+                title="Depth (ft)",
+                range=y_depth_range,
+                showgrid=True,
+                gridwidth=1,
+                gridcolor="lightgray",
+                zeroline=False,
+            ),
             template="plotly_white",
             height=500,
-            margin=dict(l=50, r=50, t=60, b=50),
+            margin=dict(l=60, r=70, t=60, b=50),
             showlegend=True,
             legend=dict(
                 orientation="h",
                 yanchor="top",
                 y=-0.1,
                 xanchor="center",
-                x=0.5
+                x=0.5,
             ),
             xaxis=dict(
                 showgrid=False,
                 showticklabels=False,
-                range=[-0.1, 1.1]
-            )
+                range=[-0.1, 1.1],
+            ),
         )
-        
-        # Add grid
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        
+
+        if gs_f is not None:
+            elev_bottom = gs_f - max(total_depth, 0.0)
+            elev_top = gs_f
+            # Invisible anchor so Plotly always draws the secondary axis
+            fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[elev_top],
+                    yaxis="y2",
+                    mode="markers",
+                    marker=dict(opacity=0),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+            layout_kwargs["yaxis2"] = dict(
+                title="Elevation (ft)",
+                overlaying="y",
+                side="right",
+                range=[elev_bottom, elev_top],
+                showgrid=False,
+                zeroline=False,
+            )
+
+        fig.update_layout(**layout_kwargs)
+
         return fig
 
     @app.callback(
@@ -1655,9 +1724,9 @@ def setup_hydro_callbacks(app):
 
         # Update layout
         xy_title = (
-            "XY View — confined Theis mound"
+            "Plan View — confined Theis mound"
             if contour_style == "theis"
-            else "XY View — unconfined Hantush mound"
+            else "Plan View — unconfined Hantush mound"
         )
         xr, yr = footprint_x_range, footprint_y_range
         fig.update_layout(

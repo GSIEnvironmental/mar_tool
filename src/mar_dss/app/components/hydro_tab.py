@@ -651,8 +651,12 @@ def _build_groundwater_level_tab():
                                 debounce=True,
                                 step=0.1,
                                 placeholder="Enter storage depth",
-                                size="sm"
-                            )
+                                size="sm",
+                            ),
+                            dbc.FormFeedback(
+                                id="max-mar-storage-depth-feedback",
+                                type="invalid",
+                            ),
                         ], width=6),
                         dbc.Col([
                             # Groundwater level table
@@ -920,12 +924,12 @@ def _build_view_card():
                                 },
                             ),
                             dbc.Tab(
-                                label="XY View", id=tab_nav_id("xy-view"),
+                                label="Plan View", id=tab_nav_id("xy-view"),
                                 tab_id="xy-view",
                                 children=[
                                     html.Div(
                                         [
-                                            html.H6("XY View", className="mb-3"),
+                                            html.H6("Plan View", className="mb-3"),
                                             html.P("Plan view visualization of hydrogeological features.", className="mb-3"),
                                             dbc.Button(
                                                 "Show Contour Lines",
