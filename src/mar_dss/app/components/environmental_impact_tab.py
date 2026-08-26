@@ -94,6 +94,17 @@ DECISION_LOGIC = {
     },
 }
 
+# Sum of maximum points from every assessment step (all HIGH / worst-case answers).
+RISK_SCORE_MAX = sum(
+    max(int(level.get("score", 0) or 0) for level in step.values())
+    for step in DECISION_LOGIC.values()
+)
+
+# Decision bands used by Final Assessment (must match update_dashboard thresholds).
+RISK_SCORE_SUITABLE_MAX = 2       # 0–2 Suitable
+RISK_SCORE_CONDITIONAL_MAX = 7    # 3–7 Conditionally suitable
+RISK_SCORE_UNSUITABLE_MIN = 8     # 8+ Not suitable
+
 ASSESSMENT_QUESTION_LABELS = {
     "step1_tss": "1.A",
     "step2a_doc": "1.B",
@@ -107,6 +118,26 @@ ASSESSMENT_QUESTION_LABELS = {
 }
 
 # 2. Treatment Technology Database
+# Cost ranges shown in $/ft³ (converted from literature mid-range $/m³ ÷ 35.3147).
+_TREATMENT_COST_RANGES_M3 = [
+    (0.05, 0.15),
+    (0.10, 0.30),
+    (0.20, 0.60),
+    (0.30, 0.80),
+    (0.40, 1.20),
+    (0.80, 2.50),
+    (0.50, 1.50),
+    (0.10, 0.40),
+    (0.15, 0.35),
+]
+
+
+def _format_cost_range_ft3(lo_m3: float, hi_m3: float) -> str:
+    lo_ft3 = lo_m3 / 35.3147
+    hi_ft3 = hi_m3 / 35.3147
+    return f"${lo_ft3:.4f}-{hi_ft3:.4f}"
+
+
 TREATMENT_DF = pd.DataFrame({
     "Treatment Technology": [
         "Sedimentation/Clarification",
@@ -119,16 +150,8 @@ TREATMENT_DF = pd.DataFrame({
         "Disinfection (Chlorination/UV/Ozone)",
         "Aeration/Oxidation",
     ],
-    "Cost Range ($/m³)": [
-        "$0.05-0.15",
-        "$0.10-0.30",
-        "$0.20-0.60",
-        "$0.30-0.80",
-        "$0.40-1.20",
-        "$0.80-2.50",
-        "$0.50-1.50",
-        "$0.10-0.40",
-        "$0.15-0.35",
+    "Cost Range ($/ft³)": [
+        _format_cost_range_ft3(lo, hi) for lo, hi in _TREATMENT_COST_RANGES_M3
     ],
     "Capital Cost Scale": [
         "Low",
@@ -311,6 +334,40 @@ COST_SCALE_TO_SCORE = {
     "Moderate Study Cost": 3,
     "Moderate + High Study": 4,
 }
+
+_FT3_PER_M3 = 35.3147  # 1 m³ ≈ 35.3147 ft³
+
+
+def _tech_unit_cost_per_m3(tech_name: str, cost_scale: str) -> float:
+    """Unit water-treatment cost ($/m³); vadose remediation techs return 0 here."""
+    if tech_name in VADOSE_REMEDIATION_COSTS:
+        return 0.0
+    if tech_name in TREATMENT_COST_MAP:
+        return float(TREATMENT_COST_MAP[tech_name])
+    return float(COST_SCALE_TO_SCORE.get(cost_scale, 0) or 0) * 50.0
+
+
+def _worst_case_water_treatment_cost_per_ft3() -> float:
+    """
+    Sum of the most expensive water-treatment option for the highest-scoring
+    answer on every assessment step (theoretical dial ceiling, $/ft³).
+    """
+    total_m3 = 0.0
+    for step_levels in DECISION_LOGIC.values():
+        best = max(
+            step_levels.values(),
+            key=lambda d: int(d.get("score", 0) or 0),
+        )
+        treatments = TREATMENT_OPTIONS.get(best.get("treatment_key", ""), [])
+        max_m3 = 0.0
+        for tech_name, cost_scale in treatments:
+            max_m3 = max(max_m3, _tech_unit_cost_per_m3(tech_name, cost_scale))
+        total_m3 += max_m3
+    return total_m3 / _FT3_PER_M3
+
+
+# Ceiling for the Treatment Cost dial (matches calculate_cost_score units).
+TREATMENT_COST_FT3_MAX = round(_worst_case_water_treatment_cost_per_ft3(), 4)
 
 
 def create_water_quality_content():
@@ -568,14 +625,14 @@ def create_water_quality_content():
                         },
                         style_header_conditional=[
                             {'if': {'column_id': 'Treatment Technology'}, 'backgroundColor': '#e3f2fd', 'color': '#0d47a1'},
-                            {'if': {'column_id': 'Cost Range ($/m³)'}, 'backgroundColor': '#e8f5e9', 'color': '#1b5e20'},
+                            {'if': {'column_id': 'Cost Range ($/ft³)'}, 'backgroundColor': '#e8f5e9', 'color': '#1b5e20'},
                             {'if': {'column_id': 'Capital Cost Scale'}, 'backgroundColor': '#fff3e0', 'color': '#e65100'},
                             {'if': {'column_id': "O&M Intensity"}, 'backgroundColor': '#f3e5f5', 'color': '#4a148c'},
                             {'if': {'column_id': 'Best For'}, 'backgroundColor': '#ede7f6', 'color': '#283593'}
                         ],
                         style_data_conditional=[
                             {'if': {'column_id': 'Treatment Technology'}, 'backgroundColor': '#f5faff'},
-                            {'if': {'column_id': 'Cost Range ($/m³)'}, 'backgroundColor': '#f4fbf4'},
+                            {'if': {'column_id': 'Cost Range ($/ft³)'}, 'backgroundColor': '#f4fbf4'},
                             {'if': {'column_id': 'Capital Cost Scale'}, 'backgroundColor': '#fff8ef'},
                             {'if': {'column_id': "O&M Intensity"}, 'backgroundColor': '#faf4fb'},
                             {'if': {'column_id': 'Best For'}, 'backgroundColor': '#f6f4fb'}

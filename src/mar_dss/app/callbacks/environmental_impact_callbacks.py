@@ -16,6 +16,12 @@ from mar_dss.app.components.environmental_impact_tab import (
     ASSESSMENT_QUESTION_LABELS,
     NOT_AVAILABLE_RISK,
     DEFAULT_WATER_QUALITY_RISK,
+    RISK_SCORE_MAX,
+    RISK_SCORE_SUITABLE_MAX,
+    RISK_SCORE_CONDITIONAL_MAX,
+    RISK_SCORE_UNSUITABLE_MIN,
+    TREATMENT_COST_FT3_MAX,
+    _FT3_PER_M3,
 )
 from mar_dss.app.callbacks.ai_environment import (
     get_mar_factors,
@@ -156,13 +162,14 @@ def calculate_cost_score(risks_and_treatments):
                 })
     
     # Convert water treatment cost from $/m³ to $/ft³
-    # 1 m³ ≈ 35.3147 ft³
-    water_treatment_cost_per_ft3 = water_treatment_cost_per_m3 / 35.3147 if water_treatment_cost_per_m3 > 0 else 0
+    water_treatment_cost_per_ft3 = (
+        water_treatment_cost_per_m3 / _FT3_PER_M3 if water_treatment_cost_per_m3 > 0 else 0
+    )
     
     # Update water treatment details to show cost per ft³
     for detail in water_treatment_details:
         if 'cost_per_m3' in detail:
-            detail['cost_per_ft3'] = detail['cost_per_m3'] / 35.3147
+            detail['cost_per_ft3'] = detail['cost_per_m3'] / _FT3_PER_M3
     
     # Vadose zone remediation is a one-time site cost
     # Use fixed total cost estimate of $200,000
@@ -368,13 +375,13 @@ def setup_environmental_impact_callbacks(app):
         }
         
         # Check Critical Flags first
-        if critical_flags or total_score >= 8:
+        if critical_flags or total_score >= RISK_SCORE_UNSUITABLE_MIN:
             result_style["background-color"] = "#dc3545"  # Red for not suitable
             
             reasons_for_rejection = [
                 html.P("The source water is **NOT SUITABLE** for MAR at this location.", className="lead font-weight-bold")
             ]
-            reasons_for_rejection.append(html.P(f"Total Risk Score: {total_score} points (Threshold: 8+)", className="mb-2"))
+            reasons_for_rejection.append(html.P(f"Total Risk Score: {total_score} points (Threshold: {RISK_SCORE_UNSUITABLE_MIN}+)", className="mb-2"))
             
             if critical_flags:
                 reasons_for_rejection.append(html.H6("⚠️ Critical Flags Triggered:"))
@@ -386,47 +393,70 @@ def setup_environmental_impact_callbacks(app):
             
             decision_content = reasons_for_rejection
 
-        elif 3 <= total_score <= 7:
+        elif RISK_SCORE_SUITABLE_MAX < total_score <= RISK_SCORE_CONDITIONAL_MAX:
             result_style["background-color"] = "#ffc107"  # Orange/Yellow for conditionally suitable
             result_style["color"] = "#343a40"  # Dark text for better contrast
             
             decision_content = [
                 html.P("The source water is **CONDITIONALLY SUITABLE** for MAR.", className="lead font-weight-bold"),
-                html.P(f"Total Risk Score: {total_score} points (Range: 3-7)"),
+                html.P(f"Total Risk Score: {total_score} points (Range: {RISK_SCORE_SUITABLE_MAX + 1}–{RISK_SCORE_CONDITIONAL_MAX})"),
                 html.P("Requires specific treatment and further studies to confirm economic viability and technical feasibility.", className="mt-2"),
                 html.P("Action: **Proceed to required treatability/modeling studies.**", className="mt-3 font-weight-bold")
             ]
             
-        else:  # total_score <= 2
+        else:  # total_score <= RISK_SCORE_SUITABLE_MAX
             result_style["background-color"] = "#28a745"  # Green for suitable
             
             decision_content = [
                 html.P("The source water is **SUITABLE** for MAR implementation.", className="lead font-weight-bold"),
-                html.P(f"Total Risk Score: {total_score} points (Range: 0-2)"),
+                html.P(f"Total Risk Score: {total_score} points (Range: 0–{RISK_SCORE_SUITABLE_MAX})"),
                 html.P("Minimal to no treatment required. Low implementation cost.", className="mt-2")
             ]
 
-        # 3. Create Gauge Plot
+        # 3. Create Gauge Plot (axis max = theoretical max sum of all step scores)
         try:
             gauge_fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=total_score,
                 domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "Total Risk Score", 'font': {'size': 20}},
+                title={
+                    'text': f"Total Risk Score (max {RISK_SCORE_MAX})",
+                    'font': {'size': 18},
+                },
                 gauge={
-                    'axis': {'range': [0, 10], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                    'axis': {
+                        'range': [0, RISK_SCORE_MAX],
+                        'tickwidth': 1,
+                        'tickcolor': "darkblue",
+                        'dtick': 5,
+                    },
                     'bar': {'color': "darkslategray"},
                     'bgcolor': "white",
                     'borderwidth': 2,
                     'bordercolor': "gray",
                     'steps': [
-                        {'range': [0, 2], 'color': 'lightgreen'},
-                        {'range': [3, 7], 'color': 'yellow'},
-                        {'range': [8, 10], 'color': 'red'}],
+                        {
+                            'range': [0, RISK_SCORE_SUITABLE_MAX + 1],
+                            'color': 'lightgreen',
+                        },
+                        {
+                            'range': [
+                                RISK_SCORE_SUITABLE_MAX + 1,
+                                RISK_SCORE_UNSUITABLE_MIN,
+                            ],
+                            'color': 'yellow',
+                        },
+                        {
+                            'range': [RISK_SCORE_UNSUITABLE_MIN, RISK_SCORE_MAX],
+                            'color': 'red',
+                        },
+                    ],
                     'threshold': {
                         'line': {'color': "red", 'width': 4},
                         'thickness': 0.75,
-                        'value': total_score}}
+                        'value': min(total_score, RISK_SCORE_MAX),
+                    },
+                },
             ))
             gauge_fig.update_layout(
                 margin=dict(l=10, r=10, t=50, b=10), 
@@ -448,36 +478,53 @@ def setup_environmental_impact_callbacks(app):
         # 4. Calculate Costs
         water_treatment_cost_per_ft3, vadose_remediation_total_cost, cost_details = calculate_cost_score(required_treatments_raw)
         
-        # 5. Create Cost Gauge Plot (showing actual cost, not a score)
+        # 5. Create Cost Gauge Plot (axis max = theoretical worst-case $/ft³)
         try:
-            # Fixed range: 0 to 70 $/ft³
-            max_range = 70.0
-            
+            # Never clip the needle: expand if an unexpected value exceeds the map max
+            cost_axis_max = max(
+                float(TREATMENT_COST_FT3_MAX),
+                float(water_treatment_cost_per_ft3) * 1.05,
+                0.05,
+            )
             cost_gauge_fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=water_treatment_cost_per_ft3,
                 domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "Water Treatment Cost ($/ft³)", 'font': {'size': 18}},
+                title={
+                    'text': (
+                        f"Water Treatment Cost ($/ft³)<br>"
+                        f"<span style='font-size:12px'>scale max ${cost_axis_max:.2f}/ft³</span>"
+                    ),
+                    'font': {'size': 16},
+                },
                 number={'valueformat': '$,.2f', 'suffix': '/ft³'},
                 gauge={
-                    'axis': {'range': [0, max_range], 'tickwidth': 1, 'tickcolor': "darkblue", 'tickformat': '$,.2f'},
+                    'axis': {
+                        'range': [0, cost_axis_max],
+                        'tickwidth': 1,
+                        'tickcolor': "darkblue",
+                        'tickformat': '$,.2f',
+                    },
                     'bar': {'color': "darkorange"},
                     'bgcolor': "white",
                     'borderwidth': 2,
                     'bordercolor': "gray",
                     'steps': [
-                        {'range': [0, max_range * 0.2], 'color': 'lightgreen'},
-                        {'range': [max_range * 0.2, max_range * 0.4], 'color': 'yellow'},
-                        {'range': [max_range * 0.4, max_range * 0.6], 'color': 'orange'},
-                        {'range': [max_range * 0.6, max_range * 0.8], 'color': 'lightcoral'},
-                        {'range': [max_range * 0.8, max_range], 'color': 'red'}],
+                        {'range': [0, cost_axis_max * 0.2], 'color': 'lightgreen'},
+                        {'range': [cost_axis_max * 0.2, cost_axis_max * 0.4], 'color': 'yellow'},
+                        {'range': [cost_axis_max * 0.4, cost_axis_max * 0.6], 'color': 'orange'},
+                        {'range': [cost_axis_max * 0.6, cost_axis_max * 0.8], 'color': 'lightcoral'},
+                        {'range': [cost_axis_max * 0.8, cost_axis_max], 'color': 'red'},
+                    ],
                     'threshold': {
                         'line': {'color': "red", 'width': 4},
                         'thickness': 0.75,
-                        'value': water_treatment_cost_per_ft3}}
+                        'value': min(water_treatment_cost_per_ft3, cost_axis_max),
+                    },
+                },
             ))
             cost_gauge_fig.update_layout(
-                margin=dict(l=10, r=10, t=50, b=10), 
+                margin=dict(l=10, r=10, t=60, b=10), 
                 height=250,
                 autosize=True,
                 paper_bgcolor='rgba(0,0,0,0)',

@@ -119,7 +119,7 @@ def setup_legal_constraints_callbacks(app):
             # Project/Jurisdiction
             Input("legal-proj-federal-nexus", "value"),
             Input("legal-proj-tribal-interstate", "value"),
-            # A) Site
+            # 1) Site
             Input("legal-site-control", "value"),
             Input("legal-site-zoning", "value"),
             Input("legal-site-wetlands", "value"),
@@ -127,14 +127,14 @@ def setup_legal_constraints_callbacks(app):
             Input("legal-site-public-lands", "value"),
             Input("legal-site-dams", "value"),
             Input("legal-site-seismic", "value"),
-            # B) Source
+            # 2) Source
             Input("legal-src-right", "value"),
             Input("legal-src-accounting", "value"),
             Input("legal-src-compact", "value"),
             Input("legal-src-type", "value"),
             Input("legal-src-type-feasible", "value"),
             Input("legal-src-conveyance", "value"),
-            # C) Quality
+            # 3) Quality
             Input("legal-qual-method", "value"),
             Input("legal-qual-uic", "value"),
             Input("legal-qual-usdw", "value"),
@@ -242,9 +242,9 @@ def setup_legal_constraints_callbacks(app):
             html.P(final_text, className="lead fw-bold mb-2"),
             html.Ul(
                 [
-                    html.Li(["A) Site: ", html.Strong(site_result)], className="mb-1"),
-                    html.Li(["B) Water Source: ", html.Strong(source_result)], className="mb-1"),
-                    html.Li(["C) Water Quality: ", html.Strong(quality_result)], className="mb-0"),
+                    html.Li(["1) Site: ", html.Strong(site_result)], className="mb-1"),
+                    html.Li(["2) Water Source: ", html.Strong(source_result)], className="mb-1"),
+                    html.Li(["3) Water Quality: ", html.Strong(quality_result)], className="mb-0"),
                 ],
                 className="mb-0",
             ),
@@ -301,7 +301,7 @@ def setup_legal_constraints_callbacks(app):
         # Project/Jurisdiction
         details.append(_detail_item("Federal nexus", federal_nexus, "cond" if (federal_nexus or "").startswith("Yes") else "ok"))
         details.append(_detail_item("Tribal/interstate", tribal_interstate, "cond" if tribal_interstate != "None" else "ok"))
-        # A) Site
+        # 1) Site
         site_labels = [
             ("Site control", a_control, site_statuses[0]),
             ("Zoning/local approvals", a_zoning, site_statuses[1]),
@@ -313,7 +313,7 @@ def setup_legal_constraints_callbacks(app):
         ]
         details.extend([_detail_item(lbl, ch, st) for (lbl, ch, st) in site_labels])
 
-        # B) Source
+        # 2) Source
         source_labels = [
             ("Water right/contract", b_right, source_statuses[0]),
             ("Recharge accounting/recovery (MAR/ASR)", b_account, source_statuses[1]),
@@ -323,7 +323,7 @@ def setup_legal_constraints_callbacks(app):
         ]
         details.extend([_detail_item(lbl, ch, st) for (lbl, ch, st) in source_labels])
 
-        # C) Quality
+        # 3) Quality
         quality_labels = [
             ("UIC (Underground Injection Control) Class V (SDWA)", c_uic, quality_statuses[0]),
             ("MCLs (Maximum Contaminant Levels)/no-endangerment/reuse", c_mcls, quality_statuses[1]),
@@ -347,19 +347,19 @@ def setup_legal_constraints_callbacks(app):
         site_branch = html.Div(
             [
                 html.P(["Site Branch Result: ", html.Strong(site_result)], className="mb-2"),
-                html.Small("Outcome derived from A.1–A.7 inputs."),
+                html.Small("Outcome derived from 1.A–1.G inputs."),
             ]
         )
         source_branch = html.Div(
             [
                 html.P(["Water Source Branch Result: ", html.Strong(source_result)], className="mb-2"),
-                html.Small("Outcome derived from B.1–B.5 inputs."),
+                html.Small("Outcome derived from 2.A–2.E inputs."),
             ]
         )
         quality_branch = html.Div(
             [
                 html.P(["Water Quality Branch Result: ", html.Strong(quality_result)], className="mb-2"),
-                html.Small("Outcome derived from C.1–C.9 inputs."),
+                html.Small("Outcome derived from 3.A–3.I inputs."),
             ]
         )
 

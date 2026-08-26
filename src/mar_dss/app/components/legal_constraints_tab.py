@@ -2,10 +2,10 @@
 Legal Constraints tab component.
 
 Managed Aquifer Recharge (MAR) legal and regulatory feasibility decision tree:
-- D) Project/Jurisdiction screen
-- A) Site feasibility
-- B) Water source feasibility
-- C) Water quality feasibility
+- 4) Project/Jurisdiction screen
+- 1) Site feasibility
+- 2) Water source feasibility
+- 3) Water quality feasibility
 
 The project is feasible only if all three branches are Feasible or Conditionally feasible.
 """
@@ -32,7 +32,7 @@ def _section_card(header_text, body_children):
 
 
 def _question_label(code, text):
-    """Sub-question label, e.g. A.1, B.2."""
+    """Sub-question label, e.g. 1.A, 2.B (Water Quality style)."""
     return html.P(
         [html.Span(f"{code} ", className="fw-bold text-primary"), text],
         className="mb-2",
@@ -74,11 +74,11 @@ def create_basic_regulation_feasibility_content():
                             className="mb-4",
                         ),
 
-                        # A) Site feasibility
+                        # 1) Site feasibility
                         _section_card(
-                            "A) Site Feasibility (Location, Land Rights, Environmental Review)",
+                            "1) Site Feasibility (Location, Land Rights, Environmental Review)",
                             [
-                                _question_label("A.1", "Site control and access"),
+                                _question_label("1.A", "Site control and access"),
                                 _radio(
                                     "legal-site-control",
                                     ["Have site control", "Can secure site control", "Cannot secure site control (Prohibited)"],
@@ -86,7 +86,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Hr(),
                                 _question_label(
-                                    "A.2",
+                                    "1.B",
                                     "Land use and local approvals (zoning/conditional use/building/floodplain)",
                                 ),
                                 _radio(
@@ -96,7 +96,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Hr(),
                                 _question_label(
-                                    "A.3",
+                                    "1.C",
                                     "Waters/wetlands impacts (CWA (Clean Water Act) §§404/401; RHA (Rivers and Harbors Act) §10)",
                                 ),
                                 _radio(
@@ -105,28 +105,28 @@ def create_basic_regulation_feasibility_content():
                                     "No impacts",
                                 ),
                                 html.Hr(),
-                                _question_label("A.4", "Sensitive resources (ESA/cultural/historic/critical areas)"),
+                                _question_label("1.D", "Sensitive resources (ESA/cultural/historic/critical areas)"),
                                 _radio(
                                     "legal-site-sensitive",
                                     ["None", "Present - mitigable", "Present - unmitigable (Prohibited)"],
                                     "None",
                                 ),
                                 html.Hr(),
-                                _question_label("A.5", "Public lands/federal facilities authorizations"),
+                                _question_label("1.E", "Public lands/federal facilities authorizations"),
                                 _radio(
                                     "legal-site-public-lands",
                                     ["Not applicable", "Authorizations obtainable", "Authorizations unobtainable (Prohibited)"],
                                     "Not applicable",
                                 ),
                                 html.Hr(),
-                                _question_label("A.6", "Dam safety/geotechnical constraints"),
+                                _question_label("1.F", "Dam safety/geotechnical constraints"),
                                 _radio(
                                     "legal-site-dams",
                                     ["Not applicable", "Approvable with conditions", "Not approvable (Prohibited)"],
                                     "Not applicable",
                                 ),
                                 html.Hr(),
-                                _question_label("A.7", "Subsidence/seismic constraints"),
+                                _question_label("1.G", "Subsidence/seismic constraints"),
                                 _radio(
                                     "legal-site-seismic",
                                     ["Compliant", "Mitigable", "Noncompliant (Prohibited)"],
@@ -135,12 +135,12 @@ def create_basic_regulation_feasibility_content():
                             ],
                         ),
 
-                        # B) Water source feasibility
+                        # 2) Water source feasibility
                         _section_card(
-                            "B) Water Source Feasibility (Rights, Compacts, Conveyance)",
+                            "2) Water Source Feasibility (Rights, Compacts, Conveyance)",
                             [
                                 _question_label(
-                                    "B.1",
+                                    "2.A",
                                     "Legal right/entitlement to source (incl. storage for recharge)",
                                 ),
                                 _radio(
@@ -150,7 +150,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Hr(),
                                 _question_label(
-                                    "B.2",
+                                    "2.B",
                                     "Recharge authorization, accounting, and recovery "
                                     "(state MAR (Managed Aquifer Recharge)/ASR (Aquifer Storage and Recovery) framework)",
                                 ),
@@ -160,14 +160,14 @@ def create_basic_regulation_feasibility_content():
                                     "Authorized",
                                 ),
                                 html.Hr(),
-                                _question_label("B.3", "Interstate compact/delivery compliance"),
+                                _question_label("2.C", "Interstate compact/delivery compliance"),
                                 _radio(
                                     "legal-src-compact",
                                     ["Not applicable", "Compliant", "Noncompliant (Prohibited)"],
                                     "Not applicable",
                                 ),
                                 html.Hr(),
-                                _question_label("B.4", "Source-specific compliance feasible?"),
+                                _question_label("2.D", "Source-specific compliance feasible?"),
                                 dcc.Dropdown(
                                     id="legal-src-type",
                                     options=[
@@ -187,7 +187,7 @@ def create_basic_regulation_feasibility_content():
                                     "Feasible",
                                 ),
                                 html.Hr(),
-                                _question_label("B.5", "Conveyance/wheeling agreements (ditches/canals/pipelines)"),
+                                _question_label("2.E", "Conveyance/wheeling agreements (ditches/canals/pipelines)"),
                                 _radio(
                                     "legal-src-conveyance",
                                     ["Available", "Negotiable", "Unavailable (Prohibited)"],
@@ -196,11 +196,11 @@ def create_basic_regulation_feasibility_content():
                             ],
                         ),
 
-                        # C) Water quality feasibility
+                        # 3) Water quality feasibility
                         _section_card(
-                            "C) Water Quality Feasibility (UIC, Anti-degradation, Standards)",
+                            "3) Water Quality Feasibility (UIC, Anti-degradation, Standards)",
                             [
-                                _question_label("C.1", "Recharge method"),
+                                _question_label("3.A", "Recharge method"),
                                 dcc.Dropdown(
                                     id="legal-qual-method",
                                     options=[
@@ -214,7 +214,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Br(),
                                 _question_label(
-                                    "C.2",
+                                    "3.B",
                                     "UIC (Underground Injection Control) Class V (SDWA (Safe Drinking Water Act)) "
                                     "or equivalent permit feasibility",
                                 ),
@@ -225,7 +225,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Hr(),
                                 _question_label(
-                                    "C.3",
+                                    "3.C",
                                     "Receiving aquifer a USDW (Underground Source of Drinking Water) or planned potable use?",
                                 ),
                                 _radio(
@@ -235,7 +235,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Br(),
                                 _question_label(
-                                    "C.4",
+                                    "3.D",
                                     "Ability to meet SDWA (Safe Drinking Water Act) MCLs (Maximum Contaminant Levels)/"
                                     "no-endangerment and state reuse criteria (if applicable)",
                                 ),
@@ -245,7 +245,7 @@ def create_basic_regulation_feasibility_content():
                                     "Assured",
                                 ),
                                 html.Hr(),
-                                _question_label("C.5", "Anti-degradation/TMDL (Total Maximum Daily Load) compliance"),
+                                _question_label("3.E", "Anti-degradation/TMDL (Total Maximum Daily Load) compliance"),
                                 _radio(
                                     "legal-qual-antideg",
                                     ["No lowering", "Lowering justified with mitigation", "Likely with studies", "Not compliant (Prohibited)"],
@@ -253,7 +253,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Hr(),
                                 _question_label(
-                                    "C.6",
+                                    "3.F",
                                     "Geochemical compatibility (mobilization/precipitation risks)",
                                 ),
                                 _radio(
@@ -263,7 +263,7 @@ def create_basic_regulation_feasibility_content():
                                 ),
                                 html.Hr(),
                                 _question_label(
-                                    "C.7",
+                                    "3.G",
                                     "CECs (Constituents of Emerging Concern)/PFAS (Per- and Polyfluoroalkyl Substances) "
                                     "and monitoring orders compliance",
                                 ),
@@ -273,14 +273,14 @@ def create_basic_regulation_feasibility_content():
                                     "Compliant",
                                 ),
                                 html.Hr(),
-                                _question_label("C.8", "Residuals handling (backwash/brine) permitting"),
+                                _question_label("3.H", "Residuals handling (backwash/brine) permitting"),
                                 _radio(
                                     "legal-qual-residuals",
                                     ["Permittable", "Permittable with conditions", "Not permittable (Prohibited)"],
                                     "Permittable",
                                 ),
                                 html.Hr(),
-                                _question_label("C.9", "Well construction & monitoring plan (state standards/UIC)"),
+                                _question_label("3.I", "Well construction & monitoring plan (state standards/UIC)"),
                                 _radio(
                                     "legal-qual-wells",
                                     ["Compliant", "Compliant with conditions", "Noncompliant (Prohibited)"],
@@ -289,12 +289,12 @@ def create_basic_regulation_feasibility_content():
                             ],
                         ),
 
-                        # D) Project/Jurisdiction screen
+                        # 4) Project/Jurisdiction screen
                         _section_card(
-                            "D) Project/Jurisdiction Screen",
+                            "4) Project/Jurisdiction Screen",
                             [
                                 _question_label(
-                                    "D.1",
+                                    "4.A",
                                     "(Federal nexus) Does your project have a direct federal connection "
                                     "such that federal environmental laws and reviews are triggered?",
                                 ),
@@ -304,7 +304,7 @@ def create_basic_regulation_feasibility_content():
                                     "No",
                                 ),
                                 html.Hr(),
-                                _question_label("D.2", "Tribal or interstate context?"),
+                                _question_label("4.B", "Tribal or interstate context?"),
                                 _radio(
                                     "legal-proj-tribal-interstate",
                                     ["None", "Tribal lands/resources", "Interstate compact", "Both"],
@@ -339,9 +339,9 @@ def create_basic_regulation_feasibility_content():
 
                         html.Hr(),
                         html.H4("Branch Results", className="mt-4 mb-3 text-secondary"),
-                        _section_card("A) Site Branch Result", [html.Div(id="legal-branch-site-output")]),
-                        _section_card("B) Water Source Branch Result", [html.Div(id="legal-branch-source-output")]),
-                        _section_card("C) Water Quality Branch Result", [html.Div(id="legal-branch-quality-output")]),
+                        _section_card("1) Site Branch Result", [html.Div(id="legal-branch-site-output")]),
+                        _section_card("2) Water Source Branch Result", [html.Div(id="legal-branch-source-output")]),
+                        _section_card("3) Water Quality Branch Result", [html.Div(id="legal-branch-quality-output")]),
 
                         html.Hr(),
                         html.H4("Required Permits & Approvals (Checklist)", className="mt-4 mb-3 text-secondary"),
