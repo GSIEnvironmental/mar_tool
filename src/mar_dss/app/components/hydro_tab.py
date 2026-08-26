@@ -220,15 +220,37 @@ def create_hydro_tab_content():
                     [
                         dbc.Tab(
                             label="(3.1) Hydrogeologic Settings",
-                    id=tab_nav_id("hydrogeologic-settings-tab"),
+                            id=tab_nav_id("hydrogeologic-settings-tab"),
                             tab_id="hydrogeologic-settings-tab",
                             children=create_hydrogeologic_settings_content(),
+                            label_style={
+                                "color": "#ffffff",
+                                "fontWeight": "bold",
+                                "backgroundColor": "#0d6efd",
+                                "border": "1px solid #0d6efd",
+                            },
+                            active_label_style={
+                                "color": "#ffffff",
+                                "backgroundColor": "#0b5ed7",
+                                "border": "1px solid #0b5ed7",
+                            },
                         ),
                         dbc.Tab(
                             label="(3.2) Default Parameters",
-                    id=tab_nav_id("default-hydrologic-parameters-tab"),
+                            id=tab_nav_id("default-hydrologic-parameters-tab"),
                             tab_id="default-hydrologic-parameters-tab",
                             children=create_default_hydrologic_parameters_tab_content(),
+                            label_style={
+                                "color": "#ffffff",
+                                "fontWeight": "bold",
+                                "backgroundColor": "#5dade2",
+                                "border": "1px solid #5dade2",
+                            },
+                            active_label_style={
+                                "color": "#ffffff",
+                                "backgroundColor": "#4a9fd1",
+                                "border": "1px solid #4a9fd1",
+                            },
                         ),
                     ],
                     id="hydrogeology-subtabs",
@@ -322,6 +344,123 @@ def _build_initial_feasibility_traffic_placeholder():
     )
 
 
+def create_initial_hydrologic_feasibility_help_modal():
+    """Help modal for Initial Hydrologic Feasibility traffic-light check."""
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Initial Hydrologic Feasibility Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        [
+                            "This card provides a quick hydrologic screening of each "
+                            "engineering option (spreading ponds, injection wells, dry wells) "
+                            "based on the Hydrogeology inputs you enter on this tab—stratigraphy, "
+                            "groundwater levels, ground surface elevation, and related settings.",
+                        ],
+                        className="text-muted mb-3",
+                    ),
+                    html.H6("How to run the check", className="fw-bold mb-2"),
+                    html.Ol(
+                        [
+                            html.Li(
+                                "Complete (or review) Aquifer Type, Stratigraphy, Groundwater "
+                                "Level, and Horizontal Extension inputs as needed."
+                            ),
+                            html.Li([
+                                "Click ",
+                                html.Strong("Check Initial Feasibility"),
+                                ". MAR-Tool evaluates hard and soft hydrologic constraints "
+                                "for each option and shows a traffic-light result.",
+                            ]),
+                            html.Li(
+                                "If evaluation fails, a message explains that some input may be "
+                                "incorrect or missing, along with the detailed error text."
+                            ),
+                        ],
+                        className="mb-4 ps-3",
+                    ),
+                    html.H6("Traffic-light meanings", className="fw-bold mb-2"),
+                    html.Ul(
+                        [
+                            html.Li([
+                                html.Span(
+                                    className="rounded-circle d-inline-block me-2",
+                                    style={
+                                        "width": "12px",
+                                        "height": "12px",
+                                        "backgroundColor": "#198754",
+                                        "verticalAlign": "middle",
+                                    },
+                                ),
+                                html.Strong("Green — Pass"),
+                                ": all hard constraints pass; soft constraints are "
+                                "acceptable or not applicable.",
+                            ]),
+                            html.Li([
+                                html.Span(
+                                    className="rounded-circle d-inline-block me-2",
+                                    style={
+                                        "width": "12px",
+                                        "height": "12px",
+                                        "backgroundColor": "#fd7e14",
+                                        "verticalAlign": "middle",
+                                    },
+                                ),
+                                html.Strong("Orange — Pass with Warnings"),
+                                ": no hard failures, but at least one soft constraint "
+                                "indicates added cost, warning, or mitigation.",
+                            ]),
+                            html.Li([
+                                html.Span(
+                                    className="rounded-circle d-inline-block me-2",
+                                    style={
+                                        "width": "12px",
+                                        "height": "12px",
+                                        "backgroundColor": "#dc3545",
+                                        "verticalAlign": "middle",
+                                    },
+                                ),
+                                html.Strong("Red — Fail"),
+                                ": a hard constraint fails, or a soft constraint rejects "
+                                "the option.",
+                            ]),
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            "This is an ",
+                            html.Strong("initial"),
+                            " hydrologic screen. Full cost, environmental, legal, and "
+                            "multi-criteria results are refined on the Engineering, "
+                            "Analysis, and Decision tabs.",
+                        ],
+                        className="small text-muted mb-0",
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="initial-feasibility-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="initial-feasibility-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
 def _build_hydro_tab_header():
     """Build the Hydrogeologic Settings top row (initial feasibility card)."""
     return [
@@ -332,9 +471,28 @@ def _build_hydro_tab_header():
                         dbc.Card(
                             [
                                 dbc.CardHeader(
-                                    "Initial Hydrologic Feasability",
-                                    className="fw-bold bg-primary text-white py-2",
+                                    html.Div(
+                                        [
+                                            html.Span(
+                                                "Initial Hydrologic Feasability",
+                                                className="fw-bold",
+                                            ),
+                                            html.Button(
+                                                "?",
+                                                id="initial-feasibility-help-btn",
+                                                type="button",
+                                                className="mar-help-btn",
+                                                title="Help: initial hydrologic feasibility",
+                                            ),
+                                        ],
+                                        className=(
+                                            "d-flex align-items-center "
+                                            "justify-content-between w-100"
+                                        ),
+                                    ),
+                                    className="bg-primary text-white py-2",
                                 ),
+                                create_initial_hydrologic_feasibility_help_modal(),
                                 dbc.CardBody(
                                     [
                                         dbc.Row(
@@ -544,13 +702,13 @@ def _build_stratigraphy_tab():
         label_style={
             "color": "#ffffff", 
             "fontWeight": "bold",
-            "backgroundColor": "#28a745",
-            "border": "1px solid #28a745"
+            "backgroundColor": "#0d6efd",
+            "border": "1px solid #0d6efd"
         },
         active_label_style={
             "color": "#ffffff", 
-            "backgroundColor": "#1e7e34",
-            "border": "1px solid #1e7e34"
+            "backgroundColor": "#0b5ed7",
+            "border": "1px solid #0b5ed7"
         },
         children=[
             html.Div(
@@ -605,6 +763,114 @@ def _build_stratigraphy_tab():
     )
 
 
+def create_groundwater_level_help_modal():
+    """Help modal for Groundwater Level Configuration."""
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Groundwater Level Configuration Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "Enter ground-surface and water-table data used to compute depth to "
+                        "groundwater, available MAR storage, aquifer type (with stratigraphy), "
+                        "and hydrologic constraints that feed Initial Feasibility and the "
+                        "final decision analysis.",
+                        className="text-muted mb-3",
+                    ),
+                    html.H6("Parameters", className="fw-bold mb-2"),
+                    html.Dl(
+                        [
+                            html.Dt("Ground Surface Elevation (ft)", className="fw-bold"),
+                            html.Dd(
+                                [
+                                    "Absolute elevation of the land surface at the site (same "
+                                    "vertical datum as the monthly water-table elevations). "
+                                    "Depth to groundwater each month is computed as ",
+                                    html.Strong("ground surface − water-table elevation"),
+                                    ".",
+                                ],
+                                className="mb-3",
+                            ),
+                            html.Dt("Maximum MAR Storage Depth (ft)", className="fw-bold"),
+                            html.Dd(
+                                "Maximum vertical thickness of the vadose / storage zone you "
+                                "are willing (or allowed) to use for recharge above the water "
+                                "table and other operational limits. Must not be negative. "
+                                "Combined with minimum groundwater-depth rules and limiting "
+                                "layers to set operational head / storage limits.",
+                                className="mb-3",
+                            ),
+                            html.Dt("Monthly Elevation (ft) table", className="fw-bold"),
+                            html.Dd(
+                                "Water-table elevation for each calendar month. Enter one "
+                                "value per month (amber cells). Seasonal highs and lows "
+                                "control the shallowest and deepest water-table conditions "
+                                "used in feasibility and design.",
+                                className="mb-3",
+                            ),
+                        ]
+                    ),
+                    html.H6("How these affect decisions", className="fw-bold mb-2"),
+                    html.Ul(
+                        [
+                            html.Li([
+                                html.Strong("Depth to groundwater — "),
+                                "Monthly depths drive vadose-zone thickness, unsaturated "
+                                "travel path, and whether spreading (surface) recharge is "
+                                "hydrologically realistic.",
+                            ]),
+                            html.Li([
+                                html.Strong("Aquifer type (confined vs unconfined) — "),
+                                "Inferred with stratigraphy from where the water table sits "
+                                "relative to layers. That choice switches mounding methods "
+                                "(e.g., Plan View contours) and which hard/soft constraints apply.",
+                            ]),
+                            html.Li([
+                                html.Strong("Available MAR storage & operating depth — "),
+                                "Maximum MAR Storage Depth and the shallowest water table "
+                                "(highest elevation / least depth) limit how much vertical "
+                                "storage and mound rise can be used without violating "
+                                "constraints.",
+                            ]),
+                            html.Li([
+                                html.Strong("Initial Hydrologic Feasibility — "),
+                                "Hard fails (red) or warnings (orange) for each engineering "
+                                "option often depend on insufficient unsaturated thickness, "
+                                "storage limits, or water-table interference.",
+                            ]),
+                            html.Li([
+                                html.Strong("Final decision scores — "),
+                                "Physical feasibility, required footprint / well counts, "
+                                "cost, and multi-criteria ranking on the Analysis and Decision "
+                                "tabs all use these hydrologic inputs. Incorrect ground "
+                                "surface or water-table values can falsely pass or fail an option.",
+                            ]),
+                        ],
+                        className="mb-0",
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="groundwater-level-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="groundwater-level-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
 def _build_groundwater_level_tab():
     """Build the groundwater level tab content."""
     return dbc.Tab(
@@ -613,22 +879,34 @@ def _build_groundwater_level_tab():
         label_style={
             "color": "#ffffff", 
             "fontWeight": "bold",
-            "backgroundColor": "#17a2b8",
-            "border": "1px solid #17a2b8"
+            "backgroundColor": "#5dade2",
+            "border": "1px solid #5dade2"
         },
         active_label_style={
             "color": "#ffffff", 
-            "backgroundColor": "#138496",
-            "border": "1px solid #138496"
+            "backgroundColor": "#4a9fd1",
+            "border": "1px solid #4a9fd1"
         },
         children=[
             html.Div(
                 [
-                    html.H5("Groundwater Level Configuration", className="mb-3"),
-                    html.P(
-                        "Monthly groundwater elevations (ft); one row per calendar month.",
-                        className="mb-4",
+                    html.Div(
+                        [
+                            html.H5(
+                                "Groundwater Level Configuration",
+                                className="mb-0",
+                            ),
+                            html.Button(
+                                "?",
+                                id="groundwater-level-help-btn",
+                                type="button",
+                                className="mar-help-btn",
+                                title="Help: groundwater level configuration",
+                            ),
+                        ],
+                        className="d-flex align-items-center gap-2 mb-3",
                     ),
+                    create_groundwater_level_help_modal(),
                     # Input fields for elevation and storage depth
                     dbc.Row([
                         dbc.Col([
@@ -697,6 +975,80 @@ def _build_groundwater_level_tab():
     )
 
 
+def create_horizontal_extension_help_modal():
+    """Help modal for Horizontal Extension Configuration."""
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Horizontal Extension Configuration Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "Define the plan-view footprint of the MAR facility. These dimensions "
+                        "set the horizontal extent used in Plan View, groundwater mounding "
+                        "contours, and related hydrologic / engineering checks.",
+                        className="text-muted mb-3",
+                    ),
+                    html.H6("Parameters", className="fw-bold mb-2"),
+                    html.Dl(
+                        [
+                            html.Dt("Length (ft)", className="fw-bold"),
+                            html.Dd(
+                                "Long dimension of the MAR footprint (e.g., spreading area "
+                                "or well-field extent) in feet.",
+                                className="mb-3",
+                            ),
+                            html.Dt("Width (ft)", className="fw-bold"),
+                            html.Dd(
+                                "Short dimension of the MAR footprint in feet.",
+                                className="mb-3",
+                            ),
+                            html.Dt("Rotation from North (degrees)", className="fw-bold"),
+                            html.Dd(
+                                "Clockwise or project-defined rotation of the rectangle from "
+                                "north. 0° aligns the length axis with north; adjust to match "
+                                "site orientation.",
+                                className="mb-3",
+                            ),
+                        ]
+                    ),
+                    html.H6("Where it is used", className="fw-bold mb-2"),
+                    html.Ul(
+                        [
+                            html.Li([
+                                html.Strong("Plan View"),
+                                " — draws the rectangular footprint and (optionally) mound "
+                                "contours for confined or unconfined aquifers.",
+                            ]),
+                            html.Li(
+                                "Feasibility and engineering calculations that need a "
+                                "horizontal project area or aspect ratio."
+                            ),
+                        ],
+                        className="mb-0",
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="horizontal-extension-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="horizontal-extension-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
 def _build_horizontal_extension_tab():
     """Build the horizontal extension tab content."""
     return dbc.Tab(
@@ -705,19 +1057,34 @@ def _build_horizontal_extension_tab():
         label_style={
             "color": "#ffffff", 
             "fontWeight": "bold",
-            "backgroundColor": "#6c757d",
-            "border": "1px solid #6c757d"
+            "backgroundColor": "#17a2b8",
+            "border": "1px solid #17a2b8"
         },
         active_label_style={
             "color": "#ffffff", 
-            "backgroundColor": "#545b62",
-            "border": "1px solid #545b62"
+            "backgroundColor": "#138496",
+            "border": "1px solid #138496"
         },
         children=[
             html.Div(
                 [
-                    html.H5("Horizontal Extension Configuration", className="mb-3"),
-                    html.P("Configure the horizontal extension parameters for MAR project analysis.", className="mb-4"),
+                    html.Div(
+                        [
+                            html.H5(
+                                "Horizontal Extension Configuration",
+                                className="mb-0",
+                            ),
+                            html.Button(
+                                "?",
+                                id="horizontal-extension-help-btn",
+                                type="button",
+                                className="mar-help-btn",
+                                title="Help: horizontal extension configuration",
+                            ),
+                        ],
+                        className="d-flex align-items-center gap-2 mb-3",
+                    ),
+                    create_horizontal_extension_help_modal(),
                     
                     # Input fields in two columns
                     dbc.Row([
@@ -883,13 +1250,13 @@ def _build_view_card():
                                 label_style={
                                     "color": "#ffffff", 
                                     "fontWeight": "bold",
-                                    "backgroundColor": "#dc3545",
-                                    "border": "1px solid #dc3545"
+                                    "backgroundColor": "#0d6efd",
+                                    "border": "1px solid #0d6efd"
                                 },
                                 active_label_style={
                                     "color": "#ffffff", 
-                                    "backgroundColor": "#b02a37",
-                                    "border": "1px solid #b02a37"
+                                    "backgroundColor": "#0b5ed7",
+                                    "border": "1px solid #0b5ed7"
                                 },
                             ),
                             dbc.Tab(
@@ -914,13 +1281,13 @@ def _build_view_card():
                                 label_style={
                                     "color": "#ffffff", 
                                     "fontWeight": "bold",
-                                    "backgroundColor": "#28a745",
-                                    "border": "1px solid #28a745"
+                                    "backgroundColor": "#5dade2",
+                                    "border": "1px solid #5dade2"
                                 },
                                 active_label_style={
                                     "color": "#ffffff", 
-                                    "backgroundColor": "#1e7e34",
-                                    "border": "1px solid #1e7e34"
+                                    "backgroundColor": "#4a9fd1",
+                                    "border": "1px solid #4a9fd1"
                                 },
                             ),
                             dbc.Tab(
@@ -936,8 +1303,12 @@ def _build_view_card():
                                                 id="xy-view-show-contours-btn",
                                                 color="primary",
                                                 size="sm",
-                                                className="mb-3",
+                                                className="mb-2",
                                                 n_clicks=0,
+                                            ),
+                                            html.Div(
+                                                id="xy-view-contour-message",
+                                                className="mb-3",
                                             ),
                                             dcc.Graph(
                                                 id="xy-view-plot",
@@ -950,13 +1321,13 @@ def _build_view_card():
                                 label_style={
                                     "color": "#ffffff", 
                                     "fontWeight": "bold",
-                                    "backgroundColor": "#007bff",
-                                    "border": "1px solid #007bff"
+                                    "backgroundColor": "#17a2b8",
+                                    "border": "1px solid #17a2b8"
                                 },
                                 active_label_style={
                                     "color": "#ffffff", 
-                                    "backgroundColor": "#0056b3",
-                                    "border": "1px solid #0056b3"
+                                    "backgroundColor": "#138496",
+                                    "border": "1px solid #138496"
                                 },
                             ),
                         ],

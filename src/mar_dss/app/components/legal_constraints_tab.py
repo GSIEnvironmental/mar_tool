@@ -611,7 +611,7 @@ def create_legal_constraints_content():
                         dbc.Tabs(
                     [
                         dbc.Tab(
-                            label="(1) Basic Regulation Feasibility",
+                            label="(5.1) Basic Regulation Feasibility",
                             id=tab_nav_id("basic-regulation-tab"),
                             tab_id="basic-regulation-tab",
                             children=create_basic_regulation_feasibility_content(),
@@ -628,7 +628,7 @@ def create_legal_constraints_content():
                             },
                         ),
                         dbc.Tab(
-                            label="(2) AI-Powered Regulations and Permits",
+                            label="(5.2) AI-Powered Regulations and Permits",
                             id=tab_nav_id("ai-regulations-permits-tab"),
                             tab_id="ai-regulations-permits-tab",
                             children=create_ai_regulations_permits_content(),
@@ -645,7 +645,7 @@ def create_legal_constraints_content():
                             },
                         ),
                         dbc.Tab(
-                            label="(3) AI-Powered Environmental, Ecological, and Cultural Factors",
+                            label="(5.3) AI-Powered Environmental, Ecological, and Cultural Factors",
                             id=tab_nav_id("environmental-considerations-tab"),
                             tab_id="environmental-considerations-tab",
                             children=create_environmental_considerations_content(),

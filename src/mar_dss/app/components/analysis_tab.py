@@ -24,6 +24,30 @@ except ImportError:
     from .data_export_tab import create_data_export_content
     from .engineering_options_tab import create_cost_content
 
+# Same sub-tab palette as Regulations / Hydrogeology
+_TAB_COLORS = (
+    ("#0d6efd", "#0b5ed7"),  # blue
+    ("#5dade2", "#4a9fd1"),  # light blue
+    ("#17a2b8", "#138496"),  # cyan
+)
+
+
+def _subtab_styles(index: int) -> dict:
+    bg, active_bg = _TAB_COLORS[index % len(_TAB_COLORS)]
+    return {
+        "label_style": {
+            "color": "#ffffff",
+            "fontWeight": "bold",
+            "backgroundColor": bg,
+            "border": f"1px solid {bg}",
+        },
+        "active_label_style": {
+            "color": "#ffffff",
+            "backgroundColor": active_bg,
+            "border": f"1px solid {active_bg}",
+        },
+    }
+
 
 def create_analysis_tab_content():
     """Create the Analysis tab with lazy-loaded sub-tabs."""
@@ -32,116 +56,53 @@ def create_analysis_tab_content():
             dbc.Tabs(
                 [
                 dbc.Tab(
-                    label="Feasibilities", id=tab_nav_id("analysis-feasibilities"),
+                    label="(7.1) Feasibilities",
+                    id=tab_nav_id("analysis-feasibilities"),
                     tab_id="analysis-feasibilities",
                     children=create_feasibilities_content(),  # Load immediately
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#dc3545",
-                        "border": "1px solid #dc3545"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#c82333",
-                        "border": "1px solid #c82333"
-                    },
+                    **_subtab_styles(0),
                 ),
                 dbc.Tab(
-                    label="Cost Analysis", id=tab_nav_id("analysis-cost"),
+                    label="(7.2) Cost Analysis",
+                    id=tab_nav_id("analysis-cost"),
                     tab_id="analysis-cost",
                     children=create_cost_content(),
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#20c997",
-                        "border": "1px solid #20c997"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#1aa179",
-                        "border": "1px solid #1aa179"
-                    },
+                    **_subtab_styles(1),
                 ),
                 dbc.Tab(
-                    label="DSS Algorithm", id=tab_nav_id("analysis-dss-algorithm"),
+                    label="(7.3) DSS Algorithm",
+                    id=tab_nav_id("analysis-dss-algorithm"),
                     tab_id="analysis-dss-algorithm",
                     children=[html.Div(id="analysis-dss-algorithm-content", children="Loading...")],  # Lazy load
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#28a745",
-                        "border": "1px solid #28a745"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#1e7e34",
-                        "border": "1px solid #1e7e34"
-                    },
+                    **_subtab_styles(2),
                 ),
                 dbc.Tab(
-                    label="Decision Sensitivity", id=tab_nav_id("analysis-decision-sensitivity"),
+                    label="(7.4) Decision Sensitivity",
+                    id=tab_nav_id("analysis-decision-sensitivity"),
                     tab_id="analysis-decision-sensitivity",
                     children=[html.Div(id="analysis-decision-sensitivity-content", children="Loading...")],  # Lazy load
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#ffc107",
-                        "border": "1px solid #ffc107"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#e0a800",
-                        "border": "1px solid #e0a800"
-                    },
+                    **_subtab_styles(0),
                 ),
                 dbc.Tab(
-                    label="Decision Interpretation", id=tab_nav_id("analysis-decision-interpretation"),
+                    label="(7.5) Decision Interpretation",
+                    id=tab_nav_id("analysis-decision-interpretation"),
                     tab_id="analysis-decision-interpretation",
                     children=[html.Div(id="analysis-decision-interpretation-content", children="Loading...")],  # Lazy load
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#17a2b8",
-                        "border": "1px solid #17a2b8"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#138496",
-                        "border": "1px solid #138496"
-                    },
+                    **_subtab_styles(1),
                 ),
                 dbc.Tab(
-                    label="AI Generated Decision", id=tab_nav_id("analysis-ai-decision"),
+                    label="(7.6) AI Generated Decision",
+                    id=tab_nav_id("analysis-ai-decision"),
                     tab_id="analysis-ai-decision",
                     children=[html.Div(id="analysis-ai-decision-content", children="Loading...")],  # Lazy load
-                    label_style={
-                        "color": "#ffffff", 
-                        "fontWeight": "bold",
-                        "backgroundColor": "#fd7e14",
-                        "border": "1px solid #fd7e14"
-                    },
-                    active_label_style={
-                        "color": "#ffffff", 
-                        "backgroundColor": "#e8590c",
-                        "border": "1px solid #e8590c"
-                    },
+                    **_subtab_styles(2),
                 ),
                 dbc.Tab(
-                    label="Generate Report", id=tab_nav_id("analysis-data-export"),
+                    label="(7.7) Generate Report",
+                    id=tab_nav_id("analysis-data-export"),
                     tab_id="analysis-data-export",
                     children=[html.Div(id="analysis-data-export-content", children="Loading...")],  # Lazy load
-                    label_style={
-                        "color": "#ffffff",
-                        "fontWeight": "bold",
-                        "backgroundColor": "#6610f2",
-                        "border": "1px solid #6610f2",
-                    },
-                    active_label_style={
-                        "color": "#ffffff",
-                        "backgroundColor": "#520dc2",
-                        "border": "1px solid #520dc2",
-                    },
+                    **_subtab_styles(0),
                 ),
             ],
             id="analysis-tabs",

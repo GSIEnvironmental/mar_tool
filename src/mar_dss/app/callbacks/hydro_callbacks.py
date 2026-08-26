@@ -346,6 +346,45 @@ def _prepare_contour_from_mesh(
     return xi, yi, zi
 
 
+def _xy_view_contour_error_alert(detail):
+    """User-facing alert when Plan View contour generation fails."""
+    msg = str(detail).strip() if detail is not None else ""
+    if not msg:
+        msg = "unknown error"
+    return dbc.Alert(
+        [
+            html.Div(
+                "Could not show contour lines. Some input information may be "
+                "incorrect or missing.",
+                className="fw-semibold mb-2",
+            ),
+            html.Div(
+                [
+                    html.Strong("Error: "),
+                    html.Code(msg, className="small"),
+                ],
+                className="mb-0",
+            ),
+        ],
+        color="danger",
+        className="mb-0",
+    )
+
+
+def _xy_view_contour_warning_alert(detail):
+    """Non-fatal notice (e.g. fallback contour method)."""
+    msg = str(detail).strip() if detail is not None else ""
+    if not msg:
+        return html.Div()
+    return dbc.Alert(
+        [
+            html.Div(msg, className="mb-0 small"),
+        ],
+        color="warning",
+        className="mb-0",
+    )
+
+
 def _add_confined_theis_contour_to_figure(
     fig,
     strat_in,
@@ -355,7 +394,10 @@ def _add_confined_theis_contour_to_figure(
     rotation_deg=0.0,
     n_clicks=0,
 ):
-    """Add confined Theis + regional-gradient contour clipped to the footprint."""
+    """Add confined Theis + regional-gradient contour clipped to the footprint.
+
+    Returns ``(fig, ok, error_message)``.
+    """
     import numpy as np
 
     theis_pack = build_confined_theis_xy_plot_dict(
@@ -364,19 +406,8 @@ def _add_confined_theis_contour_to_figure(
         half_width,
     )
     if not theis_pack.get("ok"):
-        fig.add_annotation(
-            xref="paper",
-            yref="paper",
-            x=0.5,
-            y=0.55,
-            text=(
-                "Could not build confined Theis contours: "
-                f"{theis_pack.get('error', 'unknown error')}"
-            ),
-            showarrow=False,
-            font=dict(size=12, color="#b45309"),
-        )
-        return fig, False
+        err = theis_pack.get("error", "Could not build confined Theis contours.")
+        return fig, False, err
 
     Z = np.asarray(theis_pack["drawdown_ft"], dtype=float)
     x1d = np.asarray(theis_pack["x"], dtype=float)
@@ -409,8 +440,7 @@ def _add_confined_theis_contour_to_figure(
             uirevision=str(n_clicks or 0),
         )
     )
-    return fig, True
-
+    return fig, True, None
 
 def setup_hydro_callbacks(app):
     """Set up all hydrogeology-related callbacks."""
@@ -423,6 +453,69 @@ def setup_hydro_callbacks(app):
         "Loam": {"conductivity": 0.001, "storage": 0.0001, "yield": 0.05},
         "Clay": {"conductivity": 0.0001, "storage": 0.0001, "yield": 0.01}
     }
+
+    @app.callback(
+        Output("initial-feasibility-help-modal", "is_open"),
+        [
+            Input("initial-feasibility-help-btn", "n_clicks"),
+            Input("initial-feasibility-help-close-btn", "n_clicks"),
+        ],
+        State("initial-feasibility-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_initial_feasibility_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Initial Hydrologic Feasibility help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "initial-feasibility-help-btn":
+            return True
+        if trigger == "initial-feasibility-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("horizontal-extension-help-modal", "is_open"),
+        [
+            Input("horizontal-extension-help-btn", "n_clicks"),
+            Input("horizontal-extension-help-close-btn", "n_clicks"),
+        ],
+        State("horizontal-extension-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_horizontal_extension_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Horizontal Extension Configuration help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "horizontal-extension-help-btn":
+            return True
+        if trigger == "horizontal-extension-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("groundwater-level-help-modal", "is_open"),
+        [
+            Input("groundwater-level-help-btn", "n_clicks"),
+            Input("groundwater-level-help-close-btn", "n_clicks"),
+        ],
+        State("groundwater-level-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_groundwater_level_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Groundwater Level Configuration help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "groundwater-level-help-btn":
+            return True
+        if trigger == "groundwater-level-help-close-btn":
+            return False
+        return bool(is_open)
     
     # Persist inferred aquifer type (no manual aquifer-type control)
     @app.callback(
@@ -1570,7 +1663,10 @@ def setup_hydro_callbacks(app):
 
     # XY View Plot Callback
     @app.callback(
-        Output("xy-view-plot", "figure"),
+        [
+            Output("xy-view-plot", "figure"),
+            Output("xy-view-contour-message", "children"),
+        ],
         [
             Input("extension-length", "value"),
             Input("extension-width", "value"),
@@ -1585,133 +1681,64 @@ def setup_hydro_callbacks(app):
         # Rely on ``reset_xy_view_contours_on_stratigraphy_change`` zeroing clicks when stratigraphy/
         # CSV reloads matches so we do not wipe a valid redraw on the same tick as the Show button.
         if not n_clicks:
-            return _xy_view_empty_figure()
+            return _xy_view_empty_figure(), html.Div()
+
+        import traceback
 
         import numpy as np
 
-        # Default values if inputs are None, and convert to float
-        if length is None:
-            length = 100.0
-        else:
-            try:
-                length = float(length)
-            except (ValueError, TypeError):
+        try:
+            # Default values if inputs are None, and convert to float
+            if length is None:
                 length = 100.0
-        
-        if width is None:
-            width = 50.0
-        else:
-            try:
-                width = float(width)
-            except (ValueError, TypeError):
-                width = 50.0
-        
-        if rotation is None:
-            rotation = 0.0
-        else:
-            try:
-                rotation = float(rotation)
-            except (ValueError, TypeError):
-                rotation = 0.0
-
-        aq_type_raw = dash_storage.get_data("aq_type") or "unconfined"
-        aq_type_l = str(aq_type_raw).strip().lower()
-        is_confined = aq_type_l == "confined"
-
-        # Create the plot
-        fig = go.Figure()
-        contour_style = "theis" if is_confined else "hantush"
-
-        half_length = length / 2
-        half_width = width / 2
-        footprint_x_range, footprint_y_range = _axis_ranges_for_footprint(
-            half_length, half_width, rotation
-        )
-
-        if is_confined:
-            strat_in = dash_storage.get_data("stratigraphy_data")
-            fig, _contour_ok = _add_confined_theis_contour_to_figure(
-                fig,
-                strat_in,
-                half_length,
-                half_width,
-                rotation_deg=rotation,
-                n_clicks=n_clicks,
-            )
-        else:
-            # unconfined  aquifer
-            strat_in = dash_storage.get_data("stratigraphy_data")
-            gw_rows = normalize_groundwater_data(
-                dash_storage.get_data("groundwater_data") or []
-            )
-            gs_elev = dash_storage.get_data("ground_surface_elevation")        
-           
-            graph = get_session_graph()                
-            inputs = get_graph_inputs()
-            evaluate_and_store_decision_graph(graph, inputs)
-            node_values = graph.get_node_values()
-            design_sizing = node_values.get("design_sizing")
-
-            if design_sizing is not None:     
-
-                mound_pack = build_unconfined_mounding_xy_plot_dict(
-                    strat_in,
-                    design_sizing,
-                    half_length,
-                    half_width,
-                    gw_rows, 
-                    gs_elev
-            
-                
-                )
-                if mound_pack.get("ok"):
-                    Z = np.asarray(mound_pack["drawdown_ft"], dtype=float)
-                    Xmesh = np.asarray(mound_pack["x_grid"], dtype=float)
-                    Ymesh = np.asarray(mound_pack["y_grid"], dtype=float)
-                    Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
-                    Z = Z + Z_background
-                    xi, yi, Zi = _prepare_contour_from_mesh(
-                        Xmesh,
-                        Ymesh,
-                        Z,
-                        rotation,
-                        half_length=half_length,
-                        half_width=half_width,
-                    )
-                    fig.add_trace(
-                        go.Contour(
-                            x=xi,
-                            y=yi,
-                            z=Zi,
-                            colorscale="Jet",
-                            name="Unconfined mound + 2% regional gradient",
-                            colorbar=dict(title="Mound + gradient (ft)"),
-                            opacity=0.82,
-                            contours=dict(showlines=True, coloring="fill"),
-                            hovertemplate=(
-                                "<b>Hantush mound + regional gradient</b><br>%{z:.2f} ft<br>"
-                                "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
-                            ),
-                            uirevision=str(n_clicks or 0),
-                        )
-                    )
-                else:
-                    fig.add_annotation(
-                        xref="paper",
-                        yref="paper",
-                        x=0.5,
-                        y=0.55,
-                        text=(
-                            "Could not build unconfined mound contours: "
-                            f"{mound_pack.get('error', 'unknown error')}"
-                        ),
-                        showarrow=False,
-                        font=dict(size=12, color="#b45309"),
-                    )
             else:
-                # Surface recharge not possible — fall back to confined Theis contours.
-                contour_style = "theis"
-                fig, _contour_ok = _add_confined_theis_contour_to_figure(
+                try:
+                    length = float(length)
+                except (ValueError, TypeError):
+                    length = 100.0
+
+            if width is None:
+                width = 50.0
+            else:
+                try:
+                    width = float(width)
+                except (ValueError, TypeError):
+                    width = 50.0
+
+            if rotation is None:
+                rotation = 0.0
+            else:
+                try:
+                    rotation = float(rotation)
+                except (ValueError, TypeError):
+                    rotation = 0.0
+
+            if length <= 0 or width <= 0:
+                return (
+                    _xy_view_empty_figure(),
+                    _xy_view_contour_error_alert(
+                        "Length and width must be positive values."
+                    ),
+                )
+
+            aq_type_raw = dash_storage.get_data("aq_type") or "unconfined"
+            aq_type_l = str(aq_type_raw).strip().lower()
+            is_confined = aq_type_l == "confined"
+
+            # Create the plot
+            fig = go.Figure()
+            contour_style = "theis" if is_confined else "hantush"
+            message = html.Div()
+
+            half_length = length / 2
+            half_width = width / 2
+            footprint_x_range, footprint_y_range = _axis_ranges_for_footprint(
+                half_length, half_width, rotation
+            )
+
+            if is_confined:
+                strat_in = dash_storage.get_data("stratigraphy_data")
+                fig, contour_ok, contour_err = _add_confined_theis_contour_to_figure(
                     fig,
                     strat_in,
                     half_length,
@@ -1719,49 +1746,153 @@ def setup_hydro_callbacks(app):
                     rotation_deg=rotation,
                     n_clicks=n_clicks,
                 )
+                if not contour_ok:
+                    message = _xy_view_contour_error_alert(contour_err)
+            else:
+                # unconfined aquifer
+                strat_in = dash_storage.get_data("stratigraphy_data")
+                gw_rows = normalize_groundwater_data(
+                    dash_storage.get_data("groundwater_data") or []
+                )
+                gs_elev = dash_storage.get_data("ground_surface_elevation")
 
-        _add_footprint_outline(fig, half_length, half_width, rotation)
+                graph = get_session_graph()
+                if graph is None:
+                    return (
+                        _xy_view_empty_figure(),
+                        _xy_view_contour_error_alert(
+                            "Decision graph is not available."
+                        ),
+                    )
+                inputs = get_graph_inputs()
+                evaluate_and_store_decision_graph(graph, inputs)
+                node_values = graph.get_node_values()
+                design_sizing = node_values.get("design_sizing")
 
-        # Update layout
-        xy_title = (
-            "Plan View — confined Theis mound"
-            if contour_style == "theis"
-            else "Plan View — unconfined Hantush mound"
-        )
-        xr, yr = footprint_x_range, footprint_y_range
-        fig.update_layout(
-            title={
-                "text": xy_title,
-                "x": 0.5,
-                "xanchor": "center",
-                "font": {"size": 16},
-            },
-            xaxis_title="Distance (ft)",
-            yaxis_title="Distance (ft)",
-            template="plotly_white",
-            height=500,
-            margin=dict(l=50, r=50, t=60, b=50),
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.1,
-                xanchor="center",
-                x=0.5
-            ),
-            xaxis=dict(
-                scaleanchor="y",
-                scaleratio=1,
-                range=list(xr),
-                autorange=False,
-            ),
-            yaxis=dict(scaleanchor="x", scaleratio=1, range=list(yr), autorange=False),
-        )
-        
-        # No grid lines for cleaner appearance
-        
-        return fig
+                if design_sizing is not None:
+                    mound_pack = build_unconfined_mounding_xy_plot_dict(
+                        strat_in,
+                        design_sizing,
+                        half_length,
+                        half_width,
+                        gw_rows,
+                        gs_elev,
+                    )
+                    if mound_pack.get("ok"):
+                        Z = np.asarray(mound_pack["drawdown_ft"], dtype=float)
+                        Xmesh = np.asarray(mound_pack["x_grid"], dtype=float)
+                        Ymesh = np.asarray(mound_pack["y_grid"], dtype=float)
+                        Z_background = (
+                            -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
+                        )
+                        Z = Z + Z_background
+                        xi, yi, Zi = _prepare_contour_from_mesh(
+                            Xmesh,
+                            Ymesh,
+                            Z,
+                            rotation,
+                            half_length=half_length,
+                            half_width=half_width,
+                        )
+                        fig.add_trace(
+                            go.Contour(
+                                x=xi,
+                                y=yi,
+                                z=Zi,
+                                colorscale="Jet",
+                                name="Unconfined mound + 2% regional gradient",
+                                colorbar=dict(title="Mound + gradient (ft)"),
+                                opacity=0.82,
+                                contours=dict(showlines=True, coloring="fill"),
+                                hovertemplate=(
+                                    "<b>Hantush mound + regional gradient</b><br>"
+                                    "%{z:.2f} ft<br>"
+                                    "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
+                                ),
+                                uirevision=str(n_clicks or 0),
+                            )
+                        )
+                    else:
+                        message = _xy_view_contour_error_alert(
+                            mound_pack.get(
+                                "error",
+                                "Could not build unconfined mound contours.",
+                            )
+                        )
+                else:
+                    # Surface recharge not possible — fall back to confined Theis contours.
+                    contour_style = "theis"
+                    fig, contour_ok, contour_err = _add_confined_theis_contour_to_figure(
+                        fig,
+                        strat_in,
+                        half_length,
+                        half_width,
+                        rotation_deg=rotation,
+                        n_clicks=n_clicks,
+                    )
+                    if contour_ok:
+                        message = _xy_view_contour_warning_alert(
+                            "Unconfined design sizing is not available "
+                            "(surface recharge may not be feasible). "
+                            "Showing confined Theis contours instead."
+                        )
+                    else:
+                        message = _xy_view_contour_error_alert(
+                            contour_err
+                            or (
+                                "Unconfined design sizing is not available, and "
+                                "confined Theis contours also failed."
+                            )
+                        )
 
+            _add_footprint_outline(fig, half_length, half_width, rotation)
+
+            # Update layout
+            xy_title = (
+                "Plan View — confined Theis mound"
+                if contour_style == "theis"
+                else "Plan View — unconfined Hantush mound"
+            )
+            xr, yr = footprint_x_range, footprint_y_range
+            fig.update_layout(
+                title={
+                    "text": xy_title,
+                    "x": 0.5,
+                    "xanchor": "center",
+                    "font": {"size": 16},
+                },
+                xaxis_title="Distance (ft)",
+                yaxis_title="Distance (ft)",
+                template="plotly_white",
+                height=500,
+                margin=dict(l=50, r=50, t=60, b=50),
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="top",
+                    y=-0.1,
+                    xanchor="center",
+                    x=0.5,
+                ),
+                xaxis=dict(
+                    scaleanchor="y",
+                    scaleratio=1,
+                    range=list(xr),
+                    autorange=False,
+                ),
+                yaxis=dict(
+                    scaleanchor="x",
+                    scaleratio=1,
+                    range=list(yr),
+                    autorange=False,
+                ),
+            )
+
+            return fig, message
+
+        except Exception as err:
+            traceback.print_exc()
+            return _xy_view_empty_figure(), _xy_view_contour_error_alert(err)
     _TRAFFIC_DOT = {"green": "#198754", "orange": "#fd7e14", "red": "#dc3545"}
 
     @app.callback(
