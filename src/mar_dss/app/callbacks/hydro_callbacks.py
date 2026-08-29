@@ -446,12 +446,14 @@ def setup_hydro_callbacks(app):
     """Set up all hydrogeology-related callbacks."""
     
     # Typical values for different soil types
+    # "Other" uses mid-range averages (geom. mean K; mean Sy) across the named types.
     SOIL_PROPERTIES = {
         "Gravel": {"conductivity": 100.0, "storage": 0.0001, "yield": 0.30},
         "Sand": {"conductivity": 10.0, "storage": 0.0001, "yield": 0.25},
         "Silt": {"conductivity": 0.01, "storage": 0.0001, "yield": 0.10},
         "Loam": {"conductivity": 0.001, "storage": 0.0001, "yield": 0.05},
-        "Clay": {"conductivity": 0.0001, "storage": 0.0001, "yield": 0.01}
+        "Clay": {"conductivity": 0.0001, "storage": 0.0001, "yield": 0.01},
+        "Other": {"conductivity": 0.063, "storage": 0.0001, "yield": 0.14},
     }
 
     @app.callback(
@@ -541,7 +543,6 @@ def setup_hydro_callbacks(app):
     # Persist inferred aquifer type (no manual aquifer-type control)
     @app.callback(
         Output("aq-type-inferred-store", "data"),
-        Output("aquifer-type-display", "children"),
         [
             Input("stratigraphy-data-store", "data"),
             Input("groundwater-data-store", "data"),
@@ -564,8 +565,7 @@ def setup_hydro_callbacks(app):
             aquitard_k_max_ft_day=aq_k,
         )
         dash_storage.set_data("aq_type", inferred)
-        aq_text = str(inferred).replace("-", " ").title()
-        return inferred, f"Aquifer Type: {aq_text}"
+        return inferred
 
     # Callback to synchronize geometry tabs with view tabs
     @app.callback(
@@ -1469,7 +1469,8 @@ def setup_hydro_callbacks(app):
             "Sand": "#F4A460",        # Sandy brown
             "Silt": "#D2B48C",        # Tan
             "Loam": "#DEB887",        # Burlywood
-            "Clay": "#A0522D"         # Sienna
+            "Clay": "#A0522D",        # Sienna
+            "Other": "#6c757d",       # Gray (unspecified / average mix)
         }
         
         # Create the plot

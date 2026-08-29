@@ -194,8 +194,8 @@ def _get_groundwater_data():
 def create_hydrogeologic_settings_content():
     """Create the content for the Hydrogeologic Settings sub-tab (3.1)."""
     return [
-        *_build_hydro_tab_header(),
         _build_geometry_and_view_cards(),
+        *_build_hydro_tab_header(),
     ]
 
 
@@ -611,7 +611,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                     html.Ol(
                         [
                             html.Li(
-                                "Complete (or review) Aquifer Type, Stratigraphy, Groundwater "
+                                "Complete (or review) Stratigraphy, Groundwater "
                                 "Level, and Horizontal Extension inputs as needed."
                             ),
                             html.Li([
@@ -801,14 +801,6 @@ def _build_hydro_tab_header():
             className="g-3 align-items-stretch mb-3",
         )
     ]
-
-
-def _build_aquifer_type_notice():
-    """Static note: aquifer type is inferred from stratigraphy and water-table inputs."""
-    return html.P(
-        "Aquifer type will be inferred from stratigraphy and water table",
-        className="mb-0 small text-muted",
-    )
 
 
 def _build_stratigraphy_table_header():
@@ -1422,12 +1414,6 @@ def _build_geometry_tabs():
 
 def _build_geometry_card():
     """Build the Geometry card."""
-    aq_label = dash_storage.get_data("aq_type") or "unconfined"
-    try:
-        aq_display = str(aq_label).replace("-", " ").title()
-    except Exception:
-        aq_display = "Unconfined"
-
     return dbc.Card(
         [
             dbc.CardHeader(
@@ -1436,21 +1422,9 @@ def _build_geometry_card():
             ),
             dbc.CardBody(
                 [
-                    html.Div(
-                        [
-                            dcc.Store(
-                                id="aq-type-inferred-store",
-                                data="unconfined",
-                            ),
-                            html.Div(
-                                id="aquifer-type-display",
-                                children=f"Aquifer Type: {aq_display}",
-                                className="fw-bold mb-2",
-                                style={"color": "#fd7e14"},
-                            ),
-                            _build_aquifer_type_notice(),
-                        ],
-                        className="mb-3 pb-3 border-bottom",
+                    dcc.Store(
+                        id="aq-type-inferred-store",
+                        data="unconfined",
                     ),
                     _build_geometry_tabs(),
                 ]
