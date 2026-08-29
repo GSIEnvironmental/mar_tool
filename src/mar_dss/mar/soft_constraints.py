@@ -269,7 +269,7 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     # ==================================================================
     # 8. confined aquifer depth
     # ==================================================================
-    confined_aquifer_depth = graph.get_node_value('confined_aquifer_depth')
+    confined_aquifer_depth = graph.get_node_value('excessive_deep_aquifer')
     if aquifer_type.lower() == "unconfined":
         response = -1
         penalty = []
@@ -308,16 +308,19 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         response = -1
         penalty = []
     else: # confined
-        if leakage_significance == "Low":
+        if leakage_significance == "low":
             response = 0
             penalty = []
-        elif leakage_significance == "Medium":
+        elif leakage_significance == "medium":
             response = 2
-            penalty = ["Warning: Confined leakage is moderate"]            
-        elif leakage_significance == "High":
+            penalty = ["Warning: Confined leakage is moderate"]
+        elif leakage_significance == "high":
             response = 3
             penalty = ["Mitigation: Confined leakage is significant"]
-        
+        else:
+            response = 0
+            penalty = []
+
     leakage_significance_metric = {
         "name": "Confined leakage significance",
         "response": response,   # 0–4

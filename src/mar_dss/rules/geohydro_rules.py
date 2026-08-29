@@ -309,19 +309,24 @@ def is_confined(strat_df, monthly_gw_depth):
     return aquifer_inference_regime(strat_df, monthly_gw_depth) == "confined"
 
 def find_limiting_layer(strat_df, unconfined, monthly_gw_depth):
-    """ the limiting layer is in the vadose zone, so it is lowest k above water table"""
+    """The limiting layer is in the vadose zone: the lowest-K layer at or above the water table."""
     if unconfined:
         cumulative_depth = strat_df["thickness"].cumsum()
-        
-        limiting_layer = []
         depth = np.mean(monthly_gw_depth)
-        diff = cumulative_depth - depth
-        # find the index of the smallest positive difference
-        positive_diff = diff[diff > 0]
-        wt_idex = positive_diff.idxmin()+1
-        df_ = strat_df.iloc[0:wt_idex]           
-        limit_layer_index = df_["K"].argmin()       
-            
+
+        # Position of the first layer whose bottom reaches the water table depth. A layer
+        # whose bottom lands exactly on the water table is itself the last vadose layer
+        # (fully unsaturated), not the layer below it, which is already saturated.
+        at_or_below_wt = (cumulative_depth >= depth).to_numpy()
+        if at_or_below_wt.any():
+            wt_layer_pos = int(np.argmax(at_or_below_wt))
+        else:
+            # Water table lies below the entire stratigraphy column: it is all vadose.
+            wt_layer_pos = len(strat_df) - 1
+
+        df_ = strat_df.iloc[0:wt_layer_pos + 1]
+        limit_layer_index = df_["K"].argmin()
+
         return limit_layer_index
     else:
         return None # irrelevant for confined aquifer
@@ -605,9 +610,33 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
     target_layer_index = recharge_target_layer_row_index(strat_df)
     if strat_df.iloc[target_layer_index]["K"] < 0.2: # todo: make this general
          return {"number_of_wells": 0, "Q_per_well": 0}
-    
+
     avg_gw_depth = np.mean(gw_depth)
     layer_depths = strat_df['thickness'].cumsum()
+
+    # This sizing path models a fully screened/cased Injection Well via Theis/Thiem
+    # saturated-aquifer response (transmissivity, storativity), which only applies to a
+    # saturated target. A target layer above the water table is a vadose-zone recharge
+    # target, already modeled by Dry Well sizing (K-based unsaturated infiltration) rather
+    # than by this Theis-based method.
+    bottom_of_target_depth = layer_depths.iloc[target_layer_index]
+    if bottom_of_target_depth <= avg_gw_depth:
+        logger.warning(
+            "Recharge target layer (index %d, bottom depth %.2f ft) lies above the average "
+            "water table (%.2f ft bgs); it is unsaturated, so Theis-based injection-well "
+            "sizing does not apply. Vadose-zone injection is still feasible via Dry Well "
+            "or surface spreading sizing.",
+            target_layer_index, bottom_of_target_depth, avg_gw_depth,
+        )
+        return {
+            "number_of_wells": 0,
+            "Q_per_well": 0,
+            "reason": (
+                "Recharge target layer is unsaturated (above the water table); this "
+                "Injection Well sizing method assumes a saturated target and does not apply. "
+                "Use Dry Well or surface spreading for vadose-zone recharge."
+            ),
+        }
 
     saturated_layres = layer_depths - avg_gw_depth
     saturated_layres = saturated_layres[saturated_layres>0]
@@ -795,14 +824,9 @@ def compute_rechargable_percentage(annual_surface_recharge_volume,
     return 100.0*annual_surface_recharge_volume / np.sum(source_water_volume)
 
 
-def compute_confined_storage_volume(confined, strat_df, Hmax, injection_wells_result, source_water_volume):  
-    # annual injection volume``  
-    # we assume the table has four overburden layer, layers 2 bedrock and 1 aquifer in the middle
-    # todo: test
-    if confined:        
-        if len(strat_df) != 4:
-            raise ValueError("Stratigraphy table must have four layers for confined aquifer")
-        
+def compute_confined_storage_volume(confined, strat_df, Hmax, injection_wells_result, source_water_volume):
+    # annual injection volume
+    if confined:
         target_layer_index = recharge_target_layer_row_index(strat_df)
         depth_of_confined_unit = strat_df.iloc[0:target_layer_index]["thickness"].sum()       
         Hmax = depth_of_confined_unit * 0.6 * 2.31 # convert psi to feet
@@ -838,20 +862,33 @@ def compute_confined_rechargability(annual_confined_storage_volume, source_water
         return percentage
 
 def compute_leakage_significance(rechargability, strat_df):
+    """Leakance is taken from the aquitard(s) bounding the recharge-target layer.
+
+    Uses ``recharge_target_layer_row_index`` rather than fixed layer positions, so this
+    works for any stratigraphy length/target position (see ``infer_dashboard_aquifer_type``,
+    which already generalizes the same way). When the target is the bottom layer, there is
+    no underlying unit, so leakance comes from the top aquitard only.
+    """
     if rechargability is None:
         return None # irrelevant for unconfined aquifer
-    
-    top_confined_layer_k = strat_df.iloc[1]["K"]
-    top_confined_layer_thickness = strat_df.iloc[1]["thickness"]
-    bottom_confined_layer_k = strat_df.iloc[3]["K"]
-    bottom_confined_layer_thickness = strat_df.iloc[3]["thickness"]
 
-    leakance_top =  top_confined_layer_k/top_confined_layer_thickness
-    leakance_bottom =  bottom_confined_layer_k/bottom_confined_layer_thickness
-    leakance = max(leakance_top, leakance_bottom)
+    target_layer_index = recharge_target_layer_row_index(strat_df)
 
-    k_aquifer = strat_df.iloc[2]["K"]
-    aquifer_thickness = strat_df.iloc[2]["thickness"]
+    top_confined_layer_k = strat_df.iloc[target_layer_index - 1]["K"]
+    top_confined_layer_thickness = strat_df.iloc[target_layer_index - 1]["thickness"]
+    leakance_top = top_confined_layer_k / top_confined_layer_thickness
+
+    is_bottom_target = target_layer_index >= len(strat_df) - 1
+    if is_bottom_target:
+        leakance = leakance_top
+    else:
+        bottom_confined_layer_k = strat_df.iloc[target_layer_index + 1]["K"]
+        bottom_confined_layer_thickness = strat_df.iloc[target_layer_index + 1]["thickness"]
+        leakance_bottom = bottom_confined_layer_k / bottom_confined_layer_thickness
+        leakance = max(leakance_top, leakance_bottom)
+
+    k_aquifer = strat_df.iloc[target_layer_index]["K"]
+    aquifer_thickness = strat_df.iloc[target_layer_index]["thickness"]
     transmissivity = k_aquifer * aquifer_thickness
 
     BB = np.sqrt(transmissivity / leakance)
@@ -868,8 +905,8 @@ def compute_depth_significance(confined, strat_df):
     if not (confined):
         return None # irrelevant for unconfined aquifer
 
-    aquifer_depth = strat_df.iloc[0:2]["thickness"] 
-    aquifer_depth = aquifer_depth.sum()
+    target_layer_index = recharge_target_layer_row_index(strat_df)
+    aquifer_depth = strat_df.iloc[0:target_layer_index]["thickness"].sum()
 
     _eda = get_default("excessive_deep_aquifer")
     if aquifer_depth > _eda[1]:
