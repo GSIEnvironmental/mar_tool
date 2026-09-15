@@ -471,7 +471,27 @@ def compute_spread_area(k_min_vadose, max_available_area, gw_depth, source_water
 
     if k_min_vadose is None:
         return None # irrelevant for confined aquifer
-   
+
+    # `k_min_vadose` only measures how fast water can percolate through the vadose zone
+    # above the water table; it says nothing about the recharge TARGET layer itself. A
+    # highly permeable vadose zone sitting on top of a low-K target (e.g. recharging into
+    # an aquitard) would otherwise look "feasible" even though the target formation can't
+    # actually accept or transmit the water once it arrives.
+    target_layer_index = recharge_target_layer_row_index(strat_df)
+    target_k = float(strat_df.iloc[target_layer_index]["K"])
+    k_threshold = get_default("k_min_vadose_threshold")
+    if target_k < k_threshold:
+        return {
+            "spread_area": 0.0,
+            "infl_rate": 0.0,
+            "inf_k_ratio": 0.0,
+            "reason": (
+                f"Recharge target layer hydraulic conductivity ({target_k:g} ft/day) is "
+                f"below the infiltration threshold ({k_threshold:g} ft/day); the target "
+                "formation cannot accept meaningful recharge regardless of vadose-zone "
+                "permeability."
+            ),
+        }
 
     max_available_area = float(max_available_area)
     k_min_vadose = float(k_min_vadose)

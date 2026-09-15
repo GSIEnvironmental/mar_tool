@@ -62,22 +62,45 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
         confined_rechargability = 0
 
 
+    rechargeable_pct_def = (
+        "the share of the total annual source water volume this option can actually "
+        "recharge into the aquifer"
+    )
+
     if aquifer_type.lower() == "Unconfined".lower():
         mx = get_default("maximum_rechargability")
         if rechargable_percentage < mx:
             check = False
-            why = f"Rechargeable percentage {round(rechargable_percentage, 2)}% is less than the maximum rechargeable percentage {mx}"
+            why = (
+                f"Rechargeable percentage ({rechargeable_pct_def}) is "
+                f"{round(rechargable_percentage, 2)}%, below the required minimum of {mx}%"
+            )
+            if option.name == "Injection Well":
+                injection_wells_result = graph.get_node_value('number_of_injection_wells')
+                if isinstance(injection_wells_result, dict) and injection_wells_result.get("reason"):
+                    why = f"{injection_wells_result['reason']} ({round(rechargable_percentage, 2)}% of source water recharged this way)"
         else:
             check = True
-            why = f"Rechargeable percentage {round(rechargable_percentage, 2)}% is greater than the maximum rechargeable percentage {mx}"
+            why = (
+                f"Rechargeable percentage ({rechargeable_pct_def}) is "
+                f"{round(rechargable_percentage, 2)}%, meeting the required minimum of {mx}%"
+            )
     else:
         mx = get_default("maximum_rechargability")
         if confined_rechargability < mx:
             check = False
-            why = f"Confined rechargeable percentage {round(confined_rechargability, 2)}% is less than the maximum rechargeable percentage {mx}"
+            why = (
+                f"Confined rechargeable percentage ({rechargeable_pct_def}, via injection "
+                f"into the confined unit) is {round(confined_rechargability, 2)}%, below the "
+                f"required minimum of {mx}%"
+            )
         else:
             check = True
-            why = f"Confined rechargeable percentage {round(confined_rechargability, 2)}% is greater than the maximum rechargeable percentage {mx}"
+            why = (
+                f"Confined rechargeable percentage ({rechargeable_pct_def}, via injection "
+                f"into the confined unit) is {round(confined_rechargability, 2)}%, meeting the "
+                f"required minimum of {mx}%"
+            )
     
     recharge_efficiency_metric = {
         "name": "Recharge Efficiency",

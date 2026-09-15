@@ -1,0 +1,82 @@
+/*
+ * Loaded AFTER the Bootswatch theme link so these rules win over theme
+ * .text-muted / secondary greys. Keep white chrome on colored headers.
+ */
+
+:root {
+  --bs-secondary-color: #000;
+  --bs-secondary-rgb: 0, 0, 0;
+  --bs-tertiary-color: #000;
+  --bs-tertiary-rgb: 0, 0, 0;
+  --bs-secondary-text-emphasis: #000;
+}
+
+html body .text-muted,
+html body .text-secondary,
+html body .text-body-secondary,
+html body .text-black-50,
+html body .form-text,
+html body small.text-muted,
+html body .small.text-muted,
+html body p.text-muted,
+html body span.text-muted,
+html body div.text-muted,
+html body label.text-muted,
+html body .form-label.text-muted,
+html body .card-body .text-muted,
+html body .dash-radio-items label,
+html body .RadioItems label,
+html body label.form-check-label {
+  color: #000 !important;
+}
+
+html body .form-control,
+html body .form-select,
+html body .form-control:focus,
+html body .form-select:focus {
+  color: #000 !important;
+}
+
+html body .form-control::placeholder,
+html body .form-select::placeholder {
+  color: #000 !important;
+  opacity: 1;
+}
+
+/* White on colored headers / badges */
+html body .text-white,
+html body .card-header.text-white,
+html body .card-header .text-white,
+html body .bg-primary.text-white,
+html body .bg-success.text-white,
+html body .bg-danger.text-white,
+html body .bg-info.text-white,
+html body .bg-secondary.text-white,
+html body .bg-dark.text-white,
+html body .text-bg-primary,
+html body .text-bg-success,
+html body .text-bg-danger,
+html body .text-bg-info,
+html body .text-bg-secondary,
+html body .text-bg-dark {
+  color: #fff !important;
+}
+
+/* Dark Bootswatch themes (class on #app-container): muted → white */
+.mar-theme-dark {
+  --bs-secondary-color: #fff;
+  --bs-tertiary-color: #fff;
+}
+
+.mar-theme-dark .text-muted,
+.mar-theme-dark .text-secondary,
+.mar-theme-dark .text-body-secondary,
+.mar-theme-dark .text-black-50,
+.mar-theme-dark .form-text,
+.mar-theme-dark .dash-radio-items label,
+.mar-theme-dark .RadioItems label,
+.mar-theme-dark label.form-check-label,
+.mar-theme-dark .form-control,
+.mar-theme-dark .form-select {
+  color: #fff !important;
+}
