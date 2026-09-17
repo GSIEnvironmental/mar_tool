@@ -964,7 +964,7 @@ def compute_surface_recharge_suitability(gs_slope_significance, inflitration_sig
         surface_recharge_suitability = False
         return surface_recharge_suitability
     
-    if not (remediate): # this is vadose zone remediation
+    if remediate:  # vadose zone remediation needed → not suitable for surface recharge
         surface_recharge_suitability = False
 
     return surface_recharge_suitability

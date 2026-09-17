@@ -13,84 +13,191 @@ from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # --- Data Structures for Logic and Display ---
 
-# --- Water quality risk levels (shared with callbacks and soft_constraints) ---
-NOT_AVAILABLE_RISK = "NOT AVAILABLE"
-DEFAULT_WATER_QUALITY_RISK = NOT_AVAILABLE_RISK
+# --- Water quality screening answers (shared with callbacks and soft_constraints) ---
+WQ_UNKNOWN = "Unknown"
+WQ_NO = "No"
+WQ_YES = "Yes"
+WQ_TURBIDITY_LOW = "<5 NTU"
+WQ_TURBIDITY_MOD = "5-20 NTU"
+WQ_TURBIDITY_HIGH = ">20 NTU"
+DEFAULT_WATER_QUALITY_RISK = WQ_UNKNOWN
+NOT_AVAILABLE_RISK = WQ_UNKNOWN  # legacy alias used by scoring / data-gap logic
 
+YES_NO_UNKNOWN = (WQ_UNKNOWN, WQ_NO, WQ_YES)
+TURBIDITY_OPTIONS = (
+    WQ_UNKNOWN,
+    WQ_TURBIDITY_LOW,
+    WQ_TURBIDITY_MOD,
+    WQ_TURBIDITY_HIGH,
+)
 
-def water_quality_risk_options(low_label, moderate_label, high_label):
-    """Standard four-option radio list for water quality assessment questions."""
-    return [
-        {"label": "NOT AVAILABLE (data not yet collected)", "value": NOT_AVAILABLE_RISK},
-        {"label": low_label, "value": "LOW RISK"},
-        {"label": moderate_label, "value": "MODERATE RISK"},
-        {"label": high_label, "value": "HIGH RISK"},
-    ]
+# Answers that do not trigger treatment or a suitability warning.
+WQ_BENIGN_ANSWERS = frozenset({WQ_UNKNOWN, WQ_NO, WQ_TURBIDITY_LOW})
 
+WQ_QUESTIONS = (
+    {
+        "key": "source_contaminants",
+        "storage_key": "wq_source_contaminants",
+        "component_id": "env-wq-q1",
+        "number": "1",
+        "text": (
+            "Is the source water impacted with industrial, domestic, or emerging "
+            "contaminants (e.g., VOCs, metals, PFAS)?"
+        ),
+        "options": YES_NO_UNKNOWN,
+        "tooltip": "Industrial, domestic, or emerging contaminants in the source water",
+    },
+    {
+        "key": "source_turbidity",
+        "storage_key": "wq_source_turbidity",
+        "component_id": "env-wq-q2",
+        "number": "2",
+        "text": "What is the turbidity of the source water?",
+        "options": TURBIDITY_OPTIONS,
+        "tooltip": "Source-water turbidity as a clogging and pretreatment indicator",
+    },
+    {
+        "key": "vadose_impacted",
+        "storage_key": "wq_vadose_impacted",
+        "component_id": "env-wq-q3",
+        "number": "3",
+        "text": (
+            "Is the Vadose/Unsaturated Zone Impacted by Contaminants "
+            "(e.g. VOCs, metals, emerging contaminants)?"
+        ),
+        "options": YES_NO_UNKNOWN,
+        "tooltip": "Contamination in the unsaturated zone above the target aquifer",
+    },
+    {
+        "key": "aquifer_anthropogenic",
+        "storage_key": "wq_aquifer_anthropogenic",
+        "component_id": "env-wq-q4",
+        "number": "4",
+        "text": (
+            "Is the Target Aquifer Impacted by Anthropogenic Contaminants "
+            "(e.g. VOCs, metals, emerging contaminants)?"
+        ),
+        "options": YES_NO_UNKNOWN,
+        "tooltip": "Human-caused contaminants already present in native groundwater",
+    },
+    {
+        "key": "aquifer_natural",
+        "storage_key": "wq_aquifer_natural",
+        "component_id": "env-wq-q5",
+        "number": "5",
+        "text": (
+            "Is the Target Aquifer Impacted by Naturally Occurring Contaminants "
+            "(e.g. salts, inorganic compounds)?"
+        ),
+        "options": YES_NO_UNKNOWN,
+        "tooltip": "Naturally occurring salts or inorganics in native groundwater",
+    },
+)
+
+WQ_STORAGE_KEYS = tuple(q["storage_key"] for q in WQ_QUESTIONS)
+WQ_COMPONENT_IDS = tuple(q["component_id"] for q in WQ_QUESTIONS)
+WQ_LOGIC_KEYS = tuple(q["key"] for q in WQ_QUESTIONS)
+WQ_ALLOWED_BY_STORAGE = {q["storage_key"]: set(q["options"]) for q in WQ_QUESTIONS}
 
 # Radio option text in Water Quality assessment cards (black, not muted grey)
 _WQ_RADIO_LABEL_STYLE = {
     "display": "block",
-    "margin-bottom": "4px",
-    "fontSize": "0.75rem",
+    "margin-bottom": "8px",
+    "fontSize": "0.85rem",
     "color": "#000",
 }
 
 
-# 1. Decision Logic and Scoring (Maps parameter input to score, treatment, and recommendations)
+# 1. Decision Logic and Scoring (Maps screening answer to score, treatment, and recommendations)
 DECISION_LOGIC = {
-    "step1_tss": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S1_NA", "rec": "Collect TSS/turbidity data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S1_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S1_MOD", "rec": "Conduct pilot-scale settling tests, evaluate seasonal variations."},
-        "HIGH RISK": {"score": 2, "color": "danger", "treatment_key": "S1_HIGH", "rec": "Jar test studies, evaluate membrane fouling potential, budget for chemical costs."},
+    "source_contaminants": {
+        WQ_UNKNOWN: {
+            "score": 0, "color": "secondary", "treatment_key": "Q1_NA",
+            "rec": "Collect source-water contaminant data (VOCs, metals, PFAS) before final suitability assessment.",
+        },
+        WQ_NO: {
+            "score": 0, "color": "success", "treatment_key": "Q1_NO",
+            "rec": "None.",
+        },
+        WQ_YES: {
+            "score": 5, "color": "danger", "treatment_key": "Q1_YES",
+            "rec": (
+                "If yes, MAR may still be possible based on site-specific conditions and overall "
+                "objectives, but additional considerations and potential costs may be necessary "
+                "and are beyond the scope of this tool."
+            ),
+        },
     },
-    "step2a_doc": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S2A_NA", "rec": "Collect DOC/TOC data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S2A_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S2A_MOD", "rec": "Conduct biodegradability tests, monitor biofouling, consider oxygenated recharge."},
-        "HIGH RISK": {"score": 2, "color": "danger", "treatment_key": "S2A_HIGH", "rec": "Pilot test oxidation effectiveness, evaluate GAC regeneration costs, consider multi-barrier approach."},
+    "source_turbidity": {
+        WQ_UNKNOWN: {
+            "score": 0, "color": "secondary", "treatment_key": "Q2_NA",
+            "rec": "Collect turbidity data before final suitability assessment.",
+        },
+        WQ_TURBIDITY_LOW: {
+            "score": 0, "color": "success", "treatment_key": "Q2_LOW",
+            "rec": "None.",
+        },
+        WQ_TURBIDITY_MOD: {
+            "score": 1, "color": "warning", "treatment_key": "Q2_MOD",
+            "rec": "Sedimentation/clarification recommended; evaluate seasonal variation.",
+        },
+        WQ_TURBIDITY_HIGH: {
+            "score": 2, "color": "danger", "treatment_key": "Q2_HIGH",
+            "rec": "Pre-treatment required (sedimentation and filtration) to prevent clogging.",
+        },
     },
-    "step2b_ph": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S2B_NA", "rec": "Collect pH/alkalinity data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S2B_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S2B_MOD", "rec": "Geochemical modeling (PHREEQC), pilot injection test, monitor Fe/Mn precipitation."},
-        "HIGH RISK": {"score": 3, "color": "danger", "treatment_key": "S2B_HIGH", "rec": "**MANDATORY:** Detailed geochemical assessment, column studies, extended pilot test."},
+    "vadose_impacted": {
+        WQ_UNKNOWN: {
+            "score": 0, "color": "secondary", "treatment_key": "Q3_NA",
+            "rec": "Investigate vadose/unsaturated zone contamination before recharge.",
+        },
+        WQ_NO: {
+            "score": 0, "color": "success", "treatment_key": "Q3_NO",
+            "rec": "None.",
+        },
+        WQ_YES: {
+            "score": 3, "color": "danger", "treatment_key": "Q3_YES",
+            "rec": (
+                "Vadose/unsaturated zone is impacted by contaminants. "
+                "Surface recharge is not feasible; consider options that bypass "
+                "the vadose zone (e.g., injection) or site remediation."
+            ),
+        },
     },
-    "step3_tds": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S3_NA", "rec": "Collect TDS/salinity data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S3_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 2, "color": "warning", "treatment_key": "S3_MOD", "rec": "Monitor TDS trends, evaluate blending strategies, consider reverse osmosis if needed."},
-        "HIGH RISK": {"score": 4, "color": "danger", "treatment_key": "S3_HIGH", "rec": "**CRITICAL:** Reverse osmosis or advanced desalination required. High capital and O&M costs expected."},
+    "aquifer_anthropogenic": {
+        WQ_UNKNOWN: {
+            "score": 0, "color": "secondary", "treatment_key": "Q4_NA",
+            "rec": "Characterize native groundwater for anthropogenic contaminants before recharge.",
+        },
+        WQ_NO: {
+            "score": 0, "color": "success", "treatment_key": "Q4_NO",
+            "rec": "None.",
+        },
+        WQ_YES: {
+            "score": 5, "color": "danger", "treatment_key": "Q4_YES",
+            "rec": (
+                "Target aquifer is impacted by anthropogenic contaminants. "
+                "Aquifer water quality is unsuitable; all MAR options are not feasible."
+            ),
+        },
     },
-    "step4_inorganic": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S4_NA", "rec": "Collect inorganic contaminant data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S4_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 2, "color": "warning", "treatment_key": "S4_MOD", "rec": "Enhanced monitoring, consider targeted treatment (e.g., ion exchange, adsorption)."},
-        "HIGH RISK": {"score": 5, "color": "danger", "treatment_key": "S4_HIGH", "rec": "**CRITICAL:** Source may be unsuitable without extensive treatment. Regulatory compliance mandatory."},
-    },
-    "step5a_ec": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S5A_NA", "rec": "Collect emerging contaminant data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S5A_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S5A_MOD", "rec": "Enhanced monitoring, consider GAC or advanced oxidation processes."},
-        "HIGH RISK": {"score": 3, "color": "danger", "treatment_key": "S5A_HIGH", "rec": "Advanced treatment required (GAC, AOP, membrane filtration). High costs and complexity."},
-    },
-    "step5b_redox": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S5B_NA", "rec": "Collect redox compatibility data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S5B_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 1, "color": "warning", "treatment_key": "S5B_MOD", "rec": "Geochemical modeling, monitor Fe/Mn/As mobilization, consider aeration."},
-        "HIGH RISK": {"score": 3, "color": "danger", "treatment_key": "S5B_HIGH", "rec": "**MANDATORY:** Detailed redox assessment, pilot injection, consider pre-treatment to adjust redox state."},
-    },
-    "step6_pathogens": {
-        "NOT AVAILABLE": {"score": 0, "color": "secondary", "treatment_key": "S6_NA", "rec": "Collect pathogen indicator data before final suitability assessment."},
-        "LOW RISK": {"score": 0, "color": "success", "treatment_key": "S6_LOW", "rec": "None."},
-        "MODERATE RISK": {"score": 2, "color": "warning", "treatment_key": "S6_MOD", "rec": "Disinfection required (chlorination, UV, ozonation). Monitor residual and byproducts."},
-        "HIGH RISK": {"score": 5, "color": "danger", "treatment_key": "S6_HIGH", "rec": "**CRITICAL:** Multi-barrier disinfection mandatory (filtration + disinfection). Source may be unsuitable for direct recharge."},
-    },
-    "step7_vadose": {
-        "None": {"score": 0, "color": "success", "treatment_key": "S7_NONE", "rec": "None."},
-        "Yes, biodegradable Pollution": {"score": 1, "color": "warning", "treatment_key": "S7_BIO", "rec": "Enhanced monitoring, consider biodegradation enhancement."},
-        "Yes, highly toxic contaminants in the vadose zone (e.g., heavy metals, volatile organic compounds, radioactive materials)": {"score": 3, "color": "danger", "treatment_key": "S7_TOXIC", "rec": "**CRITICAL:** Source may be unsuitable. Extensive remediation and treatment required."},
+    "aquifer_natural": {
+        WQ_UNKNOWN: {
+            "score": 0, "color": "secondary", "treatment_key": "Q5_NA",
+            "rec": "Characterize native groundwater for salts and naturally occurring inorganics.",
+        },
+        WQ_NO: {
+            "score": 0, "color": "success", "treatment_key": "Q5_NO",
+            "rec": "None.",
+        },
+        WQ_YES: {
+            "score": 2, "color": "warning", "treatment_key": "Q5_YES",
+            "rec": (
+                "If yes, MAR may still be possible based on site-specific conditions and overall "
+                "objectives, but additional considerations and potential costs may be necessary "
+                "and are beyond the scope of this tool."
+            ),
+        },
     },
 }
 
@@ -106,15 +213,11 @@ RISK_SCORE_CONDITIONAL_MAX = 7    # 3–7 Conditionally suitable
 RISK_SCORE_UNSUITABLE_MIN = 8     # 8+ Not suitable
 
 ASSESSMENT_QUESTION_LABELS = {
-    "step1_tss": "1.A",
-    "step2a_doc": "1.B",
-    "step2b_ph": "2.A",
-    "step3_tds": "2.B",
-    "step5b_redox": "2.C",
-    "step4_inorganic": "3.A",
-    "step5a_ec": "3.B",
-    "step6_pathogens": "3.C",
-    "step7_vadose": "4.A",
+    "source_contaminants": "1",
+    "source_turbidity": "2",
+    "vadose_impacted": "3",
+    "aquifer_anthropogenic": "4",
+    "aquifer_natural": "5",
 }
 
 # 2. Treatment Technology Database
@@ -190,115 +293,71 @@ TREATMENT_DF = pd.DataFrame({
 
 # 3. Treatment Mapping (from decision logic to treatment technologies)
 TREATMENT_MAPPING = {
-    "S1_NA": [],
-    "S1_LOW": [],
-    "S1_MOD": ["Sedimentation/Clarification"],
-    "S1_HIGH": ["Sedimentation/Clarification", "Media Filtration (Sand/Anthracite)", "Membrane Filtration (MF/UF)"],
-    "S2A_NA": [],
-    "S2A_LOW": [],
-    "S2A_MOD": ["Granular Activated Carbon (GAC)"],
-    "S2A_HIGH": ["Granular Activated Carbon (GAC)", "Advanced Oxidation (AOP)"],
-    "S2B_NA": [],
-    "S2B_LOW": [],
-    "S2B_MOD": ["Aeration/Oxidation"],
-    "S2B_HIGH": ["Aeration/Oxidation", "Reverse Osmosis (RO)"],
-    "S3_NA": [],
-    "S3_LOW": [],
-    "S3_MOD": ["Reverse Osmosis (RO)"],
-    "S3_HIGH": ["Reverse Osmosis (RO)"],
-    "S4_NA": [],
-    "S4_LOW": [],
-    "S4_MOD": ["Ion Exchange", "Media Filtration (Sand/Anthracite)"],
-    "S4_HIGH": ["Ion Exchange", "Reverse Osmosis (RO)", "Media Filtration (Sand/Anthracite)"],
-    "S5A_NA": [],
-    "S5A_LOW": [],
-    "S5A_MOD": ["Granular Activated Carbon (GAC)"],
-    "S5A_HIGH": ["Granular Activated Carbon (GAC)", "Advanced Oxidation (AOP)", "Membrane Filtration (MF/UF)"],
-    "S5B_NA": [],
-    "S5B_LOW": [],
-    "S5B_MOD": ["Aeration/Oxidation"],
-    "S5B_HIGH": ["Aeration/Oxidation", "Reverse Osmosis (RO)"],
-    "S6_NA": [],
-    "S6_LOW": [],
-    "S6_MOD": ["Disinfection (Chlorination/UV/Ozone)", "Membrane Filtration (MF/UF)"],
-    "S6_HIGH": ["Membrane Filtration (MF/UF)", "Disinfection (Chlorination/UV/Ozone)", "Advanced Oxidation (AOP)"],
-    "S7_NONE": [],
-    "S7_BIO": ["Aeration/Oxidation"],
-    "S7_TOXIC": ["Reverse Osmosis (RO)", "Advanced Oxidation (AOP)", "Granular Activated Carbon (GAC)"],
+    "Q1_NA": [],
+    "Q1_NO": [],
+    "Q1_YES": [
+        "Granular Activated Carbon (GAC)",
+        "Advanced Oxidation (AOP)",
+        "Ion Exchange",
+        "Reverse Osmosis (RO)",
+    ],
+    "Q2_NA": [],
+    "Q2_LOW": [],
+    "Q2_MOD": ["Sedimentation/Clarification"],
+    "Q2_HIGH": [
+        "Sedimentation/Clarification",
+        "Media Filtration (Sand/Anthracite)",
+        "Membrane Filtration (MF/UF)",
+    ],
+    "Q3_NA": [],
+    "Q3_NO": [],
+    "Q3_YES": ["Vadose Zone Remediation (Toxic Contaminants)"],
+    "Q4_NA": [],
+    "Q4_NO": [],
+    "Q4_YES": [
+        "Granular Activated Carbon (GAC)",
+        "Advanced Oxidation (AOP)",
+        "Ion Exchange",
+    ],
+    "Q5_NA": [],
+    "Q5_NO": [],
+    "Q5_YES": ["Reverse Osmosis (RO)", "Ion Exchange"],
 }
 
 # 4. Treatment Options (maps treatment keys to list of (tech_name, cost_scale) tuples)
 # Based on TREATMENT_MAPPING and TREATMENT_DF cost scales
 TREATMENT_OPTIONS = {
-    "S1_NA": [],
-    "S1_LOW": [],
-    "S1_MOD": [("Sedimentation/Clarification", "Low")],
-    "S1_HIGH": [
+    "Q1_NA": [],
+    "Q1_NO": [],
+    "Q1_YES": [
+        ("Granular Activated Carbon (GAC)", "Medium"),
+        ("Advanced Oxidation (AOP)", "High"),
+        ("Ion Exchange", "Medium-High"),
+        ("Reverse Osmosis (RO)", "Very High"),
+    ],
+    "Q2_NA": [],
+    "Q2_LOW": [],
+    "Q2_MOD": [("Sedimentation/Clarification", "Low")],
+    "Q2_HIGH": [
         ("Sedimentation/Clarification", "Low"),
         ("Media Filtration (Sand/Anthracite)", "Low-Medium"),
-        ("Membrane Filtration (MF/UF)", "Medium-High")
-    ],
-    "S2A_NA": [],
-    "S2A_LOW": [],
-    "S2A_MOD": [("Granular Activated Carbon (GAC)", "Medium")],
-    "S2A_HIGH": [
-        ("Granular Activated Carbon (GAC)", "Medium"),
-        ("Advanced Oxidation (AOP)", "High")
-    ],
-    "S2B_NA": [],
-    "S2B_LOW": [],
-    "S2B_MOD": [("Aeration/Oxidation", "Low-Medium")],
-    "S2B_HIGH": [
-        ("Aeration/Oxidation", "Low-Medium"),
-        ("Reverse Osmosis (RO)", "Very High")
-    ],
-    "S3_NA": [],
-    "S3_LOW": [],
-    "S3_MOD": [("Reverse Osmosis (RO)", "Very High")],
-    "S3_HIGH": [("Reverse Osmosis (RO)", "Very High")],
-    "S4_NA": [],
-    "S4_LOW": [],
-    "S4_MOD": [
-        ("Ion Exchange", "Medium-High"),
-        ("Media Filtration (Sand/Anthracite)", "Low-Medium")
-    ],
-    "S4_HIGH": [
-        ("Ion Exchange", "Medium-High"),
-        ("Reverse Osmosis (RO)", "Very High"),
-        ("Media Filtration (Sand/Anthracite)", "Low-Medium")
-    ],
-    "S5A_NA": [],
-    "S5A_LOW": [],
-    "S5A_MOD": [("Granular Activated Carbon (GAC)", "Medium")],
-    "S5A_HIGH": [
-        ("Granular Activated Carbon (GAC)", "Medium"),
-        ("Advanced Oxidation (AOP)", "High"),
-        ("Membrane Filtration (MF/UF)", "Medium-High")
-    ],
-    "S5B_NA": [],
-    "S5B_LOW": [],
-    "S5B_MOD": [("Aeration/Oxidation", "Low-Medium")],
-    "S5B_HIGH": [
-        ("Aeration/Oxidation", "Low-Medium"),
-        ("Reverse Osmosis (RO)", "Very High")
-    ],
-    "S6_NA": [],
-    "S6_LOW": [],
-    "S6_MOD": [
-        ("Disinfection (Chlorination/UV/Ozone)", "Low-Medium"),
-        ("Membrane Filtration (MF/UF)", "Medium-High")
-    ],
-    "S6_HIGH": [
         ("Membrane Filtration (MF/UF)", "Medium-High"),
-        ("Disinfection (Chlorination/UV/Ozone)", "Low-Medium"),
-        ("Advanced Oxidation (AOP)", "High")
     ],
-    "S7_NONE": [],
-    "S7_BIO": [("Aeration/Oxidation", "Low-Medium")],
-    "S7_TOXIC": [
-        ("Reverse Osmosis (RO)", "Very High"),
+    "Q3_NA": [],
+    "Q3_NO": [],
+    "Q3_YES": [("Vadose Zone Remediation (Toxic Contaminants)", "High")],
+    "Q4_NA": [],
+    "Q4_NO": [],
+    "Q4_YES": [
+        ("Granular Activated Carbon (GAC)", "Medium"),
         ("Advanced Oxidation (AOP)", "High"),
-        ("Granular Activated Carbon (GAC)", "Medium")
+        ("Ion Exchange", "Medium-High"),
+    ],
+    "Q5_NA": [],
+    "Q5_NO": [],
+    "Q5_YES": [
+        ("Reverse Osmosis (RO)", "Very High"),
+        ("Ion Exchange", "Medium-High"),
     ],
 }
 
@@ -369,241 +428,138 @@ def _worst_case_water_treatment_cost_per_ft3() -> float:
 # Ceiling for the Treatment Cost dial (matches calculate_cost_score units).
 TREATMENT_COST_FT3_MAX = round(_worst_case_water_treatment_cost_per_ft3(), 4)
 
+_LEGACY_VADOSE_YES = (
+    "Yes, highly toxic contaminants in the vadose zone "
+    "(e.g., heavy metals, volatile organic compounds, radioactive materials)"
+)
+
+
+def _migrate_legacy_wq_answer(storage_key: str) -> str | None:
+    """Map old risk-level answers onto the simplified screening questions."""
+    if storage_key == "wq_source_turbidity":
+        old = str(dash_storage.get_data("tss_turbidity_risk") or "").upper()
+        if "HIGH" in old:
+            return WQ_TURBIDITY_HIGH
+        if "MODERATE" in old:
+            return WQ_TURBIDITY_MOD
+        if "LOW" in old:
+            return WQ_TURBIDITY_LOW
+        if old:
+            return WQ_UNKNOWN
+        return None
+    if storage_key == "wq_vadose_impacted":
+        old = str(dash_storage.get_data("vadose_zone_pollution") or "")
+        if old.startswith("Yes"):
+            return WQ_YES
+        if old == "None":
+            return WQ_NO
+        return None
+    if storage_key == "wq_source_contaminants":
+        emerging = str(dash_storage.get_data("emerging_contaminants_risk") or "").upper()
+        inorganic = str(dash_storage.get_data("inorganic_contaminants_risk") or "").upper()
+        pathogen = str(dash_storage.get_data("pathogen_risk") or "").upper()
+        answers = [emerging, inorganic, pathogen]
+        if any("HIGH" in a for a in answers):
+            return WQ_YES
+        present = [a for a in answers if a]
+        if present and all("LOW" in a and "MODERATE" not in a for a in present):
+            return WQ_NO
+        return None
+    return None
+
+
+def load_wq_answer(storage_key: str) -> str:
+    """Load a screening answer, falling back to Unknown or a legacy mapping."""
+    allowed = WQ_ALLOWED_BY_STORAGE.get(storage_key, set(YES_NO_UNKNOWN))
+    raw = dash_storage.get_data(storage_key)
+    if raw in allowed:
+        return raw
+    migrated = _migrate_legacy_wq_answer(storage_key)
+    if migrated in allowed:
+        return migrated
+    return DEFAULT_WATER_QUALITY_RISK
+
+
+def _sync_legacy_vadose_storage(choice: str) -> None:
+    """Keep the legacy vadose_zone_pollution key aligned for reports and AI context."""
+    if choice == WQ_YES:
+        dash_storage.set_data("vadose_zone_pollution", _LEGACY_VADOSE_YES)
+    elif choice == WQ_NO:
+        dash_storage.set_data("vadose_zone_pollution", "None")
+    else:
+        dash_storage.set_data("vadose_zone_pollution", "None")
+
+
+def persist_wq_answer(storage_key: str, value) -> str:
+    """Validate and store a Water Quality radio selection."""
+    allowed = WQ_ALLOWED_BY_STORAGE.get(storage_key, set(YES_NO_UNKNOWN))
+    fallback = load_wq_answer(storage_key)
+    choice = value if value in allowed else fallback
+    if choice not in allowed:
+        choice = DEFAULT_WATER_QUALITY_RISK
+    dash_storage.set_data(storage_key, choice)
+    if storage_key == "wq_vadose_impacted":
+        _sync_legacy_vadose_storage(choice)
+    return choice
+
+
+def _wq_radio(question) -> dcc.RadioItems:
+    return dcc.RadioItems(
+        id=question["component_id"],
+        options=[{"label": option, "value": option} for option in question["options"]],
+        value=load_wq_answer(question["storage_key"]),
+        className="d-flex flex-column",
+        labelStyle=_WQ_RADIO_LABEL_STYLE,
+    )
+
+
+def _wq_question_block(question, *, last: bool = False):
+    children = [
+        html.P(
+            [
+                html.Span(f"{question['number']}. ", className="fw-bold text-primary"),
+                question["text"],
+            ],
+            className="fw-bold mb-2",
+            style={"fontSize": "0.95rem", "color": "#000"},
+        ),
+        _wq_radio(question),
+    ]
+    if not last:
+        children.append(html.Hr(className="my-3"))
+    return html.Div(children)
+
 
 def create_water_quality_content():
-    """Create the Water Quality and Geochemistry content (sub-tab 4.1)."""
-    # Get existing values from data storage if available
-    tss_turbidity_risk = dash_storage.get_data("tss_turbidity_risk") or DEFAULT_WATER_QUALITY_RISK
-    doc_toc_risk = dash_storage.get_data("doc_toc_risk") or DEFAULT_WATER_QUALITY_RISK
-    ph_alkalinity_risk = dash_storage.get_data("ph_alkalinity_risk") or DEFAULT_WATER_QUALITY_RISK
-    tds_salinity_risk = dash_storage.get_data("tds_salinity_risk") or DEFAULT_WATER_QUALITY_RISK
-    inorganic_contaminants_risk = dash_storage.get_data("inorganic_contaminants_risk") or DEFAULT_WATER_QUALITY_RISK
-    emerging_contaminants_risk = dash_storage.get_data("emerging_contaminants_risk") or DEFAULT_WATER_QUALITY_RISK
-    redox_compatibility_risk = dash_storage.get_data("redox_compatibility_risk") or DEFAULT_WATER_QUALITY_RISK
-    pathogen_risk = dash_storage.get_data("pathogen_risk") or DEFAULT_WATER_QUALITY_RISK
-    vadose_zone_pollution = dash_storage.get_data("vadose_zone_pollution") or "None"
-    
+    """Create the Water Quality screening content."""
+    question_blocks = [
+        _wq_question_block(question, last=(i == len(WQ_QUESTIONS) - 1))
+        for i, question in enumerate(WQ_QUESTIONS)
+    ]
+    question_tooltips = [
+        dbc.Tooltip(question["tooltip"], target=question["component_id"], placement="top")
+        for question in WQ_QUESTIONS
+    ]
+
     return [
         html.Div(
             [
-        # Water Quality Parameters card removed per request.
-        # Main content row - Compact layout with 4 cards in grid
         dbc.Row([
-            # Left Column for Inputs (Decision Tree Steps) - Grid layout
             dbc.Col([
-                html.H5("Assessment Steps", className="mb-3 text-primary", style={"fontSize": "1.1rem"}),
-                
-                # Four cards in a 2x2 grid
-                dbc.Row([
-                    # GROUP 1: CLOGGING & FOULING RISKS
-                    dbc.Col([
-                    dbc.Card([
-                        dbc.CardHeader([
-                                html.H6("1. Clogging & Fouling Risks", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
-                            ], className="bg-primary py-2"),
-                        dbc.CardBody([
-                                # 1.A: Physical Clogging Risk (TSS/Turbidity)
-                                html.Div([
-                                    html.P("1.A: Physical Clogging (TSS/Turbidity)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is TSS/Turbidity HIGH?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
-                            dcc.RadioItems(
-                                id="env-step1-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK (TSS <10 mg/L, Turbidity <5 NTU)",
-                                    "MODERATE RISK (TSS 10-20 mg/L, Turbidity 5-10 NTU)",
-                                    "HIGH RISK (TSS >20 mg/L, Turbidity >10 NTU)",
-                                ),
-                                value=tss_turbidity_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ], className="mb-3"),
-                    
-                    # 1.B: DOC/TOC (Organic Matter Fouling)
-                                html.Div([
-                                    html.P("1.B: Organic Matter Fouling (DOC/TOC)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is Dissolved Organic Carbon (DOC/TOC) HIGH?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
-                            dcc.RadioItems(
-                                id="env-step2a-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK (DOC <5 mg/L)",
-                                    "MODERATE RISK (DOC 5-10 mg/L)",
-                                    "HIGH RISK (DOC >10 mg/L)",
-                                ),
-                                value=doc_toc_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ])
-                            ], style={"padding": "0.75rem"})
-                        ], className="mb-3 h-100", style={
-                            "border-left": "4px solid #007bff"
-                        })
-                    ], width=12, md=6, lg=6),
-                    
-                    # GROUP 2: CHEMICAL COMPATIBILITY
-                    dbc.Col([
-                    dbc.Card([
-                        dbc.CardHeader([
-                                html.H6("2. Chemical Compatibility", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
-                            ], className="bg-success py-2"),
-                        dbc.CardBody([
-                                # 2.A: pH/Alkalinity
-                                html.Div([
-                                    html.P("2.A: pH/Alkalinity Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is pH/Alkalinity Significantly Different from Native Groundwater?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
-                            dcc.RadioItems(
-                                id="env-step2b-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK (pH difference <0.5 units, similar alkalinity)",
-                                    "MODERATE RISK (pH difference 0.5-1.0 units)",
-                                    "HIGH RISK (pH difference >1.0 unit, large alkalinity mismatch)",
-                                ),
-                                value=ph_alkalinity_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ], className="mb-3"),
-                    
-                    # 2.B: Salinity Risk (TDS/Salinity)
-                                html.Div([
-                                    html.P("2.B: Salinity Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is TDS/Salinity significantly higher than Native Groundwater?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
-                            dcc.RadioItems(
-                                id="env-step3-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK (TDS increase <250 mg/L)",
-                                    "MODERATE RISK (TDS increase 250-500 mg/L)",
-                                    "HIGH RISK (TDS increase >500 mg/L)",
-                                ),
-                                value=tds_salinity_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ], className="mb-3"),
-                    
-                    # 2.C: Redox Compatibility
-                                html.Div([
-                                    html.P("2.C: Redox Compatibility", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Is Source Water Redox State Incompatible with Native Aquifer?", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
-                            dcc.RadioItems(
-                                id="env-step5b-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK (Similar redox conditions, compatible chemistry)",
-                                    "MODERATE RISK (Some redox incompatibility, manageable precipitation/mobilization)",
-                                    "HIGH RISK (Significant redox incompatibility, risk of Fe/Mn precipitation or As mobilization)",
-                                ),
-                                value=redox_compatibility_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ])
-                            ], style={"padding": "0.75rem"})
-                        ], className="mb-3 h-100", style={
-                            "border-left": "4px solid #28a745"
-                        })
-                    ], width=12, md=6, lg=6),
-                ], className="mb-3"),
-                
-                dbc.Row([
-                    # GROUP 3: WATER-QUALITY COMPLIANCE
-                    dbc.Col([
-                    dbc.Card([
-                        dbc.CardHeader([
-                                html.H6("3. Water-Quality Compliance", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
-                            ], className="bg-danger py-2"),
-                        dbc.CardBody([
-                                # 3.A: Inorganic Contaminants
-                                html.Div([
-                                    html.P("3.A: Inorganic Contaminants (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Are key Inorganic Contaminants above Regulatory Limits?", className="text-muted mb-1 small fw-bold", style={"fontSize": "0.8rem"}),
-                                    html.P("(Arsenic >10 µg/L, Nitrate >50 mg/L, Heavy Metals, Fluoride >1.5 mg/L, Selenium, Boron)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
-                            dcc.RadioItems(
-                                id="env-step4-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK (<50% of standard)",
-                                    "MODERATE RISK (50-100% of limit)",
-                                    "HIGH RISK (≥100% of limit)",
-                                ),
-                                value=inorganic_contaminants_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ], className="mb-3"),
-                    
-                    # 3.B: Emerging Contaminants
-                                html.Div([
-                                    html.P("3.B: Emerging Contaminants", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Are Emerging Contaminants Present at Risky Levels?", className="text-muted mb-1 small fw-bold", style={"fontSize": "0.8rem"}),
-                                    html.P("(PFAS >10-70 ng/L, Pharmaceuticals, EDCs, Pesticides, Microplastics)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
-                            dcc.RadioItems(
-                                id="env-step5a-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK (Not detected or trace levels well below health-based values)",
-                                    "MODERATE RISK (Detected at low levels, <2x health-based guidance)",
-                                    "HIGH RISK (Multiple compounds >health guidance OR PFAS >100 ng/L)",
-                                ),
-                                value=emerging_contaminants_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ], className="mb-3"),
-                    
-                    # 3.C: Pathogen Risk
-                                html.Div([
-                                    html.P("3.C: Pathogen Risk (CRITICAL)", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Are pathogens present at risky levels?", className="text-muted mb-1 small fw-bold", style={"fontSize": "0.8rem"}),
-                                    html.P("(Consider source type: wastewater > stormwater > surface water > groundwater)", className="text-muted mb-2 small", style={"fontSize": "0.7rem"}),
-                            dcc.RadioItems(
-                                id="env-step6-input",
-                                options=water_quality_risk_options(
-                                    "LOW RISK",
-                                    "MODERATE RISK",
-                                    "HIGH RISK",
-                                ),
-                                value=pathogen_risk,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ])
-                            ], style={"padding": "0.75rem"})
-                        ], className="mb-3 h-100", style={
-                            "border-left": "4px solid #dc3545"
-                        })
-                    ], width=12, md=6, lg=6),
-                    
-                    # GROUP 4: NEED FOR REMEDIATION
-                    dbc.Col([
-                    dbc.Card([
-                        dbc.CardHeader([
-                                html.H6("4. Need for Remediation", className="mb-0 text-white fw-bold", style={"fontSize": "0.95rem"})
-                            ], className="py-2", style={"backgroundColor": "#5a32a3"}),
-                        dbc.CardBody([
-                                # 4.A: Vadose Zone Pollution
-                                html.Div([
-                                    html.P("4.A: Vadose Zone Pollution", className="fw-bold text-primary mb-2 small", style={"fontSize": "0.85rem"}),
-                                    html.P("Indicates presence of pollution in the vadose zone.", className="text-muted mb-2 small fw-bold", style={"fontSize": "0.8rem"}),
-                            dcc.RadioItems(
-                                id="env-step7-input",
-                                options=[
-                                    {'label': "None", 'value': "None"},
-                                    {'label': "Yes, biodegradable Pollution", 'value': "Yes, biodegradable Pollution"},
-                                            {'label': "Yes, highly toxic contaminants (e.g., heavy metals, VOCs, radioactive materials)", 'value': "Yes, highly toxic contaminants in the vadose zone (e.g., heavy metals, volatile organic compounds, radioactive materials)"},
-                                ],
-                                value=vadose_zone_pollution,
-                                        className="d-flex flex-column small",
-                                        labelStyle=_WQ_RADIO_LABEL_STYLE
-                                    )
-                                ])
-                            ], style={"padding": "0.75rem"})
-                        ], className="mb-3 h-100", style={
-                            "border-left": "4px solid #6f42c1"
-                        })
-                    ], width=12, md=6, lg=6),
-                ], className="mb-3"),
-                
+                html.H5("Water Quality Screening", className="mb-3 text-primary", style={"fontSize": "1.1rem"}),
+                dbc.Card([
+                    dbc.CardHeader(
+                        html.H6(
+                            "Source Water, Vadose Zone, and Target Aquifer",
+                            className="mb-0 text-white fw-bold",
+                            style={"fontSize": "0.95rem"},
+                        ),
+                        className="bg-primary py-2",
+                    ),
+                    dbc.CardBody(question_blocks, className="p-3"),
+                ], className="mb-3", style={"border-left": "4px solid #007bff"}),
+
                 html.Hr(className="my-2"),
-                # Appendix / Detailed Treatment Table - Compact
                 html.H6("Treatment Cost Summary Table", className="mt-2 mb-2 text-dark", style={"fontSize": "0.95rem"}),
                 html.Div(
                     dash_table.DataTable(
@@ -648,16 +604,14 @@ def create_water_quality_content():
             ], width=12, lg=7, style={
                 "padding-right": "10px"
             }),
-            
-            # Right Column for Outputs (Results, Score, Treatment) - Compact
+
             dbc.Col([
-                # Score Tally and Cost Gauge (Side by Side) - Compact
                 html.H6("Risk Score & Treatment Cost", className="mb-2 text-info", style={"fontSize": "0.95rem"}),
                 dbc.Row([
                     dbc.Col([
                         html.P("Risk Score", className="text-center mb-1 small fw-bold", style={"fontSize": "0.85rem"}),
                         dcc.Graph(
-                            id='env-score-gauge', 
+                            id='env-score-gauge',
                             config={'displayModeBar': False, 'responsive': True},
                             style={'height': '200px', 'width': '100%', 'minHeight': '200px'}
                         ),
@@ -665,29 +619,20 @@ def create_water_quality_content():
                     dbc.Col([
                         html.P("Treatment Cost", className="text-center mb-1 small fw-bold", style={"fontSize": "0.85rem"}),
                         dcc.Graph(
-                            id='env-cost-gauge', 
+                            id='env-cost-gauge',
                             config={'displayModeBar': False, 'responsive': True},
                             style={'height': '200px', 'width': '100%', 'minHeight': '200px'}
                         ),
                     ], width=6),
                 ], className="mb-2"),
-                
+
                 html.H6("Final Assessment", className="mb-2 text-danger", style={"fontSize": "0.95rem"}),
-                
-                # Final Decision Box
                 html.Div(id='env-final-decision-output', className="mb-2"),
-                
-                # Risk Score Details
                 html.H6("Risk Score Details", className="mt-2 mb-1 text-info small", style={"fontSize": "0.85rem"}),
                 html.Div(id='env-score-details-output', className="alert alert-light border mb-2 small", style={"padding": "0.5rem", "fontSize": "0.8rem"}),
-                
-                # Cost Details
                 html.H6("Cost Details", className="mt-2 mb-1 text-info small", style={"fontSize": "0.85rem"}),
                 html.Div(id='env-cost-details-output', className="alert alert-light border mb-2 small", style={"padding": "0.5rem", "fontSize": "0.8rem"}),
-                
                 html.Hr(className="my-2"),
-                
-                # Treatment Recommendations
                 html.H6("Required Treatment & Recommendations", className="mt-2 mb-2 text-info", style={"fontSize": "0.95rem"}),
                 html.Div(id='env-treatment-summary-output', className="mb-2"),
                 html.H6("Recommendations by Risk Factor", className="mt-2 mb-1 text-secondary small", style={"fontSize": "0.85rem"}),
@@ -698,59 +643,14 @@ def create_water_quality_content():
                 "align-self": "start"
             }),
         ]),
-        # Tooltips for Water Quality Parameters card removed with the card.
-        dbc.Tooltip(
-            "Physical clogging risk from suspended solids and turbidity",
-            target="env-step1-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Organic fouling potential from dissolved organic carbon",
-            target="env-step2a-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "pH and alkalinity mismatch with native groundwater",
-            target="env-step2b-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Salinity / TDS mismatch relative to native groundwater",
-            target="env-step3-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Redox-driven precipitation or mobilization concerns",
-            target="env-step5b-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Regulatory exceedances for major inorganic contaminants",
-            target="env-step4-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "PFAS, pharmaceuticals, and other emerging contaminants",
-            target="env-step5a-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Microbial pathogen risk tier for the selected source type",
-            target="env-step6-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Vadose zone contamination that could affect recharge safety",
-            target="env-step7-input",
-            placement="top",
-        ),
+        *question_tooltips,
         dbc.Tooltip(
             "Reference treatment technologies and indicative unit costs",
             target="env-treatment-appendix-table",
             placement="top",
         ),
         dbc.Tooltip(
-            "Composite suitability score from the decision tree",
+            "Composite suitability score from the screening questions",
             target="env-score-gauge",
             placement="top",
         ),

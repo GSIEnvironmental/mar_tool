@@ -1840,7 +1840,7 @@ def setup_runoff_callbacks(app):
         prevent_initial_call=True,
     )
     def apply_runoff_volumes_when_checked(use_runoff_for_recharge):
-        """Copy monthly Runoff Volume (ft3/month) into Volume Estimates when checkbox is checked."""
+        """Copy monthly Runoff Volume (ft3/month) into Flow Estimates when checkbox is checked."""
         if not use_runoff_for_recharge:
             return dash.no_update
         flow_data = _sync_runoff_volumes_to_monthly_flow()

@@ -22,11 +22,11 @@ DEFAULT_OVERVIEW_MAP_BASEMAP = "open-street-map"
 
 OVERVIEW_BASEMAP_OPTIONS = [
     {"label": "OpenStreetMap", "value": "open-street-map"},
-    {"label": "Carto Positron (light)", "value": "carto-positron"},
+    {"label": "Carto Positron (Light)", "value": "carto-positron"},
     {"label": "Carto Dark Matter", "value": "carto-darkmatter"},
     {"label": "Terrain (OpenTopoMap)", "value": "opentopomap"},
-    {"label": "Satellite + streets (Esri)", "value": "satellite-streets"},
-    {"label": "White background", "value": "white-bg"},
+    {"label": "Satellite + Streets (Esri)", "value": "satellite-streets"},
+    {"label": "White Background", "value": "white-bg"},
 ]
 
 ALLOWED_OVERVIEW_BASEMAP_STYLES = frozenset(o["value"] for o in OVERVIEW_BASEMAP_OPTIONS)
@@ -127,7 +127,8 @@ def create_starting_information_help_modal():
         (
             "MAR Purpose",
             "Select one or more project objectives (water supply, aquifer storage, flood "
-            "reduction, seawater intrusion, water quality). These goals frame the assessment "
+            "reduction, seawater intrusion, water quality, subsidence, riparian ecosystems). "
+            "These goals frame the assessment "
             "and are passed to the knowledge graph and AI engineering recommendations so "
             "technology options align with what you are trying to achieve.",
         ),
@@ -308,6 +309,14 @@ def create_mar_purpose_section():
                         "label": "Improve Water Quality",
                         "value": "improve_water_quality",
                     },
+                    {
+                        "label": "Reduce Subsidence",
+                        "value": "reduce_subsidence",
+                    },
+                    {
+                        "label": "Protect Riparian Ecosystems/Maintain Minimum Streamflow",
+                        "value": "protect_riparian_ecosystems",
+                    },
                 ],
                 value=mar_purpose,
                 inline=False,
@@ -316,6 +325,10 @@ def create_mar_purpose_section():
             html.Hr(className="my-2"),
             html.H6("Site Description", className="fw-bold mb-2"),
             html.Label("Project Location:", className="fw-bold small mb-1"),
+            html.Small(
+                "Automatically detected from the map on the right.",
+                className="text-muted d-block mb-1",
+            ),
             dbc.Input(
                 id="project-location-input",
                 type="text",

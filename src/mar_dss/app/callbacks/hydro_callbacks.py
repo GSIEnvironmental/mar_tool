@@ -17,6 +17,7 @@ from mar_dss.app.components.hydro_tab import (
     RULE_DEFAULT_SCALAR_ROWS,
     _build_initial_feasibility_traffic_placeholder,
     _rule_def_input_id,
+    initial_feasibility_option_label,
     normalize_groundwater_data,
     normalize_stratigraphy_list_from_raw,
     normalize_stratigraphy_recharge_target,
@@ -499,6 +500,38 @@ def setup_hydro_callbacks(app):
         return bool(is_open)
 
     @app.callback(
+        Output("recharge-mound-outputs-help-modal", "is_open"),
+        [
+            Input("recharge-mound-outputs-help-btn", "n_clicks"),
+            Input("recharge-mound-outputs-help-close-btn", "n_clicks"),
+        ],
+        State("recharge-mound-outputs-help-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_recharge_mound_outputs_help_modal(open_clicks, close_clicks, is_open):
+        """Open or close the Recharge Mound Outputs help popup."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger == "recharge-mound-outputs-help-btn":
+            return True
+        if trigger == "recharge-mound-outputs-help-close-btn":
+            return False
+        return bool(is_open)
+
+    @app.callback(
+        Output("recharge-mound-outputs-collapse", "is_open"),
+        Input("view-recharge-mound-outputs-check", "value"),
+        prevent_initial_call=True,
+    )
+    def toggle_recharge_mound_outputs(view_mound):
+        """Show or hide Recharge Mound Outputs when the view checkbox changes."""
+        checked = bool(view_mound)
+        dash_storage.set_data("view_recharge_mound_outputs", checked)
+        return checked
+
+    @app.callback(
         Output("groundwater-level-help-modal", "is_open"),
         [
             Input("groundwater-level-help-btn", "n_clicks"),
@@ -579,7 +612,6 @@ def setup_hydro_callbacks(app):
         tab_mapping = {
             "stratigraphy-tab": "stratigraphy-cross-section",
             "groundwater-level-tab": "available-mar-storage",
-            "horizontal-extension-tab": "xy-view"
         }
         
         # Return the corresponding view tab, or default to stratigraphy-cross-section
@@ -2020,7 +2052,9 @@ def setup_hydro_callbacks(app):
                                 dbc.Col(
                                     [
                                         html.Div(
-                                            option.name,
+                                            initial_feasibility_option_label(
+                                                option.name
+                                            ),
                                             className=name_cls,
                                         ),
                                         html.Div(

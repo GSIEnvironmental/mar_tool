@@ -14,13 +14,20 @@ from mar_dss.app.components.environmental_impact_tab import (
     VADOSE_REMEDIATION_COSTS,
     COST_SCALE_TO_SCORE,
     ASSESSMENT_QUESTION_LABELS,
-    NOT_AVAILABLE_RISK,
     DEFAULT_WATER_QUALITY_RISK,
     RISK_SCORE_MAX,
     RISK_SCORE_SUITABLE_MAX,
     RISK_SCORE_CONDITIONAL_MAX,
     RISK_SCORE_UNSUITABLE_MIN,
     TREATMENT_COST_FT3_MAX,
+    WQ_BENIGN_ANSWERS,
+    WQ_COMPONENT_IDS,
+    WQ_LOGIC_KEYS,
+    WQ_NO,
+    WQ_QUESTIONS,
+    WQ_UNKNOWN,
+    WQ_YES,
+    persist_wq_answer,
     _FT3_PER_M3,
 )
 from mar_dss.app.callbacks.ai_environment import (
@@ -37,7 +44,22 @@ from mar_dss.app.utils.excel_table import (
     datatable_computed_data_style,
 )
 
-_RISK_LEVEL_CANONICAL = frozenset({"NOT AVAILABLE", "LOW RISK", "MODERATE RISK", "HIGH RISK"})
+_WQ_DETAIL_BG = {
+    WQ_UNKNOWN: "#e2e3e5",
+    WQ_NO: "#d4edda",
+    "<5 NTU": "#d4edda",
+    "5-20 NTU": "#fff3cd",
+    ">20 NTU": "#f8d7da",
+    WQ_YES: "#f8d7da",
+}
+_WQ_DETAIL_FG = {
+    WQ_UNKNOWN: "#383d41",
+    WQ_NO: "#155724",
+    "<5 NTU": "#155724",
+    "5-20 NTU": "#856404",
+    ">20 NTU": "#721c24",
+    WQ_YES: "#721c24",
+}
 
 
 def _mar_factors_success_banner(location, count):
@@ -59,40 +81,12 @@ def _mar_factors_success_banner(location, count):
     )
 
 
-def _normalize_water_quality_risk(raw):
-    """
-    Map dashboard / CSV / JSON variants to the strings used in DECISION_LOGIC and soft_constraints.
-
-    Users may see labels like "Low Risk" while storage still has legacy lowercase or shortened values.
-    """
-    if raw is None:
-        return DEFAULT_WATER_QUALITY_RISK
-    s = str(raw).strip()
-    if not s:
-        return DEFAULT_WATER_QUALITY_RISK
-    u = " ".join(s.upper().split())
-    if u in _RISK_LEVEL_CANONICAL:
-        return u
-    if "NOT AVAILABLE" in u or u in {"N/A", "NA", "UNKNOWN", "NOT AVAIL"}:
-        return NOT_AVAILABLE_RISK
-    if "HIGH" in u:
-        return "HIGH RISK"
-    if "MODERATE" in u:
-        return "MODERATE RISK"
-    if "LOW" in u:
-        return "LOW RISK"
-    return DEFAULT_WATER_QUALITY_RISK
-
-
-def _persist_water_quality_risk(storage_key: str, value):
-    """Write RadioItems selection to dash_storage using canonical risk strings."""
-    fallback = dash_storage.get_data(storage_key)
-    raw = value if value is not None else fallback
-    choice = _normalize_water_quality_risk(
-        raw if raw not in (None, "") else DEFAULT_WATER_QUALITY_RISK
+def _wq_detail_colors(value):
+    """Background and text colors for a screening answer in the score-details list."""
+    return (
+        _WQ_DETAIL_BG.get(value, "#f8f9fa"),
+        _WQ_DETAIL_FG.get(value, "#000000"),
     )
-    dash_storage.set_data(storage_key, choice)
-    return choice
 
 
 def calculate_cost_score(risks_and_treatments):
@@ -258,25 +252,20 @@ def setup_environmental_impact_callbacks(app):
             Output('env-recommendations-list', 'children')
         ],
         [
-            Input('env-step1-input', 'value'),
-            Input('env-step2a-input', 'value'),
-            Input('env-step2b-input', 'value'),
-            Input('env-step3-input', 'value'),
-            Input('env-step4-input', 'value'),
-            Input('env-step5a-input', 'value'),
-            Input('env-step5b-input', 'value'),
-            Input('env-step6-input', 'value'),
-            Input('env-step7-input', 'value')
+            Input(component_id, "value")
+            for component_id in WQ_COMPONENT_IDS
         ]
     )
     def update_dashboard(*inputs):
         """Update the dashboard based on input selections."""
         # Validate inputs - ensure they're not None
-        default_values = [DEFAULT_WATER_QUALITY_RISK] * 8 + ["None"]
-        inputs = [inp if inp is not None else default_values[i] for i, inp in enumerate(inputs)]
+        inputs = [
+            inp if inp is not None else DEFAULT_WATER_QUALITY_RISK
+            for inp in inputs
+        ]
         
         # Map inputs to logic keys
-        input_keys = ["step1_tss", "step2a_doc", "step2b_ph", "step3_tds", "step4_inorganic", "step5a_ec", "step5b_redox", "step6_pathogens", "step7_vadose"]
+        input_keys = list(WQ_LOGIC_KEYS)
         
         total_score = 0
         risk_details = []
@@ -299,56 +288,30 @@ def setup_environmental_impact_callbacks(app):
             
             # Aggregate treatments
             if treatment_key in TREATMENT_OPTIONS:
-                risk_factor_name = key.split('_')[-1].upper()  # e.g., TSS, DOC, PH etc.
+                risk_factor_name = ASSESSMENT_QUESTION_LABELS.get(key, key)
                 required_treatments_raw.append((risk_factor_name, TREATMENT_OPTIONS[treatment_key]))
             
             # Aggregate recommendations
-            if value == NOT_AVAILABLE_RISK and recommendation:
+            if value == WQ_UNKNOWN and recommendation:
                 recommendations_list.append(
                     html.Li(
                         f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}",
                         className="list-group-item list-group-item-action list-group-item-secondary",
                     )
                 )
-            elif value not in ["LOW RISK", "None", NOT_AVAILABLE_RISK] and recommendation:
+            elif value not in WQ_BENIGN_ANSWERS and recommendation:
                 recommendations_list.append(
                     html.Li(
                         f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}", 
                         className="list-group-item list-group-item-action list-group-item-" + score_data['color']
                     )
                 )
-
-            # Check for Critical Flags
-            if key == "step3_tds" and value == "HIGH RISK":
-                critical_flags.append("TDS increase >500 mg/L (likely NOT SUITABLE, requires economic study)")
-            elif key == "step4_inorganic" and value == "HIGH RISK":
-                critical_flags.append("Multiple inorganic contaminants >200% of limits (likely NOT SUITABLE, very high cost/complexity)")
-            elif key == "step5b_redox" and value == "HIGH RISK" and score == 4:
-                critical_flags.append("Severe redox incompatibility (high As mobilization/Fe-Mn precip risk, likely NOT SUITABLE)")
             
             # Only add to total score if not a critical flag
             if score > 0:
                 total_score += score
             
-            # Add risk detail for the output list with colored background
-            # Map risk level to background color
-            bg_color_map = {
-                NOT_AVAILABLE_RISK: "#e2e3e5",
-                "LOW RISK": "#d4edda",  # Light green
-                "None": "#d4edda",  # Light green (same as LOW RISK)
-                "MODERATE RISK": "#fff3cd",  # Light yellow
-                "HIGH RISK": "#f8d7da"  # Light red
-            }
-            text_color_map = {
-                NOT_AVAILABLE_RISK: "#383d41",
-                "LOW RISK": "#155724",  # Dark green text
-                "None": "#155724",  # Dark green text (same as LOW RISK)
-                "MODERATE RISK": "#856404",  # Dark yellow/brown text
-                "HIGH RISK": "#721c24"  # Dark red text
-            }
-            
-            bg_color = bg_color_map.get(value, "#f8f9fa")
-            text_color = text_color_map.get(value, "#000000")
+            bg_color, text_color = _wq_detail_colors(value)
             
             risk_details.append(html.Div([
                 html.Span(
@@ -609,18 +572,18 @@ def setup_environmental_impact_callbacks(app):
         
         # 8. Format Recommendations
         if not recommendations_list:
-            if all(v in (DEFAULT_WATER_QUALITY_RISK, "LOW RISK", "None") for v in inputs):
+            if all(v in (WQ_UNKNOWN, WQ_NO, "<5 NTU") for v in inputs):
                 recommendations_list = [
                     html.Li(
-                        "All assessed parameters are NOT AVAILABLE or LOW RISK. "
-                        "Collect water quality data where marked NOT AVAILABLE.",
+                        "All screening answers are Unknown or No (or turbidity <5 NTU). "
+                        "Collect water quality data where marked Unknown.",
                         className="list-group-item list-group-item-secondary",
                     )
                 ]
             else:
                 recommendations_list = [
                     html.Li(
-                        "All parameters are LOW RISK. No specific recommendations are triggered.",
+                        "No treatment recommendations were triggered by the current answers.",
                         className="list-group-item list-group-item-success",
                     )
                 ]
@@ -628,91 +591,22 @@ def setup_environmental_impact_callbacks(app):
         return decision_content, result_style, gauge_fig, cost_gauge_fig, risk_details, cost_details_html, treatment_summary_table, recommendations_list
     
     # Callbacks to save water quality inputs to data storage
-    @app.callback(
-        Output("env-step1-input", "value"),
-        Input("env-step1-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_tss_turbidity_risk(value):
-        """Handle TSS/Turbidity risk selection and save to data storage."""
-        return _persist_water_quality_risk("tss_turbidity_risk", value)
+    def _register_wq_persist(storage_key, component_id):
+        @app.callback(
+            Output(component_id, "value"),
+            Input(component_id, "value"),
+            prevent_initial_call=False,
+        )
+        def _handle_wq_answer(value):
+            return persist_wq_answer(storage_key, value)
 
-    @app.callback(
-        Output("env-step2a-input", "value"),
-        Input("env-step2a-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_doc_toc_risk(value):
-        """Handle DOC/TOC risk selection and save to data storage."""
-        return _persist_water_quality_risk("doc_toc_risk", value)
+        return _handle_wq_answer
 
-    @app.callback(
-        Output("env-step2b-input", "value"),
-        Input("env-step2b-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_ph_alkalinity_risk(value):
-        """Handle pH/Alkalinity risk selection and save to data storage."""
-        return _persist_water_quality_risk("ph_alkalinity_risk", value)
-
-    @app.callback(
-        Output("env-step3-input", "value"),
-        Input("env-step3-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_tds_salinity_risk(value):
-        """Handle TDS/Salinity risk selection and save to data storage."""
-        return _persist_water_quality_risk("tds_salinity_risk", value)
-
-    @app.callback(
-        Output("env-step4-input", "value"),
-        Input("env-step4-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_inorganic_contaminants_risk(value):
-        """Handle Inorganic Contaminants risk selection and save to data storage."""
-        return _persist_water_quality_risk("inorganic_contaminants_risk", value)
-
-    @app.callback(
-        Output("env-step5a-input", "value"),
-        Input("env-step5a-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_emerging_contaminants_risk(value):
-        """Handle Emerging Contaminants risk selection and save to data storage."""
-        return _persist_water_quality_risk("emerging_contaminants_risk", value)
-
-    @app.callback(
-        Output("env-step5b-input", "value"),
-        Input("env-step5b-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_redox_compatibility_risk(value):
-        """Handle Redox Compatibility risk selection and save to data storage."""
-        return _persist_water_quality_risk("redox_compatibility_risk", value)
-
-    @app.callback(
-        Output("env-step6-input", "value"),
-        Input("env-step6-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_pathogen_risk(value):
-        """Handle Pathogen risk selection and save to data storage."""
-        return _persist_water_quality_risk("pathogen_risk", value)
-
-    @app.callback(
-        Output("env-step7-input", "value"),
-        Input("env-step7-input", "value"),
-        prevent_initial_call=False,
-    )
-    def handle_vadose_zone_pollution(value):
-        """Handle Vadose Zone Pollution selection and save to data storage."""
-        fallback = dash_storage.get_data("vadose_zone_pollution") or "None"
-        choice = value if value is not None else fallback
-        if choice is None or str(choice).strip() == "":
-            choice = "None"
-        dash_storage.set_data("vadose_zone_pollution", choice)
-        return choice
+    for _wq_question in WQ_QUESTIONS:
+        _register_wq_persist(
+            _wq_question["storage_key"],
+            _wq_question["component_id"],
+        )
 
     # Callback to load and auto-save Gemini API key
     @app.callback(

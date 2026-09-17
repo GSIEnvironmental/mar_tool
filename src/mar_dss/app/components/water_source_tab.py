@@ -21,16 +21,17 @@ from .runoff_calculator_tab import (
 
 WATER_SOURCE_OPTIONS = [
     {
-        "label": "(1) Surface Water Sources (streams, Reservoir, canals)",
+        "label": "(1) Surface Water (Streams, Reservoirs, Canals, etc.)",
         "value": "surface_water_sources",
     },
     {"label": "(2) Urban Stormwater Runoff", "value": "urban_stormwater_runoff"},
     {"label": "(3) Rural/Agricultural Runoff", "value": "rural_agricultural_runoff"},
-    {"label": "(4) Treated Wastewater", "value": "reclaimed_water"},
-    {"label": "(5) Other Groundwater Basin", "value": "other_groundwater_basin"},
+    {"label": "(4) Treated Drinking Water", "value": "treated_drinking_water"},
+    {"label": "(5) Treated Wastewater", "value": "reclaimed_water"},
+    {"label": "(6) Other Groundwater Basin", "value": "other_groundwater_basin"},
     {
         "label": (
-            "(6) Other Non-Conventional Sources (e.g. Industrial Process Water, "
+            "(7) Other Non-Conventional Sources (e.g. Industrial Process Water, "
             "Agricultural Return Flows, Produced Water, Dewatering Project Water, "
             "Desalinated Water, Environmental Remediation Site Water)"
         ),
@@ -325,7 +326,7 @@ def water_source_site_coordinates_summary_children():
     return [
         html.Label(
             "Site Coordinates:",
-            className="fw-bold mb-2 text-primary",
+            className="fw-bold small mb-1 text-primary",
         ),
         html.Div(
             [
@@ -336,7 +337,7 @@ def water_source_site_coordinates_summary_children():
                     style=num_style,
                 ),
             ],
-            className="small mb-1",
+            className="small mb-0",
         ),
         html.Div(
             [
@@ -347,7 +348,7 @@ def water_source_site_coordinates_summary_children():
                     style=num_style,
                 ),
             ],
-            className="small mb-1",
+            className="small mb-0",
         ),
         html.Div(
             [
@@ -507,20 +508,7 @@ def create_monthly_flow_chart(flow_data=None):
         "Dec",
     ]
     if flow_data is None:
-        monthly_flow = [
-            4500,
-            4200,
-            2800,
-            2200,
-            1800,
-            1500,
-            1200,
-            1000,
-            1300,
-            2000,
-            3800,
-            4100,
-        ]
+        monthly_flow = list(FLOW_DEFAULTS)
     else:
         monthly_flow = [flow_data.get(month, 0) for month in months]
     cumulative_flow = np.cumsum(monthly_flow)
@@ -575,7 +563,7 @@ FLOW_MONTHS = [
     "Nov",
     "Dec",
 ]
-FLOW_DEFAULTS = [4500, 4200, 2800, 2200, 1800, 1500, 1200, 1000, 1300, 2000, 3800, 4100]
+FLOW_DEFAULTS = [0.0] * 12
 FLOW_VALUE_COL = "Flow (ft³/month)"
 
 
@@ -733,8 +721,10 @@ def create_editable_flow_table(flow_data=None):
     )
 
 
-def create_water_source_location_map_card():
-    """Same map setup as Overview: shared dash_storage lat/lon/zoom/basemap/header."""
+def create_water_source_location_map_card(water_source=None):
+    """Project location map plus water-source configuration controls (full-width card)."""
+    if water_source is None:
+        water_source = dash_storage.get_data("water_source") or "surface_water_sources"
     try:
         from mar_dss.app.components.overview_tab import (
             OVERVIEW_BASEMAP_OPTIONS,
@@ -750,214 +740,238 @@ def create_water_source_location_map_card():
 
     _, _, _, _, basemap = get_overview_map_figure_params()
     header_text = get_overview_map_header_text()
-    # Match ``create_location_map_section`` in overview_tab (card + tooltips structure)
     return dbc.Card(
         [
             dbc.CardHeader(
-                header_text,
-                id="water-source-location-card-header",
-                className="fw-bold bg-primary text-white",
+                html.Div(
+                    [
+                        html.Span(
+                            header_text,
+                            id="water-source-location-card-header",
+                            className="fw-bold",
+                        ),
+                        html.Button(
+                            "?",
+                            id="water-source-config-help-btn",
+                            type="button",
+                            className="mar-help-btn",
+                            title="Help: explain water source configuration",
+                        ),
+                    ],
+                    className="d-flex align-items-center justify-content-between w-100",
+                ),
+                className="bg-primary text-white py-2",
             ),
             dbc.CardBody(
                 [
-                    html.Div(
+                    create_water_source_configuration_help_modal(),
+                    dbc.Row(
                         [
-                            html.Div(
+                            dbc.Col(
                                 [
                                     html.Label(
-                                        "Basemap:",
-                                        className="fw-bold small me-2 mb-0",
+                                        "Water Source:",
+                                        className="fw-bold small mb-1 text-primary",
                                     ),
                                     dcc.Dropdown(
-                                        id="water-source-overview-map-basemap",
-                                        options=OVERVIEW_BASEMAP_OPTIONS,
-                                        value=basemap,
-                                        clearable=False,
+                                        id="water-source-dropdown",
+                                        options=WATER_SOURCE_OPTIONS,
+                                        value=water_source,
+                                        placeholder="Select water source...",
                                         className="mb-0",
-                                        style={
-                                            "flex": "1 1 auto",
-                                            "width": "100%",
-                                            "minWidth": "min(380px, 100%)",
-                                        },
-                                    ),
-                                    dbc.Tooltip(
-                                        "Switch background tiles; center and zoom stay as "
-                                        "last saved from the map. Terrain uses OpenTopoMap "
-                                        "(© OpenStreetMap contributors). Satellite + streets "
-                                        "uses Esri imagery and reference overlays; comply with "
-                                        "Esri terms. Same extent as Overview.",
-                                        target="water-source-overview-map-basemap",
-                                        placement="top",
                                     ),
                                 ],
-                                className=(
-                                    "d-flex flex-wrap align-items-center gap-2 w-100"
-                                ),
+                                xs=12,
+                                lg=7,
                             ),
+                        ],
+                        className="g-2 mb-2",
+                    ),
+                    dbc.Tooltip(
+                        "Primary source supplying water for MAR (surface water, stormwater, reclaimed, etc.)",
+                        target="water-source-dropdown",
+                        placement="top",
+                    ),
+                    html.Div(
+                        id="water-source-site-coordinates-summary",
+                        children=water_source_site_coordinates_summary_children(),
+                        className="mb-2",
+                    ),
+                    html.Div(
+                        [
                             html.Div(
                                 [
                                     html.Div(
-                                        "Change Source and Recharge Sites",
-                                        className="fw-bold small mb-1 w-100 text-start",
-                                    ),
-                                    dcc.RadioItems(
-                                        id="water-source-map-site-radio",
-                                        options=[
-                                            {
-                                                "label": html.Span(
-                                                    [
-                                                        html.Span(
-                                                            "Source Site",
+                                        [
+                                            html.Label(
+                                                "Place marker:",
+                                                className="fw-bold small me-2 mb-0",
+                                            ),
+                                            dcc.RadioItems(
+                                                id="water-source-map-site-radio",
+                                                options=[
+                                                    {
+                                                        "label": html.Span(
+                                                            [
+                                                                "Source Site ",
+                                                                html.Span(
+                                                                    "●",
+                                                                    style={
+                                                                        "color": "#dc3545",
+                                                                        "fontSize": "1.1rem",
+                                                                    },
+                                                                    title="Red marker",
+                                                                ),
+                                                            ],
                                                             className="d-inline-flex align-items-center",
-                                                            style={
-                                                                "lineHeight": "2.7rem",
-                                                                "height": "2.7rem",
-                                                            },
                                                         ),
-                                                        html.Span(
-                                                            "●",
-                                                            style={
-                                                                "color": "#dc3545",
-                                                                "fontSize": "2.7rem",
-                                                                "lineHeight": "2.7rem",
-                                                                "marginLeft": "6px",
-                                                                "display": "inline-flex",
-                                                                "alignItems": "center",
-                                                                "height": "2.7rem",
-                                                            },
-                                                            title="Red marker",
-                                                        ),
-                                                    ],
-                                                    className=(
-                                                        "d-inline-flex align-items-center "
-                                                        "flex-nowrap"
-                                                    ),
-                                                ),
-                                                "value": "source_site",
-                                            },
-                                            {
-                                                "label": html.Span(
-                                                    [
-                                                        html.Span(
-                                                            "Recharge Site",
+                                                        "value": "source_site",
+                                                    },
+                                                    {
+                                                        "label": html.Span(
+                                                            [
+                                                                "Recharge Site ",
+                                                                html.Span(
+                                                                    "●",
+                                                                    style={
+                                                                        "color": "#0d6efd",
+                                                                        "fontSize": "1.1rem",
+                                                                    },
+                                                                    title="Blue marker",
+                                                                ),
+                                                            ],
                                                             className="d-inline-flex align-items-center",
-                                                            style={
-                                                                "lineHeight": "2.7rem",
-                                                                "height": "2.7rem",
-                                                            },
                                                         ),
-                                                        html.Span(
-                                                            "●",
-                                                            style={
-                                                                "color": "#0d6efd",
-                                                                "fontSize": "2.7rem",
-                                                                "lineHeight": "2.7rem",
-                                                                "marginLeft": "6px",
-                                                                "display": "inline-flex",
-                                                                "alignItems": "center",
-                                                                "height": "2.7rem",
-                                                            },
-                                                            title="Blue marker",
-                                                        ),
-                                                    ],
-                                                    className=(
-                                                        "d-inline-flex align-items-center "
-                                                        "flex-nowrap"
-                                                    ),
+                                                        "value": "recharge_site",
+                                                    },
+                                                ],
+                                                value=(
+                                                    dash_storage.get_data(
+                                                        "water_source_map_site"
+                                                    )
+                                                    or "source_site"
                                                 ),
-                                                "value": "recharge_site",
-                                            },
+                                                className="mb-0 small",
+                                                inline=True,
+                                                labelStyle={
+                                                    "display": "inline-flex",
+                                                    "alignItems": "center",
+                                                    "marginRight": "1rem",
+                                                    "cursor": "pointer",
+                                                },
+                                                inputStyle={"marginRight": "4px"},
+                                            ),
                                         ],
-                                        value=(
-                                            dash_storage.get_data(
-                                                "water_source_map_site"
-                                            )
-                                            or "source_site"
+                                        className="d-flex align-items-center flex-wrap",
+                                    ),
+                                    html.Div(
+                                        [
+                                            html.Label(
+                                                "Basemap:",
+                                                className="fw-bold small me-2 mb-0",
+                                            ),
+                                            dcc.Dropdown(
+                                                id="water-source-overview-map-basemap",
+                                                options=OVERVIEW_BASEMAP_OPTIONS,
+                                                value=basemap,
+                                                clearable=False,
+                                                className="mb-0",
+                                                style={
+                                                    "width": "220px",
+                                                    "minWidth": "180px",
+                                                },
+                                            ),
+                                        ],
+                                        className="d-flex align-items-center",
+                                    ),
+                                ],
+                                className=(
+                                    "d-flex flex-wrap align-items-center "
+                                    "justify-content-between gap-2 mb-1"
+                                ),
+                            ),
+                            dbc.Tooltip(
+                                "Choose which marker to move, then click the map "
+                                "to drop the red Source Site or blue Recharge Site.",
+                                target="water-source-map-site-radio",
+                                placement="top",
+                            ),
+                            dbc.Tooltip(
+                                "Switch background tiles; center and zoom stay as "
+                                "last saved from the map. Terrain uses OpenTopoMap "
+                                "(© OpenStreetMap contributors). Satellite + streets "
+                                "uses Esri imagery and reference overlays; comply with "
+                                "Esri terms. Same extent as Overview.",
+                                target="water-source-overview-map-basemap",
+                                placement="top",
+                            ),
+                            html.Div(
+                                [
+                                    dcc.Store(
+                                        id="water-source-map-mapbox-click-store",
+                                        data=None,
+                                    ),
+                                    html.Div(
+                                        id="water-source-map-click-relay-hook",
+                                        style={"display": "none"},
+                                        children=[],
+                                    ),
+                                    dcc.Graph(
+                                        figure=build_water_source_location_map_figure(
+                                            basemap
                                         ),
-                                        className="mb-0",
-                                        labelStyle={
-                                            "display": "inline-flex",
-                                            "alignItems": "center",
-                                            "marginRight": "1.25rem",
-                                            "cursor": "pointer",
+                                        config={
+                                            "displayModeBar": True,
+                                            "scrollZoom": True,
                                         },
-                                        inputStyle={"marginRight": "6px"},
+                                        id="water-source-location-map",
+                                        responsive=True,
+                                        style={
+                                            "flex": "1 1 auto",
+                                            "minHeight": f"{_WATER_SOURCE_MAP_MIN_HEIGHT_PX}px",
+                                            "height": "100%",
+                                            "overflow": "hidden",
+                                        },
                                     ),
                                     dbc.Tooltip(
-                                        "Choose which marker to move, then click the map "
-                                        "to drop the red Source Site or blue Recharge Site.",
-                                        target="water-source-map-site-radio",
+                                        "Red = Source Site, blue = Recharge Site (defaults: "
+                                        "source at saved project location, recharge ~1 mi east). "
+                                        "Choose Source Site or Recharge Site above, then click "
+                                        "the map to place that marker.",
+                                        target="water-source-location-map-shell",
                                         placement="top",
                                     ),
                                 ],
-                                className="d-flex flex-column align-items-start w-100",
-                            ),
-                        ],
-                        className="d-flex flex-column gap-2 pb-2",
-                        style={"flexShrink": 0},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Store(
-                                id="water-source-map-mapbox-click-store",
-                                data=None,
-                            ),
-                            html.Div(
-                                id="water-source-map-click-relay-hook",
-                                style={"display": "none"},
-                                children=[],
-                            ),
-                            dcc.Graph(
-                                figure=build_water_source_location_map_figure(
-                                    basemap
-                                ),
-                                config={
-                                    "displayModeBar": True,
-                                    "scrollZoom": True,
-                                },
-                                id="water-source-location-map",
-                                responsive=True,
+                                id="water-source-location-map-shell",
                                 style={
                                     "flex": "1 1 auto",
-                                    "minHeight": f"{_WATER_SOURCE_MAP_MIN_HEIGHT_PX}px",
-                                    "height": "100%",
+                                    "minHeight": 0,
+                                    "display": "flex",
+                                    "flexDirection": "column",
                                     "overflow": "hidden",
+                                    "overscrollBehavior": "contain",
                                 },
-                            ),
-                            dbc.Tooltip(
-                                "Red = Source Site, blue = Recharge Site (defaults: "
-                                "source at saved project location, recharge ~1 mi east). "
-                                "Choose Source Site or Recharge Site above, then click "
-                                "the map to place that marker.",
-                                target="water-source-location-map-shell",
-                                placement="top",
+                                className="water-source-location-map-shell",
                             ),
                         ],
-                        id="water-source-location-map-shell",
-                        style={
-                            "flex": "1 1 auto",
-                            "minHeight": 0,
-                            "display": "flex",
-                            "flexDirection": "column",
-                            "overflow": "hidden",
-                            "overscrollBehavior": "contain",
-                        },
-                        className="water-source-location-map-shell",
+                        className="d-flex flex-column",
+                        style={"flex": "1 1 auto", "minHeight": 0},
                     ),
                 ],
                 className="p-3 d-flex flex-column flex-grow-1",
-                style={"minHeight": 0, "overflow": "hidden"},
+                style={"minHeight": 0},
             ),
         ],
-        className="h-100 w-100 d-flex flex-column mb-3 mb-lg-0",
+        className="w-100 d-flex flex-column mb-3",
     )
 
 
 def _create_optional_runoff_calculations_card():
-    """Card below Volume Estimates: nested Runoff Calculator and Watershed tabs."""
+    """Card below Flow Estimates: nested Runoff Calculator and Watershed tabs."""
     water_source = dash_storage.get_data("water_source") or "surface_water_sources"
     show_warning = water_source not in RUNOFF_RELEVANT_WATER_SOURCES
-    return dbc.Card(
+    view_runoff = bool(dash_storage.get_data("view_runoff_calculator"))
+    card = dbc.Card(
         [
             dbc.CardHeader(
                 html.Div(
@@ -1051,6 +1065,24 @@ def _create_optional_runoff_calculations_card():
         ],
         className="mb-3",
     )
+    return html.Div(
+        [
+            dbc.Checkbox(
+                id="view-runoff-calculator-check",
+                label=html.Strong(
+                    "View Runoff Calculator (only if runoff calculator is to be used)"
+                ),
+                value=view_runoff,
+                className="mb-2",
+            ),
+            dbc.Collapse(
+                card,
+                id="optional-runoff-calculations-collapse",
+                is_open=view_runoff,
+            ),
+        ],
+        className="mb-3",
+    )
 
 
 def create_water_source_configuration_help_modal():
@@ -1083,8 +1115,8 @@ def create_water_source_configuration_help_modal():
             "Informs conveyance length, engineering design, and cost estimates on later tabs.",
         ),
         (
-            "Map (adjacent card)",
-            "Use the map to place source (red) and recharge (blue) markers, choose a "
+            "Map",
+            "Use the map below to place source (red) and recharge (blue) markers, choose a "
             "basemap, and pan/zoom. The saved view is shared with the Overview tab project "
             "location map.",
         ),
@@ -1101,7 +1133,7 @@ def create_water_source_configuration_help_modal():
                     html.P(
                         "Define where MAR water comes from and how it relates to the "
                         "recharge site. These settings are saved with your project and flow "
-                        "into volume estimates, runoff tools, engineering options, cost "
+                        "into flow estimates, runoff tools, engineering options, cost "
                         "analysis, and decision support.",
                         className="text-muted mb-3",
                     ),
@@ -1136,11 +1168,11 @@ def create_water_source_configuration_help_modal():
 
 
 def create_volume_estimates_help_modal():
-    """Help modal for Volume Estimates inputs and decision use."""
+    """Help modal for Flow Estimates inputs and decision use."""
     help_items = [
         (
             "Monthly Average Flow (ft³/month)",
-            "Enter the volume of water potentially available for MAR in each calendar "
+            "Enter the flow of water potentially available for MAR in each calendar "
             "month. Values are averages (not a single storm). The sum of "
             "all twelve months approximates annual supply. Edit a cell and click away or "
             "Tab to save; no Enter key is required.",
@@ -1162,7 +1194,7 @@ def create_volume_estimates_help_modal():
         ),
         (
             "Use in MAR-Tool decisions",
-            "Monthly flows become source water volume in the integrated feasibility "
+            "Monthly flows become source water flow in the integrated feasibility "
             "analysis. They drive spread-area sizing, injection and dry-well counts, "
             "annual recharge comparisons, and water-balance checks against aquifer "
             "storage and operational limits on the Analysis tab.",
@@ -1172,14 +1204,14 @@ def create_volume_estimates_help_modal():
     return dbc.Modal(
         [
             dbc.ModalHeader(
-                dbc.ModalTitle("Volume Estimates Help"),
+                dbc.ModalTitle("Flow Estimates Help"),
                 close_button=True,
             ),
             dbc.ModalBody(
                 [
                     html.P(
                         "Document how much water may be available for MAR each month. "
-                        "These volumes are saved with your project and feed engineering "
+                        "These flows are saved with your project and feed engineering "
                         "sizing, cost analysis, and feasibility decision rules.",
                         className="text-muted mb-3",
                     ),
@@ -1227,88 +1259,17 @@ def create_water_source_info_tab():
     
     return [
         html.P(
-            "Where the MAR project water will come from, and volumes available",
+            "Where the MAR project water will come from, and flows available",
             className="text-muted fs-6 mb-3",
         ),
         dbc.Row(
             [
                 dbc.Col(
-                    [
-                        dbc.Card(
-                            [
-                                dbc.CardHeader(
-                                    html.Div(
-                                        [
-                                            html.Span(
-                                                "Water Source Configuration",
-                                                className="fw-bold",
-                                            ),
-                                            html.Button(
-                                                "?",
-                                                id="water-source-config-help-btn",
-                                                type="button",
-                                                className="mar-help-btn",
-                                                title="Help: explain water source configuration",
-                                            ),
-                                        ],
-                                        className="d-flex align-items-center justify-content-between w-100",
-                                    ),
-                                    className="bg-primary text-white py-2",
-                                ),
-                                dbc.CardBody(
-                                    [
-                                        create_water_source_configuration_help_modal(),
-                                        html.Div(
-                                            id="water-source-site-coordinates-summary",
-                                            children=(
-                                                water_source_site_coordinates_summary_children()
-                                            ),
-                                            className="mb-3",
-                                        ),
-                                        dbc.Row(
-                                            [
-                                                dbc.Col(
-                                                    [
-                                                        html.Label(
-                                                            "Water Source:",
-                                                            className="fw-bold mb-2 "
-                                                            "text-primary",
-                                                        ),
-                                                        dcc.Dropdown(
-                                                            id="water-source-dropdown",
-                                                            options=WATER_SOURCE_OPTIONS,
-                                                            value=water_source,
-                                                            placeholder="Select water source...",
-                                                        ),
-                                                    ],
-                                                    width=12,
-                                                ),
-                                            ]
-                                        ),
-                                        dbc.Tooltip(
-                                            "Primary source supplying water for MAR (surface water, stormwater, reclaimed, etc.)",
-                                            target="water-source-dropdown",
-                                            placement="top",
-                                        ),
-                                    ],
-                                    className="p-3",
-                                ),
-                            ],
-                            className="h-100 mb-3 mb-lg-0",
-                        ),
-                    ],
-                    xs=12,
-                    lg=6,
-                ),
-                dbc.Col(
-                    [create_water_source_location_map_card()],
-                    xs=12,
-                    lg=6,
-                    className="mb-3 mb-lg-0",
-                    style={"minHeight": 0, "display": "flex", "flexDirection": "column"},
+                    [create_water_source_location_map_card(water_source)],
+                    width=12,
                 ),
             ],
-            className="mb-3 g-3 align-items-stretch",
+            className="mb-3",
         ),
         dbc.Row(
             [
@@ -1320,7 +1281,7 @@ def create_water_source_info_tab():
                                     html.Div(
                                         [
                                             html.Span(
-                                                "Volume Estimates",
+                                                "Flow Estimates",
                                                 className="fw-bold",
                                             ),
                                             html.Button(
@@ -1328,7 +1289,7 @@ def create_water_source_info_tab():
                                                 id="volume-estimates-help-btn",
                                                 type="button",
                                                 className="mar-help-btn",
-                                                title="Help: explain volume estimates",
+                                                title="Help: explain flow estimates",
                                             ),
                                         ],
                                         className="d-flex align-items-center justify-content-between w-100",
@@ -1339,7 +1300,7 @@ def create_water_source_info_tab():
                                     [
                                         create_volume_estimates_help_modal(),
                                         html.P(
-                                            "Total monthly volume potentially available for MAR",
+                                            "Total monthly flow potentially available for MAR",
                                             className="text-muted fs-6 mb-1",
                                         ),
                                         html.P(

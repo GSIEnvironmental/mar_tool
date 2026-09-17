@@ -13,8 +13,14 @@ levels = {
     4: "Reject",
 }
 
-NOT_AVAILABLE_RISK = "NOT AVAILABLE"
+NOT_AVAILABLE_RISK = "Unknown"
 _WQ_DATA_GAP_PREFIX = "Warning: Data gap — "
+WQ_UNKNOWN = "Unknown"
+WQ_NO = "No"
+WQ_YES = "Yes"
+WQ_TURBIDITY_LOW = "<5 NTU"
+WQ_TURBIDITY_MOD = "5-20 NTU"
+WQ_TURBIDITY_HIGH = ">20 NTU"
 
 
 def _water_quality_data_gap_penalty(parameter_label: str) -> str:
@@ -364,15 +370,12 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     
     # Get environmental assessment data from data storage
     # Note: data_storage is the same module used throughout the app
-    tss_turbidity_risk = data_storage.get_data("tss_turbidity_risk") or NOT_AVAILABLE_RISK
-    doc_toc_risk = data_storage.get_data("doc_toc_risk") or NOT_AVAILABLE_RISK
-    ph_alkalinity_risk = data_storage.get_data("ph_alkalinity_risk") or NOT_AVAILABLE_RISK
-    tds_salinity_risk = data_storage.get_data("tds_salinity_risk") or NOT_AVAILABLE_RISK
-    inorganic_contaminants_risk = data_storage.get_data("inorganic_contaminants_risk") or NOT_AVAILABLE_RISK
-    emerging_contaminants_risk = data_storage.get_data("emerging_contaminants_risk") or NOT_AVAILABLE_RISK
-    redox_compatibility_risk = data_storage.get_data("redox_compatibility_risk") or NOT_AVAILABLE_RISK
-    pathogen_risk = data_storage.get_data("pathogen_risk") or NOT_AVAILABLE_RISK
-    vadose_zone_pollution = data_storage.get_data("vadose_zone_pollution") or "None"
+    # Get water quality screening answers from data storage
+    source_contaminants = data_storage.get_data("wq_source_contaminants") or WQ_UNKNOWN
+    source_turbidity = data_storage.get_data("wq_source_turbidity") or WQ_UNKNOWN
+    vadose_impacted = data_storage.get_data("wq_vadose_impacted") or WQ_UNKNOWN
+    aquifer_anthropogenic = data_storage.get_data("wq_aquifer_anthropogenic") or WQ_UNKNOWN
+    aquifer_natural = data_storage.get_data("wq_aquifer_natural") or WQ_UNKNOWN
 
     # if land_use in ["Urban Residential", "Urban Nonresidential"]:
     #     if water_source in ["Urban Stormwater Runoff"]:
@@ -385,178 +388,150 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
  
 
     # ==================================================================
-    # 1. Clogging & Fouling Risks (Group 1)
+    # 1. Source Water Contaminants
     # ==================================================================
-    # Based on TSS/Turbidity (Step 1) and DOC/TOC (Step 2A)
+    source_contaminants_response = 0
+    source_contaminants_penalty = []
+    if source_contaminants == WQ_YES:
+        source_contaminants_response = 3
+        source_contaminants_penalty.append(
+            "Mitigation + Cost: Source water is impacted with industrial, domestic, or emerging contaminants — "
+            "MAR may still be possible based on site-specific conditions and overall objectives, but "
+            "additional considerations and potential costs may be necessary and are beyond the scope of this tool."
+        )
+    elif source_contaminants == WQ_UNKNOWN:
+        source_contaminants_penalty.append(
+            _water_quality_data_gap_penalty("Source water contaminants")
+        )
+
+    source_contaminants_response, source_contaminants_penalty = _finalize_water_quality_group_response(
+        source_contaminants_response, source_contaminants_penalty
+    )
+    constraints.append({
+        "name": "Source Water Contaminants",
+        "response": source_contaminants_response,
+        "penalty": source_contaminants_penalty,
+        "type": "environmental",
+        "hard": True if "Source Water Contaminants" in hardend_constraints else False
+    })
+
+    # ==================================================================
+    # 2. Clogging & Fouling Risks (turbidity)
+    # ==================================================================
     clogging_fouling_response = 0
     clogging_fouling_penalty = []
-    
-    # Check TSS/Turbidity risk
-    if tss_turbidity_risk == "HIGH RISK":
-        clogging_fouling_response = max(clogging_fouling_response, 3)
-        clogging_fouling_penalty.append("Mitigation + Cost: High TSS/Turbidity (>20 mg/L, >10 NTU) requires treatment to prevent clogging")
-    elif tss_turbidity_risk == "MODERATE RISK":
-        clogging_fouling_response = max(clogging_fouling_response, 1)
-        if not clogging_fouling_penalty:
-            clogging_fouling_penalty.append("Warning + Cost: Moderate TSS/Turbidity (10-20 mg/L, 5-10 NTU) may require treatment")
-    elif tss_turbidity_risk == NOT_AVAILABLE_RISK:
-        clogging_fouling_penalty.append(_water_quality_data_gap_penalty("TSS/Turbidity"))
-    
-    # Check DOC/TOC risk
-    if doc_toc_risk == "HIGH RISK":
-        clogging_fouling_response = max(clogging_fouling_response, 3)
-        clogging_fouling_penalty.append("Mitigation + Cost: High DOC/TOC (>10 mg/L) can cause biofouling, requires treatment")
-    elif doc_toc_risk == "MODERATE RISK":
-        clogging_fouling_response = max(clogging_fouling_response, 2)
-        if not clogging_fouling_penalty:
-            clogging_fouling_penalty.append("Warning + Cost: Moderate DOC/TOC (5-10 mg/L) may cause biofouling, monitor closely")
-    elif doc_toc_risk == NOT_AVAILABLE_RISK:
-        clogging_fouling_penalty.append(_water_quality_data_gap_penalty("DOC/TOC"))
+    if source_turbidity == WQ_TURBIDITY_HIGH:
+        clogging_fouling_response = 3
+        clogging_fouling_penalty.append(
+            "Mitigation + Cost: Source-water turbidity >20 NTU requires pretreatment to prevent clogging"
+        )
+    elif source_turbidity == WQ_TURBIDITY_MOD:
+        clogging_fouling_response = 1
+        clogging_fouling_penalty.append(
+            "Warning + Cost: Source-water turbidity 5-20 NTU may require sedimentation/clarification"
+        )
+    elif source_turbidity == WQ_UNKNOWN:
+        clogging_fouling_penalty.append(_water_quality_data_gap_penalty("Source water turbidity"))
 
     clogging_fouling_response, clogging_fouling_penalty = _finalize_water_quality_group_response(
         clogging_fouling_response, clogging_fouling_penalty
     )
-    clogging_fouling_constraint = {
+    constraints.append({
         "name": "Clogging & Fouling Risks",
         "response": clogging_fouling_response,
         "penalty": clogging_fouling_penalty,
         "type": "environmental",
         "hard": True if "Clogging & Fouling Risks" in hardend_constraints else False
-    }
-    constraints.append(clogging_fouling_constraint)
-    
-    # ==================================================================
-    # 2. Chemical Compatibility (Group 2)
-    # ==================================================================
-    # Based on pH/Alkalinity (Step 2B), TDS/Salinity (Step 3), Redox Compatibility (Step 5B)
-    chemical_compatibility_response = 0
-    chemical_compatibility_penalty = []
-    
-    # Check pH/Alkalinity risk
-    if ph_alkalinity_risk == "HIGH RISK":
-        chemical_compatibility_response = max(chemical_compatibility_response, 3)
-        chemical_compatibility_penalty.append("Mitigation + Cost: Significant pH/alkalinity mismatch (>1.0 unit) requires geochemical assessment")
-    elif ph_alkalinity_risk == "MODERATE RISK":
-        chemical_compatibility_response = max(chemical_compatibility_response, 2)
-        if not chemical_compatibility_penalty:
-            chemical_compatibility_penalty.append("Warning + Cost: Moderate pH/alkalinity difference (0.5-1.0 units) may cause geochemical reactions")
-    elif ph_alkalinity_risk == NOT_AVAILABLE_RISK:
-        chemical_compatibility_penalty.append(_water_quality_data_gap_penalty("pH/Alkalinity"))
-    
-    # Check TDS/Salinity risk (CRITICAL CHECKPOINT)
-    if tds_salinity_risk == "HIGH RISK":
-        chemical_compatibility_response = max(chemical_compatibility_response, 4)
-        chemical_compatibility_penalty.append("Reject: TDS increase >500 mg/L - likely NOT SUITABLE, requires economic study")
-    elif tds_salinity_risk == "MODERATE RISK":
-        chemical_compatibility_response = max(chemical_compatibility_response, 2)
-        if not chemical_compatibility_penalty:
-            chemical_compatibility_penalty.append("Warning + Cost: Moderate TDS increase (250-500 mg/L) - long-term salinization risk")
-    elif tds_salinity_risk == NOT_AVAILABLE_RISK:
-        chemical_compatibility_penalty.append(_water_quality_data_gap_penalty("TDS/Salinity"))
-    
-    # Check Redox Compatibility risk
-    if redox_compatibility_risk == "HIGH RISK":
-        chemical_compatibility_response = max(chemical_compatibility_response, 4)
-        chemical_compatibility_penalty.append("Reject: Significant redox incompatibility - high risk of irreversible aquifer degradation")
-    elif redox_compatibility_risk == "MODERATE RISK":
-        chemical_compatibility_response = max(chemical_compatibility_response, 3)
-        if not chemical_compatibility_penalty:
-            chemical_compatibility_penalty.append("Mitigation + Cost: Redox incompatibility may cause Fe/Mn precipitation or As mobilization")
-    elif redox_compatibility_risk == NOT_AVAILABLE_RISK:
-        chemical_compatibility_penalty.append(_water_quality_data_gap_penalty("Redox Compatibility"))
+    })
 
-    chemical_compatibility_response, chemical_compatibility_penalty = _finalize_water_quality_group_response(
-        chemical_compatibility_response, chemical_compatibility_penalty
-    )
-    chemical_compatibility_constraint = {
-        "name": "Chemical Compatibility",
-        "response": chemical_compatibility_response,
-        "penalty": chemical_compatibility_penalty,
-        "type": "environmental",
-        "hard": True if "Chemical Compatibility" in hardend_constraints else False
-    }
-    constraints.append(chemical_compatibility_constraint)
-    
     # ==================================================================
-    # 3. Water-Quality Compliance (Group 3)
+    # 3. Need for Remediation (vadose / unsaturated zone)
     # ==================================================================
-    # Based on Inorganic Contaminants (Step 4), Emerging Contaminants (Step 5A), Pathogen Risk (Step 6)
-    water_quality_compliance_response = 0
-    water_quality_compliance_penalty = []
-    
-    # Check Inorganic Contaminants risk (CRITICAL CHECKPOINT)
-    if inorganic_contaminants_risk == "HIGH RISK":
-        water_quality_compliance_response = max(water_quality_compliance_response, 4)
-        water_quality_compliance_penalty.append("Reject: Inorganic contaminants ≥100% of limits - likely NOT SUITABLE due to cost/complexity")
-    elif inorganic_contaminants_risk == "MODERATE RISK":
-        water_quality_compliance_response = max(water_quality_compliance_response, 2)
-        if not water_quality_compliance_penalty:
-            water_quality_compliance_penalty.append("Warning + Cost: Inorganic contaminants 50-100% of limits - treatment required")
-    elif inorganic_contaminants_risk == NOT_AVAILABLE_RISK:
-        water_quality_compliance_penalty.append(_water_quality_data_gap_penalty("Inorganic Contaminants"))
-    
-    # Check Emerging Contaminants risk
-    if emerging_contaminants_risk == "HIGH RISK":
-        water_quality_compliance_response = max(water_quality_compliance_response, 3)
-        water_quality_compliance_penalty.append("Mitigation + Cost: High emerging contaminants (PFAS >100 ng/L or multiple compounds) - comprehensive treatability study required")
-    elif emerging_contaminants_risk == "MODERATE RISK":
-        water_quality_compliance_response = max(water_quality_compliance_response, 2)
-        if not water_quality_compliance_penalty:
-            water_quality_compliance_penalty.append("Warning + Cost: Emerging contaminants detected at low levels - monitor and evaluate treatment")
-    elif emerging_contaminants_risk == NOT_AVAILABLE_RISK:
-        water_quality_compliance_penalty.append(_water_quality_data_gap_penalty("Emerging Contaminants"))
-    
-    # Check Pathogen Risk (CRITICAL CHECKPOINT)
-    if pathogen_risk == "HIGH RISK":
-        water_quality_compliance_response = max(water_quality_compliance_response, 4)
-        water_quality_compliance_penalty.append("Reject: High pathogen risk - MANDATORY multi-barrier disinfection required, public health risk if not properly treated")
-    elif pathogen_risk == "MODERATE RISK":
-        water_quality_compliance_response = max(water_quality_compliance_response, 3)
-        if not water_quality_compliance_penalty:
-            water_quality_compliance_penalty.append("Mitigation + Cost: Moderate pathogen risk - disinfection required")
-    elif pathogen_risk == NOT_AVAILABLE_RISK:
-        water_quality_compliance_penalty.append(_water_quality_data_gap_penalty("Pathogen Risk"))
-
-    water_quality_compliance_response, water_quality_compliance_penalty = _finalize_water_quality_group_response(
-        water_quality_compliance_response, water_quality_compliance_penalty
-    )
-    water_quality_compliance_constraint = {
-        "name": "Water-Quality Compliance",
-        "response": water_quality_compliance_response,
-        "penalty": water_quality_compliance_penalty,
-        "type": "environmental",
-        "hard": True if "Water-Quality Compliance" in hardend_constraints else False
-    }
-    constraints.append(water_quality_compliance_constraint)
-    
-    # ==================================================================
-    # 4. Need for Remediation (Group 4)
-    # ==================================================================
-    # Based on Vadose Zone Pollution (Step 7)
     remediation_needed_response = 0
     remediation_needed_penalty = []
     if aquifer_type.lower() == "confined":
-        response = -1
-        penalty = []
-    else:
-        if vadose_zone_pollution == "Yes, highly toxic contaminants in the vadose zone (e.g., heavy metals, volatile organic compounds, radioactive materials)":
+        remediation_needed_response = -1
+        remediation_needed_penalty = []
+    elif vadose_impacted == WQ_YES:
+        if option.name == "Surface Recharge":
             remediation_needed_response = 4
-            remediation_needed_penalty.append("Reject: Highly toxic contaminants in vadose zone - comprehensive remediation required ($50K-$10M), high risk of contaminant migration to aquifer")
-        elif vadose_zone_pollution == "Yes, biodegradable Pollution":
-            remediation_needed_response = 2
-            remediation_needed_penalty.append("Warning + Cost: Biodegradable pollution in vadose zone - monitor natural attenuation, consider enhanced bioremediation if needed")
-        elif vadose_zone_pollution == "None":
+            remediation_needed_penalty.append(
+                "Reject: Vadose/unsaturated zone is impacted by contaminants — "
+                "surface recharge is not feasible"
+            )
+        else:
             remediation_needed_response = 0
             remediation_needed_penalty = []
-    
-    remediation_needed_constraint = {
+    elif vadose_impacted == WQ_UNKNOWN:
+        remediation_needed_penalty.append(
+            _water_quality_data_gap_penalty("Vadose/unsaturated zone contamination")
+        )
+        remediation_needed_response, remediation_needed_penalty = _finalize_water_quality_group_response(
+            remediation_needed_response, remediation_needed_penalty
+        )
+
+    constraints.append({
         "name": "Need for Remediation",
         "response": remediation_needed_response,
         "penalty": remediation_needed_penalty,
         "type": "environmental",
         "hard": True if "Need for Remediation" in hardend_constraints else False
-    }
-    constraints.append(remediation_needed_constraint)
+    })
+
+    # ==================================================================
+    # 4. Target Aquifer Anthropogenic Contaminants
+    # ==================================================================
+    aquifer_anthro_response = 0
+    aquifer_anthro_penalty = []
+    if aquifer_anthropogenic == WQ_YES:
+        aquifer_anthro_response = 4
+        aquifer_anthro_penalty.append(
+            "Reject: Target aquifer is impacted by anthropogenic contaminants — "
+            "aquifer water quality is unsuitable; all MAR options are not feasible"
+        )
+    elif aquifer_anthropogenic == WQ_UNKNOWN:
+        aquifer_anthro_penalty.append(
+            _water_quality_data_gap_penalty("Target aquifer anthropogenic contaminants")
+        )
+
+    aquifer_anthro_response, aquifer_anthro_penalty = _finalize_water_quality_group_response(
+        aquifer_anthro_response, aquifer_anthro_penalty
+    )
+    constraints.append({
+        "name": "Target Aquifer Anthropogenic Contaminants",
+        "response": aquifer_anthro_response,
+        "penalty": aquifer_anthro_penalty,
+        "type": "environmental",
+        "hard": True if "Target Aquifer Anthropogenic Contaminants" in hardend_constraints else False
+    })
+
+    # ==================================================================
+    # 5. Target Aquifer Naturally Occurring Contaminants
+    # ==================================================================
+    aquifer_natural_response = 0
+    aquifer_natural_penalty = []
+    if aquifer_natural == WQ_YES:
+        aquifer_natural_response = 2
+        aquifer_natural_penalty.append(
+            "Warning + Cost: Target aquifer is impacted by naturally occurring contaminants — "
+            "MAR may still be possible based on site-specific conditions and overall objectives, but "
+            "additional considerations and potential costs may be necessary and are beyond the scope of this tool."
+        )
+    elif aquifer_natural == WQ_UNKNOWN:
+        aquifer_natural_penalty.append(
+            _water_quality_data_gap_penalty("Target aquifer naturally occurring contaminants")
+        )
+
+    aquifer_natural_response, aquifer_natural_penalty = _finalize_water_quality_group_response(
+        aquifer_natural_response, aquifer_natural_penalty
+    )
+    constraints.append({
+        "name": "Target Aquifer Naturally Occurring Contaminants",
+        "response": aquifer_natural_response,
+        "penalty": aquifer_natural_penalty,
+        "type": "environmental",
+        "hard": True if "Target Aquifer Naturally Occurring Contaminants" in hardend_constraints else False
+    })
 
     # ==================================================================
     # Regulation Constraints (Basic Regulation Feasibility)

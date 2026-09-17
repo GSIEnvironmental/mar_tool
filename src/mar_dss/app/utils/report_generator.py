@@ -57,15 +57,11 @@ _INPUT_SUMMARY_FIELDS = (
     ("distance_to_sediment", "Distance to Sediment Pond (ft)"),
     ("distance_to_storage_pond_ft", "Distance to Storage Pond (ft)"),
     ("max_infiltration_area", "Max Infiltration Area"),
-    ("tss_turbidity_risk", "TSS / Turbidity Risk"),
-    ("doc_toc_risk", "DOC / TOC Risk"),
-    ("ph_alkalinity_risk", "pH / Alkalinity Risk"),
-    ("tds_salinity_risk", "TDS / Salinity Risk"),
-    ("inorganic_contaminants_risk", "Inorganic Contaminants Risk"),
-    ("emerging_contaminants_risk", "Emerging Contaminants Risk"),
-    ("redox_compatibility_risk", "Redox Compatibility Risk"),
-    ("pathogen_risk", "Pathogen Risk"),
-    ("vadose_zone_pollution", "Vadose Zone Pollution"),
+    ("wq_source_contaminants", "Source Water Contaminants"),
+    ("wq_source_turbidity", "Source Water Turbidity"),
+    ("wq_vadose_impacted", "Vadose / Unsaturated Zone Impacted"),
+    ("wq_aquifer_anthropogenic", "Target Aquifer Anthropogenic Contaminants"),
+    ("wq_aquifer_natural", "Target Aquifer Naturally Occurring Contaminants"),
 )
 
 _MONTH_LABELS = (
@@ -85,7 +81,7 @@ _MONTH_LABELS = (
 
 _EXEC_SUMMARY_INTRO = (
     "The table below ranks MAR engineering options using DSS analysis results. "
-    "Feasible options (Recommended and Conditional) are listed first by benefit score; "
+    "Feasible options (Pass and Conditional) are listed first by benefit score; "
     "not-feasible options follow. Capital cost, annual recharge volume, and capital cost "
     "per acre-foot recharged are shown for each option."
 )
@@ -170,7 +166,7 @@ def _build_ranked_executive_rows(results: dict, filters: dict) -> list[dict]:
 
     feasible: list[dict] = []
     for opt in categorized.get("recommended", []):
-        feasible.append(_row(opt["name"], "Recommended"))
+        feasible.append(_row(opt["name"], "Pass"))
     for opt in categorized.get("conditional", []):
         feasible.append(_row(opt["name"], "Conditional"))
     feasible.sort(key=lambda r: r["benefit_score"], reverse=True)

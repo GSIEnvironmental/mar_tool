@@ -389,22 +389,17 @@ def calculate_physical_feasibility(selected_technology, graph, node_values, aq_t
 def calculate_environmental_feasibility():
     """Calculate environmental feasibility score based on risk assessment."""
     env_inputs = [
-        dash_storage.get_data("tss_turbidity_risk") or "NOT AVAILABLE",
-        dash_storage.get_data("doc_toc_risk") or "NOT AVAILABLE",
-        dash_storage.get_data("ph_alkalinity_risk") or "NOT AVAILABLE",
-        dash_storage.get_data("tds_salinity_risk") or "NOT AVAILABLE",
-        dash_storage.get_data("inorganic_contaminants_risk") or "NOT AVAILABLE",
-        dash_storage.get_data("emerging_contaminants_risk") or "NOT AVAILABLE",
-        dash_storage.get_data("redox_compatibility_risk") or "NOT AVAILABLE",
-        dash_storage.get_data("pathogen_risk") or "NOT AVAILABLE",
+        dash_storage.get_data("wq_source_contaminants") or "Unknown",
+        dash_storage.get_data("wq_source_turbidity") or "Unknown",
+        dash_storage.get_data("wq_vadose_impacted") or "Unknown",
+        dash_storage.get_data("wq_aquifer_anthropogenic") or "Unknown",
+        dash_storage.get_data("wq_aquifer_natural") or "Unknown",
     ]
     
     try:
-        from mar_dss.app.components.environmental_impact_tab import DECISION_LOGIC
+        from mar_dss.app.components.environmental_impact_tab import DECISION_LOGIC, WQ_LOGIC_KEYS
         env_score = 0
-        input_keys = ["step1_tss", "step2a_doc", "step2b_ph", "step3_tds", 
-                      "step4_inorganic", "step5a_ec", "step5b_redox", "step6_pathogens"]
-        for key, value in zip(input_keys, env_inputs):
+        for key, value in zip(WQ_LOGIC_KEYS, env_inputs):
             if key in DECISION_LOGIC and value in DECISION_LOGIC[key]:
                 score = DECISION_LOGIC[key][value].get("score", 0)
                 env_score += score

@@ -38,6 +38,53 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
     constraints.append(initial_surface_rechargeability)
 
     # ==================================================================
+    # Vadose / unsaturated zone contamination (Water Quality Q3)
+    # ==================================================================
+    vadose_impacted = data_storage.get_data("wq_vadose_impacted") or "Unknown"
+    if option.name == "Surface Recharge" and vadose_impacted == "Yes":
+        vadose_check = False
+        vadose_why = (
+            "Surface recharge is not feasible: the vadose/unsaturated zone is "
+            "impacted by contaminants"
+        )
+    else:
+        vadose_check = True
+        if vadose_impacted == "Yes":
+            vadose_why = (
+                f"{option.name} can bypass the impacted vadose/unsaturated zone"
+            )
+        else:
+            vadose_why = (
+                "Vadose/unsaturated zone contamination does not preclude this option"
+            )
+    constraints.append({
+        "name": "Vadose zone contaminant impact",
+        "pass": vadose_check,
+        "why": vadose_why,
+    })
+
+    # ==================================================================
+    # Target aquifer anthropogenic contaminants (Water Quality Q4)
+    # ==================================================================
+    aquifer_anthropogenic = data_storage.get_data("wq_aquifer_anthropogenic") or "Unknown"
+    if aquifer_anthropogenic == "Yes":
+        anthro_check = False
+        anthro_why = (
+            f"{option.name} is not feasible: the target aquifer is impacted by "
+            "anthropogenic contaminants (poor aquifer water quality)"
+        )
+    else:
+        anthro_check = True
+        anthro_why = (
+            "Target aquifer anthropogenic contaminant status does not preclude this option"
+        )
+    constraints.append({
+        "name": "Target aquifer anthropogenic contaminants",
+        "pass": anthro_check,
+        "why": anthro_why,
+    })
+
+    # ==================================================================
     # Recharge Efficiency
     # ==================================================================
     rechargability = graph.get_node_value('rechargability')

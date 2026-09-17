@@ -18,6 +18,18 @@ from mar_dss.rules.defaults import get_default
 
 columns = ["parameter", "Depth/Thickness (ft)", "Hydraulic Conductivity", "Storage Term"]
 
+# Display labels for Initial Hydrologic Feasibility (internal option.name unchanged)
+INITIAL_FEASIBILITY_OPTION_LABELS = {
+    "Surface Recharge": "Surface Recharge (e.g., Infiltration Basin)",
+    "Dry Well": "Dry Well(s)",
+    "Injection Well": "Injection Well(s)",
+}
+
+
+def initial_feasibility_option_label(option_name: str) -> str:
+    """User-facing name for an option in Initial Hydrologic Feasibility."""
+    return INITIAL_FEASIBILITY_OPTION_LABELS.get(option_name, option_name)
+
 
 def normalize_stratigraphy_recharge_target(rows):
     """Ensure exactly one row has recharge_target True; default to the first (top) layer."""
@@ -196,6 +208,7 @@ def create_hydrogeologic_settings_content():
     return [
         _build_geometry_and_view_cards(),
         *_build_hydro_tab_header(),
+        _build_recharge_mound_outputs_card(),
     ]
 
 
@@ -547,7 +560,7 @@ def _build_initial_feasibility_traffic_placeholder():
                         dbc.Col(
                             [
                                 html.Div(
-                                    opt.name,
+                                    initial_feasibility_option_label(opt.name),
                                     className="fw-semibold fs-5",
                                     style=muted,
                                 ),
@@ -601,7 +614,8 @@ def create_initial_hydrologic_feasibility_help_modal():
                     html.P(
                         [
                             "This card provides a quick hydrologic screening of each "
-                            "engineering option (spreading ponds, injection wells, dry wells) "
+                            "engineering option (Surface Recharge, Dry Well(s), "
+                            "Injection Well(s)) "
                             "based on the Hydrogeology inputs you enter on this tab—stratigraphy, "
                             "groundwater levels, ground surface elevation, and related settings.",
                         ],
@@ -611,8 +625,8 @@ def create_initial_hydrologic_feasibility_help_modal():
                     html.Ol(
                         [
                             html.Li(
-                                "Complete (or review) Stratigraphy, Groundwater "
-                                "Level, and Horizontal Extension inputs as needed."
+                                "Complete (or review) Stratigraphy and Groundwater "
+                                "Level inputs as needed."
                             ),
                             html.Li([
                                 "Click ",
@@ -1285,101 +1299,265 @@ def create_horizontal_extension_help_modal():
     )
 
 
-def _build_horizontal_extension_tab():
-    """Build the horizontal extension tab content."""
-    return dbc.Tab(
-        label="Horizontal Extension", id=tab_nav_id("horizontal-extension-tab"),
-        tab_id="horizontal-extension-tab",
-        label_style={
-            "color": "#ffffff", 
-            "fontWeight": "bold",
-            "backgroundColor": "#17a2b8",
-            "border": "1px solid #17a2b8"
-        },
-        active_label_style={
-            "color": "#ffffff", 
-            "backgroundColor": "#138496",
-            "border": "1px solid #138496"
-        },
-        children=[
+def _build_horizontal_extension_panel():
+    """Horizontal footprint inputs for recharge mound / plan-view analysis."""
+    return html.Div(
+        [
             html.Div(
                 [
-                    html.Div(
-                        [
-                            html.H5(
-                                "Horizontal Extension Configuration",
-                                className="mb-0",
-                            ),
-                            html.Button(
-                                "?",
-                                id="horizontal-extension-help-btn",
-                                type="button",
-                                className="mar-help-btn",
-                                title="Help: horizontal extension configuration",
-                            ),
-                        ],
-                        className="d-flex align-items-center gap-2 mb-3",
+                    html.H5(
+                        "Horizontal Extension",
+                        className="mb-0",
                     ),
-                    create_horizontal_extension_help_modal(),
-                    
-                    # Input fields in two columns
-                    dbc.Row([
-                        dbc.Col([
+                    html.Button(
+                        "?",
+                        id="horizontal-extension-help-btn",
+                        type="button",
+                        className="mar-help-btn",
+                        title="Help: horizontal extension configuration",
+                    ),
+                ],
+                className="d-flex align-items-center gap-2 mb-3",
+            ),
+            create_horizontal_extension_help_modal(),
+            html.P(
+                "Define the plan-view footprint used for recharge mound contours.",
+                className="text-muted fs-6 mb-3",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
                             html.Label("Length (ft):", className="fw-bold mb-2"),
                             dbc.Input(
                                 id="extension-length",
                                 type="number",
-                                value=dash_storage.get_data("extension_length") or 100.0,
+                                value=dash_storage.get_data("extension_length")
+                                or 100.0,
                                 debounce=True,
                                 step=0.1,
-                                placeholder="Enter length"
-                            )
-                        ], width=6),
-                        dbc.Col([
+                                placeholder="Enter length",
+                            ),
+                        ],
+                        width=6,
+                    ),
+                    dbc.Col(
+                        [
                             html.Label("Width (ft):", className="fw-bold mb-2"),
                             dbc.Input(
                                 id="extension-width",
                                 type="number",
-                                value=dash_storage.get_data("extension_width") or 50.0,
+                                value=dash_storage.get_data("extension_width")
+                                or 50.0,
                                 debounce=True,
                                 step=0.1,
-                                placeholder="Enter width"
-                            )
-                        ], width=6)
-                    ], className="mb-3"),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Rotation from North (degrees):", className="fw-bold mb-2"),
+                                placeholder="Enter width",
+                            ),
+                        ],
+                        width=6,
+                    ),
+                ],
+                className="mb-3",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.Label(
+                                "Rotation from North (degrees):",
+                                className="fw-bold mb-2",
+                            ),
                             dbc.Input(
                                 id="extension-rotation",
                                 type="number",
-                                value=dash_storage.get_data("extension_rotation") or 0.0,
+                                value=dash_storage.get_data("extension_rotation")
+                                or 0.0,
                                 debounce=True,
                                 step=1.0,
-                                placeholder="Enter rotation angle"
-                            )
-                        ], width=6),
-                    ], className="mb-3"),
-                    dbc.Tooltip(
-                        "MAR footprint length for horizontal extent analysis (feet)",
-                        target="extension-length",
-                        placement="top",
-                    ),
-                    dbc.Tooltip(
-                        "MAR footprint width for horizontal extent analysis (feet)",
-                        target="extension-width",
-                        placement="top",
-                    ),
-                    dbc.Tooltip(
-                        "Rotation of the MAR area from north (degrees)",
-                        target="extension-rotation",
-                        placement="top",
+                                placeholder="Enter rotation angle",
+                            ),
+                        ],
+                        width=6,
                     ),
                 ],
-                id="horizontal-extension-content"
-            )
-        ]
+                className="mb-3",
+            ),
+            dbc.Tooltip(
+                "MAR footprint length for horizontal extent analysis (feet)",
+                target="extension-length",
+                placement="top",
+            ),
+            dbc.Tooltip(
+                "MAR footprint width for horizontal extent analysis (feet)",
+                target="extension-width",
+                placement="top",
+            ),
+            dbc.Tooltip(
+                "Rotation of the MAR area from north (degrees)",
+                target="extension-rotation",
+                placement="top",
+            ),
+        ],
+        id="horizontal-extension-content",
+    )
+
+
+def _build_plan_view_panel():
+    """Plan-view plot and recharge-mound contour controls."""
+    return html.Div(
+        [
+            html.H5("Plan View", className="mb-3"),
+            html.P(
+                "Plan-view layout of the MAR footprint and optional recharge-mound "
+                "head contours.",
+                className="text-muted fs-6 mb-3",
+            ),
+            dbc.Button(
+                "Show Contour Lines",
+                id="xy-view-show-contours-btn",
+                color="primary",
+                size="sm",
+                className="mb-2",
+                n_clicks=0,
+            ),
+            html.Div(
+                id="xy-view-contour-message",
+                className="mb-3",
+            ),
+            dcc.Graph(
+                id="xy-view-plot",
+                style={"height": "500px"},
+            ),
+            dbc.Tooltip(
+                "Plan-view layout of the MAR geometry",
+                target="xy-view-plot",
+                placement="top",
+            ),
+        ],
+        id="xy-view-content",
+    )
+
+
+def create_recharge_mound_outputs_help_modal():
+    """Help modal for Recharge Mound Outputs card."""
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle("Recharge Mound Outputs Help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "Additional outputs for evaluating the groundwater recharge mound "
+                        "around the MAR facility. Set the horizontal footprint, then "
+                        "review the plan view and optional head contours.",
+                        className="text-muted mb-3",
+                    ),
+                    html.Dl(
+                        [
+                            html.Dt("Horizontal Extension", className="fw-bold"),
+                            html.Dd(
+                                "Length, width, and rotation of the recharge footprint "
+                                "used in mounding and plan-view analysis.",
+                                className="mb-3",
+                            ),
+                            html.Dt("Plan View", className="fw-bold"),
+                            html.Dd(
+                                "Map of the MAR footprint. Use Show Contour Lines to "
+                                "display estimated recharge-mound head contours for the "
+                                "current hydrogeologic inputs.",
+                                className="mb-0",
+                            ),
+                        ]
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="recharge-mound-outputs-help-close-btn",
+                    color="secondary",
+                    className="ms-auto",
+                )
+            ),
+        ],
+        id="recharge-mound-outputs-help-modal",
+        is_open=False,
+        size="lg",
+        scrollable=True,
+        backdrop=True,
+        keyboard=True,
+    )
+
+
+def _build_recharge_mound_outputs_card():
+    """Card below Initial Feasibility: horizontal extension + plan view."""
+    view_mound = bool(dash_storage.get_data("view_recharge_mound_outputs"))
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.Span(
+                                    "Recharge Mound Outputs",
+                                    className="fw-bold me-3",
+                                ),
+                                dbc.Checkbox(
+                                    id="view-recharge-mound-outputs-check",
+                                    label=html.Span(
+                                        "Additional information, check if you care!",
+                                        className="fw-semibold",
+                                    ),
+                                    value=view_mound,
+                                    className="mb-0 text-white",
+                                    input_class_name="me-1",
+                                    label_class_name="text-white mb-0",
+                                ),
+                            ],
+                            className="d-flex align-items-center flex-wrap gap-2",
+                        ),
+                        html.Button(
+                            "?",
+                            id="recharge-mound-outputs-help-btn",
+                            type="button",
+                            className="mar-help-btn",
+                            title="Help: recharge mound outputs",
+                        ),
+                    ],
+                    className=(
+                        "d-flex align-items-center "
+                        "justify-content-between w-100"
+                    ),
+                ),
+                className="bg-primary text-white py-2",
+            ),
+            create_recharge_mound_outputs_help_modal(),
+            dbc.Collapse(
+                dbc.CardBody(
+                    [
+                        html.P(
+                            "Additional outputs for the recharge mound: set the horizontal "
+                            "footprint and review the plan-view contours.",
+                            className="text-muted fs-6 mb-3",
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(_build_horizontal_extension_panel(), md=5),
+                                dbc.Col(_build_plan_view_panel(), md=7),
+                            ],
+                            className="g-3",
+                        ),
+                    ],
+                    className="p-3",
+                ),
+                id="recharge-mound-outputs-collapse",
+                is_open=view_mound,
+            ),
+        ],
+        className="mb-3",
     )
 
 
@@ -1392,7 +1570,6 @@ def _build_geometry_tabs():
                 children=[
                     _build_stratigraphy_tab(),
                     _build_groundwater_level_tab(),
-                    _build_horizontal_extension_tab(),
                 ],
                 active_tab="stratigraphy-tab",
             ),
@@ -1403,10 +1580,6 @@ def _build_geometry_tabs():
             tab_tooltip(
                 "groundwater-level-tab",
                 "Monthly groundwater elevation data and seasonal variation",
-            ),
-            tab_tooltip(
-                "horizontal-extension-tab",
-                "Horizontal extent and geometry of the recharge area",
             ),
         ]
     )
@@ -1435,7 +1608,7 @@ def _build_geometry_card():
 
 
 def _build_view_card():
-    """Build the View card with three colored tabs."""
+    """Build the View card with stratigraphy and storage tabs."""
     return dbc.Card(
         [
             dbc.CardHeader(
@@ -1508,46 +1681,6 @@ def _build_view_card():
                                     "border": "1px solid #4a9fd1"
                                 },
                             ),
-                            dbc.Tab(
-                                label="Plan View", id=tab_nav_id("xy-view"),
-                                tab_id="xy-view",
-                                children=[
-                                    html.Div(
-                                        [
-                                            html.H6("Plan View", className="mb-3"),
-                                            html.P("Plan view visualization of hydrogeological features.", className="mb-3"),
-                                            dbc.Button(
-                                                "Show Contour Lines",
-                                                id="xy-view-show-contours-btn",
-                                                color="primary",
-                                                size="sm",
-                                                className="mb-2",
-                                                n_clicks=0,
-                                            ),
-                                            html.Div(
-                                                id="xy-view-contour-message",
-                                                className="mb-3",
-                                            ),
-                                            dcc.Graph(
-                                                id="xy-view-plot",
-                                                style={"height": "500px"},
-                                            ),
-                                        ],
-                                        id="xy-view-content",
-                                    )
-                                ],
-                                label_style={
-                                    "color": "#ffffff", 
-                                    "fontWeight": "bold",
-                                    "backgroundColor": "#17a2b8",
-                                    "border": "1px solid #17a2b8"
-                                },
-                                active_label_style={
-                                    "color": "#ffffff", 
-                                    "backgroundColor": "#138496",
-                                    "border": "1px solid #138496"
-                                },
-                            ),
                         ],
                         id="view-tabs",
                         active_tab="stratigraphy-cross-section",
@@ -1560,10 +1693,6 @@ def _build_view_card():
                         "available-mar-storage",
                         "Available MAR storage capacity based on stratigraphy and head limits",
                     ),
-                    tab_tooltip(
-                        "xy-view",
-                        "Plan-view (XY) map of the recharge site geometry",
-                    ),
                     dbc.Tooltip(
                         "Cross-section sketch of stratigraphy and key horizons",
                         target="stratigraphy-cross-section-plot",
@@ -1572,11 +1701,6 @@ def _build_view_card():
                     dbc.Tooltip(
                         "Groundwater level and available MAR storage visualization",
                         target="groundwater-plot",
-                        placement="top",
-                    ),
-                    dbc.Tooltip(
-                        "Plan-view layout of the MAR geometry",
-                        target="xy-view-plot",
                         placement="top",
                     ),
                 ]

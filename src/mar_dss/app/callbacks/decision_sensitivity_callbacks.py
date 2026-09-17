@@ -125,76 +125,41 @@ PARAMETER_DEFINITIONS = {
         "storage_key": "ground_surface_slope",
     },
     
-    # Environmental Quality (from input.yaml)
-    "vadose_zone_pollution": {
-        "name": "Vadose Zone Pollution",
+    # Environmental screening (from Water Quality tab)
+    "wq_source_contaminants": {
+        "name": "Source Water Contaminants",
+        "type": "categorical",
+        "group": "Environmental",
+        "allowed_values": ["Unknown", "No", "Yes"],
+        "storage_key": "wq_source_contaminants",
+    },
+    "wq_source_turbidity": {
+        "name": "Source Water Turbidity",
+        "type": "categorical",
+        "group": "Environmental",
+        "allowed_values": ["Unknown", "<5 NTU", "5-20 NTU", ">20 NTU"],
+        "storage_key": "wq_source_turbidity",
+    },
+    "wq_vadose_impacted": {
+        "name": "Vadose / Unsaturated Zone Impacted",
         "type": "categorical",
         "group": "Environmental Quality",
-        "allowed_values": [
-            "None",
-            "Yes, biodegradable Pollution",
-            "Yes, highly toxic contaminants in the vadose zone (e.g., heavy metals, volatile organic compounds, radioactive materials)"
-        ],
-        "storage_key": "vadose_zone_pollution",
-        "note": "Maps from vadose_pollution_flag and vadose_pollution_high_toxicity",
+        "allowed_values": ["Unknown", "No", "Yes"],
+        "storage_key": "wq_vadose_impacted",
     },
-    
-    # Environmental Risk Parameters (from environmental impact tab)
-    "tss_turbidity_risk": {
-        "name": "TSS/Turbidity Risk",
+    "wq_aquifer_anthropogenic": {
+        "name": "Target Aquifer Anthropogenic Contaminants",
         "type": "categorical",
         "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "tss_turbidity_risk",
+        "allowed_values": ["Unknown", "No", "Yes"],
+        "storage_key": "wq_aquifer_anthropogenic",
     },
-    "doc_toc_risk": {
-        "name": "DOC/TOC Risk",
+    "wq_aquifer_natural": {
+        "name": "Target Aquifer Naturally Occurring Contaminants",
         "type": "categorical",
         "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "doc_toc_risk",
-    },
-    "ph_alkalinity_risk": {
-        "name": "pH/Alkalinity Risk",
-        "type": "categorical",
-        "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "ph_alkalinity_risk",
-    },
-    "tds_salinity_risk": {
-        "name": "TDS/Salinity Risk",
-        "type": "categorical",
-        "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "tds_salinity_risk",
-    },
-    "inorganic_contaminants_risk": {
-        "name": "Inorganic Contaminants Risk",
-        "type": "categorical",
-        "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "inorganic_contaminants_risk",
-    },
-    "emerging_contaminants_risk": {
-        "name": "Emerging Contaminants Risk",
-        "type": "categorical",
-        "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "emerging_contaminants_risk",
-    },
-    "redox_compatibility_risk": {
-        "name": "Redox Compatibility Risk",
-        "type": "categorical",
-        "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "redox_compatibility_risk",
-    },
-    "pathogen_risk": {
-        "name": "Pathogen Risk",
-        "type": "categorical",
-        "group": "Environmental",
-        "allowed_values": ["LOW RISK", "MODERATE RISK", "HIGH RISK"],
-        "storage_key": "pathogen_risk",
+        "allowed_values": ["Unknown", "No", "Yes"],
+        "storage_key": "wq_aquifer_natural",
     },
 }
 

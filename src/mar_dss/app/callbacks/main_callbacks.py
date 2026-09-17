@@ -828,20 +828,19 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("water_conveyance", "open_canals_ditches")
             dash_storage.set_data("water_ownership", "legal_rights")
             dash_storage.set_data("pumping_needed", "no")
-            dash_storage.set_data("monthly_flow", [4500, 4200, 2800, 2200, 1800, 1500, 1200, 1000, 1300, 2000, 3800, 4100])
+            dash_storage.set_data("monthly_flow", [0.0] * 12)
+            dash_storage.set_data("view_runoff_calculator", False)
+            dash_storage.set_data("view_recharge_mound_outputs", False)
             dash_storage.set_data("physical_parameters", [])
             dash_storage.set_data("chemical_parameters", [])
             dash_storage.set_data("biological_indicators", [])
             dash_storage.set_data("emerging_contaminants", [])
-            # Reset water quality and geochemistry data
-            dash_storage.set_data("tss_turbidity_risk", "NOT AVAILABLE")
-            dash_storage.set_data("doc_toc_risk", "NOT AVAILABLE")
-            dash_storage.set_data("ph_alkalinity_risk", "NOT AVAILABLE")
-            dash_storage.set_data("tds_salinity_risk", "NOT AVAILABLE")
-            dash_storage.set_data("inorganic_contaminants_risk", "NOT AVAILABLE")
-            dash_storage.set_data("emerging_contaminants_risk", "NOT AVAILABLE")
-            dash_storage.set_data("redox_compatibility_risk", "NOT AVAILABLE")
-            dash_storage.set_data("pathogen_risk", "NOT AVAILABLE")
+            # Reset water quality screening
+            dash_storage.set_data("wq_source_contaminants", "Unknown")
+            dash_storage.set_data("wq_source_turbidity", "Unknown")
+            dash_storage.set_data("wq_vadose_impacted", "Unknown")
+            dash_storage.set_data("wq_aquifer_anthropogenic", "Unknown")
+            dash_storage.set_data("wq_aquifer_natural", "Unknown")
             dash_storage.set_data("vadose_zone_pollution", "None")
             # Reset hydrogeology data
             dash_storage.set_data("aq_type", "unconfined")
@@ -1055,7 +1054,7 @@ def setup_main_callbacks(app, dashboard_instance):
         prevent_initial_call=True,
     )
     def toggle_volume_estimates_help_modal(open_clicks, close_clicks, is_open):
-        """Open or close the Volume Estimates help popup."""
+        """Open or close the Flow Estimates help popup."""
         ctx = dash.callback_context
         if not ctx.triggered:
             return dash.no_update
@@ -1086,6 +1085,17 @@ def setup_main_callbacks(app, dashboard_instance):
         if trigger == "optional-runoff-help-close-btn":
             return False
         return bool(is_open)
+
+    @app.callback(
+        Output("optional-runoff-calculations-collapse", "is_open"),
+        Input("view-runoff-calculator-check", "value"),
+        prevent_initial_call=True,
+    )
+    def toggle_optional_runoff_calculations(view_runoff):
+        """Show or hide Optional Runoff Calculations when the view checkbox changes."""
+        checked = bool(view_runoff)
+        dash_storage.set_data("view_runoff_calculator", checked)
+        return checked
 
     # Callback for water source dropdown - saves to data storage
     @app.callback(

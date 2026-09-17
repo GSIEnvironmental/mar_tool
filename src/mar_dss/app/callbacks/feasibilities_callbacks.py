@@ -157,7 +157,7 @@ def _option_feasibility_badges(categorized_data):
     """Map option names to feasibility badge label and color."""
     badges = {}
     for opt in categorized_data.get("recommended", []):
-        badges[opt["name"]] = ("Recommended", "success")
+        badges[opt["name"]] = ("Pass", "success")
     for opt in categorized_data.get("conditional", []):
         badges[opt["name"]] = ("Conditional", "warning")
     for opt in categorized_data.get("rejected", []):

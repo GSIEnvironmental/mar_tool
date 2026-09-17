@@ -366,7 +366,7 @@ _TOP_TAB_TOOLTIPS = {
         "Subsurface conditions: stratigraphy, aquifer type, groundwater, and storage"
     ),
     "environmental": (
-        "Source water suitability assessment for MAR (quality and geochemistry)"
+        "Five screening questions on source water, vadose zone, and target aquifer quality"
     ),
     "legal": (
         "Legal and regulatory feasibility, permits, water rights, and "
