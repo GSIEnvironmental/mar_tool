@@ -1,597 +1,634 @@
 """
 Legal Constraints tab component.
 
-Managed Aquifer Recharge (MAR) legal and regulatory feasibility decision tree:
-- 4) Project/Jurisdiction screen
-- 1) Site feasibility
-- 2) Water source feasibility
-- 3) Water quality feasibility
-
-The project is feasible only if all three branches are Feasible or Conditionally feasible.
+(5.1) Regulatory considerations: informational checklist with expandable detail.
+(5.2) AI-powered regulatory and permitting factors.
+(5.3) AI-powered environmental, ecological, and cultural factors.
 """
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip, slider_tooltip_kwargs
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 from mar_dss.app.components.environmental_impact_tab import (
     create_environmental_considerations_content,
 )
-from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
-import mar_dss.app.utils.data_storage as dash_storage
 
 
-def _section_card(header_text, body_children):
-    """Standard dashboard card: blue header, white body."""
-    return dbc.Card(
+# Informational considerations (formerly questionnaire topics). Not scored.
+# Each item: (title, why_it_matters, example_obstacles_tuple)
+REGULATORY_CONSIDERATIONS = (
+    (
+        "Site feasibility",
+        (
+            (
+                "Site control and access (ownership, leases, easements)",
+                "MAR (managed aquifer recharge) facilities need long-term, reliable "
+                "control of the land and access routes for construction, operations, "
+                "monitoring wells, and emergency response. Incomplete ownership, short "
+                "leases, or missing easements can stop a project even when "
+                "hydrogeology is favorable.",
+                (
+                    "A proposed spreading basin sits on leased farmland whose "
+                    "lease expires in five years and cannot be extended for "
+                    "infrastructure, so financing and permits stall.",
+                    "An injection well site is reachable only across a private "
+                    "parcel; the landowner refuses a permanent access easement "
+                    "for drilling and maintenance trucks.",
+                    "Monitoring wells required by regulators would fall outside "
+                    "the owned parcel, and neighboring owners will not grant "
+                    "entry or well easements.",
+                ),
+            ),
+            (
+                "Land use and local approvals (zoning, conditional use, building, floodplain)",
+                "Local zoning and building rules determine whether recharge "
+                "basins, wells, berms, and treatment yards are allowed uses. "
+                "Floodplain or conditional-use constraints can add years of "
+                "hearings, redesign, or outright denial.",
+                (
+                    "A city zones the preferred basin site as residential and "
+                    "denies a conditional-use permit for large open-water "
+                    "recharge ponds near homes.",
+                    "County floodplain rules prohibit fill and berms needed for "
+                    "basin freeboard, forcing relocation to a less permeable "
+                    "site.",
+                    "Building permits for wellheads and electrical gear are "
+                    "delayed because the site lacks compliant road access and "
+                    "fire-flow infrastructure.",
+                ),
+            ),
+            (
+                "Waters and wetlands impacts (Clean Water Act §§404/401; Rivers and Harbors Act §10)",
+                "If basins, pipelines, or outfalls affect wetlands, streams, or "
+                "navigable waters, federal and state water-quality certifications "
+                "may be required under the Clean Water Act—for example §404 "
+                "(dredge/fill in waters of the United States), §401 (state "
+                "water-quality certification), and Rivers and Harbors Act §10 "
+                "(structures or work in navigable waters). Avoidance, mitigation, "
+                "and seasonal work windows can dominate schedule and cost.",
+                (
+                    "Basin excavation would fill jurisdictional wetlands; a "
+                    "Clean Water Act §404 permit is denied or requires mitigation "
+                    "that exceeds project budget.",
+                    "A diversion structure in a regulated stream triggers Rivers "
+                    "and Harbors Act §10 review and multi-year agency consultation.",
+                    "Clean Water Act §401 water-quality certification is withheld "
+                    "until extensive turbidity and habitat studies are completed.",
+                ),
+            ),
+            (
+                "Sensitive resources (endangered species, cultural/historic, critical areas)",
+                "Protected species, cultural sites, and critical habitat can "
+                "restrict ground disturbance, seasonal construction, and long-term "
+                "operations. Early surveys reduce the risk of late redesign or "
+                "project stoppage.",
+                (
+                    "Basin construction coincides with nesting season for a "
+                    "listed bird; work is barred for months each year, breaking "
+                    "the recharge construction schedule.",
+                    "A cultural resource survey finds eligible historic "
+                    "features; agencies require avoidance that eliminates the "
+                    "best infiltration footprint.",
+                    "Critical aquifer recharge or habitat overlays impose "
+                    "buffers that shrink usable basin area below design need.",
+                ),
+            ),
+            (
+                "Public lands and federal facilities authorizations",
+                "Projects on federal, military, or other public lands typically "
+                "need special-use permits, NEPA (National Environmental Policy "
+                "Act) review, or host-agency approval. Authorization timelines "
+                "and mission conflicts can block otherwise feasible sites.",
+                (
+                    "A Navy or BLM (Bureau of Land Management) special-use "
+                    "authorization is denied because recharge ponds conflict "
+                    "with training or conservation missions.",
+                    "Federal land managers require multi-year NEPA "
+                    "(National Environmental Policy Act) review before "
+                    "allowing well drilling, delaying water-availability "
+                    "targets.",
+                    "A right-of-way across public land for a conveyance pipeline "
+                    "is refused, isolating the only suitable recharge area.",
+                ),
+            ),
+            (
+                "Dam safety and geotechnical constraints",
+                "Berms, dikes, and large ponds may be regulated as dams. "
+                "Poor soils, liquefaction risk, or inadequate freeboard design "
+                "can force costly redesign or make a basin concept infeasible.",
+                (
+                    "State dam safety classifies basin embankments as "
+                    "jurisdictional dams requiring engineered spillways the "
+                    "sponsor cannot fund.",
+                    "Soft or collapsible soils fail slope-stability criteria, "
+                    "so regulators reject the basin geometry.",
+                    "Geotechnical investigations show high liquefaction "
+                    "potential under seismic loading, blocking embankment "
+                    "approval.",
+                ),
+            ),
+            (
+                "Subsidence and seismic constraints",
+                "Recharge and recovery can interact with land subsidence and "
+                "seismic hazards. Agencies may limit rates, volumes, or well "
+                "locations where ground movement or fault rupture risk is high.",
+                (
+                    "A basin near an active fault zone is rejected because "
+                    "embankment failure risk under earthquake loading is "
+                    "unacceptable.",
+                    "Historic subsidence makes regulators require intensive "
+                    "geodetic monitoring that the project cannot support.",
+                    "Injection near critical infrastructure is limited because "
+                    "of induced seismicity or ground-movement concerns.",
+                ),
+            ),
+        ),
+    ),
+    (
+        "Water source feasibility",
+        (
+            (
+                "Legal right or entitlement to the source water (including storage for recharge)",
+                "Without a clear legal right to divert, store, and recharge "
+                "water, a MAR project cannot operate. Entitlements must cover "
+                "timing, place of use, and often the storage of water "
+                "underground.",
+                (
+                    "Surface-water rights are junior and rarely available in "
+                    "wet years when recharge is needed most.",
+                    "A municipal allotment cannot be used for underground "
+                    "storage because the place-of-use description excludes "
+                    "recharge facilities.",
+                    "Stored-water credits are disputed, so lenders will not "
+                    "finance recovery wells.",
+                ),
+            ),
+            (
+                "Recharge authorization, accounting, and recovery (state managed aquifer recharge / aquifer storage and recovery framework)",
+                "Many states require explicit authorization to recharge and "
+                "later recover water under an MAR (managed aquifer recharge) or "
+                "ASR (aquifer storage and recovery) framework, plus accounting "
+                "rules that define credits, losses, and priority. Missing "
+                "framework approvals can strand invested infrastructure.",
+                (
+                    "The state does not have a formal ASR (aquifer storage and "
+                    "recovery) / MAR (managed aquifer recharge) "
+                    "storage-and-recovery accounting system, so even if water is "
+                    "recharged, the project may have no legal right to recover it "
+                    "later as credited project water.",
+                    "Credit calculations assume high losses, making recovered "
+                    "yield too small to justify cost.",
+                    "Recovery is limited to the same year as recharge, "
+                    "eliminating multi-year drought buffering.",
+                ),
+            ),
+            (
+                "Interstate compact or delivery compliance",
+                "Projects that use water subject to interstate compacts or "
+                "delivery contracts must stay within allocation and accounting "
+                "rules. Noncompliance can halt diversions or trigger "
+                "enforcement.",
+                (
+                    "Recharge diversions would violate compact delivery "
+                    "schedules to a downstream state.",
+                    "Contract water may only be used for irrigation, not "
+                    "underground storage for later municipal recovery.",
+                    "Compact accounting cannot track banked water, so the "
+                    "project cannot claim stored credits.",
+                ),
+            ),
+            (
+                "Source-specific compliance (stormwater, surface water, recycled water, agricultural drainage, or other)",
+                "Each source type carries distinct permitting, treatment, and "
+                "monitoring expectations. Choosing a source that cannot meet "
+                "those rules blocks the recharge pathway. For stormwater, an "
+                "MS4 (Municipal Separate Storm Sewer System) is a public "
+                "storm-drain network regulated under a Clean Water Act permit "
+                "that often limits untreated discharges—including to "
+                "infiltration or recharge facilities.",
+                (
+                    "Local MS4 (Municipal Separate Storm Sewer System) or "
+                    "industrial discharge rules prohibit sending untreated "
+                    "runoff to infiltration basins.",
+                    "Recycled-water regulations require advanced treatment "
+                    "before injection that the utility cannot build.",
+                    "Agricultural drain water exceeds salinity or pesticide "
+                    "limits for recharge under state policy.",
+                ),
+            ),
+            (
+                "Conveyance and wheeling agreements (ditches, canals, pipelines)",
+                "A wheeling agreement is a contract that lets you move your water "
+                "through someone else’s canal, ditch, or pipeline—usually for a fee "
+                "and under capacity and scheduling rules. Moving water to the "
+                "recharge site often depends on such third-party conveyance. Without "
+                "capacity and wheeling rights, physically available water cannot "
+                "reach the project.",
+                (
+                    "A canal company refuses a wheeling agreement during peak "
+                    "irrigation season when surplus water is available.",
+                    "Pipeline capacity is fully subscribed; no interruptible "
+                    "capacity remains for recharge pulses.",
+                    "Right-of-way for a new lateral cannot be obtained across "
+                    "multiple private parcels.",
+                ),
+            ),
+        ),
+    ),
+    (
+        "Water quality feasibility",
+        (
+            (
+                "Recharge method implications (infiltration, injection, or both)",
+                "Infiltration and injection face different permit pathways, "
+                "treatment expectations, and aquifer risks. Method choice "
+                "drives regulatory difficulty as much as hydrogeology does.",
+                (
+                    "Surface infiltration is preferred hydrologically, but "
+                    "land use only allows small well pads suited to injection.",
+                    "Injection is proposed where the aquifer is a drinking-water "
+                    "source, triggering stricter UIC (Underground Injection "
+                    "Control) and treatment rules than basin recharge would "
+                    "require.",
+                    "A dual method design creates two permit tracks that the "
+                    "sponsor cannot staff or fund simultaneously.",
+                ),
+            ),
+            (
+                "Underground Injection Control Class V (Safe Drinking Water Act) or equivalent permit feasibility",
+                "Injection wells typically need a UIC (Underground Injection "
+                "Control) Class V permit under the Safe Drinking Water Act (or "
+                "a state-equivalent authorization) demonstrating no endangerment "
+                "of underground sources of drinking water. Permit denial or "
+                "conditions can make injection infeasible.",
+                (
+                    "UIC (Underground Injection Control) reviewers reject the "
+                    "injection proposal because source water quality cannot meet "
+                    "no-endangerment demonstrations.",
+                    "Permit conditions require continuous treatment and "
+                    "shutdown criteria that exceed O&M (operations and "
+                    "maintenance) capacity.",
+                    "Well construction standards for Class V cannot be met "
+                    "in the local geology without prohibitive cost.",
+                ),
+            ),
+            (
+                "Receiving aquifer as an underground source of drinking water or planned potable use",
+                "If the receiving aquifer is or will be used for drinking water—"
+                "including designation as a USDW (underground source of drinking "
+                "water)—regulators apply stricter quality and monitoring "
+                "standards. That can require treatment levels the project cannot "
+                "deliver.",
+                (
+                    "The target aquifer is classified as a USDW (underground "
+                    "source of drinking water); untreated stormwater recharge "
+                    "is prohibited.",
+                    "A future municipal well field is planned downgradient, "
+                    "so agencies impose near-drinking-water standards on "
+                    "recharge water.",
+                    "Anti-degradation policy forbids any increase in key "
+                    "contaminants in a potable aquifer.",
+                ),
+            ),
+            (
+                "Ability to meet Safe Drinking Water Act maximum contaminant levels / no-endangerment and state reuse criteria",
+                "Projects must show recharged water will not cause MCL "
+                "(maximum contaminant level) exceedances under the Safe "
+                "Drinking Water Act, or violate state reuse criteria. Persistent "
+                "contaminants or unreliable treatment can block approval.",
+                (
+                    "Source nitrate or disinfection byproduct precursors "
+                    "routinely exceed levels acceptable for recharge.",
+                    "State reuse rules require full advanced treatment "
+                    "before any subsurface application.",
+                    "Pilot data show MCL (maximum contaminant level) "
+                    "exceedances in downgradient monitoring wells during "
+                    "recharge tests.",
+                ),
+            ),
+            (
+                "Anti-degradation and total maximum daily load compliance",
+                "Anti-degradation policies and TMDLs (total maximum daily "
+                "loads—the maximum amount of a pollutant a water body can "
+                "receive and still meet water-quality standards) can limit new "
+                "pollutant loads to groundwater or connected surface waters. "
+                "MAR (managed aquifer recharge) may be treated as a discharge "
+                "that must fit within remaining allocation.",
+                (
+                    "A TMDL (total maximum daily load) leaves no assimilative "
+                    "capacity for nutrients associated with the proposed source "
+                    "water.",
+                    "Anti-degradation review classifies the project as "
+                    "lowering high-quality groundwater, triggering denial.",
+                    "Connected surface-water TMDLs constrain recharge that "
+                    "would increase baseflow pollutant loads.",
+                ),
+            ),
+            (
+                "Geochemical compatibility (mobilization or precipitation risks)",
+                "Mixing recharge water with native groundwater can mobilize "
+                "arsenic, metals, or organics, or cause clogging precipitates. "
+                "Unfavorable geochemistry is a common technical and regulatory "
+                "obstacle.",
+                (
+                    "Oxic recharge mobilizes arsenic from aquifer sediments, "
+                    "raising downgradient concentrations above MCLs "
+                    "(maximum contaminant levels).",
+                    "Calcite or iron precipitation clogs injection wells "
+                    "within weeks, making continuous operation impractical.",
+                    "Regulators require geochemical modeling the project "
+                    "cannot validate with available mineralogy data.",
+                ),
+            ),
+            (
+                "Contaminants of emerging concern / PFAS and monitoring-order compliance",
+                "PFAS (per- and polyfluoroalkyl substances) and other CECs "
+                "(contaminants of emerging concern) are increasingly regulated "
+                "for reuse and recharge. Detection, treatment, or monitoring "
+                "orders can halt projects that otherwise meet conventional MCLs "
+                "(maximum contaminant levels).",
+                (
+                    "Source water or site soils contain PFAS (per- and "
+                    "polyfluoroalkyl substances) above proposed recharge "
+                    "thresholds with no affordable treatment path.",
+                    "A monitoring order requires multi-year CEC "
+                    "(contaminants of emerging concern) sampling before any "
+                    "recharge authorization is issued.",
+                    "Downgradient drinking-water wells trigger stricter "
+                    "PFAS limits that the project cannot guarantee.",
+                ),
+            ),
+            (
+                "Residuals handling (backwash/brine) permitting",
+                "Treatment trains for recharge often produce backwash, brine, "
+                "or residuals that need discharge or disposal permits. "
+                "Without a lawful residuals pathway, treatment cannot operate.",
+                (
+                    "RO (reverse osmosis) brine has no permitted discharge "
+                    "outlet or disposal well, blocking advanced pretreatment.",
+                    "Filter backwash solids fail landfill acceptance criteria.",
+                    "Local sewer capacity refuses high-TDS (total dissolved "
+                    "solids) residuals from treatment for injection.",
+                ),
+            ),
+            (
+                "Well construction and monitoring plan (state standards / Underground Injection Control)",
+                "Regulators typically require compliant well construction, "
+                "annular seals, and a monitoring network that can detect "
+                "migration or water-quality changes—often under UIC "
+                "(Underground Injection Control) rules. Inadequate monitoring "
+                "design can prevent permit issuance.",
+                (
+                    "State well standards require multi-point monitoring the "
+                    "sponsor cannot install because of land-access limits.",
+                    "UIC (Underground Injection Control) reviewers reject the "
+                    "monitoring plan as unable to detect vertical migration "
+                    "into a USDW (underground source of drinking water).",
+                    "Existing wells do not meet sanitary-seal standards and "
+                    "cannot be used as permitted injection or observation "
+                    "wells.",
+                ),
+            ),
+        ),
+    ),
+    (
+        "Project and jurisdiction screen",
+        (
+            (
+                "Federal nexus that may trigger federal environmental laws and reviews (for example National Environmental Policy Act, Endangered Species Act, National Historic Preservation Act)",
+                "Federal funding, permits, or land create a federal nexus that "
+                "can trigger NEPA (National Environmental Policy Act), ESA "
+                "(Endangered Species Act), NHPA (National Historic Preservation "
+                "Act), and related consultations. These reviews often control "
+                "overall schedule more than local permits.",
+                (
+                    "Federal cost-share triggers an EIS (environmental impact "
+                    "statement) lasting several years before construction can "
+                    "start.",
+                    "A federal permit requires ESA (Endangered Species Act) "
+                    "consultation that concludes with project-limiting "
+                    "reasonable and prudent measures.",
+                    "NHPA (National Historic Preservation Act) Section 106 "
+                    "consultation identifies adverse effects that force major "
+                    "alignment changes.",
+                ),
+            ),
+            (
+                "Tribal lands/resources or interstate context requiring additional coordination",
+                "Projects affecting tribal lands, treaty resources, or "
+                "interstate waters need early government-to-government or "
+                "multi-state coordination. Late engagement can stop permitting "
+                "or create unresolved opposition.",
+                (
+                    "Recharge may affect culturally important springs; tribal "
+                    "consultation results in a request to abandon the site.",
+                    "An interstate groundwater basin requires dual-state "
+                    "approvals that conflict on accounting rules.",
+                    "Treaty fishing or water rights concerns lead agencies to "
+                    "pause permits until mitigation is negotiated.",
+                ),
+            ),
+        ),
+    ),
+)
+
+
+def _slugify_consideration(section_idx: int, item_idx: int) -> str:
+    """Stable index key for Dash pattern-matching IDs."""
+    return f"{section_idx}-{item_idx}"
+
+
+def _consideration_item(
+    section_idx: int,
+    item_idx: int,
+    title: str,
+    why: str,
+    examples: tuple,
+    *,
+    is_last: bool = False,
+):
+    """One consideration row with collapsible detail."""
+    item_key = _slugify_consideration(section_idx, item_idx)
+    toggle_id = {"type": "reg-detail-toggle", "index": item_key}
+    collapse_id = {"type": "reg-detail-collapse", "index": item_key}
+
+    return html.Div(
         [
-            dbc.CardHeader(header_text, className="fw-bold bg-primary text-white py-2"),
-            dbc.CardBody(body_children, className="p-3"),
+            html.Div(
+                [
+                    html.Span(title, className="flex-grow-1"),
+                    dbc.Button(
+                        [
+                            html.I(className="fas fa-chevron-down me-1"),
+                            "View more",
+                        ],
+                        id=toggle_id,
+                        color="link",
+                        size="sm",
+                        className="py-0 px-1 text-primary text-nowrap",
+                        n_clicks=0,
+                    ),
+                ],
+                className="d-flex align-items-start justify-content-between gap-2",
+            ),
+            dbc.Collapse(
+                html.Div(
+                    [
+                        html.P(
+                            [html.Strong("Why it matters: "), why],
+                            className="mb-2 small",
+                        ),
+                        html.P(
+                            html.Strong("Example obstacles for MAR projects:"),
+                            className="mb-1 small",
+                        ),
+                        html.Ul(
+                            [html.Li(ex, className="mb-1 small") for ex in examples],
+                            className="mb-0 ps-3",
+                        ),
+                    ],
+                    className="mt-2 p-2 rounded border-start border-3 border-primary bg-light",
+                ),
+                id=collapse_id,
+                is_open=False,
+            ),
         ],
-        className="mb-3",
+        className="mb-0" if is_last else "mb-3 pb-2 border-bottom",
     )
-
-
-def _question_label(code, text):
-    """Sub-question label, e.g. 1.A, 2.B (Water Quality style)."""
-    return html.P(
-        [html.Span(f"{code} ", className="fw-bold text-primary"), text],
-        className="mb-2",
-    )
-
-
-def _radio(id_, options, value):
-    return dcc.RadioItems(
-        id=id_,
-        options=[{"label": o, "value": o} for o in options],
-        value=value,
-        className="d-flex flex-column",
-        labelStyle={"display": "block", "margin-bottom": "8px"},
-    )
-
-
-def _pill(label, color="secondary"):
-    return html.Span(label, className=f"badge bg-{color} ms-2")
 
 
 def create_basic_regulation_feasibility_content():
-    """Create the Basic Regulation Feasibility content (sub-tab 1)."""
+    """Create informational regulatory considerations (sub-tab 5.1) — no user scoring."""
+    section_cards = []
+    for section_idx, (section_title, items) in enumerate(REGULATORY_CONSIDERATIONS):
+        item_nodes = [
+            _consideration_item(
+                section_idx,
+                item_idx,
+                title,
+                why,
+                examples,
+                is_last=(item_idx == len(items) - 1),
+            )
+            for item_idx, (title, why, examples) in enumerate(items)
+        ]
+
+        section_cards.append(
+            dbc.Card(
+                [
+                    dbc.CardHeader(
+                        section_title,
+                        className="fw-bold bg-primary text-white py-2",
+                    ),
+                    dbc.CardBody(item_nodes, className="p-3"),
+                ],
+                className="mb-3",
+            )
+        )
+
     return [
-        dbc.Row(
+        html.H4(
+            "Regulatory Considerations",
+            className="mb-3 text-primary",
+        ),
+        html.P(
+            "Regulatory and permitting requirements for managed aquifer recharge are "
+            "complex and highly site-specific. This tab is meant to help you think "
+            "through some potential considerations early in planning—not to provide "
+            "a complete checklist or legal advice. The themes below are general "
+            "starting points only; they are not exhaustive, and what applies to your "
+            "project will depend on location, water source, recharge method, and "
+            "jurisdiction. Expand any item for why it matters and example obstacles. "
+            "This list is for planning awareness only—it is not scored and does not "
+            "affect feasibility rankings or the final engineering decision.",
+            className="text-muted mb-3",
+        ),
+        *section_cards,
+        dbc.Alert(
             [
-                # Left: Inputs
-                dbc.Col(
-                    [
-                        html.H3("Legal & Regulatory Feasibility Inputs", className="mb-4 text-primary"),
-                        dbc.Alert(
-                            [
-                                html.I(className="fas fa-triangle-exclamation me-2"),
-                                html.Strong("Legal disclaimer: "),
-                                "This decision aid is for informational purposes only and does not constitute legal advice. ",
-                                "Regulatory requirements vary by jurisdiction and project specifics. ",
-                                "Additional review may be required to confirm local, state, Tribal, and federal laws, permits, and approvals.",
-                            ],
-                            color="danger",
-                            className="mb-4",
-                        ),
-
-                        # 1) Site feasibility
-                        _section_card(
-                            "1) Site Feasibility (Location, Land Rights, Environmental Review)",
-                            [
-                                _question_label("1.A", "Site control and access"),
-                                _radio(
-                                    "legal-site-control",
-                                    ["Have site control", "Can secure site control", "Cannot secure site control (Prohibited)"],
-                                    "Have site control",
-                                ),
-                                html.Hr(),
-                                _question_label(
-                                    "1.B",
-                                    "Land use and local approvals (zoning/conditional use/building/floodplain)",
-                                ),
-                                _radio(
-                                    "legal-site-zoning",
-                                    ["Allowed", "Conditionally allowed (permit/variance)", "Prohibited (no variance)"],
-                                    "Allowed",
-                                ),
-                                html.Hr(),
-                                _question_label(
-                                    "1.C",
-                                    "Waters/wetlands impacts (CWA (Clean Water Act) §§404/401; RHA (Rivers and Harbors Act) §10)",
-                                ),
-                                _radio(
-                                    "legal-site-wetlands",
-                                    ["No impacts", "General permit likely", "Individual permit feasible", "Permit unlikely (Prohibited)"],
-                                    "No impacts",
-                                ),
-                                html.Hr(),
-                                _question_label("1.D", "Sensitive resources (ESA/cultural/historic/critical areas)"),
-                                _radio(
-                                    "legal-site-sensitive",
-                                    ["None", "Present - mitigable", "Present - unmitigable (Prohibited)"],
-                                    "None",
-                                ),
-                                html.Hr(),
-                                _question_label("1.E", "Public lands/federal facilities authorizations"),
-                                _radio(
-                                    "legal-site-public-lands",
-                                    ["Not applicable", "Authorizations obtainable", "Authorizations unobtainable (Prohibited)"],
-                                    "Not applicable",
-                                ),
-                                html.Hr(),
-                                _question_label("1.F", "Dam safety/geotechnical constraints"),
-                                _radio(
-                                    "legal-site-dams",
-                                    ["Not applicable", "Approvable with conditions", "Not approvable (Prohibited)"],
-                                    "Not applicable",
-                                ),
-                                html.Hr(),
-                                _question_label("1.G", "Subsidence/seismic constraints"),
-                                _radio(
-                                    "legal-site-seismic",
-                                    ["Compliant", "Mitigable", "Noncompliant (Prohibited)"],
-                                    "Compliant",
-                                ),
-                            ],
-                        ),
-
-                        # 2) Water source feasibility
-                        _section_card(
-                            "2) Water Source Feasibility (Rights, Compacts, Conveyance)",
-                            [
-                                _question_label(
-                                    "2.A",
-                                    "Legal right/entitlement to source (incl. storage for recharge)",
-                                ),
-                                _radio(
-                                    "legal-src-right",
-                                    ["Valid right/contract", "Obtainable without injury", "No path to a valid right (Prohibited)"],
-                                    "Valid right/contract",
-                                ),
-                                html.Hr(),
-                                _question_label(
-                                    "2.B",
-                                    "Recharge authorization, accounting, and recovery "
-                                    "(state MAR (Managed Aquifer Recharge)/ASR (Aquifer Storage and Recovery) framework)",
-                                ),
-                                _radio(
-                                    "legal-src-accounting",
-                                    ["Authorized", "Authorizable with conditions", "No statutory/administrative pathway (Prohibited)"],
-                                    "Authorized",
-                                ),
-                                html.Hr(),
-                                _question_label("2.C", "Interstate compact/delivery compliance"),
-                                _radio(
-                                    "legal-src-compact",
-                                    ["Not applicable", "Compliant", "Noncompliant (Prohibited)"],
-                                    "Not applicable",
-                                ),
-                                html.Hr(),
-                                _question_label("2.D", "Source-specific compliance feasible?"),
-                                dcc.Dropdown(
-                                    id="legal-src-type",
-                                    options=[
-                                        {"label": "Stormwater/Urban Runoff", "value": "stormwater"},
-                                        {"label": "Surface Water", "value": "surface"},
-                                        {"label": "Recycled Water", "value": "recycled"},
-                                        {"label": "Agricultural Drainage/Return Flows", "value": "ag"},
-                                        {"label": "Other/Industrial", "value": "other"},
-                                    ],
-                                    value="stormwater",
-                                    clearable=False,
-                                    style={"maxWidth": "420px"},
-                                ),
-                                _radio(
-                                    "legal-src-type-feasible",
-                                    ["Feasible", "Feasible with conditions", "Not feasible (Prohibited)"],
-                                    "Feasible",
-                                ),
-                                html.Hr(),
-                                _question_label("2.E", "Conveyance/wheeling agreements (ditches/canals/pipelines)"),
-                                _radio(
-                                    "legal-src-conveyance",
-                                    ["Available", "Negotiable", "Unavailable (Prohibited)"],
-                                    "Available",
-                                ),
-                            ],
-                        ),
-
-                        # 3) Water quality feasibility
-                        _section_card(
-                            "3) Water Quality Feasibility (UIC, Anti-degradation, Standards)",
-                            [
-                                _question_label("3.A", "Recharge method"),
-                                dcc.Dropdown(
-                                    id="legal-qual-method",
-                                    options=[
-                                        {"label": "Infiltration (basins/galleries)", "value": "infiltration"},
-                                        {"label": "Direct Injection (wells)", "value": "injection"},
-                                        {"label": "Both / To be determined", "value": "both"},
-                                    ],
-                                    value="infiltration",
-                                    clearable=False,
-                                    style={"maxWidth": "420px"},
-                                ),
-                                html.Br(),
-                                _question_label(
-                                    "3.B",
-                                    "UIC (Underground Injection Control) Class V (SDWA (Safe Drinking Water Act)) "
-                                    "or equivalent permit feasibility",
-                                ),
-                                _radio(
-                                    "legal-qual-uic",
-                                    ["Not applicable", "Feasible", "Not feasible (Prohibited)"],
-                                    "Not applicable",
-                                ),
-                                html.Hr(),
-                                _question_label(
-                                    "3.C",
-                                    "Receiving aquifer a USDW (Underground Source of Drinking Water) or planned potable use?",
-                                ),
-                                _radio(
-                                    "legal-qual-usdw",
-                                    ["No", "Yes - MCLs/no endangerment apply"],
-                                    "No",
-                                ),
-                                html.Br(),
-                                _question_label(
-                                    "3.D",
-                                    "Ability to meet SDWA (Safe Drinking Water Act) MCLs (Maximum Contaminant Levels)/"
-                                    "no-endangerment and state reuse criteria (if applicable)",
-                                ),
-                                _radio(
-                                    "legal-qual-mcls",
-                                    ["Assured", "Achievable with treatment/monitoring", "Cannot be met (Prohibited)"],
-                                    "Assured",
-                                ),
-                                html.Hr(),
-                                _question_label("3.E", "Anti-degradation/TMDL (Total Maximum Daily Load) compliance"),
-                                _radio(
-                                    "legal-qual-antideg",
-                                    ["No lowering", "Lowering justified with mitigation", "Likely with studies", "Not compliant (Prohibited)"],
-                                    "No lowering",
-                                ),
-                                html.Hr(),
-                                _question_label(
-                                    "3.F",
-                                    "Geochemical compatibility (mobilization/precipitation risks)",
-                                ),
-                                _radio(
-                                    "legal-qual-compat",
-                                    ["Acceptable", "Mitigable with treatment/modeling", "Not acceptable (Prohibited)"],
-                                    "Acceptable",
-                                ),
-                                html.Hr(),
-                                _question_label(
-                                    "3.G",
-                                    "CECs (Constituents of Emerging Concern)/PFAS (Per- and Polyfluoroalkyl Substances) "
-                                    "and monitoring orders compliance",
-                                ),
-                                _radio(
-                                    "legal-qual-cecs",
-                                    ["Compliant", "Compliant with advanced treatment", "Not compliant (Prohibited)"],
-                                    "Compliant",
-                                ),
-                                html.Hr(),
-                                _question_label("3.H", "Residuals handling (backwash/brine) permitting"),
-                                _radio(
-                                    "legal-qual-residuals",
-                                    ["Permittable", "Permittable with conditions", "Not permittable (Prohibited)"],
-                                    "Permittable",
-                                ),
-                                html.Hr(),
-                                _question_label("3.I", "Well construction & monitoring plan (state standards/UIC)"),
-                                _radio(
-                                    "legal-qual-wells",
-                                    ["Compliant", "Compliant with conditions", "Noncompliant (Prohibited)"],
-                                    "Compliant",
-                                ),
-                            ],
-                        ),
-
-                        # 4) Project/Jurisdiction screen
-                        _section_card(
-                            "4) Project/Jurisdiction Screen",
-                            [
-                                _question_label(
-                                    "4.A",
-                                    "(Federal nexus) Does your project have a direct federal connection "
-                                    "such that federal environmental laws and reviews are triggered?",
-                                ),
-                                _radio(
-                                    "legal-proj-federal-nexus",
-                                    ["No", "Yes - NEPA (National Environmental Policy Act) / ESA (Endangered Species Act) / NHPA (National Historic Preservation Act) likely"],
-                                    "No",
-                                ),
-                                html.Hr(),
-                                _question_label("4.B", "Tribal or interstate context?"),
-                                _radio(
-                                    "legal-proj-tribal-interstate",
-                                    ["None", "Tribal lands/resources", "Interstate compact", "Both"],
-                                    "None",
-                                ),
-                            ],
-                        ),
-                    ],
-                    width=12,
-                    lg=8,
-                    style={
-                        "max-height": "calc(100vh - 200px)",
-                        "overflow-y": "auto",
-                        "overflow-x": "hidden",
-                        "padding-right": "10px",
-                    },
-                ),
-
-                # Right: Outputs
-                dbc.Col(
-                    [
-                        html.H3("Legal/Regulatory Decision", className="mb-4 text-danger"),
-                        html.Div(id="legal-final-decision-output", className="mb-4"),
-
-                        html.H4("Regulatory Risk Score", className="mt-4 mb-3 text-info"),
-                        dcc.Graph(
-                            id="legal-risk-gauge",
-                            config={"displayModeBar": False, "responsive": True},
-                            style={"height": "250px", "width": "100%", "minHeight": "250px"},
-                        ),
-                        html.Div(id="legal-risk-details-output", className="alert alert-light border"),
-
-                        html.Hr(),
-                        html.H4("Branch Results", className="mt-4 mb-3 text-secondary"),
-                        _section_card("1) Site Branch Result", [html.Div(id="legal-branch-site-output")]),
-                        _section_card("2) Water Source Branch Result", [html.Div(id="legal-branch-source-output")]),
-                        _section_card("3) Water Quality Branch Result", [html.Div(id="legal-branch-quality-output")]),
-
-                        html.Hr(),
-                        html.H4("Required Permits & Approvals (Checklist)", className="mt-4 mb-3 text-secondary"),
-                        html.Ul(id="legal-required-permits-list", className="list-group"),
-                    ],
-                    width=12,
-                    lg=4,
-                    style={"position": "sticky", "top": "20px", "align-self": "start"},
-                ),
-            ]
-        ),
-        dbc.Tooltip(
-            "Source-water category for applying source-specific regulatory pathways",
-            target="legal-src-type",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Primary MAR delivery mechanism affecting UIC and construction rules",
-            target="legal-qual-method",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Summary regulatory risk index from your feasibility questionnaire",
-            target="legal-risk-gauge",
-            placement="top",
+                html.Strong("Next step: "),
+                "Use sub-tab (5.2) AI-Powered Regulatory and Permitting Factors to build "
+                "a location-specific prompt for your preferred AI model.",
+            ],
+            color="info",
+            className="mb-0",
         ),
     ]
 
 
 def create_ai_regulations_permits_content():
-    """Create the AI-Powered Regulations and Permits content (sub-tab 2)."""
-    gemini_api_key = _normalize_stored_string(dash_storage.get_data("gemini_api_key"))
-    gemini_api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
-    if not gemini_api_file:
-        gemini_api_file = r"C:\workspace\api\gemini.txt"
-    project_location = _normalize_stored_string(dash_storage.get_data("project_location"))
-
+    """Create regulations prompt-builder content (sub-tab 5.2). No in-app AI API."""
     return [
-        dbc.Alert([
-            html.Div("Choose how to generate MAR regulatory and permitting requirements:", className="fw-bold mb-2"),
-            html.Ul([
-                html.Li([
-                    html.Span("Option 1 — ", className="fw-bold"),
-                    html.Span("Gemini with personal API", className="fw-bold text-success"),
-                    html.Span(": enter your API key (right), set location, and click ", className="text-muted"),
-                    html.Span("Generate Regulations Matrix", className="fw-semibold"),
-                    html.Span(".", className="text-muted"),
-                ], className="mb-2"),
-                html.Li([
-                    html.Span("Option 2 — ", className="fw-bold"),
-                    html.Span(
-                        "Create the prompt and use it in your chosen AI model",
-                        className="fw-bold text-primary",
-                    ),
-                    html.Span(": click ", className="text-muted"),
-                    html.Span("Build Prompt", className="fw-semibold"),
-                    html.Span(", then ", className="text-muted"),
-                    html.Span("Copy Prompt", className="fw-semibold"),
-                    html.Span(
-                        " and paste into ChatGPT, Claude, Copilot, or another tool.",
-                        className="text-muted",
-                    ),
-                ], className="mb-0"),
-            ], className="mb-0 ps-3"),
-        ], color="light", className="border mb-3 py-2"),
-        dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(
-                        "AI-Generated MAR Regulations & Permits",
-                        className="fw-bold bg-primary text-white py-2",
-                    ),
-                    dbc.CardBody([
-                        html.Label("Location:", className="fw-bold small mb-1"),
-                        dbc.InputGroup([
-                            dbc.Input(
-                                id="mar-regs-location-input",
-                                type="text",
-                                value=project_location,
-                                placeholder="City, State or City, Country",
-                                size="sm",
-                            ),
-                            dbc.Button(
-                                [
-                                    html.I(className="fas fa-gavel me-1"),
-                                    "Generate Regulations Matrix",
-                                ],
-                                id="generate-mar-regs-btn",
-                                color="success",
-                                size="sm",
-                                n_clicks=0,
-                                title="Call Gemini to build a regulatory and permitting matrix",
-                            ),
-                        ], className="mb-1"),
+        dbc.Alert(
+            [
+                html.Div(
+                    "Build a regulatory and permitting prompt from the Project Location "
+                    "set on (1) Overview, then paste it into your preferred AI model. "
+                    "Results are generated as an HTML file that can be opened in any "
+                    "browser.",
+                    className="mb-0",
+                ),
+            ],
+            color="light",
+            className="border mb-3 py-2",
+        ),
+        dbc.Card(
+            [
+                dbc.CardHeader(
+                    "Build Regulations Prompt",
+                    className="fw-bold bg-primary text-white py-2",
+                ),
+                dbc.CardBody(
+                    [
                         html.Small(
-                            "Populated from Overview Project Location; edit if needed.",
+                            "Uses Project Location from the Overview tab. Create the prompt, "
+                            "then paste it into your preferred AI model.",
                             className="text-muted d-block mb-2",
                         ),
-                        dcc.Loading(
-                            id="mar-regs-loading",
-                            type="circle",
-                            color="#198754",
-                            parent_style={"minHeight": "80px"},
-                            children=html.Div(
-                                id="mar-regs-table-container",
-                                className="mb-3",
+                        dbc.ButtonGroup(
+                            [
+                                dbc.Button(
+                                    [html.I(className="fas fa-file-alt me-1"), "Build Prompt"],
+                                    id="build-mar-regs-prompt-btn",
+                                    color="outline-primary",
+                                    size="sm",
+                                    n_clicks=0,
+                                ),
+                                dbc.Button(
+                                    [html.I(className="fas fa-copy me-1"), "Copy Prompt"],
+                                    id="copy-mar-regs-prompt-btn",
+                                    color="outline-secondary",
+                                    size="sm",
+                                    n_clicks=0,
+                                ),
+                            ],
+                            className="mb-2",
+                        ),
+                        html.Div(id="mar-regs-prompt-feedback", className="mb-2"),
+                        dcc.Textarea(
+                            id="mar-regs-prompt-display",
+                            value="",
+                            readOnly=True,
+                            placeholder=(
+                                "Click Build Prompt to generate the text for the "
+                                "Overview project location…"
                             ),
+                            style={
+                                "width": "100%",
+                                "minHeight": "220px",
+                                "fontFamily": "monospace",
+                                "fontSize": "12px",
+                                "resize": "vertical",
+                            },
                         ),
-                        dbc.Row([
-                            dbc.Col([
-                                html.Label("Model:", className="fw-bold small mb-1"),
-                                dcc.Dropdown(
-                                    id="mar-regs-gemini-model-select",
-                                    options=[
-                                        {"label": "gemini-2.5-flash", "value": "gemini-2.5-flash"},
-                                        {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
-                                        {"label": "gemini-1.5-pro", "value": "gemini-1.5-pro"},
-                                        {"label": "gemini-pro", "value": "gemini-pro"},
-                                    ],
-                                    value=dash_storage.get_data("gemini_model") or "gemini-2.5-flash",
-                                    clearable=False,
-                                ),
-                            ], xs=12, md=6),
-                            dbc.Col([
-                                html.Label("Temperature:", className="fw-bold small mb-1"),
-                                dcc.Slider(
-                                    id="mar-regs-temperature-slider",
-                                    min=0.0,
-                                    max=2.0,
-                                    step=0.1,
-                                    value=float(dash_storage.get_data("gemini_temperature") or 0.5),
-                                    marks={0.0: "0", 1.0: "1", 2.0: "2"},
-                                    tooltip=slider_tooltip_kwargs(),
-                                ),
-                                html.Div(id="mar-regs-temperature-display", className="mt-1"),
-                            ], xs=12, md=6, className="mt-2 mt-md-0"),
-                        ], className="g-2"),
-                    ], className="p-3"),
-                ]),
-            ], xs=12, lg=7, className="mb-3 mb-lg-0"),
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(
-                        "Gemini API Settings",
-                        className="fw-bold bg-primary text-white py-2",
-                    ),
-                    dbc.CardBody([
-                        html.Label("Gemini API Key:", className="fw-bold small mb-1"),
-                        dbc.Input(
-                            id="mar-regs-gemini-api-key-input",
-                            type="password",
-                            value=gemini_api_key,
-                            placeholder="Enter API key (optional if file/env set)",
-                            debounce=True,
-                            size="sm",
-                            className="mb-1",
-                        ),
-                        html.Small(
-                            "Optional if using Gemini here. Stored locally. "
-                            "Get a key at aistudio.google.com/apikey",
-                            className="text-muted d-block mb-3",
-                        ),
-                        html.Label("API Key File Path:", className="fw-bold small mb-1"),
-                        dbc.Input(
-                            id="mar-regs-gemini-api-file-input",
-                            type="text",
-                            value=gemini_api_file,
-                            placeholder=r"C:\workspace\api\gemini.txt",
-                            debounce=True,
-                            size="sm",
-                            className="mb-1",
-                        ),
-                        html.Small(
-                            "Fallback file if key is not entered above.",
-                            className="text-muted",
-                        ),
-                    ], className="p-3"),
-                ], className="h-100"),
-            ], xs=12, lg=5, className="mb-3 mb-lg-0"),
-        ], className="mb-3 g-3 align-items-stretch"),
-        dbc.Card([
-            dbc.CardHeader(
-                "Use Your Own AI Model",
-                className="fw-bold bg-primary text-white py-2",
-            ),
-            dbc.CardBody([
-                html.Small(
-                    "Build the same prompt used for Gemini, then copy and paste it into "
-                    "ChatGPT, Claude, Copilot, or another AI tool if you prefer not to use Gemini.",
-                    className="text-muted d-block mb-2",
+                    ],
+                    className="p-3",
                 ),
-                dbc.ButtonGroup([
-                    dbc.Button(
-                        [html.I(className="fas fa-file-alt me-1"), "Build Prompt"],
-                        id="build-mar-regs-prompt-btn",
-                        color="outline-primary",
-                        size="sm",
-                        n_clicks=0,
-                    ),
-                    dbc.Button(
-                        [html.I(className="fas fa-copy me-1"), "Copy Prompt"],
-                        id="copy-mar-regs-prompt-btn",
-                        color="outline-secondary",
-                        size="sm",
-                        n_clicks=0,
-                    ),
-                ], className="mb-2"),
-                html.Div(id="mar-regs-prompt-feedback", className="mb-2"),
-                dcc.Textarea(
-                    id="mar-regs-prompt-display",
-                    value="",
-                    readOnly=True,
-                    placeholder="Click Build Prompt to generate the text for your location…",
-                    style={
-                        "width": "100%",
-                        "minHeight": "180px",
-                        "fontFamily": "monospace",
-                        "fontSize": "12px",
-                        "resize": "vertical",
-                    },
-                ),
-            ], className="p-3"),
-        ], className="mb-3"),
-        dbc.Tooltip(
-            "Google Gemini API key (stored locally for this session)",
-            target="mar-regs-gemini-api-key-input",
-            placement="top",
+            ],
+            className="mb-3",
         ),
         dbc.Tooltip(
-            "Optional text file on disk containing the API key",
-            target="mar-regs-gemini-api-file-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Gemini model used for regulatory matrix generation",
-            target="mar-regs-gemini-model-select",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Sampling temperature: lower is more deterministic; higher is more varied",
-            target="mar-regs-temperature-slider",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Plain-language place name sent to the AI",
-            target="mar-regs-location-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Create the MAR regulations prompt for the current location",
+            "Create the regulations prompt using Overview Project Location",
             target="build-mar-regs-prompt-btn",
             placement="top",
         ),
@@ -608,10 +645,45 @@ def create_legal_constraints_content():
     return [
         html.Div(
             [
-                        dbc.Tabs(
+                html.H4("How to use this tab", className="mb-2 text-primary"),
+                html.Ol(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Step 1 — (5.1) Regulatory Considerations: "),
+                                "Review the basic themes to understand potential "
+                                "regulatory and permitting issues for your project.",
+                            ],
+                            className="mb-2",
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Step 2 — (5.2) AI-Powered Regulatory and Permitting Factors: "),
+                                "Build a prompt, then paste it into your preferred AI model "
+                                "to identify permits, agencies, and regulations relevant to "
+                                "your project location.",
+                            ],
+                            className="mb-2",
+                        ),
+                        html.Li(
+                            [
+                                html.Strong(
+                                    "Step 3 — (5.3) AI-Powered Environmental, Ecological, "
+                                    "and Cultural Factors: "
+                                ),
+                                "Build a prompt, then paste it into your preferred AI model "
+                                "to explore environmental, ecological, and cultural factors "
+                                "that may affect project feasibility.",
+                            ],
+                            className="mb-0",
+                        ),
+                    ],
+                    className="mb-3 ps-3 text-muted",
+                ),
+                dbc.Tabs(
                     [
                         dbc.Tab(
-                            label="(5.1) Basic Regulation Feasibility",
+                            label="(5.1) Regulatory Considerations",
                             id=tab_nav_id("basic-regulation-tab"),
                             tab_id="basic-regulation-tab",
                             children=create_basic_regulation_feasibility_content(),
@@ -628,7 +700,7 @@ def create_legal_constraints_content():
                             },
                         ),
                         dbc.Tab(
-                            label="(5.2) AI-Powered Regulations and Permits",
+                            label="(5.2) AI-Powered Regulatory and Permitting Factors",
                             id=tab_nav_id("ai-regulations-permits-tab"),
                             tab_id="ai-regulations-permits-tab",
                             children=create_ai_regulations_permits_content(),
@@ -652,30 +724,30 @@ def create_legal_constraints_content():
                             label_style={
                                 "color": "#ffffff",
                                 "fontWeight": "bold",
-                                "backgroundColor": "#17a2b8",
-                                "border": "1px solid #17a2b8",
+                                "backgroundColor": "#20c997",
+                                "border": "1px solid #20c997",
                             },
                             active_label_style={
                                 "color": "#ffffff",
-                                "backgroundColor": "#138496",
-                                "border": "1px solid #138496",
+                                "backgroundColor": "#1aa179",
+                                "border": "1px solid #1aa179",
                             },
                         ),
                     ],
-                    id="legal-subtabs",
+                    id="legal-constraints-tabs",
                     active_tab="basic-regulation-tab",
                 ),
                 tab_tooltip(
                     "basic-regulation-tab",
-                    "Structured regulatory decision tree: site, water source, and water quality feasibility",
+                    "Informational regulatory and permitting themes (not scored)",
                 ),
                 tab_tooltip(
                     "ai-regulations-permits-tab",
-                    "AI-generated regulatory requirements, permits, agency coordination, and legal considerations for your site",
+                    "AI-assisted location-specific regulatory and permitting factors",
                 ),
                 tab_tooltip(
                     "environmental-considerations-tab",
-                    "AI-generated environmental, ecological, and cultural MAR factors for your site",
+                    "AI-assisted environmental, ecological, and cultural factors",
                 ),
             ]
         )

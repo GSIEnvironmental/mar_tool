@@ -165,20 +165,6 @@ def create_dashboard_content():
                                                 [
                                                     dbc.Col(
                                                         [
-                                                            html.H6("Legal Considerations", className="text-muted"),
-                                                            dbc.Progress(
-                                                                id="feasibility-metric-legal",
-                                                                value=0,
-                                                                color="info",
-                                                                className="mb-2"
-                                                            ),
-                                                            html.Small("Regulatory compliance and water rights", className="text-muted")
-                                                        ],
-                                                        width=6,
-                                                        className="mb-3"
-                                                    ),
-                                                    dbc.Col(
-                                                        [
                                                             html.H6("Cost Analysis", className="text-muted"),
                                                             dbc.Progress(
                                                                 id="feasibility-metric-cost",
@@ -190,11 +176,7 @@ def create_dashboard_content():
                                                         ],
                                                         width=6,
                                                         className="mb-3"
-                                                    )
-                                                ]
-                                            ),
-                                            dbc.Row(
-                                                [
+                                                    ),
                                                     dbc.Col(
                                                         [
                                                             html.H6("Technical Complexity", className="text-muted"),
@@ -208,7 +190,11 @@ def create_dashboard_content():
                                                         ],
                                                         width=6,
                                                         className="mb-3"
-                                                    ),
+                                                    )
+                                                ]
+                                            ),
+                                            dbc.Row(
+                                                [
                                                     dbc.Col(
                                                         [
                                                             html.H6("Social Acceptance", className="text-muted"),

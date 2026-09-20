@@ -55,12 +55,11 @@ MILES_TO_FEET = 5280
 
 # Feasibility score weights
 FEASIBILITY_WEIGHTS = {
-    "physical": 0.25,
-    "environmental": 0.20,
-    "legal": 0.20,
-    "cost": 0.15,
-    "technical": 0.10,
-    "social": 0.10
+    "physical": 0.30,
+    "environmental": 0.25,
+    "cost": 0.20,
+    "technical": 0.15,
+    "social": 0.10,
 }
 
 # Default feasibility scores by technology
@@ -421,21 +420,6 @@ def calculate_environmental_feasibility():
         return 60  # Default moderate
 
 
-def calculate_legal_feasibility():
-    """Calculate legal feasibility score based on constraints assessment."""
-    legal_fatal = dash_storage.get_data("legal_fatal_issues") or False
-    legal_conditional = dash_storage.get_data("legal_conditional_issues") or 0
-    
-    if legal_fatal:
-        return 0  # Not feasible
-    elif legal_conditional > 2:
-        return 50  # Conditionally feasible
-    elif legal_conditional > 0:
-        return 75  # Some conditions
-    else:
-        return 100  # Fully feasible
-
-
 def calculate_cost_feasibility(selected_technology):
     """Calculate cost feasibility score based on capital costs."""
     raw = dash_storage.get_data("capital_cost_num")
@@ -480,7 +464,6 @@ def calculate_individual_feasibility_metrics(selected_technology, graph=None):
     metrics = {
         "physical": 0,
         "environmental": 0,
-        "legal": 0,
         "cost": 0,
         "technical": 0,
         "social": 0
@@ -510,7 +493,6 @@ def calculate_individual_feasibility_metrics(selected_technology, graph=None):
         # Calculate each metric using dedicated functions
         metrics["physical"] = calculate_physical_feasibility(selected_technology, graph, node_values, aq_type)
         metrics["environmental"] = calculate_environmental_feasibility()
-        metrics["legal"] = calculate_legal_feasibility()
         metrics["cost"] = calculate_cost_feasibility(selected_technology)
         metrics["technical"] = calculate_technical_complexity(selected_technology)
         metrics["social"] = calculate_social_acceptance(selected_technology)

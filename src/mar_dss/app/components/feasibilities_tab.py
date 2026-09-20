@@ -123,34 +123,9 @@ def create_feasibilities_content():
                 ],
                 className="mb-2"
             ),
-            # Fourth row: Regulation Heatmap and Cost Comparison
+            # Fourth row: Cost Comparison
             dbc.Row(
                 [
-                    dbc.Col(
-                        [
-                            dbc.Card(
-                                [
-                                    dbc.CardHeader(
-                                        "Regulation Constraints",
-                                        className="fw-bold text-white py-2",
-                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
-                                    ),
-                                    dbc.CardBody(
-                                        [
-                                            dcc.Graph(
-                                                id="regulation-constraints-heatmap-chart",
-                                                style={"height": "300px"},
-                                                config={"displayModeBar": False}
-                                            ),
-                                            html.Div(id="regulation-constraints-heatmap-legend", className="mt-2")
-                                        ],
-                                        style={"padding": "0.5rem", "minHeight": "350px"}
-                                    )
-                                ]
-                            )
-                        ],
-                        width=6
-                    ),
                     dbc.Col(
                         [
                             dbc.Card(
@@ -210,7 +185,7 @@ def create_feasibilities_content():
                                 ]
                             )
                         ],
-                        width=6
+                        width=12
                     )
                 ],
                 className="mb-2"
@@ -233,11 +208,6 @@ def create_feasibilities_content():
             dbc.Tooltip(
                 "Constraint intensity for environmental criteria",
                 target="environmental-constraints-heatmap-chart",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Constraint intensity for permitting and regulatory criteria",
-                target="regulation-constraints-heatmap-chart",
                 placement="top",
             ),
             dbc.Tooltip(

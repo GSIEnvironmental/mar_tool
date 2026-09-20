@@ -26,7 +26,7 @@ def _get_decision_matrix(dss_results):
     
     Returns:
         pandas.DataFrame: Decision matrix with options as rows and metrics as columns.
-        Columns: Hydrogeologic, Environmental, Regulation, Capital Cost Efficiency, 
+        Columns: Hydrogeologic, Environmental, Capital Cost Efficiency,
                  Maintenance Cost Efficiency, NPV Efficiency
     """
     if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
@@ -105,7 +105,6 @@ def _get_decision_matrix(dss_results):
         # Get constraint scores
         hydro_score = option_scores.get("hydrogeologic", 0.0)
         env_score = option_scores.get("environmental", 0.0)
-        reg_score = option_scores.get("regulation", 0.0)
         
         # Calculate cost efficiencies
         capital_col = option_to_capital_col.get(option_name)
@@ -143,7 +142,6 @@ def _get_decision_matrix(dss_results):
         matrix_data.append([
             hydro_score,
             env_score,
-            reg_score,
             capital_efficiency,
             maintenance_efficiency,
             npv_efficiency
@@ -157,7 +155,6 @@ def _get_decision_matrix(dss_results):
         columns=[
             "Hydrogeologic",
             "Environmental",
-            "Regulation",
             "Capital Cost Efficiency",
             "Maintenance Cost Efficiency",
             "NPV Efficiency"
@@ -231,7 +228,6 @@ def setup_dss_algorithm_callbacks(app):
             Input("analysis-tabs", "active_tab"),
             Input("weight-hydrogeologic", "value"),
             Input("weight-environmental", "value"),
-            Input("weight-regulation", "value"),
             Input("weight-capital-cost", "value"),
             Input("weight-maintenance-cost", "value"),
             Input("weight-npv", "value")
@@ -242,7 +238,6 @@ def setup_dss_algorithm_callbacks(app):
         active_tab,
         weight_hydro,
         weight_env,
-        weight_reg,
         weight_capital,
         weight_maintenance,
         weight_npv
@@ -278,7 +273,6 @@ def setup_dss_algorithm_callbacks(app):
         weights = {
             "Hydrogeologic": weight_hydro if weight_hydro is not None else 1.0,
             "Environmental": weight_env if weight_env is not None else 1.0,
-            "Regulation": weight_reg if weight_reg is not None else 1.0,
             "Capital Cost Efficiency": weight_capital if weight_capital is not None else 1.0,
             "Maintenance Cost Efficiency": weight_maintenance if weight_maintenance is not None else 1.0,
             "NPV Efficiency": weight_npv if weight_npv is not None else 1.0

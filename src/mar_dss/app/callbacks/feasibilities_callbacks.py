@@ -380,15 +380,6 @@ def _get_empty_dashboard_content():
     
     empty_env_heatmap_legend = html.Div()
     
-    empty_reg_heatmap_fig = go.Figure()
-    empty_reg_heatmap_fig.update_layout(
-        title="Regulation Constraints Heatmap",
-        template="plotly_white",
-        height=300
-    )
-    
-    empty_reg_heatmap_legend = html.Div()
-    
     empty_capital_fig = go.Figure()
     empty_capital_fig.update_layout(
         title="Capital Cost",
@@ -418,7 +409,6 @@ def _get_empty_dashboard_content():
     return (empty_engineering_summary,
             empty_hydro_heatmap_fig, empty_hydro_heatmap_legend,
             empty_env_heatmap_fig, empty_env_heatmap_legend,
-            empty_reg_heatmap_fig, empty_reg_heatmap_legend,
             empty_capital_fig, empty_maintenance_fig, empty_npv_fig,
             empty_spider_plots)
 
@@ -1041,8 +1031,6 @@ def setup_feasibilities_callbacks(app):
          Output("hydrogeologic-constraints-heatmap-legend", "children"),
          Output("environmental-constraints-heatmap-chart", "figure"),
          Output("environmental-constraints-heatmap-legend", "children"),
-         Output("regulation-constraints-heatmap-chart", "figure"),
-         Output("regulation-constraints-heatmap-legend", "children"),
          Output("capital-cost-chart", "figure"),
          Output("maintenance-cost-chart", "figure"),
          Output("npv-cost-chart", "figure"),
@@ -1105,9 +1093,6 @@ def setup_feasibilities_callbacks(app):
         env_heatmap_fig, env_heatmap_legend = _create_constraints_heatmap(
             results, filters, constraint_type="environmental", title="Environmental Constraints Heatmap"
         )
-        reg_heatmap_fig, reg_heatmap_legend = _create_constraints_heatmap(
-            results, filters, constraint_type="Regulation", title="Regulation Constraints Heatmap"
-        )
         
         capital_fig, maintenance_fig, npv_fig = _create_cost_comparison_charts()
         
@@ -1120,8 +1105,6 @@ def setup_feasibilities_callbacks(app):
             hydro_heatmap_legend,
             env_heatmap_fig,
             env_heatmap_legend,
-            reg_heatmap_fig,
-            reg_heatmap_legend,
             capital_fig,
             maintenance_fig,
             npv_fig,
@@ -1220,7 +1203,6 @@ def _create_spider_plots(dss_results, categorized_data):
         # Get scores
         hydro_score = option_scores.get("hydrogeologic", 0.0)
         env_score = option_scores.get("environmental", 0.0)
-        reg_score = option_scores.get("regulation", 0.0)
 
         not_feasible = _is_option_not_feasible(categorized_data, option_name)
 
@@ -1277,7 +1259,6 @@ def _create_spider_plots(dss_results, categorized_data):
         categories = [
             'Hydrogeologic',
             'Environmental',
-            'Regulation',
             'Capital Cost Efficiency',
             'Maintenance Cost Efficiency',
             'NPV Efficiency',
@@ -1286,7 +1267,6 @@ def _create_spider_plots(dss_results, categorized_data):
         values = [
             hydro_score,
             env_score,
-            reg_score,
             capital_efficiency,
             maintenance_efficiency,
             npv_efficiency,

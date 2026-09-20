@@ -31,6 +31,28 @@ def initial_feasibility_option_label(option_name: str) -> str:
     return INITIAL_FEASIBILITY_OPTION_LABELS.get(option_name, option_name)
 
 
+# Typical hydrogeologic defaults by soil / lithology type (K ft/day, Ss 1/ft, Sy -).
+# "Other" uses mid-range averages across the named types (geom. mean K; mean Sy/Ss).
+SOIL_PROPERTIES = {
+    "Gravel": {"conductivity": 100.0, "storage": 0.0001, "yield": 0.30},
+    "Sand": {"conductivity": 10.0, "storage": 0.0001, "yield": 0.25},
+    "Silt": {"conductivity": 0.01, "storage": 0.0001, "yield": 0.10},
+    "Loam": {"conductivity": 0.001, "storage": 0.0001, "yield": 0.05},
+    "Clay": {"conductivity": 0.0001, "storage": 0.0001, "yield": 0.01},
+    "Other": {"conductivity": 0.063, "storage": 0.0001, "yield": 0.14},
+}
+
+
+def soil_property_defaults(soil_type: str) -> dict:
+    """Return K / Ss / Sy defaults for a soil type (falls back to Other)."""
+    props = SOIL_PROPERTIES.get(soil_type) or SOIL_PROPERTIES["Other"]
+    return {
+        "conductivity": props["conductivity"],
+        "storage": props["storage"],
+        "yield": props["yield"],
+    }
+
+
 def normalize_stratigraphy_recharge_target(rows):
     """Ensure exactly one row has recharge_target True; default to the first (top) layer."""
     if not rows:
@@ -50,10 +72,31 @@ parameters = ["Depth of No MAR Storage Zone", "MAR Storage Zone", "Max. Groundwa
 
 def default_stratigraphy_layers():
     """Default three-layer profile used when no stratigraphy exists in storage."""
+    sand = soil_property_defaults("Sand")
+    silt = soil_property_defaults("Silt")
+    gravel = soil_property_defaults("Gravel")
     return [
-        {"layer": "Sand", "thickness": 60.0, "conductivity": 10.0, "storage": 0.0001, "yield": 0.25, "selected": False, "recharge_target": True},
-        {"layer": "Silt", "thickness": 60.0, "conductivity": 0.01, "storage": 0.0001, "yield": 0.10, "selected": False, "recharge_target": False},
-        {"layer": "Gravel", "thickness": 60.0, "conductivity": 100.0, "storage": 0.0001, "yield": 0.30, "selected": False, "recharge_target": False},
+        {
+            "layer": "Sand",
+            "thickness": 60.0,
+            **sand,
+            "selected": False,
+            "recharge_target": True,
+        },
+        {
+            "layer": "Silt",
+            "thickness": 60.0,
+            **silt,
+            "selected": False,
+            "recharge_target": False,
+        },
+        {
+            "layer": "Gravel",
+            "thickness": 60.0,
+            **gravel,
+            "selected": False,
+            "recharge_target": False,
+        },
     ]
 
 
@@ -237,13 +280,17 @@ def create_default_parameters_help_modal():
                     html.H6("Site / geometry defaults", className="fw-bold mb-2"),
                     html.Dl(
                         [
-                            html.Dt("Aquitard conductivity (ft/day)", className="fw-bold"),
+                            html.Dt(
+                                "Aquitard hydraulic conductivity (ft/day)",
+                                className="fw-bold",
+                            ),
                             html.Dd(
                                 "Maximum hydraulic conductivity used to classify a stratigraphy "
-                                "layer as an aquitard. Layers at or below this K are treated as "
-                                "confining units when inferring confined vs unconfined geometry. "
+                                "layer as an aquitard. Layers at or below this hydraulic "
+                                "conductivity are treated as confining units when inferring "
+                                "confined versus unconfined geometry. "
                                 "Changing it can flip aquifer type, which switches mounding "
-                                "methods, dry-well vs injection logic, and which feasibility "
+                                "methods, dry-well versus injection logic, and which feasibility "
                                 "rules apply.",
                                 className="mb-3",
                             ),
@@ -269,9 +316,13 @@ def create_default_parameters_help_modal():
                     html.H6("Rule defaults (overrides)", className="fw-bold mb-2"),
                     html.Dl(
                         [
-                            html.Dt("K min vadose threshold (ft/day)", className="fw-bold"),
+                            html.Dt(
+                                "Minimum vadose hydraulic conductivity threshold (ft/day)",
+                                className="fw-bold",
+                            ),
                             html.Dd(
-                                "Minimum vadose-zone K treated as suitable for infiltration. "
+                                "Minimum vadose-zone hydraulic conductivity treated as "
+                                "suitable for infiltration. "
                                 "Below this, spreading/surface recharge is less favorable, "
                                 "topsoil may be flagged as limiting, and operational "
                                 "groundwater-depth rules tighten — often reducing surface "
@@ -288,37 +339,43 @@ def create_default_parameters_help_modal():
                                 className="mb-3",
                             ),
                             html.Dt(
-                                "Excessive deep aquifer — lower / upper (ft)",
+                                "Confined aquifer depth thresholds — moderate / too deep (ft)",
                                 className="fw-bold",
                             ),
                             html.Dd(
-                                "Depth band for classifying confined target depth as Low / "
-                                "Moderate Deep / Too Deep. Deeper classification lowers aquifer "
+                                "Two depth-to-target thresholds for confined aquifers "
+                                "(shallower number first). Depth at or below the moderate "
+                                "threshold is Low Depth (best). Between the moderate and "
+                                "too-deep thresholds is Moderate Deep (cost warning). Deeper "
+                                "than the too-deep threshold is Too Deep (reject). Defaults "
+                                "are 1500 ft and 3000 ft. Deeper classification lowers aquifer "
                                 "property scores and can push options toward poor feasibility "
                                 "or higher cost (deeper wells).",
                                 className="mb-3",
                             ),
-                            html.Dt("Maximum rechargability (%)", className="fw-bold"),
+                            html.Dt("Minimum recharge efficiency (%)", className="fw-bold"),
                             html.Dd(
-                                "Minimum fraction of source water that must be recharged for "
-                                "surface (or confined) recharge to pass efficiency checks. "
-                                "Raising it makes the Recharge Efficiency hard constraint "
-                                "stricter; lowering it makes more sites/options pass that "
-                                "metric and can improve rankings.",
+                                "Minimum fraction of annual source water that an option must "
+                                "recharge to pass the Recharge Efficiency check. "
+                                "Raising it makes that hard constraint stricter; lowering it "
+                                "makes more sites/options pass and can improve rankings.",
                                 className="mb-3",
                             ),
                             html.Dt(
-                                "Max injection Q per well (ft³/day)",
+                                "Maximum injection flow rate per well (ft³/day)",
                                 className="fw-bold",
                             ),
                             html.Dd(
-                                "Cap on injection (and related dry-well) rate per well. "
+                                "Cap on injection (and related dry-well) flow rate per well. "
                                 "Lower caps increase the number of wells needed for the same "
-                                "volume → higher capital/O&M cost and can fail if well count "
-                                "hits the max-wells limit.",
+                                "volume → higher capital and operations and maintenance cost "
+                                "and can fail if well count hits the maximum-wells limit.",
                                 className="mb-3",
                             ),
-                            html.Dt("Max number of injection wells", className="fw-bold"),
+                            html.Dt(
+                                "Maximum number of injection wells",
+                                className="fw-bold",
+                            ),
                             html.Dd(
                                 "Hard cap on injection / dry-well counts in sizing rules. "
                                 "If required wells exceed this, capacity is truncated — "
@@ -327,7 +384,7 @@ def create_default_parameters_help_modal():
                                 className="mb-3",
                             ),
                             html.Dt(
-                                "Max dry well infiltration rate (in/hr)",
+                                "Maximum dry well infiltration rate (inches/hour)",
                                 className="fw-bold",
                             ),
                             html.Dd(
@@ -337,7 +394,7 @@ def create_default_parameters_help_modal():
                                 className="mb-3",
                             ),
                             html.Dt(
-                                "Max dry well transfer rate (gpm)",
+                                "Maximum dry well transfer rate (gallons/minute)",
                                 className="fw-bold",
                             ),
                             html.Dd(
@@ -347,22 +404,23 @@ def create_default_parameters_help_modal():
                                 className="mb-3",
                             ),
                             html.Dt(
-                                "Max drywell depth — rule cutoff vs screen depth (ft)",
+                                "Maximum dry well depth — rule cutoff versus screen depth (ft)",
                                 className="fw-bold",
                             ),
                             html.Dd(
                                 "Rule cutoff compared with operating groundwater depth when "
                                 "sizing dry wells (distinct from the construction depth "
-                                "limit above). Larger cutoff reduces available head (dh) for "
-                                "dry-well capacity; too large can zero out dry wells.",
+                                "limit above). Larger cutoff reduces available head difference "
+                                "for dry-well capacity; too large can zero out dry wells.",
                                 className="mb-3",
                             ),
                             html.Dt("Minimum groundwater depth (ft)", className="fw-bold"),
                             html.Dd(
                                 "Shallowest allowed depth to water (below ground) for "
-                                "operations and spreading-basin mound limits (graph input "
-                                "d_gw_min). Larger values leave more unsaturated buffer but "
-                                "can shrink usable MAR storage and make shallow sites fail; "
+                                "operations and spreading-basin mound limits. "
+                                "Larger values leave more unsaturated buffer but "
+                                "can shrink usable managed aquifer recharge storage and make "
+                                "shallow sites fail; "
                                 "smaller values are more permissive but raise waterlogging risk.",
                                 className="mb-3",
                             ),
@@ -405,8 +463,8 @@ def create_default_parameters_help_modal():
                                 [
                                     html.Strong("Initial Hydrologic Feasibility — "),
                                     "Traffic-light pass/warn/fail for each engineering option "
-                                    "uses these thresholds (K, depth, leakage, rechargability, "
-                                    "well caps, GW depth).",
+                                    "uses these thresholds (hydraulic conductivity, depth, "
+                                    "leakage, rechargability, well caps, groundwater depth).",
                                 ]
                             ),
                             html.Li(
@@ -420,7 +478,7 @@ def create_default_parameters_help_modal():
                             html.Li(
                                 [
                                     html.Strong("Hard / soft constraints — "),
-                                    "Recharge efficiency, mound/GW limits, and vadose "
+                                    "Recharge efficiency, mound/groundwater limits, and vadose "
                                     "residence-time checks can pass or fail options before "
                                     "ranking.",
                                 ]
@@ -460,8 +518,9 @@ def create_default_hydrologic_parameters_tab_content():
     """Content for the (3.2) Default Parameters tab (same level as 3.1)."""
     notice = html.Div(
         (
-            "The default parameters here are generally reasonable. "
-            "You do not need to change them unless you have reliable field data."
+            "These default parameters are used in the initial feasibility check and are "
+            "considered generally reasonable. They do not need to be updated unless you "
+            "have reliable field data."
         ),
         className="text-success fw-bold mb-3",
     )
@@ -964,7 +1023,12 @@ def _build_stratigraphy_tab():
             html.Div(
                 [
                     html.H5("Stratigraphy Configuration", className="mb-3"),
-                    html.P("Configure soil layers and their hydrogeological properties.", className="mb-4"),
+                    html.P(
+                        "Configure soil layers and their hydrogeological properties. "
+                        "Selecting a soil type auto-fills hydraulic conductivity, "
+                        "specific storage, and specific yield (you can still edit them).",
+                        className="mb-4",
+                    ),
                     
                     html.Div(id="stratigraphy-error-message", className="mb-3", children=[]),
                     
@@ -989,7 +1053,7 @@ def _build_stratigraphy_tab():
                             html.Thead([
                                 html.Tr([
                                     html.Th("Select", style={"width": "4%"}),
-                                    html.Th("Layer", style={"width": "16%"}),
+                                    html.Th("Soil Type", style={"width": "16%"}),
                                     html.Th("Recharge Target Layer", style={"width": "12%"}, className="text-center"),
                                     html.Th("Thickness (ft)", style={"width": "13%"}),
                                     html.Th("Hydraulic Conductivity (ft/day)", style={"width": "18%"}),
@@ -1226,11 +1290,11 @@ def _build_groundwater_level_tab():
 
 
 def create_horizontal_extension_help_modal():
-    """Help modal for Horizontal Extension Configuration."""
+    """Help modal for Horizontal Extent Configuration."""
     return dbc.Modal(
         [
             dbc.ModalHeader(
-                dbc.ModalTitle("Horizontal Extension Configuration Help"),
+                dbc.ModalTitle("Horizontal Extent Configuration Help"),
                 close_button=True,
             ),
             dbc.ModalBody(
@@ -1306,7 +1370,7 @@ def _build_horizontal_extension_panel():
             html.Div(
                 [
                     html.H5(
-                        "Horizontal Extension",
+                        "Horizontal Extent",
                         className="mb-0",
                     ),
                     html.Button(
@@ -1314,7 +1378,7 @@ def _build_horizontal_extension_panel():
                         id="horizontal-extension-help-btn",
                         type="button",
                         className="mar-help-btn",
-                        title="Help: horizontal extension configuration",
+                        title="Help: horizontal extent configuration",
                     ),
                 ],
                 className="d-flex align-items-center gap-2 mb-3",
@@ -1456,7 +1520,7 @@ def create_recharge_mound_outputs_help_modal():
                     ),
                     html.Dl(
                         [
-                            html.Dt("Horizontal Extension", className="fw-bold"),
+                            html.Dt("Horizontal Extent", className="fw-bold"),
                             html.Dd(
                                 "Length, width, and rotation of the recharge footprint "
                                 "used in mounding and plan-view analysis.",
@@ -1590,7 +1654,7 @@ def _build_geometry_card():
     return dbc.Card(
         [
             dbc.CardHeader(
-                "Geometry and Stratigraphy",
+                "Stratigraphy and Groundwater Levels",
                 className="fw-bold bg-primary text-white",
             ),
             dbc.CardBody(
@@ -1729,9 +1793,9 @@ def _input_field_note(text: str):
 RULE_DEFAULT_SCALAR_ROWS = [
     (
         "k_min_vadose_threshold",
-        "K min vadose threshold (ft/day)",
+        "Minimum vadose hydraulic conductivity threshold (ft/day)",
         0.01,
-        "Minimum K treated as vadose-dominated for classification rules.",
+        "Minimum hydraulic conductivity treated as vadose-dominated for classification rules.",
     ),
     (
         "leakage_radius",
@@ -1741,37 +1805,37 @@ RULE_DEFAULT_SCALAR_ROWS = [
     ),
     (
         "maximum_rechargability",
-        "Maximum rechargability (%)",
+        "Minimum recharge efficiency (%)",
         1,
-        "Upper bound on the fraction of source water that may be recharged (%).",
+        "Lowest acceptable percent of annual source water that an option must recharge to pass.",
     ),
     (
         "max_injection_Q_per_well",
-        "Max injection Q per well (ft³/day)",
+        "Maximum injection flow rate per well (ft³/day)",
         1,
-        "Maximum injection rate assumed per well for feasibility and routing rules.",
+        "Maximum injection flow rate assumed per well for feasibility and routing rules.",
     ),
     (
         "max_number_of_injection_wells",
-        "Max number of injection wells",
+        "Maximum number of injection wells",
         1,
         "Cap on the count of injection wells used in scenario logic.",
     ),
     (
         "max_dry_well_infiltration_rate_in_per_hr",
-        "Max dry well infiltration rate (in/hr)",
+        "Maximum dry well infiltration rate (inches/hour)",
         1,
-        "Upper limit on surface infiltration into the dry well (in/hr).",
+        "Upper limit on surface infiltration into the dry well (inches per hour).",
     ),
     (
         "max_dry_well_transfer_rate_gpm",
-        "Max dry well transfer rate (gpm)",
+        "Maximum dry well transfer rate (gallons/minute)",
         1,
-        "Upper limit on pumping or transfer into the dry well (gpm).",
+        "Upper limit on pumping or transfer into the dry well (gallons per minute).",
     ),
     (
         "max_drywell_depth_ft",
-        "Max drywell depth — rule cutoff vs screen depth (ft)",
+        "Maximum dry well depth — rule cutoff versus screen depth (ft)",
         1,
         "Rule cutoff comparing screen depth to defaults—not the construction depth limit above.",
     ),
@@ -1779,7 +1843,8 @@ RULE_DEFAULT_SCALAR_ROWS = [
         "d_gw_min",
         "Minimum groundwater depth (ft)",
         0.1,
-        "Shallowest allowed depth to water table (below ground). Used for operational GW depth and spreading-basin mound limits.",
+        "Shallowest allowed depth to water table (below ground). Used for operational "
+        "groundwater depth and spreading-basin mound limits.",
     ),
     (
         "vadose_effective_porosity",
@@ -1864,7 +1929,7 @@ def _build_rule_defaults_fields_children():
         dbc.Col(
             [
                 html.Label(
-                    "Excessive deep aquifer — lower (ft)",
+                    "Confined aquifer — moderate-depth threshold (ft)",
                     className="mb-0 small",
                     htmlFor=lo_id,
                     style={"fontSize": "0.72rem", "lineHeight": 1.2, "color": "#000"},
@@ -1880,7 +1945,8 @@ def _build_rule_defaults_fields_children():
                     style={"color": "#000"},
                 ),
                 _input_field_note(
-                    "Lower bound of screened aquifer depth (ft) classed as excessively deep."
+                    "Depths deeper than this (up to the too-deep threshold) are Moderate Deep. "
+                    "Default 1500 ft. Must be less than the too-deep threshold."
                 ),
             ],
             xs=12,
@@ -1891,7 +1957,7 @@ def _build_rule_defaults_fields_children():
         dbc.Col(
             [
                 html.Label(
-                    "Excessive deep aquifer — upper (ft)",
+                    "Confined aquifer — too-deep threshold (ft)",
                     className="mb-0 small",
                     htmlFor=hi_id,
                     style={"fontSize": "0.72rem", "lineHeight": 1.2, "color": "#000"},
@@ -1907,7 +1973,8 @@ def _build_rule_defaults_fields_children():
                     style={"color": "#000"},
                 ),
                 _input_field_note(
-                    "Upper bound (ft) of the excessively deep aquifer depth band for rules."
+                    "Depths deeper than this are Too Deep (rejected for confined options). "
+                    "Default 3000 ft. Must be greater than the moderate-depth threshold."
                 ),
             ],
             xs=12,
@@ -1992,12 +2059,25 @@ def _build_geometry_hydrogeologic_parameters_card():
             create_default_parameters_help_modal(),
             dbc.CardBody(
                 [
+                    dbc.Button(
+                        "Reset to default values",
+                        id="reset-default-parameters-btn",
+                        color="secondary",
+                        size="sm",
+                        outline=True,
+                        className="mb-3",
+                        n_clicks=0,
+                        title=(
+                            "Restore all Default Parameters on this page to their "
+                            "built-in original values"
+                        ),
+                    ),
                     dbc.Row(
                         [
                             dbc.Col(
                                 [
                                     html.Label(
-                                        "Aquitard conductivity (ft/day)",
+                                        "Aquitard hydraulic conductivity (ft/day)",
                                         className="mb-0 small",
                                         htmlFor="aquitard-conductivity-input",
                                         style={"fontSize": "0.72rem", "color": "#000"},
@@ -2015,7 +2095,7 @@ def _build_geometry_hydrogeologic_parameters_card():
                                     ),
                                     _input_field_note(
                                         "Layers with hydraulic conductivity at or below this value are treated "
-                                        "as aquitards when inferring confined vs unconfined aquifer geometry."
+                                        "as aquitards when inferring confined versus unconfined aquifer geometry."
                                     ),
                                     dbc.Tooltip(
                                         "Maximum hydraulic conductivity (ft/day) for classifying a stratigraphy "

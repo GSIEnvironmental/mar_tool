@@ -369,8 +369,8 @@ _TOP_TAB_TOOLTIPS = {
         "Five screening questions on source water, vadose zone, and target aquifer quality"
     ),
     "legal": (
-        "Legal and regulatory feasibility, permits, water rights, and "
-        "AI environmental considerations"
+        "Informational regulatory considerations, AI permits matrix, and "
+        "AI environmental factors (not scored in DSS decisions)"
     ),
     "engineering-options": (
         "Engineering design parameters and cost estimation (capital, O&M, NPV)"
@@ -449,7 +449,7 @@ def _build_tabs():
                 }
             ),
             dbc.Tab(
-                label="(5) Regulations",
+                label="(5) Regulatory and Environmental",
                 id=tab_nav_id("legal"),
                 tab_id="legal",
                 label_style={

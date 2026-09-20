@@ -59,22 +59,6 @@ def create_dss_algorithm_content():
                     ),
                     dbc.Col(
                         [
-                            html.Label("Regulation", className="small fw-bold mb-1"),
-                            dbc.Input(
-                                id="weight-regulation",
-                                type="number",
-                                value=1.0,
-                                debounce=True,
-                                min=0,
-                                max=10,
-                                step=0.1,
-                                size="sm"
-                            )
-                        ],
-                        width=2
-                    ),
-                    dbc.Col(
-                        [
                             html.Label("Capital Cost Eff.", className="small fw-bold mb-1"),
                             dbc.Input(
                                 id="weight-capital-cost",
@@ -222,11 +206,6 @@ def create_dss_algorithm_content():
             dbc.Tooltip(
                 "Relative weight for environmental suitability scores",
                 target="weight-environmental",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Relative weight for regulatory / permitting scores",
-                target="weight-regulation",
                 placement="top",
             ),
             dbc.Tooltip(

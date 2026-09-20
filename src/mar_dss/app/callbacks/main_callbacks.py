@@ -831,6 +831,7 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("monthly_flow", [0.0] * 12)
             dash_storage.set_data("view_runoff_calculator", False)
             dash_storage.set_data("view_recharge_mound_outputs", False)
+            dash_storage.set_data("view_treatment_cost_guidance", False)
             dash_storage.set_data("physical_parameters", [])
             dash_storage.set_data("chemical_parameters", [])
             dash_storage.set_data("biological_indicators", [])

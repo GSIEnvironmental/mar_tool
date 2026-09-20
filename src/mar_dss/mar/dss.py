@@ -203,30 +203,27 @@ class DecisionSupportSystem:
         
         Hard constraints in MAR DSS are physical / hydrogeologic feasibility checks only
         (see ``mar.hard_constraints``). If any fail, the option is rejected in
-        :meth:`evaluate`, but environmental and regulation scores are still derived from
-        their soft metrics so dashboards (e.g. spider plots) can show those dimensions.
+        :meth:`evaluate`, but environmental scores are still derived from soft metrics
+        so dashboards (e.g. spider plots) can show that dimension.
         In that case only ``hydrogeologic`` is forced to 0.0 here.
+        Regulation questionnaire scoring is not included (informational only).
         
         Returns:
             {
                 "hydrogeologic": float (0-100),
                 "environmental": float (0-100),
-                "regulation": float (0-100)
             }
         """
         hard_fail = any(not hc.get("pass", True) for hc in self.hard_constraints)
 
-        # Group soft constraints by type
+        # Group soft constraints by type (regulation intentionally omitted)
         type_constraints = {
             "hydrogeologic": [],
             "environmental": [],
-            "regulation": []
         }
         
         for sm in self.soft_metrics:
             constraint_type = sm.get("type", "").lower()
-            # Map "regulation" (from "Regulation") to "regulation" for consistency
-            # Already lowercased, so just check if it's in our type_constraints
             
             if constraint_type in type_constraints:
                 response_level = sm.get("response", 0)

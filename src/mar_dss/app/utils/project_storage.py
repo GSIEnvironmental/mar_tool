@@ -33,9 +33,6 @@ _STRING_KEYS = frozenset({
     "wq_vadose_impacted",
     "wq_aquifer_anthropogenic",
     "wq_aquifer_natural",
-    "gemini_api_key",
-    "gemini_api_file",
-    "gemini_model",
 })
 
 
@@ -126,6 +123,7 @@ def build_project_storage_defaults() -> dict[str, Any]:
         "monthly_flow": [0.0] * 12,
         "view_runoff_calculator": False,
         "view_recharge_mound_outputs": False,
+        "view_treatment_cost_guidance": False,
         "physical_parameters": [],
         "chemical_parameters": [],
         "biological_indicators": [],
@@ -155,8 +153,6 @@ def build_project_storage_defaults() -> dict[str, Any]:
         "overview_map_location_label": "",
         "overview_map_basemap": DEFAULT_OVERVIEW_MAP_BASEMAP,
         "water_source_map_site": "source_site",
-        "gemini_model": "gemini-2.5-flash",
-        "gemini_temperature": 0.5,
     }
 
 

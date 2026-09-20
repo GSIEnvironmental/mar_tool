@@ -8,7 +8,6 @@ from dash import dcc, html, dash_table
 import plotly.graph_objects as go
 import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # --- Data Structures for Logic and Display ---
@@ -530,6 +529,206 @@ def _wq_question_block(question, *, last: bool = False):
     return html.Div(children)
 
 
+def _build_treatment_cost_guidance_card():
+    """Collapsible complementary treatment-cost guidance below the main WQ screening."""
+    view_costs = bool(dash_storage.get_data("view_treatment_cost_guidance"))
+    cost_body = html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.P(
+                                "Treatment Cost",
+                                className="text-center mb-1 small fw-bold",
+                                style={"fontSize": "0.85rem"},
+                            ),
+                            dcc.Graph(
+                                id="env-cost-gauge",
+                                config={"displayModeBar": False, "responsive": True},
+                                style={
+                                    "height": "200px",
+                                    "width": "100%",
+                                    "minHeight": "200px",
+                                },
+                            ),
+                            dbc.Tooltip(
+                                "Order-of-magnitude treatment cost index from selected technologies",
+                                target="env-cost-gauge",
+                                placement="top",
+                            ),
+                        ],
+                        width=12,
+                        md=4,
+                        className="mb-3 mb-md-0",
+                    ),
+                    dbc.Col(
+                        [
+                            html.H6(
+                                "Cost Details",
+                                className="mb-1 text-info small",
+                                style={"fontSize": "0.85rem"},
+                            ),
+                            html.Div(
+                                id="env-cost-details-output",
+                                className="alert alert-light border mb-0 small",
+                                style={"padding": "0.5rem", "fontSize": "0.8rem"},
+                            ),
+                        ],
+                        width=12,
+                        md=8,
+                    ),
+                ],
+                className="mb-3 g-3 align-items-start",
+            ),
+            html.H6(
+                "Treatment Cost Summary Table",
+                className="mt-2 mb-2 text-dark",
+                style={"fontSize": "0.95rem"},
+            ),
+            html.Div(
+                dash_table.DataTable(
+                    id="env-treatment-appendix-table",
+                    columns=[{"name": i, "id": i} for i in TREATMENT_DF.columns],
+                    data=TREATMENT_DF.to_dict("records"),
+                    style_header={
+                        "backgroundColor": "#f8f9fa",
+                        "fontWeight": "bold",
+                        "fontSize": "11px",
+                    },
+                    style_cell={
+                        "textAlign": "left",
+                        "minWidth": "70px",
+                        "width": "100px",
+                        "maxWidth": "200px",
+                        "whiteSpace": "normal",
+                        "border": "1px solid #dee2e6",
+                        "fontSize": "11px",
+                        "padding": "5px",
+                    },
+                    style_header_conditional=[
+                        {
+                            "if": {"column_id": "Treatment Technology"},
+                            "backgroundColor": "#e3f2fd",
+                            "color": "#0d47a1",
+                        },
+                        {
+                            "if": {"column_id": "Cost Range ($/ft³)"},
+                            "backgroundColor": "#e8f5e9",
+                            "color": "#1b5e20",
+                        },
+                        {
+                            "if": {"column_id": "Capital Cost Scale"},
+                            "backgroundColor": "#fff3e0",
+                            "color": "#e65100",
+                        },
+                        {
+                            "if": {"column_id": "O&M Intensity"},
+                            "backgroundColor": "#f3e5f5",
+                            "color": "#4a148c",
+                        },
+                        {
+                            "if": {"column_id": "Best For"},
+                            "backgroundColor": "#ede7f6",
+                            "color": "#283593",
+                        },
+                    ],
+                    style_data_conditional=[
+                        {
+                            "if": {"column_id": "Treatment Technology"},
+                            "backgroundColor": "#f5faff",
+                        },
+                        {
+                            "if": {"column_id": "Cost Range ($/ft³)"},
+                            "backgroundColor": "#f4fbf4",
+                        },
+                        {
+                            "if": {"column_id": "Capital Cost Scale"},
+                            "backgroundColor": "#fff8ef",
+                        },
+                        {
+                            "if": {"column_id": "O&M Intensity"},
+                            "backgroundColor": "#faf4fb",
+                        },
+                        {
+                            "if": {"column_id": "Best For"},
+                            "backgroundColor": "#f6f4fb",
+                        },
+                    ],
+                    export_format="csv",
+                ),
+                className="mb-2",
+                style={"maxWidth": "100%", "overflowX": "auto"},
+            ),
+            dbc.Tooltip(
+                "Reference treatment technologies and indicative unit costs",
+                target="env-treatment-appendix-table",
+                placement="top",
+            ),
+        ]
+    )
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.Span(
+                                    "Treatment Cost Guidance",
+                                    className="fw-bold me-3",
+                                ),
+                                dbc.Checkbox(
+                                    id="view-treatment-cost-guidance-check",
+                                    label=html.Strong(
+                                        "Show optional treatment cost estimates"
+                                    ),
+                                    value=view_costs,
+                                    className="mb-0 text-white",
+                                    input_class_name="me-1",
+                                    label_class_name="text-white mb-0",
+                                ),
+                            ],
+                            className="d-flex align-items-center flex-wrap gap-2",
+                        ),
+                    ],
+                    className="d-flex align-items-center justify-content-between w-100",
+                ),
+                className="bg-primary text-white py-2",
+            ),
+            dbc.Collapse(
+                dbc.CardBody(
+                    [
+                        dbc.Alert(
+                            [
+                                html.Strong("Disclaimer: "),
+                                "These numbers are crude, first-order-of-magnitude estimates only. "
+                                "Actual treatment costs are complex and difficult to reduce to "
+                                "generic values—they vary strongly from site to site with water "
+                                "chemistry, flow rates, treatment train design, regulations, "
+                                "and local construction and operating conditions.",
+                            ],
+                            color="warning",
+                            className="mb-3 py-2 small",
+                        ),
+                        html.P(
+                            "Use the scorer, cost details, and summary table below as "
+                            "complementary screening guidance when comparing treatment needs—"
+                            "not as a detailed engineering cost estimate.",
+                            className="text-muted fs-6 mb-3",
+                        ),
+                        cost_body,
+                    ],
+                    className="p-3",
+                ),
+                id="treatment-cost-guidance-collapse",
+                is_open=view_costs,
+            ),
+        ],
+        className="mb-3",
+    )
+
+
 def create_water_quality_content():
     """Create the Water Quality screening content."""
     question_blocks = [
@@ -558,80 +757,27 @@ def create_water_quality_content():
                     ),
                     dbc.CardBody(question_blocks, className="p-3"),
                 ], className="mb-3", style={"border-left": "4px solid #007bff"}),
-
-                html.Hr(className="my-2"),
-                html.H6("Treatment Cost Summary Table", className="mt-2 mb-2 text-dark", style={"fontSize": "0.95rem"}),
-                html.Div(
-                    dash_table.DataTable(
-                        id='env-treatment-appendix-table',
-                        columns=[{"name": i, "id": i} for i in TREATMENT_DF.columns],
-                        data=TREATMENT_DF.to_dict('records'),
-                        style_header={
-                            'backgroundColor': '#f8f9fa',
-                            'fontWeight': 'bold',
-                            'fontSize': '11px'
-                        },
-                        style_cell={
-                            'textAlign': 'left',
-                            'minWidth': '70px', 'width': '100px', 'maxWidth': '200px',
-                            'whiteSpace': 'normal',
-                            'border': '1px solid #dee2e6',
-                            'fontSize': '11px',
-                            'padding': '5px'
-                        },
-                        style_header_conditional=[
-                            {'if': {'column_id': 'Treatment Technology'}, 'backgroundColor': '#e3f2fd', 'color': '#0d47a1'},
-                            {'if': {'column_id': 'Cost Range ($/ft³)'}, 'backgroundColor': '#e8f5e9', 'color': '#1b5e20'},
-                            {'if': {'column_id': 'Capital Cost Scale'}, 'backgroundColor': '#fff3e0', 'color': '#e65100'},
-                            {'if': {'column_id': "O&M Intensity"}, 'backgroundColor': '#f3e5f5', 'color': '#4a148c'},
-                            {'if': {'column_id': 'Best For'}, 'backgroundColor': '#ede7f6', 'color': '#283593'}
-                        ],
-                        style_data_conditional=[
-                            {'if': {'column_id': 'Treatment Technology'}, 'backgroundColor': '#f5faff'},
-                            {'if': {'column_id': 'Cost Range ($/ft³)'}, 'backgroundColor': '#f4fbf4'},
-                            {'if': {'column_id': 'Capital Cost Scale'}, 'backgroundColor': '#fff8ef'},
-                            {'if': {'column_id': "O&M Intensity"}, 'backgroundColor': '#faf4fb'},
-                            {'if': {'column_id': 'Best For'}, 'backgroundColor': '#f6f4fb'}
-                        ],
-                        export_format='csv'
-                    ),
-                    className="mb-2",
-                    style={
-                        "maxWidth": "100%",
-                        "overflowX": "auto"
-                    }
-                )
             ], width=12, lg=7, style={
                 "padding-right": "10px"
             }),
 
             dbc.Col([
-                html.H6("Risk Score & Treatment Cost", className="mb-2 text-info", style={"fontSize": "0.95rem"}),
+                html.H6("Water Quality Score", className="mb-2 text-info", style={"fontSize": "0.95rem"}),
                 dbc.Row([
                     dbc.Col([
-                        html.P("Risk Score", className="text-center mb-1 small fw-bold", style={"fontSize": "0.85rem"}),
+                        html.P("Water Quality Score", className="text-center mb-1 small fw-bold", style={"fontSize": "0.85rem"}),
                         dcc.Graph(
                             id='env-score-gauge',
                             config={'displayModeBar': False, 'responsive': True},
                             style={'height': '200px', 'width': '100%', 'minHeight': '200px'}
                         ),
-                    ], width=6),
-                    dbc.Col([
-                        html.P("Treatment Cost", className="text-center mb-1 small fw-bold", style={"fontSize": "0.85rem"}),
-                        dcc.Graph(
-                            id='env-cost-gauge',
-                            config={'displayModeBar': False, 'responsive': True},
-                            style={'height': '200px', 'width': '100%', 'minHeight': '200px'}
-                        ),
-                    ], width=6),
+                    ], width=12),
                 ], className="mb-2"),
 
                 html.H6("Final Assessment", className="mb-2 text-danger", style={"fontSize": "0.95rem"}),
                 html.Div(id='env-final-decision-output', className="mb-2"),
-                html.H6("Risk Score Details", className="mt-2 mb-1 text-info small", style={"fontSize": "0.85rem"}),
+                html.H6("Water Quality Score Details", className="mt-2 mb-1 text-info small", style={"fontSize": "0.85rem"}),
                 html.Div(id='env-score-details-output', className="alert alert-light border mb-2 small", style={"padding": "0.5rem", "fontSize": "0.8rem"}),
-                html.H6("Cost Details", className="mt-2 mb-1 text-info small", style={"fontSize": "0.85rem"}),
-                html.Div(id='env-cost-details-output', className="alert alert-light border mb-2 small", style={"padding": "0.5rem", "fontSize": "0.8rem"}),
                 html.Hr(className="my-2"),
                 html.H6("Required Treatment & Recommendations", className="mt-2 mb-2 text-info", style={"fontSize": "0.95rem"}),
                 html.Div(id='env-treatment-summary-output', className="mb-2"),
@@ -643,20 +789,11 @@ def create_water_quality_content():
                 "align-self": "start"
             }),
         ]),
+        _build_treatment_cost_guidance_card(),
         *question_tooltips,
-        dbc.Tooltip(
-            "Reference treatment technologies and indicative unit costs",
-            target="env-treatment-appendix-table",
-            placement="top",
-        ),
         dbc.Tooltip(
             "Composite suitability score from the screening questions",
             target="env-score-gauge",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Order-of-magnitude treatment cost index from selected technologies",
-            target="env-cost-gauge",
             placement="top",
         ),
             ],
@@ -666,235 +803,78 @@ def create_water_quality_content():
 
 
 def create_environmental_considerations_content():
-    """Create the Environmental Considerations content (sub-tab 4.2)."""
-    gemini_api_key = _normalize_stored_string(dash_storage.get_data("gemini_api_key"))
-    gemini_api_file = _normalize_stored_string(dash_storage.get_data("gemini_api_file"))
-    if not gemini_api_file:
-        gemini_api_file = r"C:\workspace\api\gemini.txt"
-    project_location = str(dash_storage.get_data("project_location") or "").strip()
-
+    """Create environmental factors prompt-builder content (Legal 5.3). No in-app AI API."""
     return [
-        dbc.Alert([
-            html.Div("Choose how to generate MAR environmental factors:", className="fw-bold mb-2"),
-            html.Ul([
-                html.Li([
-                    html.Span("Option 1 — ", className="fw-bold"),
-                    html.Span(
-                        "Gemini with personal API",
-                        className="fw-bold text-success",
-                    ),
-                    html.Span(
-                        ": enter your API key (right), set location, and click ",
-                        className="text-muted",
-                    ),
-                    html.Span("Generate MAR Factors", className="fw-semibold"),
-                    html.Span(".", className="text-muted"),
-                ], className="mb-2"),
-                html.Li([
-                    html.Span("Option 2 — ", className="fw-bold"),
-                    html.Span(
-                        "Create the prompt and use it in your chosen AI model",
-                        className="fw-bold text-primary",
-                    ),
-                    html.Span(
-                        ": click ",
-                        className="text-muted",
-                    ),
-                    html.Span("Build Prompt", className="fw-semibold"),
-                    html.Span(", then ", className="text-muted"),
-                    html.Span("Copy Prompt", className="fw-semibold"),
-                    html.Span(
-                        " and paste into ChatGPT, Claude, Copilot, or another tool.",
-                        className="text-muted",
-                    ),
-                ], className="mb-0"),
-            ], className="mb-0 ps-3"),
-        ], color="light", className="border mb-3 py-2"),
-        dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(
-                        "AI-Generated MAR Factors",
-                        className="fw-bold bg-primary text-white py-2",
-                    ),
-                    dbc.CardBody([
-                        html.Label("Location:", className="fw-bold small mb-1"),
-                        dbc.InputGroup([
-                            dbc.Input(
-                                id="mar-location-input",
-                                type="text",
-                                value=project_location,
-                                placeholder="City, State or City, Country",
-                                size="sm",
-                            ),
-                            dbc.Button(
-                                [
-                                    html.I(className="fas fa-brain me-1"),
-                                    "Generate MAR Factors",
-                                ],
-                                id="generate-mar-factors-btn",
-                                color="success",
-                                size="sm",
-                                n_clicks=0,
-                                title="Call Gemini to build an environmental factors checklist",
-                            ),
-                        ], className="mb-1"),
+        dbc.Alert(
+            [
+                html.Div(
+                    "Build an environmental, ecological, and cultural factors prompt from "
+                    "the Project Location set on (1) Overview, then paste it into your "
+                    "preferred AI model. Results are generated as an HTML file that can "
+                    "be opened in any browser.",
+                    className="mb-0",
+                ),
+            ],
+            color="light",
+            className="border mb-3 py-2",
+        ),
+        dbc.Card(
+            [
+                dbc.CardHeader(
+                    "Build Environmental Factors Prompt",
+                    className="fw-bold bg-primary text-white py-2",
+                ),
+                dbc.CardBody(
+                    [
                         html.Small(
-                            "Populated from Overview Project Location; edit if needed.",
+                            "Uses Project Location from the Overview tab. Create the prompt, "
+                            "then paste it into your preferred AI model.",
                             className="text-muted d-block mb-2",
                         ),
-                        dcc.Loading(
-                            id="mar-factors-loading",
-                            type="circle",
-                            color="#198754",
-                            parent_style={"minHeight": "80px"},
-                            children=html.Div(
-                                id="mar-factors-table-container",
-                                className="mb-3",
+                        dbc.ButtonGroup(
+                            [
+                                dbc.Button(
+                                    [html.I(className="fas fa-file-alt me-1"), "Build Prompt"],
+                                    id="build-mar-factors-prompt-btn",
+                                    color="outline-primary",
+                                    size="sm",
+                                    n_clicks=0,
+                                ),
+                                dbc.Button(
+                                    [html.I(className="fas fa-copy me-1"), "Copy Prompt"],
+                                    id="copy-mar-factors-prompt-btn",
+                                    color="outline-secondary",
+                                    size="sm",
+                                    n_clicks=0,
+                                ),
+                            ],
+                            className="mb-2",
+                        ),
+                        html.Div(id="mar-prompt-feedback", className="mb-2"),
+                        dcc.Textarea(
+                            id="mar-factors-prompt-display",
+                            value="",
+                            readOnly=True,
+                            placeholder=(
+                                "Click Build Prompt to generate the text for the "
+                                "Overview project location…"
                             ),
+                            style={
+                                "width": "100%",
+                                "minHeight": "220px",
+                                "fontFamily": "monospace",
+                                "fontSize": "12px",
+                                "resize": "vertical",
+                            },
                         ),
-                        dbc.Row([
-                            dbc.Col([
-                                html.Label("Model:", className="fw-bold small mb-1"),
-                                dcc.Dropdown(
-                                    id="gemini-model-select",
-                                    options=[
-                                        {"label": "gemini-2.5-flash", "value": "gemini-2.5-flash"},
-                                        {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
-                                        {"label": "gemini-1.5-pro", "value": "gemini-1.5-pro"},
-                                        {"label": "gemini-pro", "value": "gemini-pro"},
-                                    ],
-                                    value=dash_storage.get_data("gemini_model") or "gemini-2.5-flash",
-                                    clearable=False,
-                                ),
-                            ], xs=12, md=6),
-                            dbc.Col([
-                                html.Label("Temperature:", className="fw-bold small mb-1"),
-                                dcc.Slider(
-                                    id="temperature-slider",
-                                    min=0.0,
-                                    max=2.0,
-                                    step=0.1,
-                                    value=float(dash_storage.get_data("gemini_temperature") or 0.5),
-                                    marks={0.0: "0", 1.0: "1", 2.0: "2"},
-                                    tooltip={"placement": "bottom", "always_visible": False},
-                                ),
-                                html.Div(id="temperature-value-display", className="mt-1"),
-                            ], xs=12, md=6, className="mt-2 mt-md-0"),
-                        ], className="g-2"),
-                    ], className="p-3"),
-                ]),
-            ], xs=12, lg=7, className="mb-3 mb-lg-0"),
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(
-                        "Gemini API Settings",
-                        className="fw-bold bg-primary text-white py-2",
-                    ),
-                    dbc.CardBody([
-                        html.Label("Gemini API Key:", className="fw-bold small mb-1"),
-                        dbc.Input(
-                            id="gemini-api-key-input",
-                            type="password",
-                            value=gemini_api_key,
-                            placeholder="Enter API key (optional if file/env set)",
-                            debounce=True,
-                            size="sm",
-                            className="mb-1",
-                        ),
-                        html.Small(
-                            "Optional if using Gemini here. Stored locally. "
-                            "Get a key at aistudio.google.com/apikey",
-                            className="text-muted d-block mb-3",
-                        ),
-                        html.Label("API Key File Path:", className="fw-bold small mb-1"),
-                        dbc.Input(
-                            id="gemini-api-file-input",
-                            type="text",
-                            value=gemini_api_file,
-                            placeholder=r"C:\workspace\api\gemini.txt",
-                            debounce=True,
-                            size="sm",
-                            className="mb-1",
-                        ),
-                        html.Small(
-                            "Fallback file if key is not entered above.",
-                            className="text-muted",
-                        ),
-                    ], className="p-3"),
-                ], className="h-100"),
-            ], xs=12, lg=5, className="mb-3 mb-lg-0"),
-        ], className="mb-3 g-3 align-items-stretch"),
-        dbc.Card([
-            dbc.CardHeader(
-                "Use Your Own AI Model",
-                className="fw-bold bg-primary text-white py-2",
-            ),
-            dbc.CardBody([
-                html.Small(
-                    "Build the same prompt used for Gemini, then copy and paste it into "
-                    "ChatGPT, Claude, Copilot, or another AI tool if you prefer not to use Gemini.",
-                    className="text-muted d-block mb-2",
+                    ],
+                    className="p-3",
                 ),
-                dbc.ButtonGroup([
-                    dbc.Button(
-                        [html.I(className="fas fa-file-alt me-1"), "Build Prompt"],
-                        id="build-mar-factors-prompt-btn",
-                        color="outline-primary",
-                        size="sm",
-                        n_clicks=0,
-                    ),
-                    dbc.Button(
-                        [html.I(className="fas fa-copy me-1"), "Copy Prompt"],
-                        id="copy-mar-factors-prompt-btn",
-                        color="outline-secondary",
-                        size="sm",
-                        n_clicks=0,
-                    ),
-                ], className="mb-2"),
-                html.Div(id="mar-prompt-feedback", className="mb-2"),
-                dcc.Textarea(
-                    id="mar-factors-prompt-display",
-                    value="",
-                    readOnly=True,
-                    placeholder="Click Build Prompt to generate the text for your location…",
-                    style={
-                        "width": "100%",
-                        "minHeight": "180px",
-                        "fontFamily": "monospace",
-                        "fontSize": "12px",
-                        "resize": "vertical",
-                    },
-                ),
-            ], className="p-3"),
-        ], className="mb-3"),
-        dbc.Tooltip(
-            "Google Gemini API key (stored locally for this session)",
-            target="gemini-api-key-input",
-            placement="top",
+            ],
+            className="mb-3",
         ),
         dbc.Tooltip(
-            "Optional text file on disk containing the API key",
-            target="gemini-api-file-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Gemini model used for environmental factor generation",
-            target="gemini-model-select",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Sampling temperature: lower is more deterministic; higher is more varied",
-            target="temperature-slider",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Plain-language place name sent to the AI",
-            target="mar-location-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Create the MAR factors prompt for the current location",
+            "Create the MAR factors prompt using Overview Project Location",
             target="build-mar-factors-prompt-btn",
             placement="top",
         ),

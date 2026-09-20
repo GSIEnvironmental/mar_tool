@@ -1,14 +1,15 @@
-from google import genai
-import json
+"""Prompt builders for MAR regulatory and permitting matrices.
+
+In-app Gemini API calls have been removed; these helpers build prompts for
+copy/paste into an external AI model.
+"""
+
 import re
 import textwrap
-from pydantic import BaseModel, Field
-from typing import List
-import pandas as pd
 
 from mar_dss.app.callbacks.ai_environment import (
     _location_text,
-    _resolve_gemini_api_key,
+    downloadable_html_deliverable_instructions,
 )
 
 
@@ -23,11 +24,15 @@ def _location_display(location):
 
 
 def build_mar_regulations_prompt(location):
-    """Build the MAR regulatory and permitting prompt for Gemini or external AI."""
+    """Build the MAR regulatory and permitting prompt for an external AI model."""
     location = _location_text(location)
     if not location:
         raise ValueError("Location is required.")
     location_us = _location_display(location)
+    html_instructions = downloadable_html_deliverable_instructions(
+        f"MAR Regulatory and Permitting Factors — {location}",
+        context_line=f"Project location: {location}",
+    )
 
     return textwrap.dedent(
         f"""
@@ -144,14 +149,12 @@ def build_mar_regulations_prompt(location):
 
         #### Format
 
-        Present the final output as **only a single Markdown Table** — no narrative text, summaries, bullet lists, or sections outside the table.
-
-        Use exactly these columns:
+        Present the results inside a downloadable HTML report (see Final Deliverable).
+        The HTML must include one primary results table with exactly these columns:
 
         | Category | Regulation / Permit / Agency / Legal Consideration | Responsible Agency | Priority (High/Medium/Low) | Requirement Level (Mandatory/Potentially Required/Recommended) | Trigger or Applicability | Why It Matters for MAR Decision-Making |
 
-        Each row must represent one item. For structured JSON output, populate the same fields as table columns:
-        category, item, responsible_agency, priority, requirement_level, trigger_or_applicability, why_it_matters.
+        Each row must represent one item.
 
         #### Additional Requirements
 
@@ -160,68 +163,6 @@ def build_mar_regulations_prompt(location):
         3. Tailor all recommendations to {location}.
         4. Highlight high-risk items that could delay, prevent, or significantly increase project cost using **High** priority within the table rows.
 
-        **FINAL DELIVERABLE:** The table only — a decision-maker-focused regulatory and permitting matrix for {location}.
+        {html_instructions}
         """
     ).strip()
-
-
-def get_mar_regulations(location, model="gemini-2.5-flash", temperature=0.5):
-    """
-    Generate MAR regulatory and permitting matrix for a location using Gemini.
-
-    Returns
-    -------
-    pd.DataFrame
-        Regulatory and permitting table rows.
-    """
-    mar_prompt = build_mar_regulations_prompt(location)
-
-    class MARRegulationItem(BaseModel):
-        """A single regulatory, permitting, agency, or legal item for MAR."""
-        category: str = Field(
-            description=(
-                "Category such as Local/County, State, Federal, "
-                "Required Permit/Approval, Agency Coordination, or Legal/Governance."
-            )
-        )
-        item: str = Field(
-            description="Regulation, permit, agency, or legal consideration name."
-        )
-        responsible_agency: str = Field(description="Primary responsible agency or authority.")
-        priority: str = Field(description="High, Medium, or Low.")
-        requirement_level: str = Field(
-            description="Mandatory, Potentially Required, or Recommended."
-        )
-        trigger_or_applicability: str = Field(
-            description="Trigger condition or applicability for this item."
-        )
-        why_it_matters: str = Field(
-            description="Why this item matters for MAR decision-making at the site."
-        )
-
-    class MARRegulationList(BaseModel):
-        """Structured regulatory and permitting matrix for MAR."""
-        items: List[MARRegulationItem] = Field(
-            description="Regulatory and permitting matrix table rows only."
-        )
-
-    api_key = _resolve_gemini_api_key()
-    if not api_key:
-        raise ValueError(
-            "API Key not found. Please enter your Gemini API key in the control panel, "
-            "set GEMINI_API_KEY environment variable, or check the file path."
-        )
-
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=model,
-        contents=mar_prompt,
-        config=genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=MARRegulationList,
-            temperature=temperature,
-        ),
-    )
-
-    json_data = json.loads(response.text)
-    return pd.DataFrame(json_data["items"])

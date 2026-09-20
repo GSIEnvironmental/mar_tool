@@ -5,16 +5,13 @@ from __future__ import annotations
 import json
 import math
 import textwrap
-from typing import Any, List, Tuple
+from typing import Any
 
 import mar_dss.app.utils.data_storage as dash_storage
 import pandas as pd
-from google import genai
-from pydantic import BaseModel, Field
-
 from mar_dss.app.callbacks.ai_environment import (
     _location_text,
-    _resolve_gemini_api_key,
+    downloadable_html_deliverable_instructions,
 )
 
 ENGINEERING_OPTIONS = ("Surface Recharge", "Injection Well", "Dry Well")
@@ -44,7 +41,6 @@ _CONTEXT_KEYS = (
     "monthly_flow",
     "stratigraphy_data",
     "groundwater_data",
-    "regulation_data",
     "flow_capture_values",
     "analysis_last_error",
     "water_map_recharge_lat",
@@ -101,8 +97,6 @@ _GRAPH_QUANTITY_NODES = (
 _SKIP_KEYS = frozenset(
     {
         "decision_graph",
-        "gemini_api_key",
-        "gemini_api_file",
         "workspace",
         "filename",
     }
@@ -262,12 +256,16 @@ def summarize_project_context() -> dict:
 
 
 def build_engineering_decision_prompt(context: dict | None = None) -> str:
-    """Build the MAR engineering-option scoring prompt for Gemini or external AI."""
+    """Build the MAR engineering-option scoring prompt for an external AI model."""
     context = context if context is not None else summarize_project_context()
     location = _location_text(context.get("project_location")) or "unspecified location"
     context_json = json.dumps(context, indent=2, default=str)
 
     options_list = ", ".join(f'"{name}"' for name in ENGINEERING_OPTIONS)
+    html_instructions = downloadable_html_deliverable_instructions(
+        f"MAR Engineering Option Decision Report — {location}",
+        context_line=f"Project location: {location}",
+    )
 
     return textwrap.dedent(
         f"""
@@ -284,7 +282,7 @@ def build_engineering_decision_prompt(context: dict | None = None) -> str:
         3. Dry Well
 
         **PROJECT DATA (JSON from MAR DSS — Overview, Water Source, Hydro, Engineering,
-        Feasibilities, Environmental, Regulations, and rule-based DSS if available):**
+        Feasibilities, Environmental, and rule-based DSS if available):**
 
         **IMPORTANT — COST DATA POLICY:** The JSON deliberately excludes MAR DSS internal unit
         prices, line-item unit costs, capital totals, maintenance totals, NPV, and cost_mapping.
@@ -331,8 +329,6 @@ def build_engineering_decision_prompt(context: dict | None = None) -> str:
         - `rank` is integer 1 (best) to 3.
         - `score_summary` is one concise sentence explaining the score.
 
-        **No narrative text outside this scores table for the primary deliverable.**
-
         #### Table 2 — Decision Explanation (SECONDARY)
 
         Provide supporting rows with columns:
@@ -349,80 +345,9 @@ def build_engineering_decision_prompt(context: dict | None = None) -> str:
         - 2 Recommendation rows
         - 1 Key Finding row summarizing trade-offs across options
 
-        ---
+        Present both tables inside the downloadable HTML report. Scores table is the
+        authoritative ranking; explanations must not contradict the scores or ranks.
 
-        **FINAL DELIVERABLE:** Structured JSON with `option_scores` (3 rows) and `explanations`
-        (supporting rows). Scores table is the authoritative ranking; explanations must not
-        contradict the scores or ranks.
+        {html_instructions}
         """
     ).strip()
-
-
-class OptionScore(BaseModel):
-    engineering_option: str = Field(
-        description='Must be "Surface Recharge", "Injection Well", or "Dry Well".'
-    )
-    feasibility_score: float = Field(ge=0, le=100)
-    rank: int = Field(ge=1, le=3)
-    score_summary: str = Field(description="One-sentence rationale for the score.")
-
-
-class ExplanationRow(BaseModel):
-    category: str = Field(
-        description="Warning, Recommendation, Key Finding, Decision Rationale, Mitigation, or Data Gap."
-    )
-    topic: str
-    detail: str
-    related_option: str = Field(description='Option name or "All".')
-
-
-class AIEngineeringDecisionResult(BaseModel):
-    option_scores: List[OptionScore] = Field(
-        description="Exactly three feasibility score rows, one per engineering option."
-    )
-    explanations: List[ExplanationRow] = Field(
-        description="Supporting warnings, recommendations, and rationale."
-    )
-
-
-def get_engineering_decision_scores(
-    model: str = "gemini-2.5-flash",
-    temperature: float = 0.5,
-    context: dict | None = None,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Call Gemini to score and rank MAR engineering options.
-
-    Returns
-    -------
-    scores_df, explanations_df
-    """
-    context = context if context is not None else summarize_project_context()
-    prompt = build_engineering_decision_prompt(context)
-
-    api_key = _resolve_gemini_api_key()
-    if not api_key:
-        raise ValueError(
-            "API Key not found. Enter your Gemini API key in the control panel, "
-            "set GEMINI_API_KEY environment variable, or check the file path."
-        )
-
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=AIEngineeringDecisionResult,
-            temperature=temperature,
-        ),
-    )
-
-    json_data = json.loads(response.text)
-    scores_df = pd.DataFrame(json_data["option_scores"])
-    explanations_df = pd.DataFrame(json_data["explanations"])
-
-    if not scores_df.empty and "rank" in scores_df.columns:
-        scores_df = scores_df.sort_values("rank").reset_index(drop=True)
-
-    return scores_df, explanations_df

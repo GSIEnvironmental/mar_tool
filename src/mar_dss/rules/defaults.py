@@ -3,6 +3,8 @@ defaults = {}
 defaults["k_min_vadose_threshold"] = 0.3
 defaults['leakage_radius'] = 1000
 defaults['excessive_deep_aquifer'] = [1500.0, 3000.0]
+# [moderate_deep_threshold_ft, too_deep_threshold_ft]:
+# depth <= [0] → Low Depth; ( [0], [1] ] → Moderate Deep; > [1] → Too Deep
 
 # maximum perecenatge of source water that can be recharged
 defaults["maximum_rechargability"] = 50

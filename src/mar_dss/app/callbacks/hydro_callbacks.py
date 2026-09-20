@@ -15,12 +15,14 @@ from mar_dss.app.utils.excel_table import input_cell_style, label_cell_style
 from mar_dss.app.components.hydro_tab import (
     GROUNDWATER_MONTH_NAMES,
     RULE_DEFAULT_SCALAR_ROWS,
+    SOIL_PROPERTIES,
     _build_initial_feasibility_traffic_placeholder,
     _rule_def_input_id,
     initial_feasibility_option_label,
     normalize_groundwater_data,
     normalize_stratigraphy_list_from_raw,
     normalize_stratigraphy_recharge_target,
+    soil_property_defaults,
 )
 
 from mar_dss.rules.geohydro_rules import (
@@ -445,17 +447,6 @@ def _add_confined_theis_contour_to_figure(
 
 def setup_hydro_callbacks(app):
     """Set up all hydrogeology-related callbacks."""
-    
-    # Typical values for different soil types
-    # "Other" uses mid-range averages (geom. mean K; mean Sy) across the named types.
-    SOIL_PROPERTIES = {
-        "Gravel": {"conductivity": 100.0, "storage": 0.0001, "yield": 0.30},
-        "Sand": {"conductivity": 10.0, "storage": 0.0001, "yield": 0.25},
-        "Silt": {"conductivity": 0.01, "storage": 0.0001, "yield": 0.10},
-        "Loam": {"conductivity": 0.001, "storage": 0.0001, "yield": 0.05},
-        "Clay": {"conductivity": 0.0001, "storage": 0.0001, "yield": 0.01},
-        "Other": {"conductivity": 0.063, "storage": 0.0001, "yield": 0.14},
-    }
 
     @app.callback(
         Output("initial-feasibility-help-modal", "is_open"),
@@ -488,7 +479,7 @@ def setup_hydro_callbacks(app):
         prevent_initial_call=True,
     )
     def toggle_horizontal_extension_help_modal(open_clicks, close_clicks, is_open):
-        """Open or close the Horizontal Extension Configuration help popup."""
+        """Open or close the Horizontal Extent Configuration help popup."""
         ctx = dash.callback_context
         if not ctx.triggered:
             return dash.no_update
@@ -1136,9 +1127,7 @@ def setup_hydro_callbacks(app):
             new_layer = {
                 "layer": "Sand",
                 "thickness": 60.0,
-                "conductivity": SOIL_PROPERTIES["Sand"]["conductivity"],
-                "storage": SOIL_PROPERTIES["Sand"]["storage"],
-                "yield": SOIL_PROPERTIES["Sand"]["yield"],
+                **soil_property_defaults("Sand"),
                 "selected": False,
                 "recharge_target": False,
             }
@@ -1213,6 +1202,7 @@ def setup_hydro_callbacks(app):
 
     @app.callback(
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
+        Output("stratigraphy-error-message", "children"),
         [Input({"type": "layer-checkbox", "index": dash.dependencies.ALL}, "value"),
          Input({"type": "layer-select", "index": dash.dependencies.ALL}, "value"),
          Input({"type": "thickness-input", "index": dash.dependencies.ALL}, "value"),
@@ -1223,33 +1213,115 @@ def setup_hydro_callbacks(app):
         prevent_initial_call=True
     )
     def update_table_data(checkbox_values, layer_values, thickness_values, conductivity_values, storage_values, yield_values, data):
-        """Update table data when inputs change."""
+        """Update table data when inputs change.
+
+        Changing soil type auto-fills K, Ss, and Sy for that row from SOIL_PROPERTIES.
+        Manual edits to K / Ss / Sy are kept unless the soil type for that row changes.
+        Negative numeric values are rejected with an error message.
+        Values must be greater than zero (0 or less is rejected).
+        """
         if not data:
-            return data
+            return data, []
         data = copy.deepcopy(data)
-        # Update data with new values
+        errors = []
+
+        def _parse_positive(raw, field_label, row_num):
+            """Return float if valid and > 0; else append error and return None."""
+            if raw is None or (isinstance(raw, str) and str(raw).strip() == ""):
+                return None
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                errors.append(
+                    f"Row {row_num}: {field_label} must be a number."
+                )
+                return None
+            if value <= 0:
+                errors.append(
+                    f"Row {row_num}: {field_label} must be greater than zero."
+                )
+                return None
+            return value
+
+        triggered_layer_idx = None
+        if callback_context.triggered:
+            try:
+                import json as _json
+
+                tid = callback_context.triggered[0]["prop_id"].split(".")[0]
+                parsed = _json.loads(tid)
+                if parsed.get("type") == "layer-select":
+                    triggered_layer_idx = int(parsed["index"])
+            except (ValueError, KeyError, TypeError):
+                triggered_layer_idx = None
+
         for i, row in enumerate(data):
+            row_num = i + 1
             if i < len(checkbox_values):
                 row["selected"] = checkbox_values[i] or False
-            if i < len(layer_values):
+            if i < len(layer_values) and layer_values[i] is not None:
                 row["layer"] = layer_values[i]
-                # Update properties based on selected layer
-                if layer_values[i] in SOIL_PROPERTIES:
-                    props = SOIL_PROPERTIES[layer_values[i]]
-                    row["conductivity"] = props["conductivity"]
-                    row["storage"] = props["storage"]
-                    row["yield"] = props["yield"]
-            if i < len(thickness_values) and thickness_values[i] is not None:
-                row["thickness"] = float(thickness_values[i])
-            if i < len(conductivity_values) and conductivity_values[i] is not None:
-                row["conductivity"] = float(conductivity_values[i])
-            if i < len(storage_values) and storage_values[i] is not None:
-                row["storage"] = float(storage_values[i])
-            if i < len(yield_values) and yield_values[i] is not None:
-                row["yield"] = float(yield_values[i])
-        
-        return data
-    
+            if i < len(thickness_values):
+                parsed = _parse_positive(
+                    thickness_values[i], "Thickness", row_num
+                )
+                if parsed is not None:
+                    row["thickness"] = parsed
+
+            if triggered_layer_idx == i:
+                props = soil_property_defaults(
+                    layer_values[i] if i < len(layer_values) else None
+                )
+                row["conductivity"] = props["conductivity"]
+                row["storage"] = props["storage"]
+                row["yield"] = props["yield"]
+                continue
+
+            if i < len(conductivity_values):
+                parsed = _parse_positive(
+                    conductivity_values[i],
+                    "Hydraulic Conductivity",
+                    row_num,
+                )
+                if parsed is not None:
+                    row["conductivity"] = parsed
+            if i < len(storage_values):
+                parsed = _parse_positive(
+                    storage_values[i], "Specific Storage", row_num
+                )
+                if parsed is not None:
+                    row["storage"] = parsed
+            if i < len(yield_values):
+                parsed = _parse_positive(
+                    yield_values[i], "Specific Yield", row_num
+                )
+                if parsed is not None:
+                    row["yield"] = parsed
+
+        if errors:
+            # Deduplicate while preserving order
+            seen = set()
+            unique_errors = []
+            for msg in errors:
+                if msg not in seen:
+                    seen.add(msg)
+                    unique_errors.append(msg)
+            alert = dbc.Alert(
+                [
+                    html.Strong("Invalid stratigraphy values"),
+                    html.Ul(
+                        [html.Li(msg) for msg in unique_errors],
+                        className="mb-0 mt-2",
+                    ),
+                ],
+                color="danger",
+                className="mb-0",
+                dismissable=True,
+            )
+        else:
+            alert = []
+
+        return data, alert    
     # Groundwater Level Table Callbacks
     @app.callback(
         Output("groundwater-table-body", "children"),
@@ -1497,12 +1569,12 @@ def setup_hydro_callbacks(app):
 
         # Define colors for different layer types
         layer_colors = {
-            "Gravel": "#8B4513",      # Brown
+            "Gravel": "#808080",      # Gray
             "Sand": "#F4A460",        # Sandy brown
             "Silt": "#D2B48C",        # Tan
             "Loam": "#DEB887",        # Burlywood
             "Clay": "#A0522D",        # Sienna
-            "Other": "#6c757d",       # Gray (unspecified / average mix)
+            "Other": "#6C757D",       # Mid gray (unspecified / average mix)
         }
         
         # Create the plot
@@ -2192,3 +2264,46 @@ def setup_hydro_callbacks(app):
         ov["excessive_deep_aquifer"] = [lo, hi]
         dash_storage.set_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov)
         return lo, hi
+
+    @app.callback(
+        [
+            Output("aquitard-conductivity-input", "value", allow_duplicate=True),
+            Output("confined-aquifer-head-input", "value", allow_duplicate=True),
+            Output("max-dry-well-depth-input", "value", allow_duplicate=True),
+            *[
+                Output(_rule_def_input_id(row[0]), "value", allow_duplicate=True)
+                for row in RULE_DEFAULT_SCALAR_ROWS
+            ],
+            Output("rule-def-excessive-deep-aquifer-0-input", "value", allow_duplicate=True),
+            Output("rule-def-excessive-deep-aquifer-1-input", "value", allow_duplicate=True),
+        ],
+        Input("reset-default-parameters-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def reset_default_parameters_to_builtins(n_clicks):
+        """Clear overrides and restore all (3.2) Default Parameters fields."""
+        if not n_clicks:
+            raise dash.exceptions.PreventUpdate
+
+        dash_storage.set_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, None)
+        dash_storage.set_data(
+            "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
+        )
+        dash_storage.set_data("confined_aquifer_head_ft", None)
+        dash_storage.set_data(
+            "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
+        )
+
+        scalar_values = []
+        for key, *_rest in RULE_DEFAULT_SCALAR_ROWS:
+            scalar_values.append(RULE_DEFAULTS_BASE[key])
+
+        eda = RULE_DEFAULTS_BASE["excessive_deep_aquifer"]
+        return (
+            _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY),
+            "",
+            DEFAULT_MAX_DRY_WELL_DEPTH_FT,
+            *scalar_values,
+            float(eda[0]),
+            float(eda[1]),
+        )

@@ -31,12 +31,9 @@ from mar_dss.app.components.environmental_impact_tab import (
     _FT3_PER_M3,
 )
 from mar_dss.app.callbacks.ai_environment import (
-    get_mar_factors,
-    _normalize_stored_string,
     build_mar_factors_prompt,
     _location_text,
 )
-from mar_dss.app.utils.tab_tooltips import dash_table_tooltip_kwargs
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.excel_table import (
     datatable_base_style_cell,
@@ -60,25 +57,6 @@ _WQ_DETAIL_FG = {
     ">20 NTU": "#721c24",
     WQ_YES: "#721c24",
 }
-
-
-def _mar_factors_success_banner(location, count):
-    """Green banner shown after Gemini successfully returns factors."""
-    return dbc.Alert(
-        [
-            html.I(className="fas fa-check-circle me-2"),
-            html.Strong("Generation complete. "),
-            html.Span(
-                f"{count} MAR factors were generated for {location}. ",
-            ),
-            html.Span(
-                "Review the results below.",
-                className="fw-semibold",
-            ),
-        ],
-        color="success",
-        className="mb-3",
-    )
 
 
 def _wq_detail_colors(value):
@@ -239,7 +217,18 @@ def generate_required_treatment_summary(risks_and_treatments):
 
 def setup_environmental_impact_callbacks(app):
     """Set up callbacks for the Environmental Impact tab."""
-    
+
+    @app.callback(
+        Output("treatment-cost-guidance-collapse", "is_open"),
+        Input("view-treatment-cost-guidance-check", "value"),
+        prevent_initial_call=True,
+    )
+    def toggle_treatment_cost_guidance(view_costs):
+        """Show or hide Guidance of Treatment Costs when the view checkbox changes."""
+        checked = bool(view_costs)
+        dash_storage.set_data("view_treatment_cost_guidance", checked)
+        return checked
+
     @app.callback(
         [
             Output('env-final-decision-output', 'children'),
@@ -344,7 +333,7 @@ def setup_environmental_impact_callbacks(app):
             reasons_for_rejection = [
                 html.P("The source water is **NOT SUITABLE** for MAR at this location.", className="lead font-weight-bold")
             ]
-            reasons_for_rejection.append(html.P(f"Total Risk Score: {total_score} points (Threshold: {RISK_SCORE_UNSUITABLE_MIN}+)", className="mb-2"))
+            reasons_for_rejection.append(html.P(f"Total Water Quality Score: {total_score} points (Threshold: {RISK_SCORE_UNSUITABLE_MIN}+)", className="mb-2"))
             
             if critical_flags:
                 reasons_for_rejection.append(html.H6("⚠️ Critical Flags Triggered:"))
@@ -362,7 +351,7 @@ def setup_environmental_impact_callbacks(app):
             
             decision_content = [
                 html.P("The source water is **CONDITIONALLY SUITABLE** for MAR.", className="lead font-weight-bold"),
-                html.P(f"Total Risk Score: {total_score} points (Range: {RISK_SCORE_SUITABLE_MAX + 1}–{RISK_SCORE_CONDITIONAL_MAX})"),
+                html.P(f"Total Water Quality Score: {total_score} points (Range: {RISK_SCORE_SUITABLE_MAX + 1}–{RISK_SCORE_CONDITIONAL_MAX})"),
                 html.P("Requires specific treatment and further studies to confirm economic viability and technical feasibility.", className="mt-2"),
                 html.P("Action: **Proceed to required treatability/modeling studies.**", className="mt-3 font-weight-bold")
             ]
@@ -372,7 +361,7 @@ def setup_environmental_impact_callbacks(app):
             
             decision_content = [
                 html.P("The source water is **SUITABLE** for MAR implementation.", className="lead font-weight-bold"),
-                html.P(f"Total Risk Score: {total_score} points (Range: 0–{RISK_SCORE_SUITABLE_MAX})"),
+                html.P(f"Total Water Quality Score: {total_score} points (Range: 0–{RISK_SCORE_SUITABLE_MAX})"),
                 html.P("Minimal to no treatment required. Low implementation cost.", className="mt-2")
             ]
 
@@ -383,7 +372,7 @@ def setup_environmental_impact_callbacks(app):
                 value=total_score,
                 domain={'x': [0, 1], 'y': [0, 1]},
                 title={
-                    'text': f"Total Risk Score (max {RISK_SCORE_MAX})",
+                    'text': f"Total Water Quality Score (max {RISK_SCORE_MAX})",
                     'font': {'size': 18},
                 },
                 gauge={
@@ -608,119 +597,6 @@ def setup_environmental_impact_callbacks(app):
             _wq_question["component_id"],
         )
 
-    # Callback to load and auto-save Gemini API key
-    @app.callback(
-        Output('gemini-api-key-input', 'value'),
-        [
-            Input('gemini-api-key-input', 'value'),
-            Input('gemini-api-key-input', 'n_blur'),
-            Input('gemini-api-key-input', 'n_submit'),
-            Input('gemini-api-key-input', 'id')
-        ],
-        prevent_initial_call=False
-    )
-    def handle_gemini_api_key(value, n_blur, n_submit, component_id):
-        """Handle Gemini API key input and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default
-            saved_key = _normalize_stored_string(dash_storage.get_data("gemini_api_key"))
-            dash_storage.set_data("gemini_api_key", saved_key)
-            return saved_key
-        
-        # Get the current value
-        current_value = _normalize_stored_string(value)
-        
-        # Determine which trigger caused the callback
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
-        # Save for all triggers except initial load
-        if trigger_prop != "id":
-            dash_storage.set_data("gemini_api_key", current_value)
-        
-        return current_value
-    
-    # Callback to load and auto-save Gemini API file path
-    @app.callback(
-        Output('gemini-api-file-input', 'value'),
-        [
-            Input('gemini-api-file-input', 'value'),
-            Input('gemini-api-file-input', 'n_blur'),
-            Input('gemini-api-file-input', 'n_submit'),
-            Input('gemini-api-file-input', 'id')
-        ],
-        prevent_initial_call=False
-    )
-    def handle_gemini_api_file(value, n_blur, n_submit, component_id):
-        """Handle Gemini API file path input and save to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved value or use default
-            saved_file = dash_storage.get_data("gemini_api_file") or r"C:\workspace\api\gemini.txt"
-            dash_storage.set_data("gemini_api_file", saved_file)
-            return saved_file
-        
-        # Get the current value
-        current_value = value if value else r"C:\workspace\api\gemini.txt"
-        
-        # Determine which trigger caused the callback
-        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
-        # Save for all triggers except initial load
-        if trigger_prop != "id":
-            dash_storage.set_data("gemini_api_file", current_value)
-        
-        return current_value
-    
-    # Callback to save Gemini model and temperature
-    @app.callback(
-        [
-            Output('gemini-model-select', 'value'),
-            Output('temperature-slider', 'value')
-        ],
-        [
-            Input('gemini-model-select', 'value'),
-            Input('temperature-slider', 'value')
-        ],
-        prevent_initial_call=False
-    )
-    def save_gemini_settings(model, temperature):
-        """Save Gemini model and temperature settings to data storage."""
-        ctx = dash.callback_context
-        
-        if not ctx.triggered:
-            # Initial load - get saved values or use defaults
-            saved_model = dash_storage.get_data("gemini_model") or "gemini-2.5-flash"
-            saved_temp = float(dash_storage.get_data("gemini_temperature") or 0.5)
-            dash_storage.set_data("gemini_model", saved_model)
-            dash_storage.set_data("gemini_temperature", saved_temp)
-            return saved_model, saved_temp
-        
-        # Save current values
-        if model:
-            dash_storage.set_data("gemini_model", model)
-        if temperature is not None:
-            dash_storage.set_data("gemini_temperature", float(temperature))
-        
-        # Get current values from storage
-        current_model = dash_storage.get_data("gemini_model") or "gemini-2.5-flash"
-        current_temp = float(dash_storage.get_data("gemini_temperature") or 0.5)
-        return current_model, current_temp
-    
-    @app.callback(
-        Output("mar-location-input", "value"),
-        [
-            Input("project-location-store", "data"),
-            Input("mar-location-input", "id"),
-        ],
-        prevent_initial_call=False,
-    )
-    def sync_mar_location_from_project_location(store_location, _component_id):
-        """Keep tab 4.2 location aligned with Overview Project Location."""
-        loc = _location_text(store_location or dash_storage.get_data("project_location"))
-        return loc
 
     @app.callback(
         [
@@ -728,27 +604,28 @@ def setup_environmental_impact_callbacks(app):
             Output("mar-prompt-feedback", "children"),
         ],
         Input("build-mar-factors-prompt-btn", "n_clicks"),
-        State("mar-location-input", "value"),
+        State("project-location-store", "data"),
         prevent_initial_call=True,
     )
-    def build_mar_factors_prompt_display(n_clicks, location):
-        """Fill the prompt textarea for copy/paste into an external AI model."""
+    def build_mar_factors_prompt_display(n_clicks, store_location):
+        """Fill the prompt textarea using Overview Project Location."""
         if not n_clicks:
             return dash.no_update, dash.no_update
 
-        location = _location_text(location) or _location_text(
+        location = _location_text(store_location) or _location_text(
             dash_storage.get_data("project_location")
         )
         if not location:
             return "", dbc.Alert(
-                "Enter a location first, or set Project Location on the Overview tab.",
+                "Set Project Location on the (1) Overview tab before building the prompt.",
                 color="warning",
                 className="py-2 mb-0 small",
             )
 
         prompt = build_mar_factors_prompt(location)
         feedback = html.Small(
-            "Prompt ready. Click Copy Prompt or select all text and paste into your AI model.",
+            f"Prompt ready for {location}. Click Copy Prompt, then paste it into "
+            "your preferred AI model.",
             className="text-success",
         )
         return prompt, feedback
@@ -771,190 +648,3 @@ def setup_environmental_impact_callbacks(app):
         State("mar-factors-prompt-display", "value"),
         prevent_initial_call=True,
     )
-
-    # Callback for MAR Factors Generation (Tab 4.2)
-    @app.callback(
-        Output('mar-factors-table-container', 'children'),
-        [
-            Input('generate-mar-factors-btn', 'n_clicks')
-        ],
-        [
-            State('mar-location-input', 'value'),
-            State('gemini-model-select', 'value'),
-            State('temperature-slider', 'value')
-        ],
-        prevent_initial_call=True
-    )
-    def generate_mar_factors_table(n_clicks, location, model, temperature):
-        """Generate MAR factors table using AI."""
-        if not n_clicks:
-            return dash.no_update
-
-        location = _location_text(location) or _location_text(
-            dash_storage.get_data("project_location")
-        )
-        if not location:
-            return html.Div([
-                dbc.Alert([
-                    html.H5("Location required", className="alert-heading"),
-                    html.P(
-                        "Enter a location above, or set Project Location on the Overview tab.",
-                        className="mb-0",
-                    ),
-                ], color="warning"),
-            ])
-        
-        try:
-            # Get API key from data storage
-            # check if api file exist in C:\workspace\projects\MAR_ESCTP\scripts\mar_dss\src\mar_dss\app
-            
-            api_key = dash_storage.get_data("gemini_api_key")
-            # if not api_key:
-            #     return html.Div([
-            #         dbc.Alert([
-            #             html.H5("API Key Required", className="alert-heading"),
-            #             html.P("Please enter and save your Gemini API key in the control panel above before generating MAR factors.", className="mb-0")
-            #         ], color="warning")
-            #     ])
-            # else:
-            #     pass
-            # Get model and temperature from storage or use provided values
-            model = model or dash_storage.get_data("gemini_model") or "gemini-2.5-flash"
-            temperature = temperature if temperature is not None else dash_storage.get_data("gemini_temperature") or 0.5
-            
-            # Call the AI function (this may take a moment)
-            df = get_mar_factors(location, model=model, temperature=temperature)
-            
-            if df is None or df.empty:
-                return html.Div([
-                    dbc.Alert([
-                        html.H5("No Data Generated", className="alert-heading"),
-                        html.P("No factors were generated. Please try again with a different location.", className="mb-0")
-                    ], color="warning")
-                ])
-            
-            # Create styled table with colors based on priority (only for Priority column)
-            # Define color schemes for priority
-            priority_colors = {
-                'High': {'bg': '#f8d7da', 'text': '#721c24'},
-                'Medium': {'bg': '#fff3cd', 'text': '#856404'},
-                'Low': {'bg': '#d4edda', 'text': '#155724'}
-            }
-            
-            # Create conditional styling for Priority column cells only
-            style_data_conditional = []
-            for idx, row in df.iterrows():
-                priority = str(row.get('priority', '')).strip()
-                if priority in priority_colors:
-                    colors = priority_colors[priority]
-                    style_data_conditional.append({
-                        'if': {
-                            'row_index': idx,
-                            'column_id': 'priority'
-                        },
-                        'backgroundColor': colors['bg'],
-                        'color': colors['text'],
-                        'fontWeight': 'bold'
-                    })
-            
-            # Create the table
-            table = dash_table.DataTable(
-                id='mar-factors-datatable',
-                columns=[
-                    {"name": "Category", "id": "category"},
-                    {"name": "Data Point/Factor", "id": "data_point"},
-                    {"name": "Priority", "id": "priority"},
-                    {"name": "Justification", "id": "justification"}
-                ],
-                data=df.to_dict('records'),
-                style_header=datatable_base_style_header(
-                    textAlign='left',
-                    fontSize='16px',
-                ),
-                style_cell=datatable_base_style_cell(
-                    textAlign='left',
-                    padding='12px',
-                    fontSize='15px',
-                    whiteSpace='normal',
-                    height='auto',
-                ),
-                style_data=datatable_computed_data_style(),
-                style_data_conditional=style_data_conditional,
-                page_size=20,
-                sort_action="native",
-                filter_action="none",
-                export_format="csv",
-                **dash_table_tooltip_kwargs([
-                    {
-                        column: {'value': str(value), 'type': 'markdown'}
-                        for column, value in row.items()
-                    } for row in df.to_dict('records')
-                ]),
-            )
-            
-            # Wrap table in a card with summary - in its own full-width row
-            return html.Div([
-                _mar_factors_success_banner(location, len(df)),
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Card([
-                            dbc.CardHeader([
-                                html.H5(f"MAR Factors for {location}", className="mb-0 text-primary"),
-                                html.Small(f"Total factors: {len(df)}", className="text-muted")
-                            ], className="bg-light"),
-                            dbc.CardBody([
-                                # Disclaimer
-                                dbc.Alert([
-                                    html.P([
-                                        html.Strong("Important Disclaimer: "),
-                                        f"The analysis of Managed Aquifer Recharge (MAR) factors specific to {location} was produced using the Google Gemini Large Language Model (LLM). Although this generation incorporates site-specific parameters, we cannot guarantee its accuracy or completeness. The data provided in the matrix below should be used with caution, as it is intended only to offer general guidance regarding MAR's potential environmental, ecological, and cultural considerations."
-                                    ], className="mb-0")
-                                ], color="warning", className="mb-4"),
-                                
-                                html.Div([
-                                    html.P([
-                                        html.Strong("Categories: "),
-                                        html.Span(f"Environmental: {len(df[df['category'] == 'Environmental'])}, ", className="text-info"),
-                                        html.Span(f"Ecological: {len(df[df['category'] == 'Ecological'])}, ", className="text-success"),
-                                        html.Span(f"Cultural: {len(df[df['category'] == 'Cultural'])}", className="text-warning")
-                                    ], className="mb-3"),
-                                    html.P([
-                                        html.Strong("Priorities: "),
-                                        html.Span(f"High: {len(df[df['priority'].astype(str).str.strip() == 'High'])}, ", className="text-danger"),
-                                        html.Span(f"Medium: {len(df[df['priority'].astype(str).str.strip() == 'Medium'])}, ", className="text-warning"),
-                                        html.Span(f"Low: {len(df[df['priority'].astype(str).str.strip() == 'Low'])}", className="text-success")
-                                    ], className="mb-3")
-                                ]),
-                                html.Div(
-                                    table, 
-                                    style={
-                                        'overflowX': 'auto',
-                                        'width': '100%'
-                                    }
-                                )
-                            ])
-                        ], className="mt-3")
-                    ], width=12)
-                ]),
-            ])
-            
-        except Exception as e:
-            error_msg = str(e)
-            return html.Div([
-                dbc.Alert([
-                    html.H5("Error generating MAR factors", className="alert-heading"),
-                    html.P(f"An error occurred: {error_msg}", className="mb-0")
-                ], color="danger")
-            ])
-
-    # Callback to display temperature value
-    @app.callback(
-        Output('temperature-value-display', 'children'),
-        [Input('temperature-slider', 'value')]
-    )
-    def update_temperature_display(temperature):
-        """Display the current temperature value."""
-        if temperature is not None:
-            return html.Span(f"Current value: {temperature:.1f}", className="text-muted")
-        return html.Span("Current value: 0.5", className="text-muted")
-

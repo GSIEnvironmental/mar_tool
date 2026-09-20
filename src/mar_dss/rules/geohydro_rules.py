@@ -929,6 +929,8 @@ def compute_depth_significance(confined, strat_df):
     aquifer_depth = strat_df.iloc[0:target_layer_index]["thickness"].sum()
 
     _eda = get_default("excessive_deep_aquifer")
+    # _eda[0] = start of Moderate Deep (ft); _eda[1] = start of Too Deep (ft).
+    # Must satisfy _eda[0] < _eda[1] (shallower threshold first).
     if aquifer_depth > _eda[1]:
         return "Too Deep"
     elif aquifer_depth > _eda[0] and aquifer_depth <= _eda[1]:
