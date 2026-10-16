@@ -2,22 +2,352 @@
 Decision Interpretation tab content for MAR DSS dashboard.
 """
 
-import plotly.graph_objects as go
 from dash import dcc, html
 import dash_bootstrap_components as dbc
+import math
+import pandas as pd
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
+from mar_dss.app.utils.cost_storage import (
+    CAPITAL_COST_TOTAL_KEYS,
+    MAINTENANCE_COST_TOTAL_KEYS,
+    coerce_storage_cost_totals,
+)
+
+
+_HEADER_STYLE = {"backgroundColor": "#1e3a5f", "fontSize": "0.95rem"}
+
+_OPTION_TO_CAPITAL_COL = {
+    "Surface Recharge": "Spreading Pond Cost ($)",
+    "Injection Well": "Injection Wells Cost ($)",
+    "Dry Well": "Dry Wells Cost ($)",
+}
+
+_OPTION_TO_MAINTENANCE_COL = {
+    "Surface Recharge": "Spreading Pond Maintenance Cost ($)",
+    "Injection Well": "Injection Wells Maintenance Cost ($)",
+    "Dry Well": "Dry Wells Maintenance Cost ($)",
+}
+
+_OPTION_TO_NPV_COL = {
+    "Surface Recharge": "Spreading Pond Net Present Value ($)",
+    "Injection Well": "Injection Wells Net Present Value ($)",
+    "Dry Well": "Dry Wells Net Present Value ($)",
+}
+
+_RESPONSE_LABELS = {
+    0: "Acceptable",
+    1: "Acceptable with additional cost",
+    2: "Warning",
+    3: "Mitigation",
+    4: "Reject",
+}
+
+_RESPONSE_COLORS = {
+    0: "success",
+    1: "success",
+    2: "warning",
+    3: "warning",
+    4: "danger",
+}
+
+# Internal DSS status → user-facing feasibility label
+_STATUS_DISPLAY = {
+    "Recommended": "Feasible",
+    "Recommended with Warnings": "Feasible",
+    "Conditionally Recommended": "Conditionally Feasible",
+    "Rejected": "Not Feasible",
+}
+
+_STATUS_COLORS = {
+    "Feasible": "success",
+    "Conditionally Feasible": "info",
+    "Not Feasible": "danger",
+}
+
+# Help text keyed by exact constraint name from hard/soft constraint engines
+CONSTRAINT_HELP = {
+    "Physical surface rechargeability": {
+        "meaning": (
+            "Hard check that the MAR method can physically deliver water into the "
+            "target aquifer type (unconfined vs confined)."
+        ),
+        "triggered": (
+            "Fails when Surface Recharge is selected for a confined aquifer. "
+            "Passes for unconfined aquifers, and for well-based options on confined sites."
+        ),
+        "why": (
+            "Surface spreading cannot reach a confined unit behind a confining layer; "
+            "using the wrong method makes the option not feasible."
+        ),
+    },
+    "Vadose zone contaminant impact": {
+        "meaning": (
+            "Hard check on whether an impacted vadose / unsaturated zone blocks "
+            "surface recharge (Water Quality Q3)."
+        ),
+        "triggered": (
+            "Fails for Surface Recharge when vadose impact = Yes. Well options pass "
+            "because they can bypass the vadose."
+        ),
+        "why": (
+            "Recharging through contaminated unsaturated soils can mobilize "
+            "contaminants into the aquifer."
+        ),
+    },
+    "Target aquifer anthropogenic contaminants": {
+        "meaning": (
+            "Hard check that the target aquifer is not already unsuitable due to "
+            "human-caused contamination (Water Quality Q4)."
+        ),
+        "triggered": (
+            "Fails for every MAR option when aquifer anthropogenic contaminants = Yes."
+        ),
+        "why": (
+            "Recharging into a compromised aquifer does not meet water-quality goals "
+            "and can increase liability."
+        ),
+    },
+    "Recharge Efficiency": {
+        "meaning": (
+            "Hard check that the option can recharge enough of the annual source "
+            "water volume (rechargeable percentage vs minimum threshold)."
+        ),
+        "triggered": (
+            "Fails when the option-specific rechargeable percentage (or confined "
+            "rechargability) is below the configured minimum acceptable recharge %."
+        ),
+        "why": (
+            "If too little source water can be recharged, the project cannot meet "
+            "storage / water-supply objectives."
+        ),
+    },
+    "Ground surface slope Suitability": {
+        "meaning": (
+            "Soft check on whether ground slope is suitable for surface infiltration "
+            "basins or spreading."
+        ),
+        "triggered": (
+            "Uses ground-surface slope significance. For Surface Recharge: Gentle → "
+            "acceptable; Moderate → cost; Steep → mitigation. Dry/Injection wells stay "
+            "acceptable. Confined aquifers → irrelevant."
+        ),
+        "why": (
+            "Steep slopes raise earthwork cost and reduce reliable basin performance."
+        ),
+    },
+    "Vadose zone infiltration": {
+        "meaning": (
+            "Soft check that unsaturated-zone hydraulic conductivity supports "
+            "infiltration."
+        ),
+        "triggered": (
+            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
+            "Irrelevant. If the vadose K threshold is not met, Surface Recharge → "
+            "mitigation (consider bypassing the vadose)."
+        ),
+        "why": (
+            "Low infiltration capacity limits recharge volume for surface methods; "
+            "injection wells bypass the vadose so this check does not apply."
+        ),
+    },
+    "Vadose zone pollution": {
+        "meaning": "Soft check for pollution already present in the vadose zone.",
+        "triggered": (
+            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
+            "Irrelevant. If pollution is present, Surface Recharge → mitigation "
+            "(bypass or remediate)."
+        ),
+        "why": (
+            "Recharge through a polluted vadose can mobilize contaminants; "
+            "injection wells bypass the vadose pathway."
+        ),
+    },
+    "Vadose zone pollution biodegradability": {
+        "meaning": (
+            "Soft check on whether vadose pollution can biodegrade / attenuate "
+            "naturally."
+        ),
+        "triggered": (
+            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
+            "Irrelevant. Only scored when vadose pollution is present. "
+            "Biodegradable + Surface Recharge → warning; non-biodegradable + "
+            "Surface Recharge → mitigation; Dry Well may get a "
+            "mounding/mobilization warning."
+        ),
+        "why": (
+            "Toxicity and attenuation control remediation needs for pathways "
+            "that interact with the vadose; injection wells bypass it."
+        ),
+    },
+    "Vadose zone remediation needed": {
+        "meaning": (
+            "Soft check on whether vadose cleanup is needed before or during recharge."
+        ),
+        "triggered": (
+            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
+            "Irrelevant. If remediation is needed, Surface Recharge → mitigation."
+        ),
+        "why": (
+            "Remediation adds cost and complexity for surface methods; injection "
+            "wells bypass the vadose so this check does not apply."
+        ),
+    },
+    "Vadose zone residence time": {
+        "meaning": (
+            "Soft check on travel time of water through the vadose relative to "
+            "natural treatment needs (pathogens, organics, nutrients)."
+        ),
+        "triggered": (
+            "Always Irrelevant (−1 / grey) for Injection Well. Computed only when "
+            "Water Quality Q1 (source water contaminants) = Yes. Uses stratigraphy, "
+            "groundwater depth, and design infiltration rate. If residence time is "
+            "not reasonable for listed constituents → mitigation; if computed and "
+            "reasonable → monitoring warning. Confined aquifers → irrelevant. "
+            "Q1 No / Unknown → not computed (acceptable)."
+        ),
+        "why": (
+            "Too-short residence time reduces natural treatment of contaminated "
+            "source water through the vadose; injection wells bypass that pathway."
+        ),
+    },
+    "Surface recharge suitability": {
+        "meaning": (
+            "Overall soft roll-up of whether surface recharge is suitable "
+            "(slope, infiltration, vadose issues)."
+        ),
+        "triggered": (
+            "Always Irrelevant (−1 / grey) for Injection Well and Dry Well. "
+            "Confined aquifers → Irrelevant. For surface options: True → "
+            "acceptable; False → mitigation."
+        ),
+        "why": (
+            "Flags that surface methods are unlikely to work without major mitigation; "
+            "not applicable to well-based options that bypass surface spreading."
+        ),
+    },
+    "Confined aquifer depth Suitability": {
+        "meaning": (
+            "Soft check that a confined target is at a workable well depth."
+        ),
+        "triggered": (
+            "Unconfined → irrelevant. Confined: Too Deep → reject; Moderate Deep → "
+            "warning; otherwise acceptable."
+        ),
+        "why": (
+            "Excessive depth drives drilling cost and may make injection impractical."
+        ),
+    },
+    "Confined leakage significance": {
+        "meaning": "Soft check on leakage through confining layers.",
+        "triggered": (
+            "Unconfined → irrelevant. Confined: low → acceptable; medium → warning; "
+            "high → mitigation."
+        ),
+        "why": (
+            "High leakage can lose recharge, affect adjacent units, or create "
+            "pressure issues."
+        ),
+    },
+    "Land Use": {
+        "meaning": (
+            "Soft check on land-use compatibility for land-intensive surface recharge."
+        ),
+        "triggered": (
+            "Residential / commercial / urban land uses → additional cost for Surface "
+            "Recharge; otherwise acceptable."
+        ),
+        "why": (
+            "Urban land is costly and may face zoning limits for basins and spreading."
+        ),
+    },
+    "Source Water Contaminants": {
+        "meaning": (
+            "Water-quality soft check on industrial, domestic, or emerging "
+            "contaminants in source water."
+        ),
+        "triggered": (
+            "Yes → mitigation / extra cost beyond this tool. Unknown → data-gap "
+            "warning. No → acceptable."
+        ),
+        "why": (
+            "Contaminated source water may need treatment or may be unsuitable for "
+            "some MAR goals."
+        ),
+    },
+    "Clogging & Fouling Risks": {
+        "meaning": (
+            "Water-quality soft check on turbidity-related clogging of basins or wells."
+        ),
+        "triggered": (
+            "Turbidity >20 NTU → mitigation (pretreatment); 5–20 NTU → additional cost; "
+            "Unknown → data-gap warning; <5 NTU → acceptable."
+        ),
+        "why": (
+            "High solids reduce infiltration rates and increase O&M "
+            "(scraping, well rehabilitation)."
+        ),
+    },
+    "Need for Remediation": {
+        "meaning": (
+            "Water-quality soft check on vadose impact for the surface recharge pathway."
+        ),
+        "triggered": (
+            "Confined → irrelevant. Vadose impacted Yes + Surface Recharge → reject. "
+            "Wells that bypass the vadose stay acceptable. Unknown → data-gap warning."
+        ),
+        "why": (
+            "Surface recharge through an impacted vadose can transport contaminants; "
+            "wells may still be viable."
+        ),
+    },
+    "Target Aquifer Anthropogenic Contaminants": {
+        "meaning": (
+            "Water-quality soft check that the target aquifer is free of "
+            "human-caused contamination."
+        ),
+        "triggered": (
+            "Yes → reject all MAR options. Unknown → data-gap warning. No → acceptable."
+        ),
+        "why": (
+            "Recharging into an already unsuitable aquifer fails water-quality "
+            "objectives."
+        ),
+    },
+    "Target Aquifer Naturally Occurring Contaminants": {
+        "meaning": (
+            "Water-quality soft check for natural / geogenic contaminants in the "
+            "target aquifer."
+        ),
+        "triggered": (
+            "Yes → warning (site-specific cost / treatment may be needed). Unknown → "
+            "data-gap warning. No → acceptable."
+        ),
+        "why": (
+            "Natural contaminants may still allow MAR but often need extra monitoring "
+            "or treatment."
+        ),
+    },
+}
+
+
+def _display_status(status):
+    """Map internal DSS status to Feasible / Conditionally Feasible / Not Feasible."""
+    return _STATUS_DISPLAY.get(status, status)
 
 
 def _get_status_color(status):
-    """Get color for status."""
-    status_colors = {
+    """Color for displayed feasibility status (accepts internal or display labels)."""
+    display = _display_status(status) if status in _STATUS_DISPLAY else status
+    if display in _STATUS_COLORS:
+        return _STATUS_COLORS[display]
+    # Fallback for legacy strings
+    legacy = {
         "Recommended": "success",
-        "Recommended with Warnings": "warning",
+        "Recommended with Warnings": "success",
         "Conditionally Recommended": "info",
         "Rejected": "danger",
     }
-    return status_colors.get(status, "secondary")
+    return legacy.get(status, "secondary")
 
 
 def _format_cost(cost):
@@ -26,776 +356,538 @@ def _format_cost(cost):
         if len(cost) == 0:
             return "To be calculated"
         return f"{len(cost)} cost items"
-    elif isinstance(cost, (int, float)):
+    if isinstance(cost, (int, float)):
         return f"${cost:,.0f}"
     return str(cost)
+
+
+def _round_to_nearest_thousand(value):
+    """Round a dollar amount to the nearest $1,000."""
+    try:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return 0.0
+        amount = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(amount) or amount <= 0:
+        return 0.0
+    return float(round(amount / 1000.0) * 1000)
+
+
+def _format_usd_nearest_thousand(value):
+    """Format a dollar amount rounded to the nearest $1,000."""
+    rounded = _round_to_nearest_thousand(value)
+    if rounded <= 0:
+        return "—"
+    return f"${rounded:,.0f}"
+
+
+def _series_value(series_or_none, column):
+    if series_or_none is None or not column:
+        return 0.0
+    try:
+        if column not in series_or_none.index:
+            return 0.0
+        raw = series_or_none[column]
+        if pd.isna(raw):
+            return 0.0
+        val = float(raw)
+        return val if math.isfinite(val) else 0.0
+    except (TypeError, ValueError, AttributeError):
+        return 0.0
+
+
+def _npv_dict_from_storage():
+    """Coerce dash_storage ``net_val`` to a plain dict of NPV column → value."""
+    raw = dash_storage.get_data("net_val")
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, pd.Series):
+        return {k: raw[k] for k in raw.index}
+    return {}
+
+
+def _option_cost_totals(option_name):
+    """Return capital, annual maintenance, and NPV for an option (raw dollars)."""
+    capital = coerce_storage_cost_totals(
+        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
+    )
+    maintenance = coerce_storage_cost_totals(
+        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+    )
+    npv_dict = _npv_dict_from_storage()
+
+    capital_val = _series_value(capital, _OPTION_TO_CAPITAL_COL.get(option_name))
+    maintenance_val = _series_value(
+        maintenance, _OPTION_TO_MAINTENANCE_COL.get(option_name)
+    )
+    npv_col = _OPTION_TO_NPV_COL.get(option_name)
+    npv_val = 0.0
+    if npv_col and npv_col in npv_dict:
+        try:
+            raw = npv_dict[npv_col]
+            if raw is not None and not (isinstance(raw, float) and pd.isna(raw)):
+                npv_val = float(raw)
+                if not math.isfinite(npv_val):
+                    npv_val = 0.0
+        except (TypeError, ValueError):
+            npv_val = 0.0
+
+    return capital_val, maintenance_val, npv_val
+
+
+def _cost_line(label, value_text, emphasize=False):
+    value_class = "di-cost-value-lg" if emphasize else "di-cost-value"
+    return html.Div(
+        [
+            html.Div(label, className="di-cost-label"),
+            html.Div(value_text, className=value_class),
+        ],
+        className="di-cost-row",
+    )
+
+
+def _cost_section_body(option_name, legacy_cost):
+    """Build capital / maintenance / NPV display for an option."""
+    capital, maintenance, npv = _option_cost_totals(option_name)
+    has_stored = capital > 0 or maintenance > 0 or npv > 0
+
+    if has_stored:
+        return html.Div(
+            [
+                _cost_line(
+                    "Capital cost (total)",
+                    _format_usd_nearest_thousand(capital),
+                    emphasize=True,
+                ),
+                _cost_line(
+                    "Annual maintenance cost",
+                    _format_usd_nearest_thousand(maintenance),
+                ),
+                _cost_line(
+                    "Net present value (20 years)",
+                    _format_usd_nearest_thousand(npv),
+                ),
+            ],
+            className="di-cost-block",
+        )
+
+    # Fallback to DSS result cost field when cost analysis has not been run
+    if isinstance(legacy_cost, list):
+        if legacy_cost:
+            return html.Ul(
+                [
+                    html.Li(item if isinstance(item, str) else str(item))
+                    for item in legacy_cost
+                ],
+                className="mb-0 di-list",
+            )
+        return html.P(
+            "Cost items to be calculated. Run Cost Analysis to populate totals",
+            className="text-muted mb-0 small",
+        )
+    return html.P(
+        f"Total cost: {_format_cost(legacy_cost)}",
+        className="mb-0",
+    )
+
+
+def _metric_card(value, label, value_class="text-primary"):
+    return dbc.Col(
+        html.Div(
+            [
+                html.Div(value, className=f"di-metric-value {value_class}"),
+                html.Div(label, className="di-metric-label"),
+            ],
+            className="di-metric",
+        ),
+        width=6,
+        className="mb-2",
+    )
+
+
+def _section(title, children, accent=None):
+    # accent kept for call-site compatibility; section titles use dashboard blue
+    return html.Div(
+        [
+            html.H6(title, className="di-section-title"),
+            html.Div(children, className="di-section-body"),
+        ],
+        className="di-section",
+    )
+
+
+def _constraint_help_btn(constraint_name):
+    return html.Button(
+        "?",
+        id={"type": "di-constraint-help-btn", "name": constraint_name},
+        type="button",
+        className="mar-help-btn eng-help-btn di-constraint-help-btn",
+        title=f"Help: {constraint_name}",
+    )
+
+
+def _constraint_name_cell(constraint_name):
+    return html.Td(
+        html.Div(
+            [
+                html.Span(constraint_name, className="di-constraint-name"),
+                _constraint_help_btn(constraint_name),
+            ],
+            className="d-flex align-items-center justify-content-between gap-2",
+        )
+    )
+
+
+def constraint_help_body(constraint_name):
+    """Build modal body content for a constraint help entry."""
+    info = CONSTRAINT_HELP.get(constraint_name)
+    if not info:
+        return [
+            html.P(
+                f"No detailed help is defined yet for “{constraint_name}”",
+                className="mb-0",
+            )
+        ]
+    return [
+        html.P(
+            [html.Strong("What it means: "), info["meaning"]],
+            className="mb-2",
+        ),
+        html.P(
+            [html.Strong("How it is triggered: "), info["triggered"]],
+            className="mb-2",
+        ),
+        html.P(
+            [html.Strong("Why it matters: "), info["why"]],
+            className="mb-0",
+        ),
+    ]
+
+
+def _constraint_help_modal():
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(
+                dbc.ModalTitle(id="di-constraint-help-title", children="Constraint help"),
+                close_button=True,
+            ),
+            dbc.ModalBody(id="di-constraint-help-body"),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id="di-constraint-help-close",
+                    className="ms-auto",
+                    color="secondary",
+                )
+            ),
+        ],
+        id="di-constraint-help-modal",
+        size="lg",
+        scrollable=True,
+        is_open=False,
+    )
 
 
 def _create_option_interpretation(option_name, result, filters=None):
     """Create detailed interpretation content for a selected option."""
     status = result.get("status", "Unknown")
-    benefit_score = result.get("benefit_score", 0.0) * 100
+    display_status = _display_status(status)
     cost = result.get("cost", [])
     warnings = result.get("warnings", [])
     mitigations = result.get("mitigations", [])
-    
-    status_badge = dbc.Badge(
-        status,
-        color=_get_status_color(status),
-        className="me-2 mb-3",
-    )
-    
-    # Get filter details if available
+
     hard_constraints = []
     soft_constraints = []
-    benefits_list = []
     if filters and option_name in filters:
         filter_data = filters[option_name]
-        hard_constraints = filter_data.get('hard', [])
-        soft_constraints = filter_data.get('soft', [])
-        benefits_list = filter_data.get('benefits', [])
-    
-    # Build interpretation content
-    content = [
-        html.H5(f"{option_name}", className="mb-2", style={"fontSize": "1.1rem"}),
-        html.Div([status_badge], className="mb-2"),
-        
-        # Summary metrics
-        dbc.Row(
+        hard_constraints = filter_data.get("hard", [])
+        soft_constraints = filter_data.get("soft", [])
+
+    status_color = _get_status_color(status)
+
+    sections = [
+        html.Div(
             [
-                dbc.Col(
-                    dbc.Card(
-                        [
-                            dbc.CardBody(
-                                [
-                                    html.H6(f"{benefit_score:.1f}%", className="text-primary mb-0", style={"fontSize": "1rem"}),
-                                    html.P("Benefit Score", className="mb-0 text-muted small"),
-                                ],
-                                style={"padding": "0.5rem"}
-                            )
-                        ],
-                        className="text-center",
+                html.Div(
+                    [
+                        html.H5(option_name, className="di-option-name mb-0"),
+                        dbc.Badge(
+                            display_status,
+                            color=status_color,
+                            className="di-status-badge",
+                        ),
+                    ],
+                    className=(
+                        "d-flex flex-wrap align-items-center "
+                        "justify-content-between gap-2 mb-3"
                     ),
-                    width=4,
                 ),
-                dbc.Col(
-                    dbc.Card(
-                        [
-                            dbc.CardBody(
-                                [
-                                    html.H6(f"{len(warnings)}", className="text-warning mb-0", style={"fontSize": "1rem"}),
-                                    html.P("Warnings", className="mb-0 text-muted small"),
-                                ],
-                                style={"padding": "0.5rem"}
-                            )
-                        ],
-                        className="text-center",
-                    ),
-                    width=4,
+                dbc.Row(
+                    [
+                        _metric_card(str(len(warnings)), "Warnings", "text-warning"),
+                        _metric_card(str(len(mitigations)), "Mitigations", "text-info"),
+                    ],
+                    className="g-2 mb-1",
                 ),
-                dbc.Col(
-                    dbc.Card(
-                        [
-                            dbc.CardBody(
-                                [
-                                    html.H6(f"{len(mitigations)}", className="text-info mb-0", style={"fontSize": "1rem"}),
-                                    html.P("Mitigations", className="mb-0 text-muted small"),
-                                ],
-                                style={"padding": "0.5rem"}
-                            )
-                        ],
-                        className="text-center",
-                    ),
-                    width=4,
+                dbc.Alert(
+                    _get_status_interpretation(status, warnings, mitigations),
+                    color=status_color,
+                    className="di-status-alert mb-0",
                 ),
             ],
-            className="mb-2",
-        ),
-        
-        # Status interpretation
-        html.H6("Status Interpretation", className="mt-2 mb-1", style={"fontSize": "0.95rem"}),
-        html.P(
-            _get_status_interpretation(status, warnings, mitigations),
-            className="mb-2 small",
-        ),
+            className="di-option-header",
+        )
     ]
-    
-    # Cost information
-    content.append(html.H6("Cost Information", className="mt-2 mb-1", style={"fontSize": "0.95rem"}))
-    if isinstance(cost, list):
-        if len(cost) > 0:
-            cost_items = html.Ul(
-                [html.Li(item if isinstance(item, str) else str(item), className="small") for item in cost],
-                className="mb-2",
-            )
-            content.append(cost_items)
-        else:
-            content.append(html.P("Cost items to be calculated.", className="text-muted mb-2 small"))
-    else:
-        content.append(html.P(f"Total Cost: {_format_cost(cost)}", className="mb-2 small"))
-    
-    # Warnings
+
+    sections.append(
+        _section("Cost information", _cost_section_body(option_name, cost))
+    )
+
     if warnings:
-        content.append(html.H6("Warnings", className="mt-2 mb-1", style={"fontSize": "0.95rem"}))
-        warning_items = html.Ul(
-            [html.Li(warning, className="text-warning small") for warning in warnings],
-            className="mb-2",
-        )
-        content.append(warning_items)
-    
-    # Mitigations
-    if mitigations:
-        content.append(html.H6("Required Mitigations", className="mt-2 mb-1", style={"fontSize": "0.95rem"}))
-        mitigation_items = html.Ul(
-            [html.Li(mitigation, className="text-info small") for mitigation in mitigations],
-            className="mb-2",
-        )
-        content.append(mitigation_items)
-    
-    # Hard constraints details
-    if hard_constraints:
-        content.append(html.H6("Hard Constraints Evaluation", className="mt-2 mb-1", style={"fontSize": "0.95rem"}))
-        hard_constraint_rows = []
-        for hc in hard_constraints:
-            constraint_name = hc.get("name", "Unknown")
-            passed = hc.get("pass", False)
-            explanation = hc.get("why", "No explanation available")
-            
-            status_badge = dbc.Badge(
-                "Pass" if passed else "Fail",
-                color="success" if passed else "danger",
-                className="me-2",
+        sections.append(
+            _section(
+                "Warnings",
+                html.Ul(
+                    [html.Li(w) for w in warnings],
+                    className="mb-0 di-list di-list-warning",
+                ),
+                accent="warning",
             )
-            
-            hard_constraint_rows.append(
+        )
+
+    if mitigations:
+        sections.append(
+            _section(
+                "Required mitigations",
+                html.Ul(
+                    [html.Li(m) for m in mitigations],
+                    className="mb-0 di-list di-list-info",
+                ),
+                accent="info",
+            )
+        )
+
+    if hard_constraints:
+        hard_rows = []
+        for hc in hard_constraints:
+            passed = hc.get("pass", False)
+            hard_rows.append(
                 html.Tr(
                     [
-                        html.Td(constraint_name, className="small"),
-                        html.Td(status_badge),
-                        html.Td(explanation, className="small"),
+                        _constraint_name_cell(hc.get("name", "Unknown")),
+                        html.Td(
+                            dbc.Badge(
+                                "Pass" if passed else "Fail",
+                                color="success" if passed else "danger",
+                            )
+                        ),
+                        html.Td(hc.get("why", "No explanation available")),
                     ]
                 )
             )
-        
-        content.append(
-            dbc.Table(
-                [
-                    html.Thead(
-                        html.Tr(
-                            [
-                                html.Th("Constraint", style={"fontSize": "0.85rem"}),
-                                html.Th("Status", style={"fontSize": "0.85rem"}),
-                                html.Th("Explanation", style={"fontSize": "0.85rem"}),
-                            ]
-                        )
-                    ),
-                    html.Tbody(hard_constraint_rows),
-                ],
-                bordered=True,
-                hover=True,
-                responsive=True,
-                className="mb-2 table-sm excel-computed-table",
-                style={"fontSize": "0.85rem"}
+        sections.append(
+            _section(
+                "Hard constraints",
+                dbc.Table(
+                    [
+                        html.Thead(
+                            html.Tr(
+                                [
+                                    html.Th("Constraint"),
+                                    html.Th("Status"),
+                                    html.Th("Explanation"),
+                                ]
+                            )
+                        ),
+                        html.Tbody(hard_rows),
+                    ],
+                    bordered=False,
+                    hover=True,
+                    responsive=True,
+                    className="mb-0 table-sm di-table",
+                ),
             )
         )
-    
-    # Soft constraints details
+
     if soft_constraints:
-        content.append(html.H6("Soft Constraints Evaluation", className="mt-2 mb-1", style={"fontSize": "0.95rem"}))
-        constraint_rows = []
+        soft_rows = []
         for sc in soft_constraints:
-            constraint_name = sc.get("name", "Unknown")
             response = sc.get("response", 0)
-            penalty = sc.get("penalty", [])
-            is_hard = sc.get("hard", False)
-            
-            # Skip irrelevant constraints in the display
             if response == -1:
                 continue
-            
-            response_labels = {
-                0: "Acceptable",
-                1: "Acceptable with additional Cost",
-                2: "Warning",
-                3: "Mitigation",
-                4: "Reject",
-            }
-            response_label = response_labels.get(response, "Unknown")
-            
-            constraint_rows.append(
+            penalty = sc.get("penalty", [])
+            soft_rows.append(
                 html.Tr(
                     [
-                        html.Td(constraint_name, className="small"),
-                        html.Td(response_label, className="small"),
-                        html.Td("Yes" if is_hard else "No", className="small"),
+                        _constraint_name_cell(sc.get("name", "Unknown")),
                         html.Td(
-                            html.Ul([html.Li(p if isinstance(p, str) else str(p), className="small") for p in penalty], className="mb-0")
-                            if isinstance(penalty, list) and len(penalty) > 0
-                            else html.Span("None", className="small")
+                            dbc.Badge(
+                                _RESPONSE_LABELS.get(response, "Unknown"),
+                                color=_RESPONSE_COLORS.get(response, "secondary"),
+                                className="text-wrap",
+                            )
+                        ),
+                        html.Td(
+                            html.Ul(
+                                [
+                                    html.Li(p if isinstance(p, str) else str(p))
+                                    for p in penalty
+                                ],
+                                className="mb-0 di-list-compact",
+                            )
+                            if isinstance(penalty, list) and penalty
+                            else html.Span("None", className="text-muted")
                         ),
                     ]
                 )
             )
-        
-        content.append(
-            dbc.Table(
-                [
-                    html.Thead(
-                        html.Tr(
-                            [
-                                html.Th("Constraint", style={"fontSize": "0.85rem"}),
-                                html.Th("Response Level", style={"fontSize": "0.85rem"}),
-                                html.Th("Hard Constraint", style={"fontSize": "0.85rem"}),
-                                html.Th("Penalty/Cost", style={"fontSize": "0.85rem"}),
-                            ]
-                        )
+        if soft_rows:
+            sections.append(
+                _section(
+                    "Soft constraints",
+                    dbc.Table(
+                        [
+                            html.Thead(
+                                html.Tr(
+                                    [
+                                        html.Th("Constraint"),
+                                        html.Th("Response"),
+                                        html.Th("Notes"),
+                                    ]
+                                )
+                            ),
+                            html.Tbody(soft_rows),
+                        ],
+                        bordered=False,
+                        hover=True,
+                        responsive=True,
+                        className="mb-0 table-sm di-table",
                     ),
-                    html.Tbody(constraint_rows),
-                ],
-                bordered=True,
-                hover=True,
-                responsive=True,
-                className="mb-2 table-sm excel-computed-table",
-                style={"fontSize": "0.85rem"}
-            )
-        )
-    
-    # Benefits breakdown
-    if benefits_list:
-        content.append(html.H6("Benefits Breakdown", className="mt-2 mb-1", style={"fontSize": "0.95rem"}))
-        benefit_rows = []
-        for benefit in benefits_list:
-            benefit_name = benefit.get("name", "Unknown")
-            value = benefit.get("value", 0.0) * 100
-            weight = benefit.get("weight", 0.0) * 100
-            contribution = value * weight / 100 if weight > 0 else 0
-            
-            benefit_rows.append(
-                html.Tr(
-                    [
-                        html.Td(benefit_name, className="small"),
-                        html.Td(f"{value:.1f}%", className="small"),
-                        html.Td(f"{weight:.1f}%", className="small"),
-                        html.Td(f"{contribution:.2f}%", className="small"),
-                    ]
                 )
             )
-        
-        content.append(
-            dbc.Table(
-                [
-                    html.Thead(
-                        html.Tr(
-                            [
-                                html.Th("Benefit Metric", style={"fontSize": "0.85rem"}),
-                                html.Th("Value", style={"fontSize": "0.85rem"}),
-                                html.Th("Weight", style={"fontSize": "0.85rem"}),
-                                html.Th("Contribution", style={"fontSize": "0.85rem"}),
-                            ]
-                        )
-                    ),
-                    html.Tbody(benefit_rows),
-                ],
-                bordered=True,
-                hover=True,
-                responsive=True,
-                className="mb-2 table-sm excel-computed-table",
-                style={"fontSize": "0.85rem"}
-            )
-        )
-    
-    return html.Div(content)
+
+    return html.Div(sections, className="di-details")
 
 
 def _get_status_interpretation(status, warnings, mitigations):
-    """Get interpretation text for a status."""
-    if status == "Recommended":
-        return "This option is fully recommended for implementation. No warnings or mitigations are required. It meets all hard constraints and has acceptable soft constraint responses."
-    elif status == "Recommended with Warnings":
-        return f"This option is recommended but has {len(warnings)} warning(s) that should be monitored. The warnings indicate potential concerns that may require attention during implementation or operation."
-    elif status == "Conditionally Recommended":
-        return f"This option is conditionally recommended and requires {len(mitigations)} mitigation measure(s) before proceeding. These mitigations must be addressed to ensure successful implementation."
-    elif status == "Rejected":
-        return "This option has been rejected based on the evaluation. It either fails hard constraints or has critical soft constraint violations that cannot be mitigated."
-    else:
-        return "Status interpretation not available."
+    """Get interpretation text for a status (uses Feasible wording)."""
+    display = _display_status(status)
+    if display == "Feasible" and status == "Recommended with Warnings":
+        return (
+            f"Feasible, with {len(warnings)} warning(s) to monitor during "
+            "implementation or operation. Hard constraints pass; soft constraints "
+            "raised warnings but do not require mitigation to proceed."
+        )
+    if display == "Feasible":
+        return (
+            "Feasible for implementation. No mitigations are required. It meets hard "
+            "constraints and has acceptable soft-constraint responses."
+        )
+    if display == "Conditionally Feasible":
+        return (
+            f"Conditionally feasible — address {len(mitigations)} mitigation "
+            "measure(s) before proceeding."
+        )
+    if display == "Not Feasible":
+        return (
+            "Not feasible under current inputs: hard-constraint failures or critical "
+            "soft-constraint violations that cannot be mitigated."
+        )
+    return "Status interpretation not available."
+
+
+def _empty_state():
+    return html.Div(
+        [
+            _constraint_help_modal(),
+            dbc.Card(
+                [
+                    dbc.CardHeader(
+                        "Decision Interpretation",
+                        className="fw-bold text-white py-2",
+                        style=_HEADER_STYLE,
+                    ),
+                    dbc.CardBody(
+                        dbc.Alert(
+                            "No evaluation results available. Run the feasibility "
+                            "analysis first to interpret MAR option decisions.",
+                            color="info",
+                            className="mb-0",
+                        ),
+                        className="p-3",
+                    ),
+                ],
+                className="di-panel shadow-sm",
+            ),
+        ],
+        className="di-root",
+    )
 
 
 def create_decision_interpretation_content():
-    """Create content for Decision Interpretation sidebar tab."""
-    # Get DSS results from storage
+    """Create content for Decision Interpretation tab."""
     dss_results = dash_storage.get_data("dss_results")
-    
-    if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
-        wb_empty = dash_storage.get_data("graph_computation_log_text")
-        if wb_empty is None:
-            wb_empty = "Run analysis to populate this workbook."
-        return html.Div(
-            [
-                dbc.Tabs(
-                    [
-                        dbc.Tab(
-                            label="Overview",
-                    id=tab_nav_id("decision-interpretation-overview"),
-                            tab_id="decision-interpretation-overview",
-                            children=html.Div(
-                                [
-                                    html.H4(
-                                        "Decision Interpretation",
-                                        className="mb-2",
-                                        style={"fontSize": "1.2rem"},
-                                    ),
-                                    dbc.Alert(
-                                        "No evaluation results available. Please run the feasibility analysis first.",
-                                        color="info",
-                                        className="mt-2 small",
-                                    ),
-                                ],
-                                style={"padding": "0.5rem"},
-                            ),
-                        ),
-                        dbc.Tab(
-                            label="Detailed calculations workbook",
-                    id=tab_nav_id("decision-interpretation-workbook"),
-                            tab_id="decision-interpretation-workbook",
-                            children=html.Div(
-                                [
-                                    html.P(
-                                        "Step-by-step decision graph log (available after analysis runs).",
-                                        className="text-muted small mb-2",
-                                    ),
-                                    html.Pre(
-                                        id="decision-interpretation-workbook-text",
-                                        children=wb_empty,
-                                        style={
-                                            "whiteSpace": "pre-wrap",
-                                            "fontFamily": "monospace",
-                                            "fontSize": "0.8rem",
-                                            "backgroundColor": "#f8f9fa",
-                                            "border": "1px solid #dee2e6",
-                                            "borderRadius": "4px",
-                                            "padding": "12px",
-                                            "maxHeight": "70vh",
-                                            "overflowY": "auto",
-                                        },
-                                    ),
-                                ],
-                                style={"padding": "0.5rem"},
-                            ),
-                        ),
-                    ],
-                    id="decision-interpretation-subtabs",
-                    active_tab="decision-interpretation-overview",
-                ),
-                tab_tooltip(
-                    "decision-interpretation-overview",
-                    "Summary charts and status interpretation of DSS evaluation results",
-                ),
-                tab_tooltip(
-                    "decision-interpretation-workbook",
-                    "Step-by-step decision graph computation log and rule evaluations",
-                ),
-            ],
-            style={"padding": "0.5rem"},
-        )
-    
-    results = dss_results.results
-    filters = getattr(dss_results, 'filters', {})
-    
-    # Prepare data for visualization
-    option_names = list(results.keys())
-    statuses = [result.get("status", "Unknown") for result in results.values()]
-    benefit_scores = [result.get("benefit_score", 0.0) * 100 for result in results.values()]
-    
-    # Status distribution
-    status_counts = {}
-    for status in statuses:
-        status_counts[status] = status_counts.get(status, 0) + 1
-    
-    # Create status distribution chart
-    status_fig = go.Figure()
-    status_fig.add_trace(
-        go.Bar(
-            x=list(status_counts.keys()),
-            y=list(status_counts.values()),
-            marker_color=["#28a745", "#ffc107", "#17a2b8", "#dc3545"],  # green, yellow, blue, red
-            text=list(status_counts.values()),
-            textposition="auto",
-        )
-    )
-    status_fig.update_layout(
-        title=dict(text="Decision Status Distribution", font=dict(size=12)),
-        xaxis_title="Status",
-        yaxis_title="Number of Options",
-        template="plotly_white",
-        height=250,
-        margin=dict(l=50, r=20, t=40, b=50),
-    )
-    
-    # Create benefit score comparison chart
-    benefit_fig = go.Figure()
-    colors = []
-    for status in statuses:
-        if status == "Recommended":
-            colors.append("#28a745")
-        elif status == "Recommended with Warnings":
-            colors.append("#ffc107")
-        elif status == "Conditionally Recommended":
-            colors.append("#17a2b8")
-        else:
-            colors.append("#dc3545")
-    
-    benefit_fig.add_trace(
-        go.Bar(
-            x=option_names,
-            y=benefit_scores,
-            marker_color=colors,
-            text=[f"{score:.1f}%" for score in benefit_scores],
-            textposition="auto",
-        )
-    )
-    benefit_fig.update_layout(
-        title=dict(text="Benefit Score by MAR Option", font=dict(size=12)),
-        xaxis_title="MAR Technology Option",
-        yaxis_title="Benefit Score (%)",
-        template="plotly_white",
-        height=250,
-        margin=dict(l=50, r=20, t=40, b=80),
-        xaxis_tickangle=-45,
-    )
-    
-    # Create detailed results table
-    table_rows = []
-    for option_name, result in results.items():
-        status = result.get("status", "Unknown")
-        benefit_score = result.get("benefit_score", 0.0) * 100
-        cost = result.get("cost", [])
-        warnings = result.get("warnings", [])
-        mitigations = result.get("mitigations", [])
-        
-        status_badge = dbc.Badge(
-            status,
-            color=_get_status_color(status),
-            className="me-2",
-        )
-        
-        table_rows.append(
-            html.Tr(
-                [
-                    html.Td(option_name, className="small"),
-                    html.Td(status_badge),
-                    html.Td(f"{benefit_score:.1f}%", className="small"),
-                    html.Td(_format_cost(cost), className="small"),
-                    html.Td(len(warnings), className="small"),
-                    html.Td(len(mitigations), className="small"),
-                ]
-            )
-        )
-    
-    # Summary insights
-    recommended_count = sum(1 for s in statuses if s == "Recommended")
-    warnings_count = sum(1 for s in statuses if s == "Recommended with Warnings")
-    conditional_count = sum(1 for s in statuses if s == "Conditionally Recommended")
-    rejected_count = sum(1 for s in statuses if s == "Rejected")
-    
-    total_warnings = sum(len(r.get("warnings", [])) for r in results.values())
-    total_mitigations = sum(len(r.get("mitigations", [])) for r in results.values())
-    
-    avg_benefit = sum(benefit_scores) / len(benefit_scores) if benefit_scores else 0
-    
-    option_names = list(results.keys())
 
-    overview_tab_children = [
-            html.H4("Decision Interpretation", className="mb-2", style={"fontSize": "1.2rem"}),
-            html.P(
-                "Comprehensive analysis and interpretation of MAR technology evaluation results.",
-                className="text-muted small mb-2",
-            ),
-            html.Hr(className="my-2"),
-            
-            # Dropdown for option selection - Enhanced visibility
-            dbc.Card(
-                [
-                    dbc.CardBody(
-                        [
-                            html.Label(
-                                "Select MAR Technology Option:",
-                                className="form-label fw-bold mb-2",
-                                style={"fontSize": "1rem", "color": "#1e3a5f"}
-                            ),
-                            dcc.Dropdown(
-                                id="decision-interpretation-option-selector",
-                                options=[{"label": name, "value": name} for name in option_names],
-                                value=option_names[0] if option_names else None,
-                                placeholder="Select an option to view detailed interpretation...",
-                                style={
-                                    "fontSize": "1rem",
-                                    "border": "2px solid #1e3a5f",
-                                    "borderRadius": "5px"
-                                }
-                            ),
-                            dbc.Tooltip(
-                                "MAR engineering option to show detailed narrative, warnings, and mitigations",
-                                target="decision-interpretation-option-selector",
-                                placement="bottom",
-                            ),
-                        ],
-                        style={
-                            "padding": "1rem",
-                            "backgroundColor": "#f8f9fa",
-                            "border": "2px solid #1e3a5f",
-                            "borderRadius": "8px",
-                            "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
-                        }
-                    )
-                ],
-                className="mb-3",
-            ),
-            
-            # Interpretation content area
-            html.Div(id="decision-interpretation-details", className="mb-2"),
-            
-            html.Hr(className="my-2"),
-            
-            # Summary Cards
-            dbc.Row(
-                [
-                    dbc.Col(
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(f"{recommended_count}", className="text-success mb-0", style={"fontSize": "1.1rem"}),
-                                        html.P("Recommended", className="mb-0 small"),
-                                    ],
-                                    style={"padding": "0.5rem"}
-                                )
-                            ],
-                            className="text-center",
-                        ),
-                        width=3,
-                    ),
-                    dbc.Col(
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(f"{warnings_count}", className="text-warning mb-0", style={"fontSize": "1.1rem"}),
-                                        html.P("With Warnings", className="mb-0 small"),
-                                    ],
-                                    style={"padding": "0.5rem"}
-                                )
-                            ],
-                            className="text-center",
-                        ),
-                        width=3,
-                    ),
-                    dbc.Col(
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(f"{conditional_count}", className="text-info mb-0", style={"fontSize": "1.1rem"}),
-                                        html.P("Conditionally Recommended", className="mb-0 small"),
-                                    ],
-                                    style={"padding": "0.5rem"}
-                                )
-                            ],
-                            className="text-center",
-                        ),
-                        width=3,
-                    ),
-                    dbc.Col(
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(f"{rejected_count}", className="text-danger mb-0", style={"fontSize": "1.1rem"}),
-                                        html.P("Rejected", className="mb-0 small"),
-                                    ],
-                                    style={"padding": "0.5rem"}
-                                )
-                            ],
-                            className="text-center",
-                        ),
-                        width=3,
-                    ),
-                ],
-                className="mb-2",
-            ),
-            
-            # Charts
-            dbc.Row(
-                [
-                    dbc.Col(
-                        dcc.Graph(
-                            id="decision-interpretation-status-chart",
-                            figure=status_fig,
-                            config={"displayModeBar": False},
-                        ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            id="decision-interpretation-benefit-chart",
-                            figure=benefit_fig,
-                            config={"displayModeBar": False},
-                        ),
-                        width=6,
-                    ),
-                ],
-                className="mb-2",
-            ),
-            
-            # Detailed Results Table
-            html.H6("Detailed Results", className="mt-2 mb-1", style={"fontSize": "0.95rem"}),
-            dbc.Table(
-                [
-                    html.Thead(
-                        html.Tr(
-                            [
-                                html.Th("Option", style={"fontSize": "0.85rem"}),
-                                html.Th("Status", style={"fontSize": "0.85rem"}),
-                                html.Th("Benefit Score", style={"fontSize": "0.85rem"}),
-                                html.Th("Cost", style={"fontSize": "0.85rem"}),
-                                html.Th("Warnings", style={"fontSize": "0.85rem"}),
-                                html.Th("Mitigations", style={"fontSize": "0.85rem"}),
-                            ]
-                        )
-                    ),
-                    html.Tbody(table_rows),
-                ],
-                bordered=True,
-                hover=True,
-                responsive=True,
-                className="mb-2 table-sm excel-computed-table",
-                style={"fontSize": "0.85rem"}
-            ),
-            
-            # Key Insights
-            html.H6("Key Insights", className="mt-2 mb-1", style={"fontSize": "0.95rem"}),
-            html.Ul(
-                [
-                    html.Li(f"Average benefit score across all options: {avg_benefit:.1f}%", className="small"),
-                    html.Li(f"Total warnings identified: {total_warnings}", className="small"),
-                    html.Li(f"Total mitigations required: {total_mitigations}", className="small"),
-                    html.Li(
-                        f"Best performing option: {max(results.items(), key=lambda x: x[1].get('benefit_score', 0))[0]} "
-                        f"({max(benefit_scores):.1f}% benefit score)"
-                        if benefit_scores else "N/A",
-                        className="small"
-                    ),
-                ],
-                className="mb-2",
-            ),
-            
-            # Recommendations
-            html.H6("Recommendations", className="mt-2 mb-1", style={"fontSize": "0.95rem"}),
-            html.Div(
-                [
-                    html.P(
-                        "Based on the evaluation results:",
-                        className="mb-1 small",
-                    ),
-                    html.Ul(
-                        [
-                            html.Li(
-                                "Review options with 'Recommended' status for immediate implementation consideration.",
-                                className="small"
-                            ),
-                            html.Li(
-                                "Options with warnings may require additional monitoring or minor adjustments.",
-                                className="small"
-                            ),
-                            html.Li(
-                                "Conditionally recommended options need mitigation measures before proceeding.",
-                                className="small"
-                            ),
-                            html.Li(
-                                "Rejected options should be reconsidered only if site conditions change significantly.",
-                                className="small"
-                            ),
-                        ],
-                        className="mb-0"
-                    ),
-                ]
-            ),
-            dbc.Tooltip(
-                "Counts of MAR options by recommendation status",
-                target="decision-interpretation-status-chart",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Benefit scores across options for quick comparison",
-                target="decision-interpretation-benefit-chart",
-                placement="top",
-            ),
-    ]
+    if dss_results is None or not hasattr(dss_results, "results") or not dss_results.results:
+        return _empty_state()
 
-    workbook_initial = dash_storage.get_data("graph_computation_log_text")
-    if workbook_initial is None:
-        workbook_initial = (
-            "Open this sub-tab after running analysis to load the step-by-step decision graph log."
-        )
+    option_names = list(dss_results.results.keys())
 
     return html.Div(
         [
-            dbc.Tabs(
+            _constraint_help_modal(),
+            dbc.Card(
                 [
-                    dbc.Tab(
-                        label="Overview",
-                    id=tab_nav_id("decision-interpretation-overview"),
-                        tab_id="decision-interpretation-overview",
-                        children=html.Div(
-                            overview_tab_children,
-                            style={"padding": "0.5rem"},
-                        ),
+                    dbc.CardHeader(
+                        "Decision Interpretation",
+                        className="fw-bold text-white py-2",
+                        style=_HEADER_STYLE,
                     ),
-                    dbc.Tab(
-                        label="Detailed calculations workbook",
-                    id=tab_nav_id("decision-interpretation-workbook"),
-                        tab_id="decision-interpretation-workbook",
-                        children=html.Div(
-                            [
-                                html.P(
-                                    "Step-by-step log of decision graph evaluation: inputs, dependency values, "
-                                    "rule functions, and results. Edit formatting in "
-                                    "`mar_dss.graph_computation_log.format_computation_log_entries`.",
-                                    className="text-muted small mb-2",
-                                ),
-                                html.Pre(
-                                    id="decision-interpretation-workbook-text",
-                                    children=workbook_initial,
-                                    style={
-                                        "whiteSpace": "pre-wrap",
-                                        "fontFamily": "monospace",
-                                        "fontSize": "0.8rem",
-                                        "backgroundColor": "#f8f9fa",
-                                        "border": "1px solid #dee2e6",
-                                        "borderRadius": "4px",
-                                        "padding": "12px",
-                                        "maxHeight": "70vh",
-                                        "overflowY": "auto",
-                                    },
-                                ),
-                            ],
-                            style={"padding": "0.5rem"},
-                        ),
+                    dbc.CardBody(
+                        [
+                            html.P(
+                                "Review why each MAR option is feasible, conditionally "
+                                "feasible, or not feasible — including costs, warnings, "
+                                "mitigations, and constraint results.",
+                                className="di-lead text-muted mb-3",
+                            ),
+                            html.Div(
+                                [
+                                    html.Label(
+                                        "MAR technology option",
+                                        className="di-label form-label fw-bold mb-2",
+                                    ),
+                                    dcc.Dropdown(
+                                        id="decision-interpretation-option-selector",
+                                        options=[
+                                            {"label": name, "value": name}
+                                            for name in option_names
+                                        ],
+                                        value=option_names[0] if option_names else None,
+                                        placeholder="Select an option…",
+                                        className="di-dropdown",
+                                    ),
+                                ],
+                                className="di-dropdown-highlight mb-2",
+                            ),
+                            dbc.Tooltip(
+                                "Choose an option to see its decision narrative and constraint evaluation",
+                                target="decision-interpretation-option-selector",
+                                placement="bottom",
+                            ),
+                            html.Div(
+                                id="decision-interpretation-details",
+                                className="mt-3",
+                            ),
+                        ],
+                        className="p-3",
                     ),
                 ],
-                id="decision-interpretation-subtabs",
-                active_tab="decision-interpretation-overview",
-            ),
-            tab_tooltip(
-                "decision-interpretation-overview",
-                "Summary charts and status interpretation of DSS evaluation results",
-            ),
-            tab_tooltip(
-                "decision-interpretation-workbook",
-                "Step-by-step decision graph computation log and rule evaluations",
+                className="di-panel shadow-sm",
             ),
         ],
-        style={"padding": "0.5rem"},
+        className="di-root",
     )
-
-

@@ -114,8 +114,17 @@ inputs:
     default: false
     certainty: 0.8
     group: "Environmental Quality"
-  
-    
+
+  - id: "wq_source_contaminants"
+    name: "Source Water Contaminants (Water Quality Q1)"
+    description: "Water Quality screening Q1: whether source water has industrial, domestic, or emerging contaminants (Unknown / No / Yes)"
+    type: categorical
+    value: "Unknown"
+    default: "Unknown"
+    allowed_values: ["Unknown", "No", "Yes"]
+    certainty: 0.85
+    group: "Environmental Quality"
+
 
   # - id: "n"
   #   name: "Porosity"

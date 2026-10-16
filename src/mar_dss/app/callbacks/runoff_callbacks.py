@@ -311,16 +311,99 @@ def streams_to_geojson(streams):
 SS_DELINEATE_BASE = "https://streamstats.usgs.gov/ss-delineate/v1"
 SS_HYDRO_BASE = "https://streamstats.usgs.gov/ss-hydro/v1"
 
+_STATE_NAME_TO_ABBR = {
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+    "Florida": "FL", "Georgia": "GA", "Hawaii": "HI", "Idaho": "ID",
+    "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
+    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
+    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
+    "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
+    "Vermont": "VT", "Virginia": "VA", "Washington": "WA", "West Virginia": "WV",
+    "Wisconsin": "WI", "Wyoming": "WY", "District of Columbia": "DC",
+}
+
 
 def _get_state_from_coords(lat, lon):
-    """Resolve a US state abbreviation from WGS84 lat/lon using the FCC API."""
-    url = "https://geo.fcc.gov/api/census/area"
-    resp = requests.get(url, params={"lat": lat, "lon": lon, "format": "json"}, timeout=15)
-    resp.raise_for_status()
-    results = resp.json().get("results", [])
-    if not results:
-        raise ValueError(f"Could not determine state for coordinates ({lat}, {lon})")
-    return results[0]["state_code"]
+    """Resolve a US state abbreviation from WGS84 lat/lon.
+
+    Tries FCC first (legacy), then Census Geocoder, then Nominatim. The FCC
+    census/area endpoint has intermittently returned server auth failures
+    (HTTP 400 / ClientAuthentication), so fallbacks keep StreamStats working.
+    """
+    errors = []
+
+    # 1) FCC Census Area API (historically used; may be down)
+    try:
+        resp = requests.get(
+            "https://geo.fcc.gov/api/census/area",
+            params={"lat": lat, "lon": lon, "format": "json"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+        if results and results[0].get("state_code"):
+            return results[0]["state_code"]
+        errors.append("FCC returned no state_code")
+    except Exception as exc:
+        errors.append(f"FCC: {exc}")
+
+    # 2) US Census Bureau coordinate geocoder
+    try:
+        resp = requests.get(
+            "https://geocoding.geo.census.gov/geocoder/geographies/coordinates",
+            params={
+                "x": lon,
+                "y": lat,
+                "benchmark": "Public_AR_Current",
+                "vintage": "Current_Current",
+                "format": "json",
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        geos = resp.json().get("result", {}).get("geographies", {})
+        states = geos.get("States") or geos.get("State") or []
+        if states:
+            abbr = states[0].get("STUSAB") or states[0].get("STUSPS")
+            if abbr:
+                return str(abbr).upper()
+        errors.append("Census geocoder returned no STUSAB")
+    except Exception as exc:
+        errors.append(f"Census: {exc}")
+
+    # 3) OpenStreetMap Nominatim reverse geocode
+    try:
+        resp = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": lat, "lon": lon, "format": "json"},
+            headers={"User-Agent": "MAR-DSS/1.0 (watershed state lookup)"},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        address = resp.json().get("address") or {}
+        state_name = address.get("state")
+        country = (address.get("country_code") or "").lower()
+        if country and country != "us":
+            raise ValueError(f"Point is outside the US ({country})")
+        if state_name:
+            abbr = _STATE_NAME_TO_ABBR.get(state_name)
+            if abbr:
+                return abbr
+            if len(state_name) == 2:
+                return state_name.upper()
+        errors.append("Nominatim returned no usable state")
+    except Exception as exc:
+        errors.append(f"Nominatim: {exc}")
+
+    raise ValueError(
+        f"Could not determine state for coordinates ({lat}, {lon}). "
+        + " | ".join(errors)
+    )
 
 
 def _delineate_watershed(region, lat, lon):
@@ -434,30 +517,6 @@ def build_monthly_runoff_calc_summary(table_data, rain_events, lat, lon):
         ],
         className="mb-0",
     )
-
-
-def _peak_runoff_volume_ft3(table_data=None):
-    """Read single-storm Runoff Volume (ft3) from the runoff calculations table."""
-    if table_data is None:
-        table_data = dash_storage.get_data("runoff_calculations_table")
-    if not table_data:
-        return None
-    for row in table_data:
-        if row.get("Parameter") == "Runoff Volume (ft3)":
-            try:
-                return float(row.get("Value", 0) or 0)
-            except (TypeError, ValueError):
-                return None
-    return None
-
-
-def _sync_peak_runoff_to_engineering(table_data=None):
-    """Copy peak Runoff Volume (ft3) into Engineering tab storage."""
-    volume = _peak_runoff_volume_ft3(table_data)
-    if volume is None:
-        return None
-    dash_storage.set_data("total_runoff_ft3", volume)
-    return volume
 
 
 def setup_runoff_callbacks(app):
@@ -822,7 +881,7 @@ def setup_runoff_callbacks(app):
                 try:
                     if df.empty:
                         print("Watershed DataFrame is empty!")
-                        watershed_table = html.P("No watershed parameters available.", className="text-warning")
+                        watershed_table = html.P("No watershed parameters available", className="text-warning")
                     else:
                         watershed_table = dash_table.DataTable(
                             data=df.to_dict('records'),
@@ -1011,7 +1070,7 @@ def setup_runoff_callbacks(app):
         info = curve_number_map.get(selected_value)
         if info:
             return dbc.Alert([
-                html.H5("Selected Surface Condition:", className="mb-2"),
+                html.H5("Selected Surface Condition", className="mb-2"),
                 html.P([
                     html.Strong("Surface: "), info["surface"], html.Br(),
                     html.Strong("Condition: "), info["condition"], html.Br(),
@@ -1089,7 +1148,7 @@ def setup_runoff_callbacks(app):
         
         if cn is not None:
             return dbc.Alert([
-                html.H5("Selected Curve Number:", className="mb-2"),
+                html.H5("Selected Curve Number", className="mb-2"),
                 html.P([
                     html.Strong("Cover Description: "), cover_labels.get(cover_description, cover_description), html.Br(),
                     html.Strong("Soil Type: "), soil_labels.get(soil_type, soil_type), html.Br(),
@@ -1538,7 +1597,7 @@ def setup_runoff_callbacks(app):
         
         # Return table with heading
         return html.Div([
-            html.H6("Precipitation Frequency Estimates (NOAA Atlas 14).  Precipitation is in inches.", className="fw-bold mb-2"),
+            html.H6("Precipitation Frequency Estimates (NOAA Atlas 14) — Precipitation is in inches", className="fw-bold mb-2"),
             html.Small(
                 "Note: The Annual Recurrence Interval (ARI), also known as the return period, is the average time interval between rainfall events of a given magnitude or greater. For example: An ARI of 100 years means that, on average, a precipitation event of that magnitude (e.g., 5.38 inches over 24-hr) or greater has a 1% chance (1/100) of being equaled or exceeded in any given year.",
                 className="text-muted d-block mb-2"
@@ -1615,7 +1674,7 @@ def setup_runoff_callbacks(app):
     def _create_monthly_runoff_display(monthly_rain):
         """Create the monthly runoff table and chart display component."""
         if monthly_rain is None or monthly_rain.empty:
-            return html.P("No monthly rain data available.", className="text-warning")
+            return html.P("No monthly rain data available", className="text-warning")
 
         # Prefer ft3/month label; migrate older saved column name for display
         if (
@@ -1811,7 +1870,7 @@ def setup_runoff_callbacks(app):
                 ###
                 monthly_rain['Rain (inches)'] = monthly_rain['Rain (inches)'].round(3)
                 if monthly_rain is None or monthly_rain.empty:
-                    return html.P("No monthly rain data available.", className="text-warning"), dash.no_update
+                    return html.P("No monthly rain data available", className="text-warning"), dash.no_update
                 if len(runoff_volume)>0:
                     monthly_rain['Runoff depth (inches)'] = runoff_depth
                     monthly_rain['Runoff Volume (ft3/month)'] = runoff_volume
@@ -1845,52 +1904,5 @@ def setup_runoff_callbacks(app):
             return dash.no_update
         flow_data = _sync_runoff_volumes_to_monthly_flow()
         return flow_data if flow_data else dash.no_update
-
-    @app.callback(
-        Output("peak-runoff-engineering-sync", "data"),
-        [
-            Input("use-runoff-for-engineering-check", "value"),
-            Input("runoff-calculations-table", "data"),
-        ],
-        prevent_initial_call=True,
-    )
-    def apply_peak_runoff_to_engineering(use_for_engineering, table_data):
-        """Copy peak Runoff Volume (ft3) to Engineering tab when checkbox is checked."""
-        dash_storage.set_data("use_runoff_for_engineering", bool(use_for_engineering))
-        if not use_for_engineering:
-            return dash.no_update
-        volume = _sync_peak_runoff_to_engineering(table_data)
-        return volume if volume is not None else dash.no_update
-
-    @app.callback(
-        Output("peak-flow-available-input", "value", allow_duplicate=True),
-        Input("peak-runoff-engineering-sync", "data"),
-        prevent_initial_call=True,
-    )
-    def push_peak_runoff_to_engineering_input(sync_volume):
-        """Update Engineering Total Runoff when runoff sync store changes."""
-        if sync_volume is None:
-            return dash.no_update
-        return sync_volume
-
-    @app.callback(
-        Output("peak-flow-available-input", "value", allow_duplicate=True),
-        Input("top-tabs", "active_tab"),
-        prevent_initial_call=True,
-    )
-    def refresh_peak_runoff_when_engineering_tab_open(active_tab):
-        """When Engineering tab opens, show synced runoff if the checkbox is checked."""
-        if active_tab != "engineering-options":
-            return dash.no_update
-        if not dash_storage.get_data("use_runoff_for_engineering"):
-            return dash.no_update
-        stored = dash_storage.get_data("total_runoff_ft3")
-        if stored is None:
-            return dash.no_update
-        try:
-            return float(stored)
-        except (TypeError, ValueError):
-            return dash.no_update
-
 
 

@@ -10,7 +10,7 @@ def create_reports_tab_content():
     """Create the content for the Reports tab."""
     return [
         html.H3("Reports"),
-        html.P("Generate and download reports here."),
+        html.P("Generate and download reports here"),
         dbc.Button(
             "Generate Report",
             id="generate-report-btn",

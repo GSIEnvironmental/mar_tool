@@ -96,7 +96,11 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     # 2. restrictive vadose zone infiltration
     # ==================================================================
     high_infiltration = graph.get_node_value('k_vadose_threshold')
-    if aquifer_type.lower() == "confined":
+    # Injection wells bypass the vadose; this check does not apply
+    if option.name == "Injection Well":
+        response = -1
+        penalty = []
+    elif aquifer_type.lower() == "confined":
         response = -1
         penalty = []
     else:
@@ -125,7 +129,10 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     # ==================================================================
 
     vadose_pollution = graph.get_node_value('vadose_pollution_present')
-    if aquifer_type.lower() == "confined":
+    if option.name == "Injection Well":
+        response = -1
+        penalty = []
+    elif aquifer_type.lower() == "confined":
         response = -1
         penalty = []
     else:
@@ -153,7 +160,10 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     # 4. vadose_biodegradable
     # ==================================================================
     vadose_biodegradable = graph.get_node_value('vadose_biodegradable')
-    if aquifer_type.lower() == "confined":
+    if option.name == "Injection Well":
+        response = -1
+        penalty = []
+    elif aquifer_type.lower() == "confined":
         response = -1
         penalty = []
     else:
@@ -189,7 +199,10 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     # 5. vadose zone remediation
     # ==================================================================
     vadose_remediation = graph.get_node_value('vadose_remediation_needed')
-    if aquifer_type.lower() == "confined":
+    if option.name == "Injection Well":
+        response = -1
+        penalty = []
+    elif aquifer_type.lower() == "confined":
         response = -1
         penalty = []
     else:
@@ -217,7 +230,10 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     # ==================================================================
     vadose_residence_time = graph.get_node_value('vadose_residence_time')
     residence_time_issues = graph.get_node_value('vadose_residence_time_issues')
-    if aquifer_type.lower() == "confined":
+    if option.name == "Injection Well":
+        response = -1
+        penalty = []
+    elif aquifer_type.lower() == "confined":
         response = -1
         penalty = []
     else:
@@ -245,24 +261,26 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     # 7. surface recharge suitability
     # ==================================================================
     surface_recharge_suitability = graph.get_node_value('surface_recharge_suitability')
-    if aquifer_type.lower() == "confined":
+    # Not applicable to well-based options (they bypass surface recharge)
+    if option.name in ["Injection Well", "Dry Well"]:
+        response = -1
+        penalty = []
+    elif aquifer_type.lower() == "confined":
         response = -1
         penalty = []
     else:
         if surface_recharge_suitability is None:
             response = 0
             penalty = []
+        elif surface_recharge_suitability:
+            response = 0
+            penalty = []
         else:
-            if surface_recharge_suitability:
-                response = 0
-                penalty = []
-            else:
-                if option.name in ["Injection Well", "Dry Well"]:
-                    response = -1
-                    penalty = []
-                else:
-                    response = 3
-                    penalty = ["Mitigation: Surface recharge is likely not suitable because of ground slope, infiltration, or vadose zone contamination"]
+            response = 3
+            penalty = [
+                "Mitigation: Surface recharge is likely not suitable because of "
+                "ground slope, infiltration, or vadose zone contamination"
+            ]
     surface_recharge_suitability_metric = {
         "name": "Surface recharge suitability",
         "response": response,   # 0–4

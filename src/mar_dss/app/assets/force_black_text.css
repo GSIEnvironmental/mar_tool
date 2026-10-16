@@ -1,9 +1,13 @@
 /*
- * Loaded AFTER the Bootswatch theme link so these rules win over theme
- * .text-muted / secondary greys. Keep white chrome on colored headers.
+ * Theme contrast overrides (loaded AFTER Bootswatch).
+ *
+ * Light themes: muted greys → black.
+ * Dark themes: light text on dark surfaces; keep black text on light tables /
+ *              white dropdown menus; fix tabs/buttons/inputs for contrast.
  */
 
-:root {
+/* ========== Light themes ========== */
+html body .mar-theme-light {
   --bs-secondary-color: #000;
   --bs-secondary-rgb: 0, 0, 0;
   --bs-tertiary-color: #000;
@@ -11,39 +15,39 @@
   --bs-secondary-text-emphasis: #000;
 }
 
-html body .text-muted,
-html body .text-secondary,
-html body .text-body-secondary,
-html body .text-black-50,
-html body .form-text,
-html body small.text-muted,
-html body .small.text-muted,
-html body p.text-muted,
-html body span.text-muted,
-html body div.text-muted,
-html body label.text-muted,
-html body .form-label.text-muted,
-html body .card-body .text-muted,
-html body .dash-radio-items label,
-html body .RadioItems label,
-html body label.form-check-label {
+html body .mar-theme-light .text-muted,
+html body .mar-theme-light .text-secondary,
+html body .mar-theme-light .text-body-secondary,
+html body .mar-theme-light .text-black-50,
+html body .mar-theme-light .form-text,
+html body .mar-theme-light small.text-muted,
+html body .mar-theme-light .small.text-muted,
+html body .mar-theme-light p.text-muted,
+html body .mar-theme-light span.text-muted,
+html body .mar-theme-light div.text-muted,
+html body .mar-theme-light label.text-muted,
+html body .mar-theme-light .form-label.text-muted,
+html body .mar-theme-light .card-body .text-muted,
+html body .mar-theme-light .dash-radio-items label,
+html body .mar-theme-light .RadioItems label,
+html body .mar-theme-light label.form-check-label {
   color: #000 !important;
 }
 
-html body .form-control,
-html body .form-select,
-html body .form-control:focus,
-html body .form-select:focus {
+html body .mar-theme-light .form-control,
+html body .mar-theme-light .form-select,
+html body .mar-theme-light .form-control:focus,
+html body .mar-theme-light .form-select:focus {
   color: #000 !important;
 }
 
-html body .form-control::placeholder,
-html body .form-select::placeholder {
+html body .mar-theme-light .form-control::placeholder,
+html body .mar-theme-light .form-select::placeholder {
   color: #000 !important;
   opacity: 1;
 }
 
-/* White on colored headers / badges */
+/* White on colored headers / badges (both themes) */
 html body .text-white,
 html body .card-header.text-white,
 html body .card-header .text-white,
@@ -62,21 +66,595 @@ html body .text-bg-dark {
   color: #fff !important;
 }
 
-/* Dark Bootswatch themes (class on #app-container): muted → white */
-.mar-theme-dark {
-  --bs-secondary-color: #fff;
-  --bs-tertiary-color: #fff;
+/* ========== Dark themes ========== */
+html body .mar-theme-dark {
+  --bs-body-color: #f8f9fa;
+  --bs-secondary-color: #e9ecef;
+  --bs-tertiary-color: #dee2e6;
+  --bs-secondary-rgb: 233, 236, 239;
+  --bs-tertiary-rgb: 222, 226, 230;
+  --bs-secondary-text-emphasis: #f8f9fa;
+  --bs-body-bg: #222;
+  --bs-border-color: #495057;
+  color: #f8f9fa;
 }
 
-.mar-theme-dark .text-muted,
-.mar-theme-dark .text-secondary,
-.mar-theme-dark .text-body-secondary,
-.mar-theme-dark .text-black-50,
-.mar-theme-dark .form-text,
-.mar-theme-dark .dash-radio-items label,
-.mar-theme-dark .RadioItems label,
-.mar-theme-dark label.form-check-label,
-.mar-theme-dark .form-control,
-.mar-theme-dark .form-select {
+/* --- Cards / modals / lists --- */
+html body .mar-theme-dark .card,
+html body .mar-theme-dark .modal-content,
+html body .mar-theme-dark .list-group-item,
+html body .mar-theme-dark .accordion-item,
+html body .mar-theme-dark .accordion-button,
+html body .mar-theme-dark .accordion-body,
+html body .mar-theme-dark .dropdown-menu {
+  background-color: #2b3035 !important;
+  border-color: #495057 !important;
+  color: #f8f9fa !important;
+}
+
+html body .mar-theme-dark .card-header:not(.bg-primary):not(.bg-success):not(.bg-danger):not(.bg-info):not(.bg-warning):not(.bg-secondary):not(.bg-dark):not(.text-white),
+html body .mar-theme-dark .modal-header,
+html body .mar-theme-dark .modal-footer,
+html body .mar-theme-dark .card-footer {
+  background-color: #343a40 !important;
+  border-color: #495057 !important;
+  color: #f8f9fa !important;
+}
+
+html body .mar-theme-dark .card-body,
+html body .mar-theme-dark .modal-body,
+html body .mar-theme-dark .card-title,
+html body .mar-theme-dark .card-text,
+html body .mar-theme-dark .modal-title {
+  color: #f8f9fa !important;
+}
+
+/* --- Typography --- */
+html body .mar-theme-dark .text-muted,
+html body .mar-theme-dark .text-secondary,
+html body .mar-theme-dark .text-body-secondary,
+html body .mar-theme-dark .text-body,
+html body .mar-theme-dark .text-dark,
+html body .mar-theme-dark .text-black,
+html body .mar-theme-dark .text-black-50,
+html body .mar-theme-dark .form-text,
+html body .mar-theme-dark small,
+html body .mar-theme-dark .small {
+  color: #ced4da !important;
+}
+
+html body .mar-theme-dark label,
+html body .mar-theme-dark .form-label,
+html body .mar-theme-dark .form-check-label,
+html body .mar-theme-dark .dash-radio-items label,
+html body .mar-theme-dark .RadioItems label,
+html body .mar-theme-dark p,
+html body .mar-theme-dark li,
+html body .mar-theme-dark dt,
+html body .mar-theme-dark dd,
+html body .mar-theme-dark h1,
+html body .mar-theme-dark h2,
+html body .mar-theme-dark h3,
+html body .mar-theme-dark h4,
+html body .mar-theme-dark h5,
+html body .mar-theme-dark h6 {
+  color: #f8f9fa !important;
+}
+
+html body .mar-theme-dark .text-primary {
+  color: #6ea8fe !important;
+}
+
+html body .mar-theme-dark .di-section-title,
+html body .mar-theme-dark .di-section-title-warning,
+html body .mar-theme-dark .di-section-title-info,
+html body .mar-theme-dark .di-label,
+html body .mar-theme-dark .di-option-name,
+html body .mar-theme-dark .di-constraint-name,
+html body .mar-theme-dark .di-section-body,
+html body .mar-theme-dark .di-metric-label,
+html body .mar-theme-dark .di-metric-value,
+html body .mar-theme-dark .di-lead,
+html body .mar-theme-dark .di-details,
+html body .mar-theme-dark .di-cost-label,
+html body .mar-theme-dark .di-cost-value,
+html body .mar-theme-dark .di-list li,
+html body .mar-theme-dark .di-list-compact li,
+html body .mar-theme-dark .feasibility-note,
+html body .mar-theme-dark .mar-help-note,
+html body .mar-theme-dark .collapse-toggle-check:not(.text-white) .form-check-label {
+  color: #e9ecef !important;
+}
+
+html body .mar-theme-dark .di-cost-value-lg {
+  color: #6ea8fe !important;
+}
+
+html body .mar-theme-dark .di-list-warning li {
+  color: #ffc107 !important;
+}
+
+html body .mar-theme-dark .di-list-info li {
+  color: #6ea8fe !important;
+}
+
+html body .mar-theme-dark .di-cost-row {
+  border-bottom-color: #495057 !important;
+}
+
+html body .mar-theme-dark .di-dropdown-highlight .di-label {
+  color: #9ec5fe !important;
+}
+
+html body .mar-theme-dark .di-panel,
+html body .mar-theme-dark .di-section,
+html body .mar-theme-dark .di-option-header,
+html body .mar-theme-dark .di-metric,
+html body .mar-theme-dark .di-dropdown-highlight {
+  background: #2b3035 !important;
+  border-color: #495057 !important;
+  color: #f8f9fa !important;
+}
+
+html body .mar-theme-dark .di-dropdown-highlight {
+  background: linear-gradient(180deg, #1a3a5c 0%, #2b3035 100%) !important;
+  border-color: #3d6ea8 !important;
+}
+
+/* 7.1 Feasibility Summary: pastel card bodies → dark surfaces + light text */
+html body .mar-theme-dark #engineering-options-summary .card-body {
+  background-color: #212529 !important;
+  color: #f8f9fa !important;
+}
+
+html body .mar-theme-dark #engineering-options-summary .card-body .text-muted,
+html body .mar-theme-dark #engineering-options-summary .card-body .small,
+html body .mar-theme-dark #engineering-options-summary .card-body span,
+html body .mar-theme-dark #engineering-options-summary .card-body p,
+html body .mar-theme-dark #engineering-options-summary .card-body div {
+  color: #ced4da !important;
+}
+
+html body .mar-theme-dark #engineering-options-summary .card-body .text-primary,
+html body .mar-theme-dark #engineering-options-summary .card-body .fw-bold.text-primary,
+html body .mar-theme-dark #engineering-options-summary .card-body p.text-primary {
+  color: #6ea8fe !important;
+}
+
+html body .mar-theme-dark #engineering-options-summary .card-body hr {
+  border-color: #495057 !important;
+  opacity: 1;
+}
+
+html body .mar-theme-dark #engineering-options-summary .text-muted {
+  color: #ced4da !important;
+}
+
+html body .mar-theme-dark [style*="color: #000"],
+html body .mar-theme-dark [style*="color:#000"],
+html body .mar-theme-dark [style*="color: rgb(0, 0, 0)"],
+html body .mar-theme-dark [style*="color:rgb(0, 0, 0)"],
+html body .mar-theme-dark [style*="color: #0f172a"],
+html body .mar-theme-dark [style*="color:#0f172a"],
+html body .mar-theme-dark [style*="color: #1e293b"],
+html body .mar-theme-dark [style*="color:#1e293b"],
+html body .mar-theme-dark [style*="color: #334155"],
+html body .mar-theme-dark [style*="color:#334155"],
+html body .mar-theme-dark [style*="color: #64748b"],
+html body .mar-theme-dark [style*="color:#64748b"] {
+  color: #f8f9fa !important;
+}
+
+/* --- Tabs (override light-gray custom.css inactive tabs) --- */
+html body .mar-theme-dark .nav-tabs .nav-link:not(.active),
+html body .mar-theme-dark .nav-pills .nav-link:not(.active) {
+  color: #e9ecef !important;
+  background-color: #343a40 !important;
+  border-color: #495057 !important;
+}
+
+html body .mar-theme-dark .nav-tabs .nav-link:hover:not(.active),
+html body .mar-theme-dark .nav-pills .nav-link:hover:not(.active) {
+  color: #ffffff !important;
+  background-color: #495057 !important;
+  border-color: #6c757d !important;
+}
+
+html body .mar-theme-dark .nav-tabs .nav-link.active,
+html body .mar-theme-dark .nav-pills .nav-link.active {
+  color: #ffffff !important;
+  background-color: #2563eb !important;
+  border-color: #1d4ed8 #1d4ed8 #0f172a !important;
+}
+
+/* Hydro (3.2) green tab stays green when active; inactive dark-green tint */
+html body .mar-theme-dark #hydrogeology-subtabs ul.nav .nav-item:last-child .nav-link:not(.active) {
+  color: #d1e7dd !important;
+  background-color: #1a4731 !important;
+  border-color: #198754 !important;
+}
+
+html body .mar-theme-dark #hydrogeology-subtabs ul.nav .nav-item:last-child .nav-link.active {
+  color: #ffffff !important;
+  background-color: #198754 !important;
+}
+
+/* --- Buttons --- */
+html body .mar-theme-dark .btn-primary,
+html body .mar-theme-dark .btn-success,
+html body .mar-theme-dark .btn-danger,
+html body .mar-theme-dark .btn-info,
+html body .mar-theme-dark .btn-warning,
+html body .mar-theme-dark .btn-secondary,
+html body .mar-theme-dark .btn-dark {
+  color: #ffffff !important;
+}
+
+html body .mar-theme-dark .btn-warning {
+  color: #212529 !important;
+}
+
+html body .mar-theme-dark .btn-outline-primary,
+html body .mar-theme-dark .btn-outline-success,
+html body .mar-theme-dark .btn-outline-danger,
+html body .mar-theme-dark .btn-outline-info,
+html body .mar-theme-dark .btn-outline-secondary,
+html body .mar-theme-dark .btn-outline-dark {
+  color: #e9ecef !important;
+  border-color: #adb5bd !important;
+  background-color: transparent !important;
+}
+
+html body .mar-theme-dark .btn-outline-primary:hover,
+html body .mar-theme-dark .btn-outline-success:hover,
+html body .mar-theme-dark .btn-outline-danger:hover,
+html body .mar-theme-dark .btn-outline-info:hover,
+html body .mar-theme-dark .btn-outline-secondary:hover,
+html body .mar-theme-dark .btn-outline-dark:hover {
+  color: #ffffff !important;
+}
+
+html body .mar-theme-dark .btn-light,
+html body .mar-theme-dark .btn-outline-light {
+  color: #212529 !important;
+  background-color: #f8f9fa !important;
+  border-color: #dee2e6 !important;
+}
+
+html body .mar-theme-dark .mar-help-btn {
+  color: #ffffff !important;
+}
+
+/* --- Text inputs (non-table, non-select) --- */
+html body .mar-theme-dark .form-control:not(select):not(.form-select):not(.table-cell-input-borderless):not(.excel-cell-input):not(.monthly-flow-input-borderless),
+html body .mar-theme-dark .form-control:focus:not(select):not(.form-select):not(.table-cell-input-borderless):not(.excel-cell-input):not(.monthly-flow-input-borderless),
+html body .mar-theme-dark .form-control:disabled:not(select):not(.form-select):not(.table-cell-input-borderless):not(.excel-cell-input):not(.monthly-flow-input-borderless),
+html body .mar-theme-dark input[type="text"]:not(.table-cell-input-borderless):not(.excel-cell-input):not(.monthly-flow-input-borderless),
+html body .mar-theme-dark input[type="number"]:not(.table-cell-input-borderless):not(.excel-cell-input):not(.monthly-flow-input-borderless),
+html body .mar-theme-dark input[type="email"],
+html body .mar-theme-dark input[type="search"],
+html body .mar-theme-dark input[type="password"],
+html body .mar-theme-dark textarea {
+  color: #f8f9fa !important;
+  background-color: #212529 !important;
+  border-color: #495057 !important;
+}
+
+html body .mar-theme-dark .form-control:not(select):not(.form-select)::placeholder,
+html body .mar-theme-dark input::placeholder,
+html body .mar-theme-dark textarea::placeholder {
+  color: #adb5bd !important;
+  opacity: 1;
+}
+
+/* --- All dropdowns / selects: white menu + dark text --- */
+html body select,
+html body .form-select,
+html body .mar-theme-dark select,
+html body .mar-theme-dark .form-select,
+html body .mar-theme-light select,
+html body .mar-theme-light .form-select {
+  color: #212529 !important;
+  background-color: #ffffff !important;
+  border-color: #ced4da !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23212529' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+}
+
+html body select option,
+html body .form-select option,
+html body .mar-theme-dark select option,
+html body .mar-theme-dark .form-select option {
+  color: #212529 !important;
+  background-color: #ffffff !important;
+}
+
+html body .Select-control,
+html body .Select-menu-outer,
+html body .Select-menu,
+html body .Select-option,
+html body .VirtualizedSelectOption,
+html body .Select__control,
+html body .Select__menu,
+html body .Select__option,
+html body .Select__single-value,
+html body .Select__placeholder,
+html body .Select__input,
+html body .Select__input input,
+html body .Select-value-label,
+html body .Select-placeholder,
+html body .Select-input > input,
+html body .mar-theme-dark .Select-control,
+html body .mar-theme-dark .Select-menu-outer,
+html body .mar-theme-dark .Select-menu,
+html body .mar-theme-dark .Select-option,
+html body .mar-theme-dark .VirtualizedSelectOption,
+html body .mar-theme-dark .Select__control,
+html body .mar-theme-dark .Select__menu,
+html body .mar-theme-dark .Select__option,
+html body .mar-theme-dark .Select__single-value,
+html body .mar-theme-dark .Select__placeholder,
+html body .mar-theme-dark .Select__input,
+html body .mar-theme-dark .Select__input input,
+html body .mar-theme-dark .Select-value-label,
+html body .mar-theme-dark .Select-placeholder,
+html body .mar-theme-dark .Select-input > input {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+  border-color: #ced4da !important;
+}
+
+html body .Select-option.is-focused,
+html body .Select-option:hover,
+html body .VirtualizedSelectFocusedOption,
+html body .Select__option--is-focused,
+html body .Select__option:hover,
+html body .mar-theme-dark .Select-option.is-focused,
+html body .mar-theme-dark .Select-option:hover,
+html body .mar-theme-dark .VirtualizedSelectFocusedOption,
+html body .mar-theme-dark .Select__option--is-focused,
+html body .mar-theme-dark .Select__option:hover {
+  background-color: #e9ecef !important;
+  color: #212529 !important;
+}
+
+html body .Select-arrow,
+html body .mar-theme-dark .Select-arrow {
+  border-top-color: #212529 !important;
+}
+
+/* --- Tables: black text on light cells (except DI constraint tables) --- */
+html body table,
+html body table td,
+html body table label,
+html body .table,
+html body .table td,
+html body .excel-cell-table,
+html body .excel-cell-table td,
+html body .dash-spreadsheet,
+html body .dash-spreadsheet .dash-cell,
+html body .dash-spreadsheet td,
+html body .mar-theme-dark table:not(.di-table),
+html body .mar-theme-dark table:not(.di-table) td,
+html body .mar-theme-dark table:not(.di-table) label,
+html body .mar-theme-dark .table:not(.di-table),
+html body .mar-theme-dark .table:not(.di-table) td,
+html body .mar-theme-dark .excel-cell-table,
+html body .mar-theme-dark .excel-cell-table td,
+html body .mar-theme-dark .dash-spreadsheet,
+html body .mar-theme-dark .dash-spreadsheet .dash-cell,
+html body .mar-theme-dark .dash-spreadsheet td,
+html body table .form-control,
+html body table .form-select,
+html body table .table-cell-input-borderless,
+html body .excel-cell-table .form-control,
+html body .excel-cell-table .form-select,
+html body .mar-theme-dark table:not(.di-table) .form-control,
+html body .mar-theme-dark table:not(.di-table) .form-select,
+html body .mar-theme-dark table:not(.di-table) .table-cell-input-borderless,
+html body .mar-theme-dark .excel-cell-table .form-control,
+html body .mar-theme-dark .excel-cell-table .form-select,
+html body .mar-theme-dark .dash-spreadsheet input,
+html body .mar-theme-dark .dash-spreadsheet .dash-cell input,
+html body #flow-data-table .form-control,
+html body #flow-data-table input,
+html body .mar-theme-dark #flow-data-table .form-control,
+html body .mar-theme-dark #flow-data-table input,
+html body .mar-theme-dark .excel-cell-input,
+html body .mar-theme-dark .monthly-flow-input-borderless,
+html body .mar-theme-dark .table-cell-input-borderless,
+html body .mar-theme-dark table:not(.di-table) input[type="number"],
+html body .mar-theme-dark table:not(.di-table) input[type="text"],
+html body .mar-theme-dark .excel-cell-table input {
+  color: #000 !important;
+}
+
+html body .mar-theme-dark table:not(.di-table) tbody td,
+html body .mar-theme-dark .excel-cell-table tbody td,
+html body .mar-theme-dark .table:not(.di-table) tbody td {
+  background-color: #ffffff !important;
+}
+
+html body table .form-control::placeholder,
+html body .excel-cell-table .form-control::placeholder,
+html body .mar-theme-dark table .form-control::placeholder,
+html body .mar-theme-dark .excel-cell-table .form-control::placeholder,
+html body .mar-theme-dark #flow-data-table .form-control::placeholder,
+html body .mar-theme-dark .excel-cell-input::placeholder,
+html body .mar-theme-dark .monthly-flow-input-borderless::placeholder {
+  color: #000 !important;
+  opacity: 0.65;
+}
+
+/* thead: white text on dark headers, or black on light bar */
+html body table thead th.text-white,
+html body .table thead th.text-white,
+html body .excel-cell-table thead th.text-white,
+html body .mar-theme-dark table thead th.text-white,
+html body .mar-theme-dark .table thead th.text-white,
+html body .mar-theme-dark .excel-cell-table thead th.text-white,
+html body .mar-theme-dark thead th.text-white {
   color: #fff !important;
+}
+
+html body table thead th:not(.text-white),
+html body .table thead th:not(.text-white),
+html body .excel-cell-table thead th:not(.text-white),
+html body .mar-theme-dark table:not(.di-table) thead th:not(.text-white),
+html body .mar-theme-dark .table:not(.di-table) thead th:not(.text-white),
+html body .mar-theme-dark .excel-cell-table thead th:not(.text-white) {
+  color: #000 !important;
+  background-color: #dee2e6 !important;
+}
+
+/* Decision Interpretation hard/soft constraint tables: dark surfaces + light text */
+html body .mar-theme-dark .di-table,
+html body .mar-theme-dark table.di-table {
+  color: #e9ecef !important;
+  --bs-table-bg: #2b3035;
+  --bs-table-color: #e9ecef;
+  --bs-table-border-color: #495057;
+  --bs-table-striped-bg: #343a40;
+  --bs-table-hover-bg: #3d444b;
+}
+
+html body .mar-theme-dark .di-table thead th,
+html body .mar-theme-dark .di-table thead th:not(.text-white),
+html body .mar-theme-dark table.di-table thead th,
+html body .mar-theme-dark table.di-table thead th:not(.text-white) {
+  background-color: #343a40 !important;
+  color: #f8f9fa !important;
+  border-color: #495057 !important;
+}
+
+html body .mar-theme-dark .di-table tbody td,
+html body .mar-theme-dark table.di-table tbody td,
+html body .mar-theme-dark .di-table td,
+html body .mar-theme-dark table.di-table td {
+  background-color: #2b3035 !important;
+  color: #e9ecef !important;
+  border-color: #495057 !important;
+}
+
+html body .mar-theme-dark .di-table .di-constraint-name,
+html body .mar-theme-dark .di-table .di-list-compact li,
+html body .mar-theme-dark .di-table span,
+html body .mar-theme-dark .di-table p,
+html body .mar-theme-dark .di-table li,
+html body .mar-theme-dark .di-table div {
+  color: #e9ecef !important;
+}
+
+html body .mar-theme-dark .di-table .text-muted {
+  color: #adb5bd !important;
+}
+
+/* --- Engineering panel --- */
+html body .mar-theme-dark .eng-panel,
+html body .mar-theme-dark .eng-side-panel {
+  background: #2b3035 !important;
+  border-color: #495057 !important;
+  color: #f8f9fa !important;
+}
+
+html body .mar-theme-dark .eng-section,
+html body .mar-theme-dark .eng-section-pair {
+  border-bottom-color: #495057 !important;
+}
+
+html body .mar-theme-dark .eng-section-nested {
+  background: #343a40 !important;
+  border-color: #495057 !important;
+}
+
+html body .mar-theme-dark .eng-section-title,
+html body .mar-theme-dark .eng-question,
+html body .mar-theme-dark .eng-hint,
+html body .mar-theme-dark .eng-radio-stack .form-check-label,
+html body .mar-theme-dark .eng-radio-inline .form-check-label,
+html body .mar-theme-dark .eng-metric {
+  color: #f8f9fa !important;
+}
+
+html body .mar-theme-dark .eng-metric {
+  background: #343a40 !important;
+  border-color: #495057 !important;
+}
+
+html body .mar-theme-dark .eng-metric-accent {
+  background: #1a3a5c !important;
+  border-color: #3d6ea8 !important;
+  color: #9ec5fe !important;
+}
+
+html body .mar-theme-dark .eng-input.form-control,
+html body .mar-theme-dark .eng-panel .form-control:not(select):not(.form-select) {
+  color: #f8f9fa !important;
+  background-color: #212529 !important;
+  border-color: #495057 !important;
+}
+
+html body .mar-theme-dark .eng-panel select,
+html body .mar-theme-dark .eng-panel .form-select {
+  color: #212529 !important;
+  background-color: #ffffff !important;
+  border-color: #ced4da !important;
+}
+
+/* --- Light accent cards that keep light backgrounds → keep dark text --- */
+html body .mar-theme-dark .runoff-outlet-radio-group .form-check,
+html body .mar-theme-dark .runoff-engineering-sync-card {
+  /* keep light fill from custom.css */
+}
+
+html body .mar-theme-dark .runoff-outlet-radio-group .form-check-label,
+html body .mar-theme-dark .runoff-outlet-radio-group .runoff-outlet-radio-label,
+html body .mar-theme-dark .runoff-outlet-radio-group .runoff-outlet-radio-label-checked,
+html body .mar-theme-dark .runoff-engineering-sync-card,
+html body .mar-theme-dark .runoff-engineering-sync-card p,
+html body .mar-theme-dark .runoff-engineering-sync-check .form-check-label,
+html body .mar-theme-dark .runoff-engineering-sync-check .runoff-engineering-sync-label {
+  color: #0f172a !important;
+}
+
+/* Primary-colored chrome: white text */
+html body .mar-theme-dark .card-header.bg-primary,
+html body .mar-theme-dark .card-header.bg-primary *,
+html body .mar-theme-dark .card-header.text-white,
+html body .mar-theme-dark .card-header .text-white,
+html body .mar-theme-dark .bg-primary,
+html body .mar-theme-dark .bg-primary *,
+html body .mar-theme-dark .bg-success.text-white,
+html body .mar-theme-dark .bg-success.text-white * {
+  color: #fff !important;
+}
+
+/* Alerts: keep bootstrap semantic colors readable */
+html body .mar-theme-dark .alert-warning {
+  color: #664d03 !important;
+  background-color: #fff3cd !important;
+  border-color: #ffecb5 !important;
+}
+
+html body .mar-theme-dark .alert-danger {
+  color: #842029 !important;
+  background-color: #f8d7da !important;
+  border-color: #f5c2c7 !important;
+}
+
+html body .mar-theme-dark .alert-success {
+  color: #0f5132 !important;
+  background-color: #d1e7dd !important;
+  border-color: #badbcc !important;
+}
+
+html body .mar-theme-dark .alert-info {
+  color: #055160 !important;
+  background-color: #cff4fc !important;
+  border-color: #b6effb !important;
+}
+
+html body .mar-theme-dark .alert-primary {
+  color: #084298 !important;
+  background-color: #cfe2ff !important;
+  border-color: #b6d4fe !important;
 }

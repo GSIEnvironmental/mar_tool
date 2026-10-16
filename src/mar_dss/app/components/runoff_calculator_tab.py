@@ -97,7 +97,7 @@ def create_peak_runoff_calculations_help_modal():
                         "the watershed. Higher CN means less infiltration and more runoff.",
                         className="mb-3",
                     ),
-                    html.P("Composite CN — option 1A (direct connection):", className="fw-bold mb-1"),
+                    html.P("Composite CN — option 1A (direct connection)", className="fw-bold mb-1"),
                     html.Pre(
                         "CN = (CN_imp × P_imp + CN_perv × (100 − P_imp)) / 100",
                         className="bg-light border rounded p-2 small mb-3",
@@ -111,7 +111,7 @@ def create_peak_runoff_calculations_help_modal():
                         ],
                         className="small text-muted mb-3",
                     ),
-                    html.P("Composite CN — option 1B (impervious flows over pervious):", className="fw-bold mb-1"),
+                    html.P("Composite CN — option 1B (impervious flows over pervious)", className="fw-bold mb-1"),
                     html.Pre(
                         "CN₁ = (CN_imp × P_imp + CN_perv × (100 − P_imp)) / 100\n"
                         "CN = CN₁ − (R / 100 × P_imp × (CN₁ − CN_perv)) / 100",
@@ -250,7 +250,7 @@ def create_map_card():
 def create_coordinate_inputs():
     """Create the latitude and longitude input fields."""
     return [
-        html.Label("Selected Latitude:", className="fw-bold"),
+        html.Label("Selected Latitude", className="fw-bold"),
         dbc.Input(
             id="selected-latitude",
             type="number",
@@ -259,7 +259,7 @@ def create_coordinate_inputs():
             step=0.000001,
             style={"margin-bottom": "10px"}
         ),
-        html.Label("Selected Longitude:", className="fw-bold"),
+        html.Label("Selected Longitude", className="fw-bold"),
         dbc.Input(
             id="selected-longitude",
             type="number",
@@ -320,7 +320,7 @@ def create_controls_card():
             html.Hr(),
             html.Div(id="runoff-results", className="mt-3"),
             html.Small(
-                "Click on the map to add monitoring points or draw watershed boundaries.",
+                "Click on the map to add monitoring points or draw watershed boundaries",
                 className="text-muted"
             ),
             dbc.Tooltip(
@@ -355,7 +355,7 @@ def create_impervious_curve_number_content():
     return dbc.Card([
         dbc.CardHeader("Estimated Impervious Curve Number Values", className="fw-bold bg-primary text-white"),
         dbc.CardBody([
-            html.Label("Select Surface Condition:", className="fw-bold mb-2"),
+            html.Label("Select Surface Condition", className="fw-bold mb-2"),
             dbc.Select(
                 id="impervious-curve-number-select",
                 options=curve_number_options,
@@ -396,7 +396,7 @@ def create_cover_soil_curve_number_content():
         dbc.CardBody([
             dbc.Row([
                 dbc.Col([
-                    html.Label("Cover Description:", className="fw-bold mb-2"),
+                    html.Label("Cover Description", className="fw-bold mb-2"),
                     dbc.Select(
                         id="cover-description-select",
                         options=cover_description_options,
@@ -405,7 +405,7 @@ def create_cover_soil_curve_number_content():
                     ),
                 ], width=6),
                 dbc.Col([
-                    html.Label("Hydrologic Soil Type:", className="fw-bold mb-2"),
+                    html.Label("Hydrologic Soil Type", className="fw-bold mb-2"),
                     dbc.Select(
                         id="soil-type-select",
                         options=soil_type_options,
@@ -686,7 +686,7 @@ def create_composite_cn_help_modal():
             dbc.ModalBody(
                 [
                     html.P(
-                        "Choose option 1A or 1B above, then complete the composite CN table.",
+                        "Choose option 1A or 1B above, then complete the composite CN table",
                         className="text-muted mb-3",
                     ),
                     html.Dl(
@@ -1273,7 +1273,7 @@ def create_curve_number_tab():
         create_peak_runoff_calculations_help_modal(),
         dbc.Card([
             dbc.CardBody([
-                html.H5("Step 1: Composite Curve Number Based on % Impervious Cover Calculator (Pick 1A or 1B)", 
+                html.H5("Step 1 Composite Curve Number Based on % Impervious Cover Calculator (Pick 1A or 1B)", 
                         className="fw-bold mb-3"),
                             dbc.Row([
                                 dbc.Col([
@@ -1364,11 +1364,11 @@ def create_curve_number_tab():
                                 ),
                                 dbc.CardBody([
                                     create_single_storm_runoff_help_modal(),
-                                    html.H5("Step 2: Provide watershed area upstream of the diversion point of interest, and compute runoff.", 
+                                    html.H5("Step 2 Provide watershed area upstream of the diversion point of interest, and compute runoff", 
                                             className="fw-bold mb-3"),
                                     dbc.Row([
                                         dbc.Col([
-                                            html.Label("Latitude:", className="fw-bold mb-2"),
+                                            html.Label("Latitude", className="fw-bold mb-2"),
                                             dbc.Input(
                                                 id="runoff-single-storm-latitude",
                                                 type="number",
@@ -1379,7 +1379,7 @@ def create_curve_number_tab():
                                             ),
                                         ], width=6),
                                         dbc.Col([
-                                            html.Label("Longitude:", className="fw-bold mb-2"),
+                                            html.Label("Longitude", className="fw-bold mb-2"),
                                             dbc.Input(
                                                 id="runoff-single-storm-longitude",
                                                 type="number",
@@ -1438,32 +1438,15 @@ def create_curve_number_tab():
                                                 data=_get_runoff_calculations_data(),
                                             ),
                                             html.Div(id="runoff-calculations-table-view"),
-                                            html.Div(
+                                            html.P(
                                                 [
-                                                    html.P(
-                                                        [
-                                                            html.Strong("Note: "),
-                                                            "The ",
-                                                            html.Strong("Runoff Volume (ft³)"),
-                                                            " value can be used in the ",
-                                                            html.Strong("Engineering"),
-                                                            " tab to size engineering elements.",
-                                                        ],
-                                                        className="mb-2 small",
-                                                    ),
-                                                    dbc.Checkbox(
-                                                        id="use-runoff-for-engineering-check",
-                                                        label=(
-                                                            "Use this estimate for Engineering "
-                                                            "(copies Runoff Volume to Total Runoff on the Engineering tab)"
-                                                        ),
-                                                        value=False,
-                                                        className="runoff-engineering-sync-check mb-0",
-                                                        input_class_name="runoff-engineering-sync-input",
-                                                        label_class_name="runoff-engineering-sync-label",
-                                                    ),
+                                                    html.Strong("Note: "),
+                                                    "The ",
+                                                    html.Strong("Runoff Volume (ft³)"),
+                                                    " value is an estimate of available "
+                                                    "storm runoff for planning.",
                                                 ],
-                                                className="runoff-engineering-sync-card mt-3 mb-0",
+                                                className="mt-3 mb-0 small text-muted",
                                             ),
                                         ], width=6),
                                         dbc.Col([
@@ -1485,12 +1468,12 @@ def create_curve_number_tab():
                             dbc.Card([
                                 dbc.CardHeader("Monthly Runoff Estimation", className="fw-bold bg-primary text-white"),
                                 dbc.CardBody([
-                                    html.H5("Step 3: Estimate Annual Runoff", 
+                                    html.H5("Step 3 Estimate Annual Runoff", 
                                             className="fw-bold mb-3"),
                                     dbc.Row([
                                         dbc.Col([
                                             html.Label(
-                                                "Average number of rain events per month:",
+                                                "Average number of rain events per month",
                                                 className="form-label mb-2",
                                             ),
                                             html.Div(
@@ -1585,11 +1568,6 @@ def create_curve_number_tab():
         dbc.Tooltip(
             "When checked, monthly runoff estimates can feed MAR recharge inputs elsewhere",
             target="use-runoff-for-recharge-check",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "When checked, copies Runoff Volume (ft³) to Total Runoff on the Engineering tab",
-            target="use-runoff-for-engineering-check",
             placement="top",
         ),
     ]

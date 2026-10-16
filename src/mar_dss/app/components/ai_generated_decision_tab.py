@@ -45,7 +45,7 @@ def create_ai_generated_decision_content():
                     ),
                     dbc.CardBody(
                         [
-                            html.Label("Project Location:", className="fw-bold small mb-1"),
+                            html.Label("Project Location", className="fw-bold small mb-1"),
                             dbc.Input(
                                 id="ai-decision-location-input",
                                 type="text",
@@ -55,7 +55,7 @@ def create_ai_generated_decision_content():
                                 className="mb-1",
                             ),
                             html.Small(
-                                "Included in the prompt context; synced from Overview.",
+                                "Included in the prompt context; synced from Overview",
                                 className="text-muted",
                             ),
                         ],

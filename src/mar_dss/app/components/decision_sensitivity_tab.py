@@ -16,7 +16,7 @@ def create_decision_sensitivity_content():
         [
             html.H4("Decision Sensitivity Analysis", className="mb-3", style={"fontSize": "1.3rem"}),
             html.P(
-                "Investigate how changes in input parameters affect decision outcomes. "
+                "Investigate how changes in input parameters affect decision outcomes"
                 "Select a parameter below and run sensitivity analysis to see how it impacts "
                 "MAR option statuses, rankings, and scores.",
                 className="text-muted mb-4 small",
@@ -28,7 +28,7 @@ def create_decision_sensitivity_content():
                     html.H5("1. Select Parameter", className="mb-0", style={"fontSize": "1.1rem"}),
                 ], className="bg-primary text-white py-2"),
                 dbc.CardBody([
-                    html.Label("Parameter to Analyze:", className="fw-bold mb-2 small"),
+                    html.Label("Parameter to Analyze", className="fw-bold mb-2 small"),
                     dcc.Dropdown(
                         id="sensitivity-parameter-selector",
                         placeholder="Select a parameter...",
@@ -50,7 +50,7 @@ def create_decision_sensitivity_content():
                 ], className="bg-success text-white py-2"),
                 dbc.CardBody([
                     html.P(
-                        "Configure variation settings above, then click the button below to run sensitivity analysis. "
+                        "Configure variation settings above, then click the button below to run sensitivity analysis"
                         "This may take a few minutes depending on the number of variation points.",
                         className="text-muted small mb-3",
                     ),

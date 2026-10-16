@@ -384,16 +384,6 @@ def create_default_parameters_help_modal():
                                 className="mb-3",
                             ),
                             html.Dt(
-                                "Maximum dry well infiltration rate (inches/hour)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Upper design limit on infiltration into a dry well. "
-                                "Constrains dry-well throughput assumptions used in design "
-                                "and capacity estimates.",
-                                className="mb-3",
-                            ),
-                            html.Dt(
                                 "Maximum dry well transfer rate (gallons/minute)",
                                 className="fw-bold",
                             ),
@@ -422,13 +412,6 @@ def create_default_parameters_help_modal():
                                 "can shrink usable managed aquifer recharge storage and make "
                                 "shallow sites fail; "
                                 "smaller values are more permissive but raise waterlogging risk.",
-                                className="mb-3",
-                            ),
-                            html.Dt("Vadose effective porosity (-)", className="fw-bold"),
-                            html.Dd(
-                                "Fallback effective porosity when stratigraphy does not "
-                                "supply a value. Influences unsaturated storage / travel "
-                                "assumptions that support residence-time and storage estimates.",
                                 className="mb-3",
                             ),
                             html.Dt("Average moisture content (-)", className="fw-bold"),
@@ -1024,7 +1007,7 @@ def _build_stratigraphy_tab():
                 [
                     html.H5("Stratigraphy Configuration", className="mb-3"),
                     html.P(
-                        "Configure soil layers and their hydrogeological properties. "
+                        "Configure soil layers and their hydrogeological properties"
                         "Selecting a soil type auto-fills hydraulic conductivity, "
                         "specific storage, and specific yield (you can still edit them).",
                         className="mb-4",
@@ -1052,13 +1035,41 @@ def _build_stratigraphy_tab():
                         [
                             html.Thead([
                                 html.Tr([
-                                    html.Th("Select", style={"width": "4%"}),
-                                    html.Th("Soil Type", style={"width": "16%"}),
-                                    html.Th("Recharge Target Layer", style={"width": "12%"}, className="text-center"),
-                                    html.Th("Thickness (ft)", style={"width": "13%"}),
-                                    html.Th("Hydraulic Conductivity (ft/day)", style={"width": "18%"}),
-                                    html.Th("Specific Storage (1/ft)", style={"width": "17%"}),
-                                    html.Th("Specific Yield", style={"width": "16%"}),
+                                    html.Th(
+                                        "Select",
+                                        className="fw-bold text-white",
+                                        style={"width": "4%", "backgroundColor": "#2c3e50"},
+                                    ),
+                                    html.Th(
+                                        "Soil Type",
+                                        className="fw-bold text-white",
+                                        style={"width": "16%", "backgroundColor": "#2c3e50"},
+                                    ),
+                                    html.Th(
+                                        "Recharge Target Layer",
+                                        className="fw-bold text-white text-center",
+                                        style={"width": "12%", "backgroundColor": "#2c3e50"},
+                                    ),
+                                    html.Th(
+                                        "Thickness (ft)",
+                                        className="fw-bold text-white",
+                                        style={"width": "13%", "backgroundColor": "#2c3e50"},
+                                    ),
+                                    html.Th(
+                                        "Hydraulic Conductivity (ft/day)",
+                                        className="fw-bold text-white",
+                                        style={"width": "18%", "backgroundColor": "#2c3e50"},
+                                    ),
+                                    html.Th(
+                                        "Specific Storage (1/ft)",
+                                        className="fw-bold text-white",
+                                        style={"width": "17%", "backgroundColor": "#2c3e50"},
+                                    ),
+                                    html.Th(
+                                        "Specific Yield",
+                                        className="fw-bold text-white",
+                                        style={"width": "16%", "backgroundColor": "#2c3e50"},
+                                    ),
                                 ])
                             ]),
                             html.Tbody(id="stratigraphy-table-body")
@@ -1224,7 +1235,7 @@ def _build_groundwater_level_tab():
                     # Input fields for elevation and storage depth
                     dbc.Row([
                         dbc.Col([
-                            html.Label("Ground Surface Elevation (ft):", className="fw-bold", style={"fontSize": "12px"}),
+                            html.Label("Ground Surface Elevation (ft)", className="fw-bold", style={"fontSize": "12px"}),
                             dbc.Input(
                                 id="ground-surface-elevation",
                                 type="number",
@@ -1235,7 +1246,7 @@ def _build_groundwater_level_tab():
                                 size="sm",
                                 className="mb-2"
                             ),
-                            html.Label("Maximum MAR Storage Depth (ft):", className="fw-bold", style={"fontSize": "12px"}),
+                            html.Label("Maximum MAR Storage Depth (ft)", className="fw-bold", style={"fontSize": "12px"}),
                             dbc.Input(
                                 id="max-mar-storage-depth",
                                 type="number",
@@ -1251,6 +1262,17 @@ def _build_groundwater_level_tab():
                             ),
                         ], width=6),
                         dbc.Col([
+                            html.Label(
+                                "Monthly Groundwater Elevation (ft)",
+                                className="fw-bold mb-2",
+                                style={"fontSize": "12px"},
+                            ),
+                            dbc.Checkbox(
+                                id="constant-groundwater-level-check",
+                                label="Use January value for all months",
+                                value=False,
+                                className="mb-2 collapse-toggle-check",
+                            ),
                             # Groundwater level table
                             dbc.Table(
                                 [
@@ -1385,14 +1407,14 @@ def _build_horizontal_extension_panel():
             ),
             create_horizontal_extension_help_modal(),
             html.P(
-                "Define the plan-view footprint used for recharge mound contours.",
+                "Define the plan-view footprint used for recharge mound contours",
                 className="text-muted fs-6 mb-3",
             ),
             dbc.Row(
                 [
                     dbc.Col(
                         [
-                            html.Label("Length (ft):", className="fw-bold mb-2"),
+                            html.Label("Length (ft)", className="fw-bold mb-2"),
                             dbc.Input(
                                 id="extension-length",
                                 type="number",
@@ -1407,7 +1429,7 @@ def _build_horizontal_extension_panel():
                     ),
                     dbc.Col(
                         [
-                            html.Label("Width (ft):", className="fw-bold mb-2"),
+                            html.Label("Width (ft)", className="fw-bold mb-2"),
                             dbc.Input(
                                 id="extension-width",
                                 type="number",
@@ -1428,7 +1450,7 @@ def _build_horizontal_extension_panel():
                     dbc.Col(
                         [
                             html.Label(
-                                "Rotation from North (degrees):",
+                                "Rotation from North (degrees)",
                                 className="fw-bold mb-2",
                             ),
                             dbc.Input(
@@ -1576,7 +1598,7 @@ def _build_recharge_mound_outputs_card():
                                         className="fw-semibold",
                                     ),
                                     value=view_mound,
-                                    className="mb-0 text-white",
+                                    className="mb-0 text-white collapse-toggle-check",
                                     input_class_name="me-1",
                                     label_class_name="text-white mb-0",
                                 ),
@@ -1691,7 +1713,7 @@ def _build_view_card():
                                     html.Div(
                                         [
                                             html.H6("Stratigraphy Cross Section", className="mb-3"),
-                                            html.P("Visual representation of subsurface stratigraphy layers.", className="mb-3"),
+                                            html.P("Visual representation of subsurface stratigraphy layers", className="mb-3"),
                                             
                                             # Cross-section plot
                                             dcc.Graph(
@@ -1722,7 +1744,7 @@ def _build_view_card():
                                     html.Div(
                                         [
                                             html.H6("Available MAR Storage", className="mb-3"),
-                                            html.P("Analysis of available storage capacity for MAR operations.", className="mb-3"),
+                                            html.P("Analysis of available storage capacity for MAR operations", className="mb-3"),
                                             
                                             # Groundwater level plot
                                             dcc.Graph(
@@ -1822,12 +1844,6 @@ RULE_DEFAULT_SCALAR_ROWS = [
         "Cap on the count of injection wells used in scenario logic.",
     ),
     (
-        "max_dry_well_infiltration_rate_in_per_hr",
-        "Maximum dry well infiltration rate (inches/hour)",
-        1,
-        "Upper limit on surface infiltration into the dry well (inches per hour).",
-    ),
-    (
         "max_dry_well_transfer_rate_gpm",
         "Maximum dry well transfer rate (gallons/minute)",
         1,
@@ -1845,12 +1861,6 @@ RULE_DEFAULT_SCALAR_ROWS = [
         0.1,
         "Shallowest allowed depth to water table (below ground). Used for operational "
         "groundwater depth and spreading-basin mound limits.",
-    ),
-    (
-        "vadose_effective_porosity",
-        "Vadose effective porosity (-)",
-        0.01,
-        "Default effective porosity when stratigraphy does not supply a value.",
     ),
     (
         "average_moisture_content",

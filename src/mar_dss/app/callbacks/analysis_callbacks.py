@@ -4,7 +4,7 @@ Callbacks for the Analysis tab lazy loading.
 from pathlib import Path
 import logging
 import dash
-from dash import Input, Output, State, html
+from dash import Input, Output, State, html, ALL
 import dash_bootstrap_components as dbc
 import mar_dss
 import mar_dss.app.utils.data_storage as dash_storage
@@ -101,14 +101,10 @@ DSS_TO_UI_MAPPING = {
 UI_TO_DSS_MAPPING = {v: k for k, v in DSS_TO_UI_MAPPING.items()}
 # Import all the analysis components
 try:
-    from mar_dss.app.components.dss_algorithm_tab import create_dss_algorithm_content
-    from mar_dss.app.components.decision_sensitivity_tab import create_decision_sensitivity_content
     from mar_dss.app.components.decision_interpretation_tab import create_decision_interpretation_content
     from mar_dss.app.components.ai_generated_decision_tab import create_ai_generated_decision_content
     from mar_dss.app.components.data_export_tab import create_data_export_content
 except ImportError:
-    from ..components.dss_algorithm_tab import create_dss_algorithm_content
-    from ..components.decision_sensitivity_tab import create_decision_sensitivity_content
     from ..components.decision_interpretation_tab import create_decision_interpretation_content
     from ..components.ai_generated_decision_tab import create_ai_generated_decision_content
     from ..components.data_export_tab import create_data_export_content
@@ -175,7 +171,7 @@ def get_graph_inputs():
     inputs = {}
     
     try:
-        # Max infiltration area with validation
+        # Max infiltration area with validation (fraction of MAR site; default 70%)
         max_infiltration_area_percent = dash_storage.get_data("max_infiltration_area")
         max_available_area = dash_storage.get_data("max_available_area")
 
@@ -184,13 +180,16 @@ def get_graph_inputs():
             max_infiltration_area = max_available_area
         else:
             try:
-                max_infiltration_area = float(max_infiltration_area_percent) * float(max_available_area)
+                fraction = float(max_infiltration_area_percent)
+                if fraction <= 0 or fraction > 1:
+                    fraction = 0.70
+                max_infiltration_area = fraction * float(max_available_area)
             except (ValueError, TypeError):
                 logger.warning(
-                    "Invalid max_infiltration_area: %s, using default",
+                    "Invalid max_infiltration_area: %s, using default 70%%",
                     max_infiltration_area_percent,
                 )
-                max_infiltration_area = float(max_available_area)
+                max_infiltration_area = 0.70 * float(max_available_area)
         
         max_infiltration_area_ft2 = max_infiltration_area * ACRES_TO_FT2
         if max_infiltration_area_ft2 <= 0:
@@ -293,6 +292,12 @@ def get_graph_inputs():
         except (TypeError, ValueError):
             max_mar_storage_depth = 20.0
         inputs["max_mar_storage_depth"] = max_mar_storage_depth
+
+        # Water Quality Q1 — gates vadose residence-time calculation
+        wq_q1 = dash_storage.get_data("wq_source_contaminants")
+        if wq_q1 is None or str(wq_q1).strip() == "":
+            wq_q1 = "Unknown"
+        inputs["wq_source_contaminants"] = str(wq_q1).strip()
         
         return inputs
         
@@ -641,14 +646,42 @@ def create_and_run_cost_calculator():
     
     # Get inputs from data storage
     aquifer_type = dash_storage.get_data("aq_type")
-    total_runoff_ft3 = dash_storage.get_data("total_runoff_ft3") or 0.0
-    fraction_flow_capture = dash_storage.get_data("fraction_flow_capture") or 0.0
-    runoff_volume_ft3 = float(total_runoff_ft3) * float(fraction_flow_capture)
-    distance_to_sediment_miles = dash_storage.get_data("distance_to_sediment") or 1.0
-    distance_to_sediment_ft = float(distance_to_sediment_miles) * MILES_TO_FEET
+    monthly = dash_storage.get_data("monthly_flow") or []
+    try:
+        max_monthly = max(float(v or 0) for v in monthly) if monthly else 0.0
+    except (TypeError, ValueError):
+        max_monthly = 0.0
+    n_events = float(dash_storage.get_data("design_events_per_month") or 4.0)
+    if n_events <= 0:
+        n_events = 4.0
+    total_runoff_ft3 = max_monthly / n_events
+    dash_storage.set_data("total_runoff_ft3", total_runoff_ft3)
+    dash_storage.set_data("fraction_flow_capture", 1.0)
+    runoff_volume_ft3 = float(total_runoff_ft3)
+    try:
+        from mar_dss.app.callbacks.cost_callbacks import (
+            _normalize_conveyance_method,
+            _sync_conveyance_distance_storage,
+            _sync_sediment_target_from_turbidity,
+            _DEFAULT_CONVEYANCE,
+            _MILES_TO_FEET,
+        )
+    except ImportError:
+        from .cost_callbacks import (
+            _normalize_conveyance_method,
+            _sync_conveyance_distance_storage,
+            _sync_sediment_target_from_turbidity,
+            _DEFAULT_CONVEYANCE,
+            _MILES_TO_FEET,
+        )
+    distance_to_sediment_miles = _sync_conveyance_distance_storage()
+    distance_to_sediment_ft = float(distance_to_sediment_miles) * _MILES_TO_FEET
     distance_to_storage_pond_ft = float(dash_storage.get_data("distance_to_storage_pond_ft")) or 1.0
-    sediment_target = dash_storage.get_data("sediment_target")
-    sediment_target_display = "Medium Silt" if sediment_target == "medium_silt" else "Fine Silt"
+    sediment_target, sediment_target_display = _sync_sediment_target_from_turbidity()
+    conveyance_method = _normalize_conveyance_method(
+        dash_storage.get_data("conveyance_method") or _DEFAULT_CONVEYANCE
+    )
+    dash_storage.set_data("conveyance_method", conveyance_method)
     graph = dash_storage.get_data("decision_graph")
     if graph is None:
         raise ValueError("decision_graph is missing; run graph evaluation before cost calculation")
@@ -705,10 +738,12 @@ def create_and_run_cost_calculator():
         distance_collection_to_sediment_pond_ft=distance_to_sediment_ft,
         distance_sediment_to_storage_pond_ft=distance_to_storage_pond_ft,
         dry_well_infiltration_rate_in_per_hr=5,
-        dry_well_transfer_rate_gpm=50,
+        dry_well_transfer_rate_gpm=float(
+            get_default("max_dry_well_transfer_rate_gpm")
+        ),
         injection_well_transfer_rate_gpm=injection_Q_gpm,
         number_of_injection_wells=number_of_injection_wells,
-        collection_to_sediment_removal__conveyance_method="trapezoidal",
+        collection_to_sediment_removal__conveyance_method=conveyance_method,
         dry_well_diameter_ft=6,
         recharge_method="dry_well", 
         number_of_dry_wells=int(float(dry_well_results.get("number_of_dry_wells", 0))),
@@ -1128,26 +1163,6 @@ def setup_analysis_callbacks(app):
     #     pass
     
     @app.callback(
-        Output("analysis-dss-algorithm-content", "children"),
-        [Input("analysis-tabs", "active_tab")],
-        prevent_initial_call=True
-    )
-    def load_dss_algorithm_content(active_tab):
-        if active_tab == "analysis-dss-algorithm":
-            return create_dss_algorithm_content()
-        return "Loading..."
-    
-    @app.callback(
-        Output("analysis-decision-sensitivity-content", "children"),
-        [Input("analysis-tabs", "active_tab")],
-        prevent_initial_call=True
-    )
-    def load_decision_sensitivity_content(active_tab):
-        if active_tab == "analysis-decision-sensitivity":
-            return create_decision_sensitivity_content()
-        return "Loading..."
-    
-    @app.callback(
         Output("analysis-decision-interpretation-content", "children"),
         [
             Input("analysis-tabs", "active_tab"),
@@ -1212,27 +1227,47 @@ def setup_analysis_callbacks(app):
         return _create_option_interpretation(selected_option, result, filters)
 
     @app.callback(
-        Output("decision-interpretation-workbook-text", "children"),
         [
-            Input("decision-interpretation-subtabs", "active_tab"),
-            Input("knowledge-graph-store", "data"),
-            Input("analysis-tabs", "active_tab"),
+            Output("di-constraint-help-modal", "is_open"),
+            Output("di-constraint-help-title", "children"),
+            Output("di-constraint-help-body", "children"),
         ],
-        prevent_initial_call=False,
+        [
+            Input({"type": "di-constraint-help-btn", "name": ALL}, "n_clicks"),
+            Input("di-constraint-help-close", "n_clicks"),
+        ],
+        [
+            State({"type": "di-constraint-help-btn", "name": ALL}, "id"),
+            State("di-constraint-help-modal", "is_open"),
+        ],
+        prevent_initial_call=True,
     )
-    def refresh_decision_workbook_text(active_subtab, graph_store, analysis_tab):
-        """Fill the Detailed calculations workbook when the user opens that sub-tab."""
-        if analysis_tab != "analysis-decision-interpretation":
-            return dash.no_update
-        if active_subtab != "decision-interpretation-workbook":
-            return dash.no_update
-        from mar_dss.graph_computation_log import format_computation_log_entries
+    def toggle_di_constraint_help(open_clicks, close_clicks, btn_ids, is_open):
+        """Open constraint help modal for the clicked ? button."""
+        from mar_dss.app.components.decision_interpretation_tab import (
+            constraint_help_body,
+        )
 
-        text = dash_storage.get_data("graph_computation_log_text")
-        if text is not None:
-            return text
-        raw = dash_storage.get_data("graph_computation_log")
-        return format_computation_log_entries(raw)
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update, dash.no_update, dash.no_update
+
+        trigger = ctx.triggered[0]["prop_id"]
+        if "di-constraint-help-close" in trigger:
+            return False, dash.no_update, dash.no_update
+
+        if "di-constraint-help-btn" not in trigger:
+            return dash.no_update, dash.no_update, dash.no_update
+
+        if not any(open_clicks or []):
+            return dash.no_update, dash.no_update, dash.no_update
+
+        triggered_id = ctx.triggered_id
+        if not isinstance(triggered_id, dict):
+            return dash.no_update, dash.no_update, dash.no_update
+
+        name = triggered_id.get("name", "Constraint")
+        return True, name, constraint_help_body(name)
 
     @app.callback(
         Output("analysis-ai-decision-content", "children"),

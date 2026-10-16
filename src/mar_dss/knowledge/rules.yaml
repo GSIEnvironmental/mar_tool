@@ -261,11 +261,11 @@ rules:
   - id: "vadose_residence_time"
     name: "Vadose Zone Residence Time"
     #symbol: "ResTime"
-    description: "Computes the residence time of water in the vadose zone (days)"
+    description: "Computes vadose residence time (days) when Water Quality Q1 (source contaminants) is Yes"
     type: numeric
     module: "geohydro_rules"
     function_name: "compute_vadose_residence_time"
-    dependencies: [vadose_biodegradable, design_sizing, strat_df, monthly_gw_depth]
+    dependencies: [wq_source_contaminants, design_sizing, strat_df, monthly_gw_depth]
     certainty: 0.8
     group: "Aquifer Properties"
     leaf: false

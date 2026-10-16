@@ -176,7 +176,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
             dbc.Row([
                 dbc.Col([
                     html.P(
-                        "Assess the feasibility of MAR implementation based on hydrogeologic conditions.",
+                        "Assess the feasibility of MAR implementation based on hydrogeologic conditions",
                         className="mb-2"
                     ),
                     html.P([
@@ -199,7 +199,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
                             ),
                             dbc.Alert(
                                 [
-                                    html.H6(f"Status: {status}", className="mb-0"),
+                                    html.H6(f"Status {status}", className="mb-0"),
                                     html.Small(f"Final Score: {final_score:.1f}%", className="text-muted")
                                 ],
                                 color=status_color,
@@ -214,7 +214,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
             dbc.Row([
                 dbc.Col([
                     html.H5("Key Decision Nodes", className="mb-3"),
-                    html.P("Final assessment metrics that determine feasibility.", className="text-muted mb-3")
+                    html.P("Final assessment metrics that determine feasibility", className="text-muted mb-3")
                 ], width=12)
             ]),
         ]
@@ -291,7 +291,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
             ]
         else:
             computational_content = [
-                html.P("No computational metrics available.", className="text-muted")
+                html.P("No computational metrics available", className="text-muted")
             ]
         
         content.append(

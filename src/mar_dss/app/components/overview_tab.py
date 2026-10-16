@@ -84,6 +84,20 @@ def get_overview_map_header_text():
     )
 
 
+def overview_map_header_children(text=None):
+    """Overview map card header content sized to match Project Overview header."""
+    if text is None:
+        text = get_overview_map_header_text()
+    return html.Div(
+        [
+            html.Span(text, className="fw-bold"),
+        ],
+        # minHeight matches .mar-help-btn (2.25rem) on the left card header
+        className="d-flex align-items-center justify-content-between w-100",
+        style={"minHeight": "2.25rem"},
+    )
+
+
 def get_overview_map_basemap():
     """Plotly Mapbox layout style string for the overview map."""
     raw = dash_storage.get_data("overview_map_basemap")
@@ -139,14 +153,7 @@ def create_starting_information_help_modal():
             "and location context in feasibility and AI decisions.",
         ),
         (
-            "Ground Surface Slope (%)",
-            "Average site slope as a percentage. Feeds the decision graph "
-            "(ground surface slope significance) and surface recharge suitability. Gentle "
-            "slopes favor surface spreading; moderate or steep slopes can increase earthwork "
-            "costs or make injection wells or dry wells more attractive.",
-        ),
-        (
-            "Available Land Area for Recharge (acres)",
+            "Land Area Available for Recharge (acres)",
             "Total land area that could host recharge facilities. Caps spread area in "
             "hydrogeologic sizing rules and sets default engineering limits (for example, "
             "maximum infiltration area is derived from this value). Also affects cost and "
@@ -157,6 +164,13 @@ def create_starting_information_help_modal():
             "Primary land use at the site (residential, commercial/industrial, agricultural, "
             "or open space). Included in project context for AI-assisted decisions and informs "
             "assumptions about infiltration, disturbance, and site suitability.",
+        ),
+        (
+            "Ground Surface Slope (%)",
+            "Average site slope as a percentage. Feeds the decision graph "
+            "(ground surface slope significance) and surface recharge suitability. Gentle "
+            "slopes favor surface spreading; moderate or steep slopes can increase earthwork "
+            "costs or make injection wells or dry wells more attractive.",
         ),
     ]
 
@@ -239,7 +253,7 @@ def create_mar_purpose_section():
         dbc.CardHeader(
             html.Div(
                 [
-                    html.Span("MAR-Tool Starting Information", className="fw-bold"),
+                    html.Span("Project Overview", className="fw-bold"),
                     html.Button(
                         "?",
                         id="starting-info-help-btn",
@@ -255,7 +269,7 @@ def create_mar_purpose_section():
         dbc.CardBody([
             create_starting_information_help_modal(),
             html.H6("Project Setup", className="fw-bold mb-2"),
-            html.Label("Project Name:", className="fw-bold small mb-1"),
+            html.Label("Project Name", className="fw-bold small mb-1"),
             dbc.Input(
                 id="project-name-input",
                 type="text",
@@ -264,7 +278,7 @@ def create_mar_purpose_section():
                 debounce=True,
                 style={"margin-bottom": "8px"},
             ),
-            html.Label("Project File Path:", className="fw-bold small mb-1"),
+            html.Label("Project File Path", className="fw-bold small mb-1"),
             dbc.Input(
                 id="project-path-input",
                 type="text",
@@ -273,7 +287,7 @@ def create_mar_purpose_section():
                 readonly=True,
                 className="mb-2",
             ),
-            html.Label("Analysis Date:", className="fw-bold small mb-1"),
+            html.Label("Analysis Date", className="fw-bold small mb-1"),
             dbc.Input(
                 id="analysis-date-input",
                 type="date",
@@ -281,9 +295,13 @@ def create_mar_purpose_section():
                 style={"margin-bottom": "8px"},
             ),
             html.Hr(className="my-2"),
-            html.H6("MAR-Tool Starting Information", className="fw-bold mb-2"),
+            html.H6(
+                "Project Objectives",
+                className="fw-bold mb-2",
+                style={"color": "#495057"},
+            ),
             html.P(
-                "Select one or more purposes for your MAR project:",
+                "Select one or more objectives for your MAR project",
                 className="text-muted small mb-2",
             ),
             dbc.Checklist(
@@ -323,10 +341,9 @@ def create_mar_purpose_section():
                 style={"margin-top": "4px"},
             ),
             html.Hr(className="my-2"),
-            html.H6("Site Description", className="fw-bold mb-2"),
-            html.Label("Project Location:", className="fw-bold small mb-1"),
+            html.Label("Project Location", className="fw-bold small mb-1"),
             html.Small(
-                "Automatically detected from the map on the right.",
+                "Automatically detected from the map on the right",
                 className="text-muted d-block mb-1",
             ),
             dbc.Input(
@@ -337,20 +354,9 @@ def create_mar_purpose_section():
                 readonly=True,
                 style={"margin-bottom": "8px"},
             ),
-            html.Label("Ground Surface Slope (%):", className="fw-bold small mb-1"),
-            dbc.Input(
-                id="ground-slope-input",
-                type="number",
-                placeholder="Enter ground surface slope percentage...",
-                value=ground_slope,
-                debounce=True,
-                min=0,
-                step=0.1,
-                style={"margin-bottom": "8px"},
-            ),
-            html.Label("Available Land Area for Recharge (acres):", className="fw-bold small mb-1"),
+            html.Label("Land Area Available for Recharge (acres)", className="fw-bold small mb-1"),
             html.Small(
-                "This is the total land surface area available for the MAR project site",
+                "Total land surface area available for the MAR recharge site",
                 className="text-muted d-block mb-1",
             ),
             dbc.Input(
@@ -363,16 +369,31 @@ def create_mar_purpose_section():
                 step=0.1,
                 style={"margin-bottom": "8px"},
             ),
-            html.Label("Land Use:", className="fw-bold small mb-1"),
+            html.Label("Land Use", className="fw-bold small mb-1"),
             html.P(
-                "Select the primary land use type for the MAR project site",
+                "Primary land use type for the MAR recharge site",
                 className="text-muted small mb-2",
             ),
             dcc.Dropdown(
                 id="land-use-dropdown",
                 options=LAND_USE_OPTIONS,
                 value=land_use,
-                style={"margin-top": "4px"},
+                style={"margin-top": "4px", "margin-bottom": "8px"},
+            ),
+            html.Label("Ground Surface Slope (%)", className="fw-bold small mb-1"),
+            html.Small(
+                "Ground surface slope of the MAR recharge site",
+                className="text-muted d-block mb-1",
+            ),
+            dbc.Input(
+                id="ground-slope-input",
+                type="number",
+                placeholder="Enter ground surface slope percentage...",
+                value=ground_slope,
+                debounce=True,
+                min=0,
+                step=0.1,
+                style={"margin-bottom": "8px"},
             ),
             dbc.Tooltip(
                 'Enter a descriptive name for your MAR project '
@@ -425,12 +446,12 @@ def create_location_map_section():
     header_text = get_overview_map_header_text()
     return dbc.Card([
         dbc.CardHeader(
-            header_text,
+            overview_map_header_children(header_text),
             id="location-card-header",
-            className="fw-bold bg-primary text-white",
+            className="bg-primary text-white py-2",
         ),
         dbc.CardBody([
-            html.Label("Basemap:", className="fw-bold small me-2"),
+            html.Label("Basemap", className="fw-bold small me-2"),
             dcc.Dropdown(
                 id="overview-map-basemap",
                 options=OVERVIEW_BASEMAP_OPTIONS,
@@ -479,19 +500,9 @@ def create_site_description_section():
             className="fw-bold bg-primary text-white",
         ),
         dbc.CardBody([
-            html.Label("Ground Surface Slope (%):", className="fw-bold"),
-            dbc.Input(
-                id="ground-slope-input",
-                type="number",
-                placeholder="Enter ground surface slope percentage...",
-                value=ground_slope,
-                min=0,
-                step=0.1,
-                style={"margin-bottom": "15px"},
-            ),
-            html.Label("Available Land Area for Recharge (acres):", className="fw-bold"),
+            html.Label("Land Area Available for Recharge (acres)", className="fw-bold"),
             html.Small(
-                "This is the total land surface area available for the MAR project site",
+                "Total land surface area available for the MAR recharge site",
                 className="text-muted d-block mb-2",
             ),
             dbc.Input(
@@ -503,21 +514,26 @@ def create_site_description_section():
                 step=0.1,
                 style={"margin-bottom": "15px"},
             ),
-            html.Label("Land Use:", className="fw-bold"),
+            html.Label("Land Use", className="fw-bold"),
             html.P(
-                "Select the primary land use type for the MAR project site",
+                "Primary land use type for the MAR recharge site",
                 className="text-muted small",
             ),
             dcc.Dropdown(
                 id="land-use-dropdown",
                 options=LAND_USE_OPTIONS,
                 value=land_use,
-                style={"margin-top": "10px"},
+                style={"margin-top": "10px", "margin-bottom": "15px"},
             ),
-            dbc.Tooltip(
-                "Enter slope as percentage (e.g., 5% = 0.05). Affects recharge calculations",
-                target="ground-slope-input",
-                placement="top",
+            html.Label("Ground Surface Slope (%)", className="fw-bold"),
+            dbc.Input(
+                id="ground-slope-input",
+                type="number",
+                placeholder="Enter ground surface slope percentage...",
+                value=ground_slope,
+                min=0,
+                step=0.1,
+                style={"margin-bottom": "15px"},
             ),
             dbc.Tooltip(
                 "Total land area available for recharge activities (impacts design capacity)",
@@ -527,6 +543,11 @@ def create_site_description_section():
             dbc.Tooltip(
                 "Land use type affects infiltration rates and suitability for recharge",
                 target="land-use-dropdown",
+                placement="top",
+            ),
+            dbc.Tooltip(
+                "Enter slope as percentage (e.g., 5% = 0.05). Affects recharge calculations",
+                target="ground-slope-input",
                 placement="top",
             ),
         ])

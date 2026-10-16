@@ -15,7 +15,7 @@ def create_dss_algorithm_content():
             dbc.Row(
                 dbc.Col(
                     html.P(
-                        "Weighted sum multi-criteria decision analysis (MCDA) to rank MAR options. "
+                        "Weighted sum multi-criteria decision analysis (MCDA) to rank MAR options"
                         "Adjust weights to reflect the relative importance of each criterion.",
                         className="text-muted mb-3 small"
                     ),

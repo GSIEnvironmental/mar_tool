@@ -19,7 +19,7 @@ def create_dashboard_content():
                     dbc.Col(
                         dbc.Alert(
                             [
-                                html.H6(id="overall-feasibility-score", children="Overall Feasibility Score: 0%", className="alert-heading mb-0"),
+                                html.H6(id="overall-feasibility-score", children="Overall Feasibility Score 0%", className="alert-heading mb-0"),
                                 html.Small("Based on selected technologies and site conditions", className="text-muted")
                             ],
                             color="info",
@@ -31,7 +31,7 @@ def create_dashboard_content():
                     dbc.Col(
                         dbc.Alert(
                             [
-                                html.H6(id="total-project-cost", children="Total Project Cost: $0 - $0", className="alert-heading mb-0"),
+                                html.H6(id="total-project-cost", children="Total Project Cost $0 - $0", className="alert-heading mb-0"),
                                 html.Small("Estimated capital investment range", className="text-muted")
                             ],
                             color="warning",
@@ -215,7 +215,7 @@ def create_dashboard_content():
                                             # Summary Section
                                             dbc.Alert(
                                                 [
-                                                    html.H6(id="feasibility-metrics-overall-score", children="Overall Feasibility Score: 0%", className="alert-heading"),
+                                                    html.H6(id="feasibility-metrics-overall-score", children="Overall Feasibility Score 0%", className="alert-heading"),
                                                     html.P(id="feasibility-metrics-summary-text", children="Select a technology to view feasibility metrics.", className="mb-0")
                                                 ],
                                                 color="info",
@@ -371,7 +371,7 @@ def create_dashboard_content():
                                             # Summary Section
                                             dbc.Alert(
                                                 [
-                                                    html.H6("Total Project Cost: $2.5M - $4.2M", className="alert-heading"),
+                                                    html.H6("Total Project Cost $2.5M - $4.2M", className="alert-heading"),
                                                     html.P("Cost analysis shows moderate to high initial investment with reasonable operating costs. Consider phased implementation to reduce upfront capital requirements.", className="mb-0")
                                                 ],
                                                 color="warning",
@@ -528,7 +528,7 @@ def create_dashboard_content():
                                             # Recommendation Section
                                             dbc.Alert(
                                                 [
-                                                    html.H6("Recommended Technology: ASR (Aquifer Storage & Recovery)", className="alert-heading"),
+                                                    html.H6("Recommended Technology ASR (Aquifer Storage & Recovery)", className="alert-heading"),
                                                     html.P("Based on the multi-criteria decision matrix, ASR technology scores highest with 8.2/10. It excels in physical feasibility and social acceptance while maintaining reasonable cost and environmental impact.", className="mb-0")
                                                 ],
                                                 color="success",

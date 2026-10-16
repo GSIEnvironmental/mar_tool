@@ -66,7 +66,7 @@ def create_scenarios_comparison_content():
         [
             html.H3("Scenarios Comparison"),
             html.P(
-                "Compare different MAR project scenarios and their outcomes."
+                "Compare different MAR project scenarios and their outcomes"
             ),
             dcc.Graph(id="scenarios-comparison-chart", figure=fig),
             dbc.Tooltip(
@@ -75,7 +75,7 @@ def create_scenarios_comparison_content():
                 placement="top",
             ),
             html.Hr(),
-            html.H5("Scenario Analysis:", className="mt-3"),
+            html.H5("Scenario Analysis", className="mt-3"),
             html.Div(
                 [
                     dbc.Row(
@@ -122,7 +122,7 @@ def create_scenarios_comparison_content():
                 ]
             ),
             html.Hr(),
-            html.H5("Recommendations:", className="mt-3"),
+            html.H5("Recommendations", className="mt-3"),
             html.P(
                 "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions."
             ),

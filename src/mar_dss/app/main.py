@@ -2,12 +2,25 @@
 Main dashboard application for MAR DSS.
 """
 from pathlib import Path
+import sys
 import webbrowser
 import dash
 import dash_bootstrap_components as dbc
 
 _APP_DIR = Path(__file__).resolve().parent
 
+
+def _resolve_assets_folder() -> str:
+    """Return a filesystem path to app/assets (editable and frozen builds)."""
+    candidate = _APP_DIR / "assets"
+    if candidate.is_dir():
+        return str(candidate)
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        frozen = Path(meipass) / "mar_dss" / "app" / "assets"
+        if frozen.is_dir():
+            return str(frozen)
+    return str(candidate)
 
 
 try:
@@ -21,12 +34,6 @@ try:
     )
     from mar_dss.app.components.decision_interpretation_tab import (
         create_decision_interpretation_content,
-    )
-    from mar_dss.app.components.decision_sensitivity_tab import (
-        create_decision_sensitivity_content,
-    )
-    from mar_dss.app.components.dss_algorithm_tab import (
-        create_dss_algorithm_content,
     )
     from mar_dss.app.components.hydro_tab import create_hydro_tab_content
     from mar_dss.app.callbacks.hydro_callbacks import setup_hydro_callbacks
@@ -46,10 +53,6 @@ except ImportError:
     from .components.decision_interpretation_tab import (
         create_decision_interpretation_content,
     )
-    from .components.decision_sensitivity_tab import (
-        create_decision_sensitivity_content,
-    )
-    from .components.dss_algorithm_tab import create_dss_algorithm_content
     from .components.hydro_tab import create_hydro_tab_content
     from .components.scenarios_comparison_tab import (
         create_scenarios_comparison_content,
@@ -70,7 +73,7 @@ class DashboardApp:
                 "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
             ],
             suppress_callback_exceptions=True,
-            assets_folder=str(_APP_DIR / "assets"),
+            assets_folder=_resolve_assets_folder(),
         )
         # Browser tab icon (served from assets/)
         self.app._favicon = "mar_icon2.PNG"
@@ -152,24 +155,6 @@ class DashboardApp:
         except ImportError:
             from .callbacks.cost_callbacks import setup_cost_callbacks
         setup_cost_callbacks(self.app)
-        
-        # Setup DSS Algorithm callbacks
-        try:
-            from mar_dss.app.callbacks.dss_algorithm_callbacks import (
-                setup_dss_algorithm_callbacks,
-            )
-        except ImportError:
-            from .callbacks.dss_algorithm_callbacks import setup_dss_algorithm_callbacks
-        setup_dss_algorithm_callbacks(self.app)
-        
-        # Setup Decision Sensitivity callbacks
-        try:
-            from mar_dss.app.callbacks.decision_sensitivity_callbacks import (
-                setup_decision_sensitivity_callbacks,
-            )
-        except ImportError:
-            from .callbacks.decision_sensitivity_callbacks import setup_decision_sensitivity_callbacks
-        setup_decision_sensitivity_callbacks(self.app)
 
     def setup_layout(self):
         """Set up the main dashboard layout by delegating to layout module."""

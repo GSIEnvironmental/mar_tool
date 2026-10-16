@@ -76,7 +76,7 @@ def create_data_export_content():
                             ),
                             html.Div(id="generate-report-feedback", className="mt-3"),
                             html.Small(
-                                "Requires feasibility analysis to be run first. "
+                                "Requires feasibility analysis to be run first"
                                 "HTML opens in any browser; PDF is generated directly for sharing or printing.",
                                 className="text-muted d-block mt-3",
                             ),

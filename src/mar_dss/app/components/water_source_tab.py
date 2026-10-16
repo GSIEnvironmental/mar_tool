@@ -325,7 +325,7 @@ def water_source_site_coordinates_summary_children():
     num_style = {"color": _SITE_COORD_VALUE_COLOR}
     return [
         html.Label(
-            "Site Coordinates:",
+            "Site Coordinates",
             className="fw-bold small mb-1 text-primary",
         ),
         html.Div(
@@ -640,21 +640,38 @@ def flow_dicts_equal(a, b):
     return True
 
 
-def flow_dict_from_input_values(values, ids):
-    """Month→flow dict from pattern-matching monthly-flow-input values/ids."""
+def flow_dict_from_input_values(values, ids, fallback=None):
+    """Month→flow dict from pattern-matching monthly-flow-input values/ids.
+
+    Blank / None cells keep the fallback (stored) value so a click/focus/blur
+    without an edit cannot wipe populated months to zero.
+    """
     flow_data = {month: 0.0 for month in FLOW_MONTHS}
+    if isinstance(fallback, dict):
+        for month in FLOW_MONTHS:
+            try:
+                flow_data[month] = float(fallback.get(month, 0) or 0)
+            except (TypeError, ValueError):
+                flow_data[month] = 0.0
+
     if not values or not ids:
         return flow_data
+
     for id_dict, raw in zip(ids, values):
         if not isinstance(id_dict, dict):
             continue
         month = id_dict.get("month")
         if month not in flow_data:
             continue
+        # Uncommitted / cleared-while-editing → keep previous value
+        if raw is None:
+            continue
+        if isinstance(raw, str) and raw.strip() == "":
+            continue
         try:
-            flow_data[month] = float(raw) if raw is not None else 0.0
+            flow_data[month] = float(raw)
         except (TypeError, ValueError):
-            flow_data[month] = 0.0
+            continue
     return flow_data
 
 
@@ -770,7 +787,7 @@ def create_water_source_location_map_card(water_source=None):
                             dbc.Col(
                                 [
                                     html.Label(
-                                        "Water Source:",
+                                        "Water Source",
                                         className="fw-bold small mb-1 text-primary",
                                     ),
                                     dcc.Dropdown(
@@ -804,7 +821,7 @@ def create_water_source_location_map_card(water_source=None):
                                     html.Div(
                                         [
                                             html.Label(
-                                                "Place marker:",
+                                                "Place marker",
                                                 className="fw-bold small me-2 mb-0",
                                             ),
                                             dcc.RadioItems(
@@ -867,7 +884,7 @@ def create_water_source_location_map_card(water_source=None):
                                     html.Div(
                                         [
                                             html.Label(
-                                                "Basemap:",
+                                                "Basemap",
                                                 className="fw-bold small me-2 mb-0",
                                             ),
                                             dcc.Dropdown(
@@ -1073,7 +1090,7 @@ def _create_optional_runoff_calculations_card():
                     "View Runoff Calculator (only if runoff calculator is to be used)"
                 ),
                 value=view_runoff,
-                className="mb-2",
+                className="mb-2 collapse-toggle-check",
             ),
             dbc.Collapse(
                 card,
@@ -1210,7 +1227,7 @@ def create_volume_estimates_help_modal():
             dbc.ModalBody(
                 [
                     html.P(
-                        "Document how much water may be available for MAR each month. "
+                        "Document how much water may be available for MAR each month"
                         "These flows are saved with your project and feed engineering "
                         "sizing, cost analysis, and feasibility decision rules.",
                         className="text-muted mb-3",
@@ -1317,8 +1334,14 @@ def create_water_source_info_tab():
                                                 dbc.Col(
                                                     [
                                                         html.Label(
-                                                            "Monthly Average Flow (ft³/month):",
+                                                            "Monthly Average Flow (ft³/month)",
                                                             className="fw-bold mb-2",
+                                                        ),
+                                                        dbc.Checkbox(
+                                                            id="constant-monthly-flow-check",
+                                                            label="Use January value for all months",
+                                                            value=False,
+                                                            className="mb-2 collapse-toggle-check",
                                                         ),
                                                         dcc.Store(
                                                             id="flow-data-store",
@@ -1333,12 +1356,14 @@ def create_water_source_info_tab():
                                                 dbc.Col(
                                                     [
                                                         html.Label(
-                                                            "Monthly Flow Chart:",
+                                                            "Monthly Flow Chart",
                                                             className="fw-bold mb-2",
                                                         ),
                                                         dcc.Graph(
                                                             id="monthly-flow-chart",
-                                                            figure=create_monthly_flow_chart(),
+                                                            figure=create_monthly_flow_chart(
+                                                                _get_flow_store_data()
+                                                            ),
                                                             config={"displayModeBar": True},
                                                         ),
                                                     ],

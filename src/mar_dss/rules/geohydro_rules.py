@@ -784,40 +784,47 @@ def compute_annual_dry_well_volume(number_of_dry_wells_result, source_water_volu
     annual_dry_well_volume = min(annual_dry_well_volume, np.sum(source_water_volume))
     return annual_dry_well_volume
 
-def compute_vadose_residence_time(vadose_biodegradable, design_zing, strat_df,  avg_gw_depth):
+def compute_vadose_residence_time(wq_source_contaminants, design_sizing, strat_df, avg_gw_depth):
+    """Residence time (days) in the vadose zone.
 
-    # Not applicable for confined aquifers
-    #vadose_biodegradable = True # debug only
-    if not vadose_biodegradable:
+    Computed only when Water Quality Q1 (source water contaminants) is Yes.
+    """
+    # Gate: Water Quality Q1 — source water contaminants present
+    if wq_source_contaminants is None:
         return None
-    # Calculate effective porosity from vadose zone layers
-    # Use sy/ss from stratigraphy layers above water table
-    #effective_porosity = defaults["vadose_effective_porosity"]  # default   
+    q1 = str(wq_source_contaminants).strip()
+    if q1.lower() != "yes":
+        return None
+
+    if design_sizing is None or strat_df is None:
+        return None
 
     layer_depths = strat_df['thickness'].cumsum()
     unsaturated_layres = layer_depths - np.mean(avg_gw_depth)
     unsaturated_layres = unsaturated_layres[unsaturated_layres<0]
     unsaturated_thickness = unsaturated_layres.abs().sum()
-    #ks = strat_df.iloc[:(len(unsaturated_layres))]['K']
 
-    
-    # ratio = defaults["average_moisture_content"] / effective_porosity#
-    # v = ks.values * ratio / effective_porosity# todo: v = k * i * theta, 
-    
-    infl_rate = design_zing["infl_rate"]
+    infl_rate = design_sizing["infl_rate"]
+    if infl_rate is None or infl_rate <= 0:
+        return None
     v = infl_rate / get_default("average_moisture_content")
+    if v <= 0:
+        return None
     residence_time = unsaturated_thickness / v
     return residence_time
+
 
 def check_vadose_residence_time_reasonable(vadose_residence_time):
     if vadose_residence_time is None:
         return None
     unreasonble = []
-    if vadose_residence_time <= 7:
+    if vadose_residence_time <= float(get_default("organic_matter_residence_time")):
         unreasonble.append("Organic Matter")
-    if vadose_residence_time <=30:
+    if vadose_residence_time <= float(get_default("pathogenic_bacteria_residence_time")):
         unreasonble.append("Pathogenic Bacteria")
+    if vadose_residence_time <= float(get_default("trace_organic_matter_residence_time")):
         unreasonble.append("Trace Organic Matter")
+    if vadose_residence_time <= float(get_default("Nutrients_residence_time")):
         unreasonble.append("Nutrients")
 
     return unreasonble    

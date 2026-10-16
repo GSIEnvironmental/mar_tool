@@ -9,16 +9,12 @@ from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 # Import all the analysis components
 try:
     from mar_dss.app.components.feasibilities_tab import create_feasibilities_content
-    from mar_dss.app.components.dss_algorithm_tab import create_dss_algorithm_content
-    from mar_dss.app.components.decision_sensitivity_tab import create_decision_sensitivity_content
     from mar_dss.app.components.decision_interpretation_tab import create_decision_interpretation_content
     from mar_dss.app.components.ai_generated_decision_tab import create_ai_generated_decision_content
     from mar_dss.app.components.data_export_tab import create_data_export_content
     from mar_dss.app.components.engineering_options_tab import create_cost_content
 except ImportError:
     from .feasibilities_tab import create_feasibilities_content
-    from .dss_algorithm_tab import create_dss_algorithm_content
-    from .decision_sensitivity_tab import create_decision_sensitivity_content
     from .decision_interpretation_tab import create_decision_interpretation_content
     from .ai_generated_decision_tab import create_ai_generated_decision_content
     from .data_export_tab import create_data_export_content
@@ -56,7 +52,7 @@ def create_analysis_tab_content():
             dbc.Tabs(
                 [
                 dbc.Tab(
-                    label="(7.1) Feasibilities",
+                    label="(7.1) Feasibility Summary",
                     id=tab_nav_id("analysis-feasibilities"),
                     tab_id="analysis-feasibilities",
                     children=create_feasibilities_content(),  # Load immediately
@@ -70,39 +66,25 @@ def create_analysis_tab_content():
                     **_subtab_styles(1),
                 ),
                 dbc.Tab(
-                    label="(7.3) DSS Algorithm",
-                    id=tab_nav_id("analysis-dss-algorithm"),
-                    tab_id="analysis-dss-algorithm",
-                    children=[html.Div(id="analysis-dss-algorithm-content", children="Loading...")],  # Lazy load
-                    **_subtab_styles(2),
-                ),
-                dbc.Tab(
-                    label="(7.4) Decision Sensitivity",
-                    id=tab_nav_id("analysis-decision-sensitivity"),
-                    tab_id="analysis-decision-sensitivity",
-                    children=[html.Div(id="analysis-decision-sensitivity-content", children="Loading...")],  # Lazy load
-                    **_subtab_styles(0),
-                ),
-                dbc.Tab(
-                    label="(7.5) Decision Interpretation",
+                    label="(7.3) Decision Interpretation",
                     id=tab_nav_id("analysis-decision-interpretation"),
                     tab_id="analysis-decision-interpretation",
                     children=[html.Div(id="analysis-decision-interpretation-content", children="Loading...")],  # Lazy load
-                    **_subtab_styles(1),
-                ),
-                dbc.Tab(
-                    label="(7.6) AI Generated Decision",
-                    id=tab_nav_id("analysis-ai-decision"),
-                    tab_id="analysis-ai-decision",
-                    children=[html.Div(id="analysis-ai-decision-content", children="Loading...")],  # Lazy load
                     **_subtab_styles(2),
                 ),
                 dbc.Tab(
-                    label="(7.7) Generate Report",
+                    label="(7.4) AI Generated Decision",
+                    id=tab_nav_id("analysis-ai-decision"),
+                    tab_id="analysis-ai-decision",
+                    children=[html.Div(id="analysis-ai-decision-content", children="Loading...")],  # Lazy load
+                    **_subtab_styles(0),
+                ),
+                dbc.Tab(
+                    label="(7.5) Generate Report",
                     id=tab_nav_id("analysis-data-export"),
                     tab_id="analysis-data-export",
                     children=[html.Div(id="analysis-data-export-content", children="Loading...")],  # Lazy load
-                    **_subtab_styles(0),
+                    **_subtab_styles(1),
                 ),
             ],
             id="analysis-tabs",
@@ -110,19 +92,11 @@ def create_analysis_tab_content():
         ),
         tab_tooltip(
             "analysis-feasibilities",
-            "Technology feasibility categories and overall project viability scores",
+            "Feasibility summary of MAR option economics, with feasibility details below",
         ),
         tab_tooltip(
             "analysis-cost",
             "Capital and maintenance cost tables with NPV analysis",
-        ),
-        tab_tooltip(
-            "analysis-dss-algorithm",
-            "Multi-criteria decision support algorithm configuration and results",
-        ),
-        tab_tooltip(
-            "analysis-decision-sensitivity",
-            "How input parameter changes affect feasibility outcomes",
         ),
         tab_tooltip(
             "analysis-decision-interpretation",

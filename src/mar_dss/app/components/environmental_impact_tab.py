@@ -684,7 +684,7 @@ def _build_treatment_cost_guidance_card():
                                         "Show optional treatment cost estimates"
                                     ),
                                     value=view_costs,
-                                    className="mb-0 text-white",
+                                    className="mb-0 text-white collapse-toggle-check",
                                     input_class_name="me-1",
                                     label_class_name="text-white mb-0",
                                 ),

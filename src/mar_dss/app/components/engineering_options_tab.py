@@ -8,512 +8,647 @@ import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
-def _get_max_infiltration_area_value():
-    """Get the default value for maximum infiltration area (60% of max available area)."""
-    max_available_area = dash_storage.get_data("max_available_area")
-    if max_available_area is None:
-        max_available_area = 1.0
-    else:
-        try:
-            max_available_area = float(max_available_area)
-        except (ValueError, TypeError):
-            max_available_area = 1.0
-    
-    max_infiltration_area = dash_storage.get_data("max_infiltration_area")
-    if max_infiltration_area is None:
-        # Calculate 60% of max available area
-        return round(0.6 * max_available_area, 2)
-    else:
-        try:
-            return float(max_infiltration_area)
-        except (ValueError, TypeError):
-            return round(0.6 * max_available_area, 2)
+def _eng_help_btn(section, title="Help"):
+    """Standard ? help button for an Engineering card."""
+    return html.Button(
+        "?",
+        id={"type": "eng-help-btn", "section": section},
+        type="button",
+        className="mar-help-btn eng-help-btn",
+        title=title,
+    )
+
+
+def _eng_card_title(text, section, help_title=None):
+    """Compact section title row with a contextual ? help button."""
+    return html.Div(
+        [
+            html.H6(text, className="eng-section-title mb-0"),
+            _eng_help_btn(section, help_title or f"Help: {text}"),
+        ],
+        className="eng-section-header",
+    )
+
+
+def _eng_question(text, className="eng-question"):
+    """Bold question / field label."""
+    return html.Label(text, className=className)
+
+
+def _eng_metric(component_id, children="—", className="eng-metric"):
+    """Compact read-only metric value."""
+    return html.Div(id=component_id, children=children, className=className)
+
+
+def _eng_help_modal(section, title, body_children):
+    """Help modal paired with an Engineering card help button."""
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle(title), close_button=True),
+            dbc.ModalBody(body_children),
+            dbc.ModalFooter(
+                dbc.Button(
+                    "Close",
+                    id={"type": "eng-help-close", "section": section},
+                    className="ms-auto",
+                    color="secondary",
+                )
+            ),
+        ],
+        id={"type": "eng-help-modal", "section": section},
+        size="lg",
+        scrollable=True,
+        is_open=False,
+    )
+
+
+def create_engineering_help_modals():
+    """One help modal per Engineering Elements card."""
+    return [
+        _eng_help_modal(
+            "design-metrics",
+            "Design Metrics Help",
+            [
+                html.P(
+                    "Sizing depends on how much water is available and how fast it "
+                    "arrives. The same monthly total can need very different pipes "
+                    "and ponds if it arrives in a few storm pulses versus nearly "
+                    "every day.",
+                    className="text-muted mb-3",
+                ),
+                html.H6("Design event flow", className="fw-bold mb-2"),
+                html.P(
+                    [
+                        "This card uses the ",
+                        html.Strong("maximum monthly flow"),
+                        " from Water Source → Flow Estimates (ft³/month). You set "
+                        "how many events that month’s water arrives in; each event "
+                        "is treated as a one-day design flow:",
+                    ],
+                    className="mb-2",
+                ),
+                html.Pre(
+                    "Q_month = max(monthly Flow Estimates)   [ft³/month]\n"
+                    "N_events = Number of events per month   [user input]\n"
+                    "Q_design (ft³/day) = Q_month / N_events\n"
+                    "\n"
+                    "Examples:\n"
+                    "  • ~4 storm events/month → N_events = 4\n"
+                    "  • Nearly uniform daily arrival → N_events = 30",
+                    className="bg-light border rounded p-2 small mb-2",
+                ),
+                html.P(
+                    "Smaller N_events → larger Q_design and more conservative sizing"
+                    "Capture fraction is fixed at 1.",
+                    className="small text-muted mb-3",
+                ),
+                html.H6(
+                    "Peak flow (triangular 24-hour hydrograph)",
+                    className="fw-bold mb-2",
+                ),
+                html.P(
+                    "The cost engine treats Q_design as the volume arriving in one "
+                    "day and approximates a triangular hydrograph:",
+                    className="mb-2",
+                ),
+                html.Pre(
+                    "V_day (ft³) = Q_design (ft³/day)\n"
+                    "V = ½ × T_base × Q_peak,   T_base = 24 h\n"
+                    "⇒ Q_peak (ft³/h) = V_day / 12\n"
+                    "Q_peak (gpm) = Q_peak (ft³/h) × 0.124675",
+                    className="bg-light border rounded p-2 small mb-2",
+                ),
+                html.P(
+                    "Dividing by 12 (not 24) gives a peak twice the uniform 24-hour "
+                    "average — a screening approximation, not a site-calibrated "
+                    "hydrograph. Downstream cards size conveyance and treatment from "
+                    "Q_peak and basins from V_day.",
+                    className="small text-muted mb-0",
+                ),
+            ],
+        ),
+        _eng_help_modal(
+            "conveyance-sediment",
+            "Conveyance to Recharge Site Help",
+            [
+                html.P(
+                    "Choose how source water is conveyed to the recharge site"
+                    "Length is the straight-line (great-circle) distance between "
+                    "the source and recharge locations on the Water Source tab.",
+                    className="text-muted mb-3",
+                ),
+                html.H6("Allowable methods", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Gravity Flow in Ditch/Channel: "),
+                                "open-channel civil cost only (channel capacity ≥ Q_peak).",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Gravity Flow in Pipeline: "),
+                                "gravity pipe/culvert civil cost only "
+                                "(Capacity ≥ Q_peak).",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Pumped into Pipeline: "),
+                                "force-main package (pipe + pumping) along the "
+                                "conveyance length.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Pumped into Ditch/Channel: "),
+                                "channel civil cost plus a separate pump package "
+                                "(lift into the ditch/channel).",
+                            ]
+                        ),
+                    ],
+                    className="mb-3",
+                ),
+                html.H6("Cost model", className="fw-bold mb-2"),
+                html.Pre(
+                    "L (ft) = haversine(source, recharge) × 5280\n"
+                    "\n"
+                    "Gravity ditch/channel:   Channel @ $93/LF × L\n"
+                    "Gravity pipeline:       Pipeline @ $72/LF × L\n"
+                    "Pumped pipeline:        Pumped conveyance @ $400/LF × L\n"
+                    "Pumped ditch/channel:   Channel @ $93/LF × L\n"
+                    "                      + Pump package @ $307/LF × L\n"
+                    "                        (civil + pump ≈ $400/LF total)",
+                    className="bg-light border rounded p-2 small mb-0",
+                ),
+            ],
+        ),
+        _eng_help_modal(
+            "sediment-pond",
+            "Sediment Removal Help",
+            [
+                html.P(
+                    "Choose whether sediment removal (for example a pond or filter) "
+                    "is needed before recharge. When Yes, capital and maintenance "
+                    "costs for sediment removal are included.",
+                    className="text-muted mb-3",
+                ),
+                html.H6("Removal target (automatic)", className="fw-bold mb-2"),
+                html.P(
+                    [
+                        "The silt removal target is set from Environmental Impact → "
+                        "Water Quality ",
+                        html.Strong("question 2 (source-water turbidity)"),
+                        ", not from a separate Engineering input:",
+                    ],
+                    className="mb-2",
+                ),
+                html.Pre(
+                    "If turbidity < 20 NTU  (answers \"<5 NTU\" or \"5-20 NTU\")\n"
+                    "    → Medium Silt\n"
+                    "Else (\">20 NTU\" or Unknown)\n"
+                    "    → Fine Silt  (more conservative / longer settling)",
+                    className="bg-light border rounded p-2 small mb-3",
+                ),
+                html.H6("Sizing equations (when needed = Yes)", className="fw-bold mb-2"),
+                html.Pre(
+                    "t_settle (min) = (number of 0.4-in falls) × (time per 0.4-in fall)\n"
+                    "V_trap (gal) = t_settle (min) × Q_peak (gpm)\n"
+                    "Footprint (ft²) = V_trap (ft³) / Water Depth (ft)\n"
+                    "  with V_trap (ft³) = V_trap (gal) / 7.48",
+                    className="bg-light border rounded p-2 small mb-0",
+                ),
+            ],
+        ),
+        _eng_help_modal(
+            "storage-pond",
+            "Storage Help",
+            [
+                html.P(
+                    "Choose whether a storage pond is needed prior to recharge"
+                    "When Yes, capital costs for temporary storage are included.",
+                    className="text-muted mb-3",
+                ),
+                html.H6("Automatic pumped conveyance (when Yes)", className="fw-bold mb-2"),
+                html.P(
+                    "If a storage pond is used, pumped conveyance to the storage "
+                    "pond is assumed automatically (not shown as a separate card). "
+                    "All packages are included — pipeline, pumping and bag filter, "
+                    "controls, and electrical system — and the conveyance distance "
+                    "is fixed at 500 ft.",
+                    className="mb-3",
+                ),
+                html.H6("Sizing (when needed = Yes)", className="fw-bold mb-2"),
+                html.Pre(
+                    "Area (ft²) = V_day (ft³) / Depth (ft)   [typical depth ≈ 5 ft]\n"
+                    "Side length (ft) ≈ √Area   (square footprint assumption)\n"
+                    "\n"
+                    "Pumped conveyance to storage (automatic):\n"
+                    "  Distance = 500 ft (hard-coded)\n"
+                    "  Includes: pipeline, pumping/bag filter, controls, electrical",
+                    className="bg-light border rounded p-2 small mb-0",
+                ),
+            ],
+        ),
+        _eng_help_modal(
+            "infiltration-method",
+            "Recharge Methods Help",
+            [
+                html.P(
+                    "Choose which recharge methods you would like to evaluate"
+                    "Sizing uses transfer rates and capacities from DSS defaults; "
+                    "surface methods are volume-based from V_day and available area.",
+                    className="text-muted mb-3",
+                ),
+                html.H6(
+                    "Automatic pumped conveyance to infiltration site",
+                    className="fw-bold mb-2",
+                ),
+                html.P(
+                    "Pumped conveyance to the infiltration site is always included "
+                    "in costing (not shown as a separate card). All packages are "
+                    "active: pipeline, pumping and bag filter, controls, and "
+                    "electrical system.",
+                    className="mb-3",
+                ),
+                html.H6("Methods", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Surface recharge methods: "),
+                                "e.g. infiltration basin, Ag MAR, Flood MAR; "
+                                "footprint from volume and depth, constrained by "
+                                "maximum infiltration area.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Dry well(s): "),
+                                "vadose-zone wells; count from capacity vs transfer rate.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Injection well(s): "),
+                                "direct aquifer injection; count from per-well Q limits.",
+                            ]
+                        ),
+                    ],
+                    className="mb-3",
+                ),
+                html.H6("Maximum area for recharge", className="fw-bold mb-2"),
+                html.P(
+                    "The maximum area available for recharge is fixed at 70% of the "
+                    "total MAR site area from Overview (not shown as a separate input). "
+                    "The remaining 30% is reserved for other infrastructure needed for "
+                    "the MAR site. This constraint applies especially to surface recharge "
+                    "methods.",
+                    className="mb-3",
+                ),
+                html.H6("Key equations", className="fw-bold mb-2"),
+                html.Pre(
+                    "N_wells ≈ ceil( Transfer_rate / Well_capacity )\n"
+                    "Time_to_drain (days) = V_day (gal) / System_recharge_rate (gal/day)\n"
+                    "\n"
+                    "Basin area (ft²) = V_day (ft³) / Depth (ft)\n"
+                    "Basin drain time (days) ≈ (Depth_ft × 12) / (K_in/hr × 24)\n"
+                    "\n"
+                    "Max recharge area = 70% of Overview MAR site area\n"
+                    "  (30% reserved for other MAR infrastructure)\n"
+                    "\n"
+                    "Pumped conveyance to infiltration (always on):\n"
+                    "  pipeline, pumping/bag filter, controls, electrical",
+                    className="bg-light border rounded p-2 small mb-0",
+                ),
+            ],
+        ),
+    ]
 
 
 def create_engineering_elements_content():
     """Create the Engineering Elements sub-tab content."""
     return [
+        *create_engineering_help_modals(),
         dbc.Row(
             [
                 dbc.Col(
                     [
-                        dbc.Card(
+                        html.Div(
                             [
-                                dbc.CardBody(
+                                # Design Metrics
+                                html.Div(
                                     [
-                                        html.H4("Design Metrics"),
+                                        _eng_card_title(
+                                            "Design Metrics",
+                                            "design-metrics",
+                                            "Help: design flow and peak equations",
+                                        ),
                                         html.P(
-                                            "Choose Method for Hydrologic "
-                                            "Design Parameters:",
-                                            className="mt-3 mb-2"
+                                            "Design event flow = max monthly flow ÷ number of events (ft³/day)",
+                                            className="eng-hint",
+                                        ),
+                                        dbc.Row(
+                                            [
+                                                dbc.Col(
+                                                    [
+                                                        _eng_question(
+                                                            "Maximum Monthly Flow (ft³/month)"
+                                                        ),
+                                                        _eng_metric(
+                                                            "max-monthly-flow-display",
+                                                            "0.0",
+                                                        ),
+                                                    ],
+                                                    md=4,
+                                                    className="eng-field",
+                                                ),
+                                                dbc.Col(
+                                                    [
+                                                        _eng_question(
+                                                            "Number of Events per Month"
+                                                        ),
+                                                        dbc.Input(
+                                                            type="number",
+                                                            value=float(
+                                                                dash_storage.get_data(
+                                                                    "design_events_per_month"
+                                                                )
+                                                                or 4.0
+                                                            ),
+                                                            id="design-events-per-month-input",
+                                                            debounce=True,
+                                                            min=0.1,
+                                                            step=0.1,
+                                                            className="eng-input",
+                                                        ),
+                                                        html.Small(
+                                                            "e.g. 4 storms, or 30 for daily arrival",
+                                                            className="eng-hint mb-0",
+                                                        ),
+                                                    ],
+                                                    md=4,
+                                                    className="eng-field",
+                                                ),
+                                                dbc.Col(
+                                                    [
+                                                        _eng_question(
+                                                            "Design Event Flow (ft³/day)"
+                                                        ),
+                                                        _eng_metric(
+                                                            "design-event-flow-display",
+                                                            "0.0",
+                                                            className="eng-metric eng-metric-accent",
+                                                        ),
+                                                    ],
+                                                    md=4,
+                                                    className="eng-field",
+                                                ),
+                                            ],
+                                            className="g-2",
+                                        ),
+                                    ],
+                                    className="eng-section",
+                                ),
+                                # Conveyance
+                                html.Div(
+                                    [
+                                        _eng_card_title(
+                                            "Conveyance to Recharge Site",
+                                            "conveyance-sediment",
+                                            "Help: conveyance methods and distance",
+                                        ),
+                                        _eng_question(
+                                            "How will source water be conveyed to the recharge site?"
                                         ),
                                         dbc.RadioItems(
                                             options=[
                                                 {
-                                                    "label": "User Supplied "
-                                                    "Parameters",
-                                                    "value": "user_supplied"
+                                                    "label": "Pumped into Ditch/Channel",
+                                                    "value": "pumped_ditch",
                                                 },
                                                 {
-                                                    "label": "Import from "
-                                                    "Runoff Calculation Tab",
-                                                    "value": "import_runoff"
-                                                }
+                                                    "label": "Gravity Flow in Ditch/Channel",
+                                                    "value": "gravity_ditch",
+                                                },
+                                                {
+                                                    "label": "Pumped into Pipeline",
+                                                    "value": "pumped_pipeline",
+                                                },
+                                                {
+                                                    "label": "Gravity Flow in Pipeline",
+                                                    "value": "gravity_pipeline",
+                                                },
                                             ],
-                                            value="user_supplied",
-                                            id="hydrologic-design-method-radio",
-                                        ),
-                                        html.Label(
-                                            "Total Runoff (ft3):",
-                                            className="form-label mt-3"
-                                        ),
-                                        dbc.Input(
-                                            type="number",
-                                            value=float(
-                                                dash_storage.get_data("total_runoff_ft3") or 0.0
-                                            ),
-                                            id="peak-flow-available-input",
-                                            debounce=True,
-                                            min=0,
-                                            step=0.1,
-                                            className="mb-2"
-                                        ),
-                                        html.Label(
-                                            "Fraction of Flow to Capture:",
-                                            className="form-label"
-                                        ),
-                                        dbc.Input(
-                                            type="number",
-                                            value=0.0,
-                                            id="fraction-flow-capture-input",
-                                            debounce=True,
-                                            min=0,
-                                            max=1,
-                                            step=0.01,
-                                            className="mb-2"
-                                        ),
-                                        html.Div(
-                                            id="design-flow-rate-display",
-                                            children="Design Flow Rate is: 0.0",
-                                            className="mt-2 mb-2",
-                                            style={
-                                                "font-weight": "bold",
-                                                "font-size": "16px",
-                                                "color": "#2c3e50"
-                                            }
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H4("Flow Capture"),
-                                        dbc.Checklist(
-                                            options=[
-                                                {
-                                                    "label": "Flow Capture "
-                                                    "Structure",
-                                                    "value": "flow_capture_structure"
-                                                },
-                                                {
-                                                    "label": "Pump is used to "
-                                                    "divert water",
-                                                    "value": "pump_used"
-                                                },
-                                                {
-                                                    "label": "Rough Grading/"
-                                                    "Grubbing in Field",
-                                                    "value": "rough_grading"
-                                                }
-                                            ],
-                                            value=[
-                                                "flow_capture_structure",
-                                                "rough_grading"
-                                            ],
-                                            id="flow-capture-pump-check",
-                                            switch=True,
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H4("Conveyance To Sediment Pond"),
-                                        html.Label(
-                                            "Choose conveyance Method.",
-                                            className="form-label"
-                                        ),
-                                        dbc.RadioItems(
-                                            options=[
-                                                {
-                                                    "label": "Trapezoidal Channel",
-                                                    "value": "trapezoidal"
-                                                },
-                                                {
-                                                    "label": "Gravity Conveyance "
-                                                    "Pipeline",
-                                                    "value": "pipeline"
-                                                },
-                                                {
-                                                    "label": "Pumped Conveyance",
-                                                    "value": "pumped"
-                                                }
-                                            ],
-                                            value="trapezoidal",
+                                            value="gravity_ditch",
                                             id="conveyance-method-radio",
+                                            className="eng-radio-stack",
                                         ),
-                                        html.Label(
-                                            "Distance from Collection Point to "
-                                            "Sediment Removal Pond (miles):",
-                                            className="form-label mt-3"
+                                        _eng_question(
+                                            "Conveyance length (source → recharge)"
                                         ),
-                                        dbc.Input(
-                                            type="number",
-                                            value=1.0,
-                                            id="distance-collection-to-sediment",
-                                            min=0,
-                                            step=0.1,
+                                        _eng_metric(
+                                            "conveyance-distance-display",
+                                            "Not available — set source and recharge "
+                                            "locations on the Water Source tab.",
                                         ),
-                                    ]
+                                        html.Small(
+                                            "Straight-line distance from Water Source tab locations",
+                                            className="eng-hint mb-0",
+                                        ),
+                                    ],
+                                    className="eng-section",
                                 ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
+                                # Sediment + Storage side by side
+                                dbc.Row(
                                     [
-                                        html.H4("Sediment Removal Pond"),
-                                        dbc.Checkbox(
-                                            id="remove-sediment-removal-pond-check",
-                                            label="Remove Sediment Removal Pond",
-                                            className="mb-3",
-                                            value=False,
-                                        ),
-                                        html.Div(
-                                            dbc.Checklist(
-                                                options=[
-                                                    {
-                                                        "label": "Trash Rack",
-                                                        "value": "trash_rack"
-                                                    },
-                                                    {
-                                                        "label": "Contech Filtration",
-                                                        "value": "contech_filtration"
-                                                    }
-                                                ],
-                                                value=["trash_rack"],
-                                                id="sediment-removal-pond-check",
-                                                switch=True,
-                                            ),
-                                            id="sediment-removal-pond-check-wrapper",
-                                        ),
-                                        html.Label(
-                                            "Sediment Removal Target:",
-                                            className="form-label mt-3"
-                                        ),
-                                        html.Div(
-                                            dbc.RadioItems(
-                                                options=[
-                                                    {
-                                                        "label": "Fine Silt",
-                                                        "value": "fine_silt"
-                                                    },
-                                                    {
-                                                        "label": "Medium Silt",
-                                                        "value": "medium_silt"
-                                                    }
-                                                ],
-                                                value="medium_silt",
-                                                id="sediment-removal-target-radio",
-                                            ),
-                                            id="sediment-removal-target-radio-wrapper",
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H4("Storage Pond"),
-                                        dbc.Checklist(
-                                            options=[
-                                                {
-                                                    "label": "Storage Pond "
-                                                    "Construction",
-                                                    "value": "storage_pond_construction"
-                                                }
+                                        dbc.Col(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        _eng_card_title(
+                                                            "Sediment Removal",
+                                                            "sediment-pond",
+                                                            "Help: sediment removal need and target",
+                                                        ),
+                                                        _eng_question(
+                                                            "Is sediment removal needed prior to recharge?"
+                                                        ),
+                                                        dbc.RadioItems(
+                                                            options=[
+                                                                {
+                                                                    "label": "No",
+                                                                    "value": "no",
+                                                                },
+                                                                {
+                                                                    "label": "Yes",
+                                                                    "value": "yes",
+                                                                },
+                                                            ],
+                                                            value="yes",
+                                                            id="sediment-removal-needed-radio",
+                                                            inline=True,
+                                                            className="eng-radio-inline",
+                                                        ),
+                                                        _eng_question(
+                                                            "Sediment removal target"
+                                                        ),
+                                                        _eng_metric(
+                                                            "sediment-removal-target-display",
+                                                            "Medium Silt",
+                                                        ),
+                                                        html.Small(
+                                                            "Auto from Environmental → Water Quality Q2 (turbidity)",
+                                                            className="eng-hint mb-0",
+                                                        ),
+                                                    ],
+                                                    className="eng-section eng-section-nested h-100",
+                                                ),
                                             ],
-                                            value=["storage_pond_construction"],
-                                            id="storage-pond-check",
-                                            switch=True,
+                                            md=6,
                                         ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H4("Pumped Conveyance To Storage Pond"),
-                                        html.Div(
-                                            dbc.Checklist(
-                                                options=[
-                                                    {
-                                                        "label": "Pipeline Cost",
-                                                        "value": "pipeline_cost"
-                                                    },
-                                                    {
-                                                        "label": "Pumping and Bag Filter "
-                                                        "Cost",
-                                                        "value": "pumping_bag_filter_cost"
-                                                    },
-                                                    {
-                                                        "label": "Controls",
-                                                        "value": "controls"
-                                                    },
-                                                    {
-                                                        "label": "Electrical System",
-                                                        "value": "electrical_system"
-                                                    }
-                                                ],
-                                                value=[
-                                                    "pipeline_cost",
-                                                    "pumping_bag_filter_cost",
-                                                    "controls",
-                                                    "electrical_system"
-                                                ],
-                                                id="pumped-conveyance-storage-check",
-                                                switch=True,
-                                            ),
-                                            id="pumped-conveyance-storage-check-wrapper",
-                                        ),
-                                        html.Label(
-                                            "Distance to Storage Pond (ft):",
-                                            className="form-label mt-3"
-                                        ),
-                                        html.Div(
-                                            dbc.Input(
-                                                type="number",
-                                                value=500.0,
-                                                id="distance-to-storage-pond-input",
-                                                min=0,
-                                                step=0.1,
-                                                className="mb-2"
-                                            ),
-                                            id="distance-to-storage-pond-input-wrapper",
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H4(
-                                            "Pumped Conveyance To Infiltration "
-                                            "Site"
-                                        ),
-                                        dbc.Checklist(
-                                            options=[
-                                                {
-                                                    "label": "Pipeline Cost",
-                                                    "value": "infiltration_pipeline_cost"
-                                                },
-                                                {
-                                                    "label": "Pumping and Bag Filter "
-                                                    "Cost",
-                                                    "value": "infiltration_pumping_bag_filter_cost"
-                                                },
-                                                {
-                                                    "label": "Controls",
-                                                    "value": "infiltration_controls"
-                                                },
-                                                {
-                                                    "label": "Electrical System",
-                                                    "value": "infiltration_electrical_system"
-                                                }
+                                        dbc.Col(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        _eng_card_title(
+                                                            "Storage",
+                                                            "storage-pond",
+                                                            "Help: storage pond need",
+                                                        ),
+                                                        _eng_question(
+                                                            "Is a storage pond needed prior to recharge?"
+                                                        ),
+                                                        dbc.RadioItems(
+                                                            options=[
+                                                                {
+                                                                    "label": "No",
+                                                                    "value": "no",
+                                                                },
+                                                                {
+                                                                    "label": "Yes",
+                                                                    "value": "yes",
+                                                                },
+                                                            ],
+                                                            value="yes",
+                                                            id="storage-needed-radio",
+                                                            inline=True,
+                                                            className="eng-radio-inline",
+                                                        ),
+                                                    ],
+                                                    className="eng-section eng-section-nested h-100",
+                                                ),
                                             ],
-                                            value=[
-                                                "infiltration_pipeline_cost",
-                                                "infiltration_pumping_bag_filter_cost",
-                                                "infiltration_controls",
-                                                "infiltration_electrical_system"
-                                            ],
-                                            id="pumped-conveyance-infiltration-check",
-                                            switch=True,
+                                            md=6,
                                         ),
-                                    ]
+                                    ],
+                                    className="g-2 eng-section-pair",
                                 ),
-                            ],
-                            className="mb-4",
-                        ),
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
+                                # Recharge Methods
+                                html.Div(
                                     [
-                                        html.H4("Infiltration Method"),
+                                        _eng_card_title(
+                                            "Recharge Methods",
+                                            "infiltration-method",
+                                            "Help: surface, dry wells, injection wells",
+                                        ),
+                                        _eng_question(
+                                            "Which recharge method would you like to evaluate?"
+                                        ),
                                         dbc.RadioItems(
                                             options=[
                                                 {
-                                                    "label": "Dry Wells",
-                                                    "value": "dry_wells"
+                                                    "label": (
+                                                        "Surface Recharge Methods "
+                                                        "(e.g., Infiltration Basin, Ag MAR, Flood MAR)"
+                                                    ),
+                                                    "value": "infiltration_basin",
                                                 },
                                                 {
-                                                    "label": "Injection Wells",
-                                                    "value": "injection_wells"
+                                                    "label": "Dry Well(s)",
+                                                    "value": "dry_wells",
                                                 },
                                                 {
-                                                    "label": "Infiltration Basin",
-                                                    "value": "infiltration_basin"
-                                                }
+                                                    "label": "Injection Well(s)",
+                                                    "value": "injection_wells",
+                                                },
                                             ],
                                             value="infiltration_basin",
                                             id="infiltration-method-radio",
+                                            className="eng-radio-stack",
                                         ),
-                                        html.Label(
-                                            "Maximum Area Available for infiltration (Acres):",
-                                            className="form-label mt-3"
-                                        ),
-                                        html.Small(
-                                            "Default value is 60% of the total MAR site area",
-                                            className="text-muted d-block mb-2"
-                                        ),
-                                        dbc.Input(
-                                            type="number",
-                                            value=_get_max_infiltration_area_value(),
-                                            id="max-infiltration-area-input",
-                                            min=0,
-                                            step=0.1,
-                                            className="mb-2"
-                                        ),
-                                    ]
+                                    ],
+                                    className="eng-section eng-section-last",
                                 ),
                             ],
-                            className="mb-4",
+                            className="eng-panel",
                         ),
                     ],
                     width=8,
                 ),
                 dbc.Col(
                     [
-                        dbc.Card(
+                        html.Div(
                             [
-                                dbc.CardBody(
-                                    [
-                                        html.Img(
-                                            src="assets/Engineering.jpg",
-                                            alt="Engineering",
-                                            style={
-                                                "width": "100%",
-                                                "height": "auto",
-                                                "display": "block"
-                                            }
-                                        ),
-                                    ]
+                                html.Img(
+                                    src="assets/Engineering2.jpg",
+                                    alt="Engineering",
+                                    className="eng-side-image",
                                 ),
                             ],
-                            className="mb-4",
-                            style={
-                                "height": "100%",
-                                "display": "flex",
-                                "flex-direction": "column"
-                            }
+                            className="eng-side-panel",
                         )
                     ],
                     width=4,
                 ),
             ],
-            className="mb-4",
+            className="g-3 align-items-start",
         ),
         dbc.Tooltip(
-            "Use manual runoff/peaks or pull estimates from the runoff calculator tab",
-            target="hydrologic-design-method-radio",
+            "Maximum of the twelve monthly Flow Estimates on the Water Source tab",
+            target="max-monthly-flow-display",
             placement="top",
         ),
         dbc.Tooltip(
-            "Total stormwater or supply runoff volume available (ft³)",
-            target="peak-flow-available-input",
+            "How many events the maximum monthly flow is assumed to arrive in "
+            "(e.g. 4 storms, or 30 for nearly uniform daily arrival)",
+            target="design-events-per-month-input",
             placement="top",
         ),
         dbc.Tooltip(
-            "Fraction of available flow routed into MAR facilities (0–1)",
-            target="fraction-flow-capture-input",
+            "Max monthly flow ÷ number of events (design event flow in ft³/day)",
+            target="design-event-flow-display",
             placement="top",
         ),
         dbc.Tooltip(
-            "Structures and earthwork options for capturing runoff",
-            target="flow-capture-pump-check",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Open channel vs. gravity or pumped pipe to the sediment pond",
+            "How source water is conveyed to the recharge site",
             target="conveyance-method-radio",
             placement="top",
         ),
         dbc.Tooltip(
-            "Conveyance distance from collection point to sediment pond (miles)",
-            target="distance-collection-to-sediment",
+            "Straight-line distance between Water Source tab source and recharge sites",
+            target="conveyance-distance-display",
             placement="top",
         ),
         dbc.Tooltip(
-            "Toggle sediment pond out of the cost build-up",
-            target="remove-sediment-removal-pond-check",
+            "Whether sediment removal is needed before recharge",
+            target="sediment-removal-needed-radio",
             placement="top",
         ),
         dbc.Tooltip(
-            "Sediment controls included in pond cost (trash rack, filtration, etc.)",
-            target="sediment-removal-pond-check",
+            "Auto-set from Water Quality question 2 (turbidity)",
+            target="sediment-removal-target-display",
             placement="top",
         ),
         dbc.Tooltip(
-            "Particle-size removal target for pond design",
-            target="sediment-removal-target-radio",
+            "Whether a storage pond is needed before recharge",
+            target="storage-needed-radio",
             placement="top",
         ),
         dbc.Tooltip(
-            "Include capital line items for temporary storage pond",
-            target="storage-pond-check",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Cost elements for pumped conveyance from sediment pond to storage",
-            target="pumped-conveyance-storage-check",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Pipeline / pump distance from sediment pond to storage (ft)",
-            target="distance-to-storage-pond-input",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Cost elements for pumped conveyance from storage to infiltration site",
-            target="pumped-conveyance-infiltration-check",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "MAR infiltration structure type for sizing and costing",
+            "Choose which recharge method to evaluate for sizing and costing",
             target="infiltration-method-radio",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Design infiltration footprint (default ~60% of site area from Overview)",
-            target="max-infiltration-area-input",
             placement="top",
         ),
     ]
@@ -522,11 +657,58 @@ def create_engineering_elements_content():
 def create_cost_content():
     """Create the Cost sub-tab content."""
     return [
+        _eng_help_modal(
+            "cost-summary",
+            "Cost Summary Help",
+            [
+                html.P(
+                    "Capital, annual maintenance, and 20-year net present value are "
+                    "built from the Engineering options you selected and the design "
+                    "flow (Q_design → Q_peak / V_day).",
+                    className="text-muted mb-3",
+                ),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Capital Cost: "),
+                                "sum of included structures, conveyance, ponds, "
+                                "pumps, and infiltration works.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Annual Maintenance: "),
+                                "recurring O&M line items tied to those facilities.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("NPV (20 years): "),
+                                "present worth of capital plus discounted maintenance "
+                                "over the analysis horizon.",
+                            ]
+                        ),
+                    ],
+                    className="mb-3",
+                ),
+                html.P(
+                    "Detail tables (Capital, Maintenance, NPV) list unit costs and "
+                    "quantities for each line item. Values update when you change "
+                    "Engineering options and re-run analysis.",
+                    className="mb-0",
+                ),
+            ],
+        ),
         dbc.Card(
             [
                 dbc.CardBody(
                     [
-                        html.H4("Cost Summary"),
+                        _eng_card_title(
+                            "Cost Summary",
+                            "cost-summary",
+                            "Help: capital, maintenance, and NPV",
+                        ),
                     ]
                 ),
             ],

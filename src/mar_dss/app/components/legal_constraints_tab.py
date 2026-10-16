@@ -479,7 +479,7 @@ def _consideration_item(
                             className="mb-2 small",
                         ),
                         html.P(
-                            html.Strong("Example obstacles for MAR projects:"),
+                            html.Strong("Example obstacles for MAR projects"),
                             className="mb-1 small",
                         ),
                         html.Ul(

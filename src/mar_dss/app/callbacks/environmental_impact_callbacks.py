@@ -164,7 +164,7 @@ def calculate_cost_score(risks_and_treatments):
 def generate_required_treatment_summary(risks_and_treatments):
     """Generate the treatment summary table."""
     if not risks_and_treatments:
-        return html.P("No specific treatment required based on inputs.", className="text-muted")
+        return html.P("No specific treatment required based on inputs", className="text-muted")
 
     df_data = []
     for risk, treatments in risks_and_treatments:
@@ -176,7 +176,7 @@ def generate_required_treatment_summary(risks_and_treatments):
             })
     
     if not df_data:
-        return html.P("No specific treatment required based on inputs.", className="text-muted")
+        return html.P("No specific treatment required based on inputs", className="text-muted")
 
     import pandas as pd
     df = pd.DataFrame(df_data).drop_duplicates()
@@ -243,10 +243,19 @@ def setup_environmental_impact_callbacks(app):
         [
             Input(component_id, "value")
             for component_id in WQ_COMPONENT_IDS
-        ]
+        ] + [Input("app-container", "className")],
     )
-    def update_dashboard(*inputs):
+    def update_dashboard(*args):
         """Update the dashboard based on input selections."""
+        if len(args) == len(WQ_COMPONENT_IDS) + 1:
+            inputs = list(args[:-1])
+            container_class = args[-1]
+        else:
+            inputs = list(args)
+            container_class = ""
+        is_dark = "mar-theme-dark" in str(container_class or "")
+        gauge_font = "#f8f9fa" if is_dark else "#212529"
+
         # Validate inputs - ensure they're not None
         inputs = [
             inp if inp is not None else DEFAULT_WATER_QUALITY_RISK
@@ -331,12 +340,12 @@ def setup_environmental_impact_callbacks(app):
             result_style["background-color"] = "#dc3545"  # Red for not suitable
             
             reasons_for_rejection = [
-                html.P("The source water is **NOT SUITABLE** for MAR at this location.", className="lead font-weight-bold")
+                html.P("The source water is **NOT SUITABLE** for MAR at this location", className="lead font-weight-bold")
             ]
             reasons_for_rejection.append(html.P(f"Total Water Quality Score: {total_score} points (Threshold: {RISK_SCORE_UNSUITABLE_MIN}+)", className="mb-2"))
             
             if critical_flags:
-                reasons_for_rejection.append(html.H6("⚠️ Critical Flags Triggered:"))
+                reasons_for_rejection.append(html.H6("⚠️ Critical Flags Triggered"))
                 reasons_for_rejection.extend([html.Li(flag, className="text-white text-left") for flag in critical_flags])
             
             reasons_for_rejection.append(
@@ -350,9 +359,9 @@ def setup_environmental_impact_callbacks(app):
             result_style["color"] = "#343a40"  # Dark text for better contrast
             
             decision_content = [
-                html.P("The source water is **CONDITIONALLY SUITABLE** for MAR.", className="lead font-weight-bold"),
+                html.P("The source water is **CONDITIONALLY SUITABLE** for MAR", className="lead font-weight-bold"),
                 html.P(f"Total Water Quality Score: {total_score} points (Range: {RISK_SCORE_SUITABLE_MAX + 1}–{RISK_SCORE_CONDITIONAL_MAX})"),
-                html.P("Requires specific treatment and further studies to confirm economic viability and technical feasibility.", className="mt-2"),
+                html.P("Requires specific treatment and further studies to confirm economic viability and technical feasibility", className="mt-2"),
                 html.P("Action: **Proceed to required treatability/modeling studies.**", className="mt-3 font-weight-bold")
             ]
             
@@ -360,9 +369,9 @@ def setup_environmental_impact_callbacks(app):
             result_style["background-color"] = "#28a745"  # Green for suitable
             
             decision_content = [
-                html.P("The source water is **SUITABLE** for MAR implementation.", className="lead font-weight-bold"),
+                html.P("The source water is **SUITABLE** for MAR implementation", className="lead font-weight-bold"),
                 html.P(f"Total Water Quality Score: {total_score} points (Range: 0–{RISK_SCORE_SUITABLE_MAX})"),
-                html.P("Minimal to no treatment required. Low implementation cost.", className="mt-2")
+                html.P("Minimal to no treatment required. Low implementation cost", className="mt-2")
             ]
 
         # 3. Create Gauge Plot (axis max = theoretical max sum of all step scores)
@@ -373,13 +382,14 @@ def setup_environmental_impact_callbacks(app):
                 domain={'x': [0, 1], 'y': [0, 1]},
                 title={
                     'text': f"Total Water Quality Score (max {RISK_SCORE_MAX})",
-                    'font': {'size': 18},
+                    'font': {'size': 18, 'color': gauge_font},
                 },
+                number={'font': {'color': gauge_font}},
                 gauge={
                     'axis': {
                         'range': [0, RISK_SCORE_MAX],
                         'tickwidth': 1,
-                        'tickcolor': "darkblue",
+                        'tickcolor': gauge_font,
                         'dtick': 5,
                     },
                     'bar': {'color': "darkslategray"},
@@ -415,7 +425,8 @@ def setup_environmental_impact_callbacks(app):
                 height=250,
                 autosize=True,
                 paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
+                plot_bgcolor='rgba(0,0,0,0)',
+                font={'color': gauge_font},
             )
         except Exception as e:
             # Fallback figure if there's an error
@@ -447,14 +458,18 @@ def setup_environmental_impact_callbacks(app):
                         f"Water Treatment Cost ($/ft³)<br>"
                         f"<span style='font-size:12px'>scale max ${cost_axis_max:.2f}/ft³</span>"
                     ),
-                    'font': {'size': 16},
+                    'font': {'size': 16, 'color': gauge_font},
                 },
-                number={'valueformat': '$,.2f', 'suffix': '/ft³'},
+                number={
+                    'valueformat': '$,.2f',
+                    'suffix': '/ft³',
+                    'font': {'color': gauge_font},
+                },
                 gauge={
                     'axis': {
                         'range': [0, cost_axis_max],
                         'tickwidth': 1,
-                        'tickcolor': "darkblue",
+                        'tickcolor': gauge_font,
                         'tickformat': '$,.2f',
                     },
                     'bar': {'color': "darkorange"},
@@ -480,7 +495,8 @@ def setup_environmental_impact_callbacks(app):
                 height=250,
                 autosize=True,
                 paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
+                plot_bgcolor='rgba(0,0,0,0)',
+                font={'color': gauge_font},
             )
         except Exception as e:
             # Fallback figure if there's an error

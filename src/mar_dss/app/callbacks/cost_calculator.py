@@ -100,17 +100,32 @@ class CostCalculator:
             distance_sediment_to_storage_pond_ft
         )
         if collection_to_sediment_removal__conveyance_method in [
-            "trapezoidal", "pipeline", "pumped"
+            "gravity_ditch",
+            "gravity_pipeline",
+            "pumped_pipeline",
+            "pumped_ditch",
+            # Legacy values (migrated at call sites; still accepted)
+            "trapezoidal",
+            "pipeline",
+            "pumped",
         ]:
-            self.collection_to_sediment_removal__conveyance_method = (
-                collection_to_sediment_removal__conveyance_method
+            legacy = {
+                "trapezoidal": "gravity_ditch",
+                "pipeline": "gravity_pipeline",
+                "pumped": "pumped_pipeline",
+            }
+            method = legacy.get(
+                collection_to_sediment_removal__conveyance_method,
+                collection_to_sediment_removal__conveyance_method,
             )
+            self.collection_to_sediment_removal__conveyance_method = method
         else:
             raise ValueError(
                 f"Invalid "
                 f"collection_to_sediment_removal__conveyance_method: "
                 f"{collection_to_sediment_removal__conveyance_method}. "
-                f"Valid options: 'trapezoidal', 'pumped', 'pipeline'"
+                f"Valid options: 'gravity_ditch', 'gravity_pipeline', "
+                f"'pumped_pipeline', 'pumped_ditch'"
             )
 
         self.sediment_pond_area_available_acres = (
@@ -525,12 +540,17 @@ class CostCalculator:
         df = pd.DataFrame(columns=columns)        
 
         # ======== collection point and site preparation ========
+        # Flow capture structure, diversion pump, and rough grading are always
+        # included (no longer user-selectable on the Engineering tab).
         irow = 0
-        flow_capture_values = dash_storage.get_data("flow_capture_values")
-        if "rough_grading" in flow_capture_values:
-            unit_price =1500
-        else:
-            unit_price = 0       
+        flow_capture_values = [
+            "flow_capture_structure",
+            "pump_used",
+            "rough_grading",
+        ]
+        dash_storage.set_data("flow_capture_values", flow_capture_values)
+
+        unit_price = 1500
         df.loc[irow] = [
             'COLLECTION BASIN PREPARATION',
             'Rough Grading/Grubbing in Field', 'acres', unit_price,
@@ -539,10 +559,7 @@ class CostCalculator:
 
         # ======== flow capture structure ========
         irow += 1
-        if "flow_capture_structure" in flow_capture_values:
-            unit_price = 10000
-        else:
-            unit_price = 0
+        unit_price = 10000
         df.loc[irow] = [
             'COLLECTION BASIN PREPARATION', 'Flow Capture Structure',
             'LS', unit_price, 1.0
@@ -550,69 +567,111 @@ class CostCalculator:
         
         # ======== pump is used to divert water ========
         irow += 1
-        if "pump_used" in flow_capture_values:
-            unit_price = 50000
-        else:
-            unit_price = 0
+        unit_price = 50000
         df.loc[irow] = [
             'COLLECTION BASIN PREPARATION', 'Pump', 'LF', unit_price, 1.0
         ]
       
 
-        # ======== conveyance to sediment removal pond ======== 
+        # ======== conveyance to recharge site ========
         conveyance_method = dash_storage.get_data("conveyance_method")
-      
-        irow += 1
-        if ("trapezoidal" == conveyance_method):
+        legacy = {
+            "trapezoidal": "gravity_ditch",
+            "pipeline": "gravity_pipeline",
+            "pumped": "pumped_pipeline",
+        }
+        conveyance_method = legacy.get(conveyance_method, conveyance_method)
+        dist = self.distance_collection_to_sediment_pond_ft
+
+        if conveyance_method == "gravity_ditch":
+            irow += 1
             df.loc[irow] = [
-                'CONVEYANCE TO SEDIMENT POND',
-                'Trapezoidal Channel', 'LF', 93,
-                self.distance_collection_to_sediment_pond_ft
+                'CONVEYANCE TO RECHARGE SITE',
+                'Gravity Flow in Ditch/Channel', 'LF', 93, dist,
             ]
-        elif ("pipeline" == conveyance_method):
+        elif conveyance_method == "gravity_pipeline":
+            irow += 1
             df.loc[irow] = [
-                'CONVEYANCE TO SEDIMENT POND', 'Pipeline', 'LF', 72,
-                self.distance_collection_to_sediment_pond_ft
+                'CONVEYANCE TO RECHARGE SITE',
+                'Gravity Flow in Pipeline', 'LF', 72, dist,
             ]
-        elif ("pumped" == conveyance_method):
+        elif conveyance_method == "pumped_pipeline":
+            irow += 1
             df.loc[irow] = [
-                'CONVEYANCE TO SEDIMENT POND',
-                'Pumped Conveyance', 'LF', 400,
-                self.distance_collection_to_sediment_pond_ft
+                'CONVEYANCE TO RECHARGE SITE',
+                'Pumped into Pipeline', 'LF', 400, dist,
+            ]
+        elif conveyance_method == "pumped_ditch":
+            # Hybrid: channel civil + pump package (together ≈ old $400/LF pumped)
+            irow += 1
+            df.loc[irow] = [
+                'CONVEYANCE TO RECHARGE SITE',
+                'Pumped into Ditch/Channel — Civil', 'LF', 93, dist,
+            ]
+            irow += 1
+            df.loc[irow] = [
+                'CONVEYANCE TO RECHARGE SITE',
+                'Pumped into Ditch/Channel — Pump Package', 'LF', 307, dist,
             ]
         
         # ======== sediment removal pond ========
-        remove_sediment = dash_storage.get_data("remove_sediment_removal_pond")
-        if remove_sediment is None:
-            remove_sediment = False
-
-        if remove_sediment:
-            unit_price = 0
+        needed = dash_storage.get_data("sediment_removal_needed")
+        if needed is None:
+            # Legacy invert: remove_sediment_removal_pond True → not needed
+            remove_legacy = dash_storage.get_data("remove_sediment_removal_pond")
+            needed_yes = not bool(remove_legacy)
         else:
-            unit_price = 10000
+            needed_yes = needed == "yes"
+
+        if needed_yes:
+            trash_rack_price = 10000
+            pond_unit_price = 500000
+            dash_storage.set_data("sediment_pond_values", ["trash_rack"])
+        else:
+            trash_rack_price = 0
+            pond_unit_price = 0
+            dash_storage.set_data("sediment_pond_values", [])
+
         irow += 1
         df.loc[irow] = [
-            'SEDIMENT REMOVAL POND', 'Trash Rack', 'LS', unit_price, 1
+            'SEDIMENT REMOVAL POND', 'Trash Rack', 'LS', trash_rack_price, 1
         ]
-       
-        if not(remove_sediment):
-            unit_price = 0
-        else:
-            unit_price = 500000
+
         pond_area = self.sediment_removal_pond_area_acres
         irow += 1
         df.loc[irow] = [
-            'SEDIMENT REMOVAL POND', self.sediment_type, 'Acre', unit_price,
+            'SEDIMENT REMOVAL POND', self.sediment_type, 'Acre', pond_unit_price,
             pond_area
         ]
 
-        # ==== storage
-        storage_pond_values = dash_storage.get_data("storage_pond_values")
-        pumped_storage_values = dash_storage.get_data("pumped_storage_values")
-        storage = "storage_pond_construction" in storage_pond_values
+        # ==== storage (+ automatic pumped conveyance to storage at 500 ft)
+        storage_needed = dash_storage.get_data("storage_needed")
+        storage_pond_values = dash_storage.get_data("storage_pond_values") or []
+        if storage_needed in ("yes", "no"):
+            storage = storage_needed == "yes"
+        else:
+            storage = "storage_pond_construction" in storage_pond_values
 
-        if storage is None:
-            storage = True
+        if storage:
+            dash_storage.set_data(
+                "storage_pond_values", ["storage_pond_construction"]
+            )
+            dash_storage.set_data(
+                "pumped_storage_values",
+                [
+                    "pipeline_cost",
+                    "pumping_bag_filter_cost",
+                    "controls",
+                    "electrical_system",
+                ],
+            )
+            dash_storage.set_data("distance_to_storage_pond_ft", 500.0)
+            self.distance_sediment_to_storage_pond_ft = 500.0
+        else:
+            dash_storage.set_data("storage_pond_values", [])
+            dash_storage.set_data("pumped_storage_values", [])
+
+        pumped_storage_values = dash_storage.get_data("pumped_storage_values") or []
         # ======== pipeline to storage pond ========
         unit_price = 0
         if storage:
@@ -672,40 +731,34 @@ class CostCalculator:
             self.storage_pond.area_ft2 / 43560.0
         ]
 
-        # ==== infiltration site
-        pumped_infiltration_values = dash_storage.get_data("pumped_infiltration_values")
-        if "infiltration_pipeline_cost" in pumped_infiltration_values:
-            unit_price = 72
-        else:
-            unit_price = 0
+        # ==== infiltration site (pumped conveyance always fully included)
+        pumped_infiltration_values = [
+            "infiltration_pipeline_cost",
+            "infiltration_pumping_bag_filter_cost",
+            "infiltration_controls",
+            "infiltration_electrical_system",
+        ]
+        dash_storage.set_data("pumped_infiltration_values", pumped_infiltration_values)
 
+        unit_price = 72
         irow += 1
         df.loc[irow] = [
             'PUMPED CONVEYANCE TO INFILTRATION SITE',
             'Pipeline Cost', 'LF', unit_price, 500
         ]
-        if"infiltration_pumping_bag_filter_cost" in pumped_infiltration_values:
-            unit_price = 100000
-        else:
-            unit_price = 0
+        unit_price = 100000
         irow += 1
         df.loc[irow] = [
             'PUMPED CONVEYANCE TO INFILTRATION SITE',
             'Pumping and Bag Filter Cost', 'LS', unit_price, 1
         ]
-        if "infiltration_controls" in pumped_infiltration_values:
-            unit_price = 50000
-        else:
-            unit_price = 0
+        unit_price = 50000
         irow += 1
         df.loc[irow] = [
             'PUMPED CONVEYANCE TO INFILTRATION SITE',
             'Controls', 'LS', unit_price, 1
         ]
-        if"infiltration_electrical_system" in pumped_infiltration_values:
-            unit_price = 20000
-        else:
-            unit_price = 0
+        unit_price = 20000
         irow += 1
         df.loc[irow] = [
             'PUMPED CONVEYANCE TO INFILTRATION SITE',
@@ -845,48 +898,45 @@ class CostCalculator:
             'COLLECTION BASIN', 'Flow Capture Structure', 'LS', 1000, 1.0
         ]
 
-        unit_price = 0
-        if (
-            self.collection_to_sediment_removal__conveyance_method ==
-            "trapezoidal"
-        ):
-            unit_price = 50.0
+        method = self.collection_to_sediment_removal__conveyance_method
+        dist = self.distance_collection_to_sediment_pond_ft
+
+        unit_price = 50.0 if method in ("gravity_ditch", "pumped_ditch") else 0
         df.loc[3] = [
-            'CONVEYANCE TO SEDIMENT POND',
-            'Trapezoidal Channel Maintenance', 'LF', unit_price,
-            self.distance_collection_to_sediment_pond_ft
+            'CONVEYANCE TO RECHARGE SITE',
+            'Ditch/Channel Maintenance', 'LF', unit_price, dist,
         ]
 
-        unit_price = 0
-        if (
-            self.collection_to_sediment_removal__conveyance_method ==
-            "pipeline"
-        ):
-            unit_price = 5
+        unit_price = 5 if method == "gravity_pipeline" else 0
         df.loc[4] = [
-            'CONVEYANCE TO SEDIMENT POND',
-            'Gravity Conveyance Pipeline Maintenance', 'LF', unit_price,
-            self.distance_collection_to_sediment_pond_ft
+            'CONVEYANCE TO RECHARGE SITE',
+            'Gravity Pipeline Maintenance', 'LF', unit_price, dist,
         ]
-        unit_price = 0
-        if (
-            self.collection_to_sediment_removal__conveyance_method ==
-            "pumped"
-        ):
-            unit_price = 2000
 
+        unit_price = 0
+        if method == "pumped_pipeline":
+            unit_price = 2000
+        elif method == "pumped_ditch":
+            unit_price = 2000
         df.loc[5] = [
-            'CONVEYANCE TO SEDIMENT POND',
-            'Pumped Conveyance Maintenance', 'LS', unit_price, 1
+            'CONVEYANCE TO RECHARGE SITE',
+            'Pump Package Maintenance', 'LS', unit_price, 1,
         ]
+
+        needed = dash_storage.get_data("sediment_removal_needed")
+        if needed is None:
+            remove_legacy = dash_storage.get_data("remove_sediment_removal_pond")
+            needed_yes = not bool(remove_legacy)
+        else:
+            needed_yes = needed == "yes"
 
         df.loc[6] = [
             'SEDIMENT REMOVAL POND', 'Trash Rack Maintenance',
-            'LS', 5000, 1
+            'LS', 5000 if needed_yes else 0, 1
         ]
         df.loc[7] = [
             'SEDIMENT REMOVAL POND', 'Sediment Removal Maintenance',
-            'Acre', 75000, self.sediment_removal_pond_area_acres
+            'Acre', 75000 if needed_yes else 0, self.sediment_removal_pond_area_acres
         ]
 
         df.loc[8] = [

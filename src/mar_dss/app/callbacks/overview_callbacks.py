@@ -43,6 +43,7 @@ try:
     from mar_dss.app.components.overview_tab import (
         create_overview_content,
         get_overview_map_header_text,
+        overview_map_header_children,
         get_overview_map_figure_params,
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
@@ -64,6 +65,7 @@ except ImportError:
     from ..components.overview_tab import (
         create_overview_content,
         get_overview_map_header_text,
+        overview_map_header_children,
         get_overview_map_figure_params,
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_OVERVIEW_MAP_BASEMAP,
@@ -479,7 +481,7 @@ def setup_overview_callbacks(app):
             if not _relayout_has_mapbox_camera(relayout_overview):
                 return dash.no_update, dash.no_update, dash.no_update
             hdr, loc_inp = _persist_shared_map_view_from_relayout(relayout_overview)
-            return hdr, loc_inp, loc_inp
+            return overview_map_header_children(hdr), loc_inp, loc_inp
 
         if trigger_id == "project-location-input" and trigger_prop != "id":
             current_value = (project_location_value or "").strip()
@@ -489,10 +491,14 @@ def setup_overview_callbacks(app):
                     "overview_map_location_label",
                     f"Project Location — {current_value}",
                 )
-            return get_overview_map_header_text(), current_value, current_value
+            return (
+                overview_map_header_children(),
+                current_value,
+                current_value,
+            )
 
         return (
-            get_overview_map_header_text(),
+            overview_map_header_children(),
             stored_project_location,
             stored_project_location,
         )

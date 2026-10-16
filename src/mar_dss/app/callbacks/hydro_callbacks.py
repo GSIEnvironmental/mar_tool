@@ -1215,8 +1215,9 @@ def setup_hydro_callbacks(app):
     def update_table_data(checkbox_values, layer_values, thickness_values, conductivity_values, storage_values, yield_values, data):
         """Update table data when inputs change.
 
-        Changing soil type auto-fills K, Ss, and Sy for that row from SOIL_PROPERTIES.
-        Manual edits to K / Ss / Sy are kept unless the soil type for that row changes.
+        Changing soil type auto-fills K, Ss, and Sy for that row from SOIL_PROPERTIES
+        only when the soil type value actually changes. Manual edits to thickness,
+        K, Ss, and Sy are kept afterward.
         Negative numeric values are rejected with an error message.
         Values must be greater than zero (0 or less is rejected).
         """
@@ -1259,8 +1260,22 @@ def setup_hydro_callbacks(app):
             row_num = i + 1
             if i < len(checkbox_values):
                 row["selected"] = checkbox_values[i] or False
-            if i < len(layer_values) and layer_values[i] is not None:
-                row["layer"] = layer_values[i]
+
+            old_layer = row.get("layer")
+            new_layer = (
+                layer_values[i]
+                if i < len(layer_values) and layer_values[i] is not None
+                else old_layer
+            )
+            soil_type_changed = (
+                triggered_layer_idx == i
+                and new_layer is not None
+                and new_layer != old_layer
+            )
+
+            if new_layer is not None:
+                row["layer"] = new_layer
+
             if i < len(thickness_values):
                 parsed = _parse_positive(
                     thickness_values[i], "Thickness", row_num
@@ -1268,10 +1283,10 @@ def setup_hydro_callbacks(app):
                 if parsed is not None:
                     row["thickness"] = parsed
 
-            if triggered_layer_idx == i:
-                props = soil_property_defaults(
-                    layer_values[i] if i < len(layer_values) else None
-                )
+            # Only auto-fill K / Ss / Sy when the user actually changes soil type.
+            # Remounts of the table must not wipe manual edits.
+            if soil_type_changed:
+                props = soil_property_defaults(new_layer)
                 row["conductivity"] = props["conductivity"]
                 row["storage"] = props["storage"]
                 row["yield"] = props["yield"]
@@ -1325,10 +1340,11 @@ def setup_hydro_callbacks(app):
     # Groundwater Level Table Callbacks
     @app.callback(
         Output("groundwater-table-body", "children"),
-        [Input("groundwater-data-store", "data")],
-        prevent_initial_call=False
+        Input("groundwater-data-store", "data"),
+        Input("constant-groundwater-level-check", "value"),
+        prevent_initial_call=False,
     )
-    def update_groundwater_table(data):
+    def update_groundwater_table(data, use_constant):
         """Update the groundwater level table based on stored data."""
         rows_data = normalize_groundwater_data(data or [])
         rows_out = []
@@ -1340,6 +1356,7 @@ def setup_hydro_callbacks(app):
                 step="0.1",
                 size="sm",
                 debounce=True,
+                disabled=bool(use_constant) and i != 0,
                 className="table-cell-input-borderless",
             )
             rows_out.append(
@@ -1358,12 +1375,17 @@ def setup_hydro_callbacks(app):
 
     @app.callback(
         Output("groundwater-data-store", "data"),
-        [Input({"type": "elevation-input", "index": dash.dependencies.ALL}, "value")],
-        [State("groundwater-data-store", "data")],
+        Input({"type": "elevation-input", "index": dash.dependencies.ALL}, "value"),
+        Input("constant-groundwater-level-check", "value"),
+        State("groundwater-data-store", "data"),
         prevent_initial_call=True,
     )
-    def update_groundwater_data(elevation_values, data):
-        """Update groundwater elevations; months are fixed January–December."""
+    def update_groundwater_data(elevation_values, use_constant, data):
+        """Update groundwater elevations; months are fixed January–December.
+
+        When the constant-level checkbox is on, January's elevation is applied
+        to every month.
+        """
         base = normalize_groundwater_data(data or [])
         for i, name in enumerate(GROUNDWATER_MONTH_NAMES):
             if i >= len(base):
@@ -1374,6 +1396,18 @@ def setup_hydro_callbacks(app):
                 except (TypeError, ValueError):
                     pass
             base[i]["month"] = name
+
+        if use_constant:
+            try:
+                if elevation_values and elevation_values[0] is not None:
+                    jan_val = float(elevation_values[0])
+                else:
+                    jan_val = float(base[0]["elevation"])
+            except (TypeError, ValueError, IndexError):
+                jan_val = float(base[0]["elevation"])
+            for row in base:
+                row["elevation"] = jan_val
+
         return base
     
     # Groundwater Level Plot Callback

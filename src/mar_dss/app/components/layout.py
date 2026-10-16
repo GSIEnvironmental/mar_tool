@@ -84,7 +84,7 @@ def _create_black_text_override_link() -> html.Link:
     return html.Link(
         id="black-text-override-css",
         rel="stylesheet",
-        href="/assets/force_black_text.css?v=2",
+        href="/assets/force_black_text.css?v=11",
     )
 
 
@@ -544,7 +544,7 @@ def _build_main_card() -> dbc.Card:
                 dbc.Col([_build_tabs()], width=9),
                 dbc.Col([
                     html.Div([
-                        html.Label("Theme:", className="me-2 mb-0"),
+                        html.Label("Theme", className="me-2 mb-0"),
                         dbc.Select(
                             id="theme-selector",
                             options=[
@@ -682,7 +682,6 @@ def _build_root_layout() -> html.Div:
                 data=dash_storage.get_data("project_location") or "",
                 storage_type="memory",
             ),
-            dcc.Store(id="peak-runoff-engineering-sync", data=None),
             html.Div(id="close-browser-hook", style={"display": "none"}),
             _build_close_project_modal(),
             _build_about_modal(),

@@ -35,12 +35,6 @@ try:
     from mar_dss.app.components.decision_interpretation_tab import (
         create_decision_interpretation_content,
     )
-    from mar_dss.app.components.decision_sensitivity_tab import (
-        create_decision_sensitivity_content,
-    )
-    from mar_dss.app.components.dss_algorithm_tab import (
-        create_dss_algorithm_content,
-    )
     from mar_dss.app.components.hydro_tab import (
         create_hydro_tab_content,
         default_stratigraphy_layers,
@@ -71,10 +65,6 @@ except ImportError:
     from .components.decision_interpretation_tab import (
         create_decision_interpretation_content,
     )
-    from .components.decision_sensitivity_tab import (
-        create_decision_sensitivity_content,
-    )
-    from .components.dss_algorithm_tab import create_dss_algorithm_content
     from .components.hydro_tab import (
         create_hydro_tab_content,
         default_stratigraphy_layers,
@@ -377,9 +367,98 @@ def setup_main_callbacks(app, dashboard_instance):
             return dash.no_update
         return flow_data
 
+    # When checked, copy January into every month and lock Feb–Dec.
+    @app.callback(
+        Output({"type": "monthly-flow-input", "month": ALL}, "disabled"),
+        Input("constant-monthly-flow-check", "value"),
+        State({"type": "monthly-flow-input", "month": ALL}, "id"),
+        prevent_initial_call=False,
+    )
+    def toggle_constant_monthly_flow_inputs(use_constant, input_ids):
+        if not input_ids:
+            return []
+        return [
+            bool(use_constant) and id_dict.get("month") != "Jan"
+            for id_dict in input_ids
+        ]
+
+    @app.callback(
+        Output({"type": "monthly-flow-input", "month": ALL}, "value", allow_duplicate=True),
+        Output("flow-data-store", "data", allow_duplicate=True),
+        Input("constant-monthly-flow-check", "value"),
+        Input({"type": "monthly-flow-input", "month": "Jan"}, "value"),
+        State({"type": "monthly-flow-input", "month": ALL}, "id"),
+        State({"type": "monthly-flow-input", "month": ALL}, "value"),
+        prevent_initial_call=True,
+    )
+    def apply_constant_monthly_flow(use_constant, jan_value, input_ids, values):
+        """Propagate January to all months while the constant-flow checkbox is on."""
+        if not input_ids:
+            return [], dash.no_update
+        if not use_constant:
+            return [dash.no_update] * len(input_ids), dash.no_update
+
+        try:
+            from mar_dss.app.components.water_source_tab import (
+                FLOW_MONTHS,
+                flow_dict_from_list,
+                flow_dicts_equal,
+            )
+        except ImportError:
+            from .components.water_source_tab import (
+                FLOW_MONTHS,
+                flow_dict_from_list,
+                flow_dicts_equal,
+            )
+
+        try:
+            if jan_value is None or (
+                isinstance(jan_value, str) and str(jan_value).strip() == ""
+            ):
+                stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
+                jan_val = float(stored.get("Jan", 0) or 0)
+            else:
+                jan_val = float(jan_value)
+        except (TypeError, ValueError):
+            return [dash.no_update] * len(input_ids), dash.no_update
+
+        out = []
+        needs_update = False
+        for i, id_dict in enumerate(input_ids):
+            month = id_dict.get("month") if isinstance(id_dict, dict) else None
+            if month == "Jan":
+                out.append(dash.no_update)
+                continue
+            raw = values[i] if values and i < len(values) else None
+            try:
+                cur = (
+                    float(raw)
+                    if raw is not None
+                    and not (isinstance(raw, str) and str(raw).strip() == "")
+                    else None
+                )
+            except (TypeError, ValueError):
+                cur = None
+            if cur is None or abs(cur - jan_val) > 1e-9:
+                out.append(jan_val)
+                needs_update = True
+            else:
+                out.append(dash.no_update)
+
+        flow_data = {month: jan_val for month in FLOW_MONTHS}
+        stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
+        if needs_update or not flow_dicts_equal(flow_data, stored):
+            dash_storage.set_data(
+                "monthly_flow", [flow_data[month] for month in FLOW_MONTHS]
+            )
+            return out, flow_data
+        if not needs_update:
+            return [dash.no_update] * len(input_ids), dash.no_update
+        return out, dash.no_update
+
     # Push store → month inputs only for external updates (runoff / tab sync).
     @app.callback(
-        Output({"type": "monthly-flow-input", "month": ALL}, "value"),
+        Output({"type": "monthly-flow-input", "month": ALL}, "value", allow_duplicate=True),
         Input("flow-data-store", "data"),
         State({"type": "monthly-flow-input", "month": ALL}, "id"),
         State({"type": "monthly-flow-input", "month": ALL}, "value"),
@@ -388,7 +467,7 @@ def setup_main_callbacks(app, dashboard_instance):
     def apply_flow_store_to_table(flow_data, input_ids, current_values):
         """Update monthly flow inputs when the store changes (e.g. runoff sync)."""
         if not input_ids:
-            return dash.no_update
+            return []
 
         try:
             from mar_dss.app.components.water_source_tab import flow_dicts_equal
@@ -413,35 +492,106 @@ def setup_main_callbacks(app, dashboard_instance):
             except (TypeError, ValueError):
                 cur_dict[month] = 0.0
 
+        # ALL outputs require a list; a single no_update is invalid
         if flow_dicts_equal(cur_dict, new_dict):
-            return dash.no_update
+            return [dash.no_update] * len(input_ids)
         return new_values
 
-    # Input edits commit on blur (debounce) — Excel-like, no Enter required
+    # If a cell is cleared by click/focus/blur without a new number, restore stored value
     @app.callback(
-        Output("monthly-flow-chart", "figure"),
+        Output({"type": "monthly-flow-input", "month": ALL}, "value", allow_duplicate=True),
         Input({"type": "monthly-flow-input", "month": ALL}, "value"),
         State({"type": "monthly-flow-input", "month": ALL}, "id"),
         prevent_initial_call=True,
     )
-    def update_monthly_flow_chart_from_table(values, input_ids):
-        """Update the monthly flow chart from month inputs and save to data storage."""
+    def restore_blank_monthly_flow_inputs(values, input_ids):
+        """Do not let blank/None edits wipe populated monthly flow cells to zero."""
+        if not input_ids or values is None:
+            return []
+
+        try:
+            from mar_dss.app.components.water_source_tab import (
+                flow_dict_from_list,
+            )
+        except ImportError:
+            from .components.water_source_tab import flow_dict_from_list
+
+        stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
+        out = []
+        needs_restore = False
+        for id_dict, raw in zip(input_ids, values):
+            month = id_dict.get("month") if isinstance(id_dict, dict) else None
+            stored_val = stored.get(month, 0.0) if month else 0.0
+            blank = raw is None or (isinstance(raw, str) and str(raw).strip() == "")
+            if blank:
+                out.append(stored_val)
+                needs_restore = True
+            else:
+                try:
+                    out.append(float(raw))
+                except (TypeError, ValueError):
+                    out.append(stored_val)
+                    needs_restore = True
+
+        # ALL outputs require a list; a single no_update is invalid
+        if not needs_restore:
+            return [dash.no_update] * len(input_ids)
+        return out
+
+    # Keep chart in sync with the table and with flow-data-store (tab open / runoff)
+    @app.callback(
+        Output("monthly-flow-chart", "figure"),
+        [
+            Input({"type": "monthly-flow-input", "month": ALL}, "value"),
+            Input("flow-data-store", "data"),
+        ],
+        State({"type": "monthly-flow-input", "month": ALL}, "id"),
+        prevent_initial_call=False,
+    )
+    def update_monthly_flow_chart_from_table(values, flow_store, input_ids):
+        """Update the monthly flow chart; persist only real edits (not blank clicks)."""
         try:
             from mar_dss.app.components.water_source_tab import (
                 FLOW_MONTHS,
                 create_monthly_flow_chart,
                 flow_dict_from_input_values,
+                flow_dict_from_list,
+                flow_dicts_equal,
             )
         except ImportError:
             from .components.water_source_tab import (
                 FLOW_MONTHS,
                 create_monthly_flow_chart,
                 flow_dict_from_input_values,
+                flow_dict_from_list,
+                flow_dicts_equal,
             )
 
-        flow_data = flow_dict_from_input_values(values, input_ids)
-        monthly_flows = [flow_data[month] for month in FLOW_MONTHS]
-        dash_storage.set_data("monthly_flow", monthly_flows)
+        stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
+        store_data = (
+            flow_store
+            if isinstance(flow_store, dict) and flow_store
+            else stored
+        )
+
+        ctx = dash.callback_context
+        trigger = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
+
+        # Store-driven update (tab open, runoff sync) — do not rewrite from inputs
+        if "flow-data-store" in trigger or not input_ids:
+            return create_monthly_flow_chart(store_data)
+
+        # Merge table into stored values; blank/None cells keep stored month values
+        flow_data = flow_dict_from_input_values(
+            values, input_ids, fallback=stored
+        )
+
+        # Persist only when the user actually changed a numeric value
+        if not flow_dicts_equal(flow_data, stored):
+            dash_storage.set_data(
+                "monthly_flow", [flow_data[month] for month in FLOW_MONTHS]
+            )
+
         return create_monthly_flow_chart(flow_data)
 
     # Add callback to sync stratigraphy-data-store with dash_storage when hydrogeology tab is accessed
@@ -497,7 +647,7 @@ def setup_main_callbacks(app, dashboard_instance):
                         html.Div(
                             [
                                 html.P(
-                                    "No layers added yet. Use the form on the left to add layers.",
+                                    "No layers added yet. Use the form on the left to add layers",
                                     className="text-muted text-center p-3",
                                 )
                             ]
@@ -552,7 +702,7 @@ def setup_main_callbacks(app, dashboard_instance):
                     html.Div(
                         [
                             html.P(
-                                "No layers added yet. Use the form on the left to add layers.",
+                                "No layers added yet. Use the form on the left to add layers",
                                 className="text-muted text-center p-3",
                             )
                         ]

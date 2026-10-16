@@ -40,7 +40,7 @@ def create_water_levels_content():
     return html.Div(
         [
             html.H3("Water Level Monitoring"),
-            html.P("Real-time water level data and historical trends."),
+            html.P("Real-time water level data and historical trends"),
             dcc.Graph(figure=fig),
         ]
     )
@@ -74,7 +74,7 @@ def create_recharge_content():
     return html.Div(
         [
             html.H3("Recharge Rate Analysis"),
-            html.P("Recharge rate monitoring and analysis tools."),
+            html.P("Recharge rate monitoring and analysis tools"),
             dcc.Graph(figure=fig),
         ]
     )
@@ -117,10 +117,10 @@ def create_quality_content():
     return html.Div(
         [
             html.H3("Decision Interpretation"),
-            html.P("Analysis and interpretation of decision support results."),
+            html.P("Analysis and interpretation of decision support results"),
             dcc.Graph(figure=fig),
             html.Hr(),
-            html.H5("Key Insights:", className="mt-3"),
+            html.H5("Key Insights", className="mt-3"),
             html.Ul(
                 [
                     html.Li("Water Supply Security: High confidence (85%)"),
@@ -131,7 +131,7 @@ def create_quality_content():
                 ]
             ),
             html.Hr(),
-            html.H5("Recommendations:", className="mt-3"),
+            html.H5("Recommendations", className="mt-3"),
             html.P(
                 "Based on the analysis, this MAR project shows strong potential with high scores in water supply security, economic viability, and regulatory compliance. Consider addressing environmental impact concerns through additional mitigation measures."
             ),
@@ -144,7 +144,7 @@ def create_export_content():
     return html.Div(
         [
             html.H3("Data Export"),
-            html.P("Export data in various formats."),
+            html.P("Export data in various formats"),
             dbc.Card(
                 [
                     dbc.CardBody(
@@ -174,7 +174,7 @@ def create_export_content():
                                     ),
                                     dbc.Col(
                                         [
-                                            html.P("Select data range:"),
+                                            html.P("Select data range"),
                                             dbc.Select(
                                                 options=[
                                                     {
@@ -268,11 +268,11 @@ def create_scenarios_content():
         [
             html.H3("Scenarios Comparison"),
             html.P(
-                "Compare different MAR project scenarios and their outcomes."
+                "Compare different MAR project scenarios and their outcomes"
             ),
             dcc.Graph(figure=fig),
             html.Hr(),
-            html.H5("Scenario Analysis:", className="mt-3"),
+            html.H5("Scenario Analysis", className="mt-3"),
             html.Div(
                 [
                     dbc.Row(
@@ -319,7 +319,7 @@ def create_scenarios_content():
                 ]
             ),
             html.Hr(),
-            html.H5("Recommendations:", className="mt-3"),
+            html.H5("Recommendations", className="mt-3"),
             html.P(
                 "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions."
             ),
@@ -377,15 +377,15 @@ def create_ai_decision_content():
         [
             html.H3("AI Generated Decision"),
             html.P(
-                "Artificial Intelligence powered decision recommendations and analysis."
+                "Artificial Intelligence powered decision recommendations and analysis"
             ),
             dcc.Graph(figure=fig),
             html.Hr(),
-            html.H5("AI Recommendation:", className="mt-3"),
+            html.H5("AI Recommendation", className="mt-3"),
             dbc.Alert(
                 [
                     html.H6(
-                        "RECOMMENDED: Proceed with MAR Project",
+                        "RECOMMENDED Proceed with MAR Project",
                         className="alert-heading",
                     ),
                     html.P(
@@ -396,7 +396,7 @@ def create_ai_decision_content():
                 ],
                 color="success",
             ),
-            html.H5("Key AI Insights:", className="mt-3"),
+            html.H5("Key AI Insights", className="mt-3"),
             html.Ul(
                 [
                     html.Li(
@@ -420,7 +420,7 @@ def create_ai_decision_content():
                 ]
             ),
             html.Hr(),
-            html.H5("AI Recommendations:", className="mt-3"),
+            html.H5("AI Recommendations", className="mt-3"),
             html.P(
                 "The AI system recommends proceeding with the MAR project while implementing additional environmental mitigation measures to address the moderate environmental impact score. Focus on community engagement to improve social acceptance."
             ),

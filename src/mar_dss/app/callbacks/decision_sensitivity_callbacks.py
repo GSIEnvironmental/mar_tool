@@ -768,13 +768,13 @@ def setup_decision_sensitivity_callbacks(app):
         # Initialize with default message when tab is first opened
         if active_tab != "analysis-decision-sensitivity":
             return html.Div([
-                html.P("Select a parameter above to configure sensitivity analysis.", 
+                html.P("Select a parameter above to configure sensitivity analysis", 
                        className="text-muted small"),
             ])
         
         if not selected_parameter:
             return html.Div([
-                html.P("Select a parameter to configure sensitivity analysis.", 
+                html.P("Select a parameter to configure sensitivity analysis", 
                        className="text-muted small"),
             ])
         
@@ -789,18 +789,18 @@ def setup_decision_sensitivity_callbacks(app):
         if param_type == "categorical":
             allowed_values = param_def.get("allowed_values", [])
             return html.Div([
-                html.H6("Parameter Type: Categorical", className="mb-2"),
+                html.H6("Parameter Type Categorical", className="mb-2"),
                 html.P(f"Current Value: {baseline_value}", className="small"),
-                html.P(f"All {len(allowed_values)} possible values will be tested.", 
+                html.P(f"All {len(allowed_values)} possible values will be tested", 
                        className="text-muted small"),
             ])
         
         elif param_type == "list":
             list_length = len(baseline_value) if isinstance(baseline_value, list) else 0
             return html.Div([
-                html.H6("Parameter Type: List", className="mb-2"),
+                html.H6("Parameter Type List", className="mb-2"),
                 html.P(f"Current Value: List with {list_length} elements", className="small"),
-                html.P("All elements will be varied by the same percentage.", 
+                html.P("All elements will be varied by the same percentage", 
                        className="text-muted small mb-3"),
                 dbc.Row([
                     dbc.Col([
@@ -844,17 +844,17 @@ def setup_decision_sensitivity_callbacks(app):
         
         elif param_type == "table":
             return html.Div([
-                html.H6("Parameter Type: Table", className="mb-2"),
-                html.P(f"Table variation is complex and not yet fully implemented.", 
+                html.H6("Parameter Type Table", className="mb-2"),
+                html.P(f"Table variation is complex and not yet fully implemented", 
                        className="text-muted small"),
-                html.P("Only baseline value will be tested.", className="text-warning small"),
+                html.P("Only baseline value will be tested", className="text-warning small"),
             ])
         
         elif param_type == "boolean":
             return html.Div([
-                html.H6("Parameter Type: Boolean", className="mb-2"),
+                html.H6("Parameter Type Boolean", className="mb-2"),
                 html.P(f"Current Value: {baseline_value}", className="small"),
-                html.P("Both True and False will be tested.", 
+                html.P("Both True and False will be tested", 
                        className="text-muted small"),
             ])
         
