@@ -234,6 +234,12 @@
   color: #0a58ca;
 }
 
+/* Mute label color for selected checkboxes (keep blue checkbox chrome) */
+.collapse-toggle-check.label-dark-grey:not(.text-white) .form-check-label,
+.collapse-toggle-check.label-dark-grey:not(.text-white) .form-check-label * {
+  color: #6c757d !important;
+}
+
 .mar-file-toolbar .btn {
   min-width: 5.5rem;
 }

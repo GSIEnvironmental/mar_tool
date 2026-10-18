@@ -18,7 +18,7 @@ from mar_dss.rules.defaults import get_default
 
 columns = ["parameter", "Depth/Thickness (ft)", "Hydraulic Conductivity", "Storage Term"]
 
-# Display labels for Initial Hydrologic Feasibility (internal option.name unchanged)
+# Display labels for Initial Hydrogeologic Feasibility (internal option.name unchanged)
 INITIAL_FEASIBILITY_OPTION_LABELS = {
     "Surface Recharge": "Surface Recharge (e.g., Infiltration Basin)",
     "Dry Well": "Dry Well(s)",
@@ -27,7 +27,7 @@ INITIAL_FEASIBILITY_OPTION_LABELS = {
 
 
 def initial_feasibility_option_label(option_name: str) -> str:
-    """User-facing name for an option in Initial Hydrologic Feasibility."""
+    """User-facing name for an option in Initial Hydrogeologic Feasibility."""
     return INITIAL_FEASIBILITY_OPTION_LABELS.get(option_name, option_name)
 
 
@@ -255,8 +255,13 @@ def create_hydrogeologic_settings_content():
     ]
 
 
+def _help_eq(text):
+    """Inline equation / formula styling for help text."""
+    return html.Code(text, className="d-inline-block small px-1 text-dark")
+
+
 def create_default_parameters_help_modal():
-    """Help modal for (3.2) Default Parameters — each field and effect on results."""
+    """Help modal for (3.2) Default Parameters — paper-style parameter catalog."""
     return dbc.Modal(
         [
             dbc.ModalHeader(
@@ -265,214 +270,329 @@ def create_default_parameters_help_modal():
             ),
             dbc.ModalBody(
                 [
+                    html.H6("1. Purpose and scope", className="fw-bold mb-2"),
                     html.P(
                         [
-                            "These values are built-in rule and design defaults used by hydrologic "
-                            "feasibility, engineering sizing, hard/soft constraints, cost, and the "
-                            "multi-criteria Analysis / Decision scores. ",
+                            "Default Parameters supply the numerical thresholds, caps, and "
+                            "reference lengths used inside the hydrogeologic knowledge "
+                            "graph and the constraint checks. They do not replace "
+                            "stratigraphy or groundwater data; they calibrate how those "
+                            "data are interpreted. ",
                             html.Strong(
-                                "Leave them unchanged unless you have site-specific data "
-                                "that justifies an override."
+                                "Leave built-in values unchanged unless site-specific "
+                                "measurements or regulatory guidance justify an override."
                             ),
                         ],
-                        className="text-muted mb-3",
+                        className="mb-3",
                     ),
-                    html.H6("Site / geometry defaults", className="fw-bold mb-2"),
-                    html.Dl(
+                    html.P(
                         [
-                            html.Dt(
-                                "Aquitard hydraulic conductivity (ft/day)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Maximum hydraulic conductivity used to classify a stratigraphy "
-                                "layer as an aquitard. Layers at or below this hydraulic "
-                                "conductivity are treated as confining units when inferring "
-                                "confined versus unconfined geometry. "
-                                "Changing it can flip aquifer type, which switches mounding "
-                                "methods, dry-well versus injection logic, and which feasibility "
-                                "rules apply.",
-                                className="mb-3",
-                            ),
-                            html.Dt("Confined aquifer head (ft)", className="fw-bold"),
-                            html.Dd(
-                                "Optional confined-system head used for dry-well / injection "
-                                "feasibility. Head must allow a downward gradient for injection. "
-                                "If blank, the model uses an internal default (~80% of static "
-                                "pressure in the recharge layer). Incorrect head can falsely "
-                                "pass or fail confined dry-well options.",
-                                className="mb-3",
-                            ),
-                            html.Dt("Maximum dry well depth (ft)", className="fw-bold"),
-                            html.Dd(
-                                "Practical construction limit for dry-well screen depth "
-                                "(commonly ≤ ~120 ft). Caps how deep dry wells may be designed; "
-                                "deeper values increase constructability risk and can change "
-                                "well counts, cost, and dry-well feasibility.",
-                                className="mb-3",
-                            ),
-                        ]
+                            "How those parameters enter spreading-pond sizing, well counts, "
+                            "hard and soft constraints, and the traffic-light aggregation "
+                            "is documented in the ",
+                            html.Strong("Initial Hydrogeologic Feasibility Help"),
+                            " on the Hydrogeologic Settings tab (Stages 2, 2b, 3, 4, and 5). "
+                            "The present note catalogs each Default Parameter and states "
+                            "which symbol or step in that procedure it controls, without "
+                            "repeating the full calculation narrative.",
+                        ],
+                        className="mb-3",
                     ),
-                    html.H6("Rule defaults (overrides)", className="fw-bold mb-2"),
-                    html.Dl(
+                    html.H6(
+                        "2. Relation to Initial Hydrogeologic Feasibility",
+                        className="fw-bold mb-2",
+                    ),
+                    html.P(
                         [
-                            html.Dt(
-                                "Minimum vadose hydraulic conductivity threshold (ft/day)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Minimum vadose-zone hydraulic conductivity treated as "
-                                "suitable for infiltration. "
-                                "Below this, spreading/surface recharge is less favorable, "
-                                "topsoil may be flagged as limiting, and operational "
-                                "groundwater-depth rules tighten — often reducing surface "
-                                "recharge scores and required basin area.",
-                                className="mb-3",
-                            ),
-                            html.Dt("Leakage radius (ft)", className="fw-bold"),
-                            html.Dd(
-                                "Reference length for confined-aquifer leakage significance "
-                                "(leakage factor ÷ radius). Smaller radius makes leakage "
-                                "score “higher” (worse); larger radius makes leakage look "
-                                "less significant. Affects confined aquifer property scores "
-                                "in Initial Feasibility and Analysis.",
-                                className="mb-3",
-                            ),
-                            html.Dt(
-                                "Confined aquifer depth thresholds — moderate / too deep (ft)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Two depth-to-target thresholds for confined aquifers "
-                                "(shallower number first). Depth at or below the moderate "
-                                "threshold is Low Depth (best). Between the moderate and "
-                                "too-deep thresholds is Moderate Deep (cost warning). Deeper "
-                                "than the too-deep threshold is Too Deep (reject). Defaults "
-                                "are 1500 ft and 3000 ft. Deeper classification lowers aquifer "
-                                "property scores and can push options toward poor feasibility "
-                                "or higher cost (deeper wells).",
-                                className="mb-3",
-                            ),
-                            html.Dt("Minimum recharge efficiency (%)", className="fw-bold"),
-                            html.Dd(
-                                "Minimum fraction of annual source water that an option must "
-                                "recharge to pass the Recharge Efficiency check. "
-                                "Raising it makes that hard constraint stricter; lowering it "
-                                "makes more sites/options pass and can improve rankings.",
-                                className="mb-3",
-                            ),
-                            html.Dt(
-                                "Maximum injection flow rate per well (ft³/day)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Cap on injection (and related dry-well) flow rate per well. "
-                                "Lower caps increase the number of wells needed for the same "
-                                "volume → higher capital and operations and maintenance cost "
-                                "and can fail if well count hits the maximum-wells limit.",
-                                className="mb-3",
-                            ),
-                            html.Dt(
-                                "Maximum number of injection wells",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Hard cap on injection / dry-well counts in sizing rules. "
-                                "If required wells exceed this, capacity is truncated — "
-                                "recharge volume and rechargability drop, which can fail "
-                                "efficiency constraints and lower Analysis scores.",
-                                className="mb-3",
-                            ),
-                            html.Dt(
-                                "Maximum dry well transfer rate (gallons/minute)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Upper limit on pumping/transfer into a dry well. Limits "
-                                "how aggressively a dry-well option can accept source water "
-                                "and thus affects sizing and feasibility.",
-                                className="mb-3",
-                            ),
-                            html.Dt(
-                                "Maximum dry well depth — rule cutoff versus screen depth (ft)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Rule cutoff compared with operating groundwater depth when "
-                                "sizing dry wells (distinct from the construction depth "
-                                "limit above). Larger cutoff reduces available head difference "
-                                "for dry-well capacity; too large can zero out dry wells.",
-                                className="mb-3",
-                            ),
-                            html.Dt("Minimum groundwater depth (ft)", className="fw-bold"),
-                            html.Dd(
-                                "Shallowest allowed depth to water (below ground) for "
-                                "operations and spreading-basin mound limits. "
-                                "Larger values leave more unsaturated buffer but "
-                                "can shrink usable managed aquifer recharge storage and make "
-                                "shallow sites fail; "
-                                "smaller values are more permissive but raise waterlogging risk.",
-                                className="mb-3",
-                            ),
-                            html.Dt("Average moisture content (-)", className="fw-bold"),
-                            html.Dd(
-                                "Default moisture content (0–1) used when estimating vadose "
-                                "pore velocity (infiltration rate ÷ moisture). Higher moisture "
-                                "→ slower travel → longer residence time (better attenuation "
-                                "scores); lower moisture → shorter residence → more water-"
-                                "quality soft-constraint penalties.",
-                                className="mb-3",
-                            ),
-                            html.Dt(
-                                "Pathogenic bacteria / organic / trace organic / nutrients "
-                                "residence time (days)",
-                                className="fw-bold",
-                            ),
-                            html.Dd(
-                                "Minimum subsurface residence times assumed for natural "
-                                "attenuation of each contaminant class. Computed vadose "
-                                "travel time is compared against these thresholds; shortfalls "
-                                "flag issues (e.g., pathogens, organics, nutrients) and apply "
-                                "soft-constraint penalties that lower environmental / "
-                                "decision scores for surface-recharge options.",
-                                className="mb-3",
-                            ),
-                        ]
+                            "When ",
+                            html.Strong("Check Initial Feasibility"),
+                            " is run, the same defaults participate in Stage 2 of the "
+                            "feasibility help (knowledge-graph evaluation), Stage 2b "
+                            "(spreading-pond and well sizing), and Stages 3–5 (hard "
+                            "constraints, soft responses, and traffic lights). Changing a "
+                            "default therefore changes intermediate quantities such as ",
+                            _help_eq("η"),
+                            ", ",
+                            _help_eq("N"),
+                            ", or ",
+                            _help_eq("t_R"),
+                            ", and may change pass, warning, or fail outcomes. The "
+                            "definitions of hard versus soft constraints and of the green / "
+                            "orange / red rules are not restated here; see that help.",
+                        ],
+                        className="mb-4",
                     ),
-                    html.H6("How these affect final results", className="fw-bold mb-2"),
+                    html.H6("3. Site and geometry defaults", className="fw-bold mb-2"),
+                    html.P(
+                        [
+                            html.Strong("Aquitard hydraulic conductivity "),
+                            _help_eq("K_aquitard"),
+                            " (ft/day). ",
+                            "A stratigraphy layer is treated as an aquitard when ",
+                            _help_eq("K_i ≤ K_aquitard"),
+                            ". That classification drives the confined versus unconfined "
+                            "label used throughout the feasibility procedure (Stage 1). "
+                            "Raising the cutoff makes more layers look like aquitards and "
+                            "can flip the site toward confined rules; lowering it does the "
+                            "opposite.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Confined aquifer head "),
+                            "(ft). ",
+                            "Optional operating head for confined dry-well and injection "
+                            "feasibility. Injection requires a downward gradient into the "
+                            "target unit. If the field is blank, the model approximates "
+                            "head as about 80 percent of the static pressure head in the "
+                            "recharge layer. An unrealistic value can collapse confined "
+                            "well capacity in Stage 2b and thereby reduce ",
+                            _help_eq("η"),
+                            " below ",
+                            _help_eq("η_min"),
+                            " in the hard Recharge Efficiency check (feasibility help, "
+                            "Stage 3).",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Maximum dry well depth — construction limit "),
+                            "(ft). ",
+                            "Practical limit on how deep a dry-well screen may be built "
+                            "(values much above about 120 feet are uncommon). It can "
+                            "truncate dry-well capacity in sizing and cost. It is distinct "
+                            "from the rule-depth cutoff ",
+                            _help_eq("d_dw"),
+                            " used in the unconfined dry-well head-difference formula in "
+                            "feasibility help Stage 2b.",
+                        ],
+                        className="mb-4",
+                    ),
+                    html.H6("4. Rule defaults (overrides)", className="fw-bold mb-2"),
+                    html.P(
+                        [
+                            html.Strong("Minimum vadose hydraulic conductivity "),
+                            _help_eq("K_min"),
+                            " (ft/day). ",
+                            "Infiltration is treated as suitable when ",
+                            _help_eq("K_vadose,min ≥ K_min"),
+                            ", and spreading requires ",
+                            _help_eq("K_target ≥ K_min"),
+                            " (feasibility help, Stage 2 and Stage 2b). If the limiting "
+                            "top layer is below ",
+                            _help_eq("K_min"),
+                            ", topsoil is treated as limiting and the operational "
+                            "groundwater-depth floor is raised to that layer’s bottom. "
+                            "Soft constraints affected include Vadose zone infiltration "
+                            "and Surface recharge suitability; hard Recharge Efficiency "
+                            "fails if spreading area collapses to zero.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Leakage radius "),
+                            _help_eq("R_leak"),
+                            " (ft). ",
+                            "Enters the confined leakage ratio ",
+                            _help_eq("S = B / R_leak"),
+                            " with ",
+                            _help_eq("B = √(T / L)"),
+                            " as defined in feasibility help Stage 2. A smaller radius "
+                            "increases ",
+                            _help_eq("S"),
+                            "’s severity classification and worsens the soft Confined "
+                            "leakage significance score. There is no hard constraint that "
+                            "reads ",
+                            _help_eq("R_leak"),
+                            " directly.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Confined aquifer depth thresholds "),
+                            _help_eq("D_mod"),
+                            " and ",
+                            _help_eq("D_too"),
+                            " (ft). ",
+                            "With depth to target ",
+                            _help_eq("D"),
+                            " from feasibility help Stage 2, Low Depth corresponds to ",
+                            _help_eq("D ≤ D_mod"),
+                            ", Moderate Deep to ",
+                            _help_eq("D_mod < D ≤ D_too"),
+                            ", and Too Deep to ",
+                            _help_eq("D > D_too"),
+                            " (defaults 1500 and 3000 feet). These classes feed the soft "
+                            "Confined aquifer depth Suitability score only.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Minimum recharge efficiency "),
+                            _help_eq("η_min"),
+                            " (%). ",
+                            "Hard Recharge Efficiency requires ",
+                            _help_eq("η ≥ η_min"),
+                            " for the option under test, where ",
+                            _help_eq("η"),
+                            " is formed from sized recharge volume and source volume "
+                            "(feasibility help Stages 2, 2b, and 3). Soft Surface "
+                            "recharge suitability uses the same minimum for the surface "
+                            "pathway. Raising ",
+                            _help_eq("η_min"),
+                            " makes both checks stricter.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Maximum injection flow rate per well "),
+                            _help_eq("Q_max"),
+                            " (ft³/day). ",
+                            "Caps the Theis-derived hydrologic rate in Stage 2b: ",
+                            _help_eq("Q_well = minimum of Q_hydro and Q_max"),
+                            ". A lower cap increases the required well count or forces "
+                            "truncation against ",
+                            _help_eq("N_max"),
+                            ", which can reduce ",
+                            _help_eq("η"),
+                            ".",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Maximum number of injection wells "),
+                            _help_eq("N_max"),
+                            ". ",
+                            "Appears in ",
+                            _help_eq(
+                                "N = minimum of ceil(V_day / Q_well) and N_max"
+                            ),
+                            " for both injection and dry-well sizing (feasibility help "
+                            "Stage 2b). Truncation below the hydrologic need reduces "
+                            "annual well-based recharge and can fail hard Recharge "
+                            "Efficiency.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Maximum dry well transfer rate "),
+                            "(gallons/minute). ",
+                            "Upper bound on pumping or transfer into a dry well during "
+                            "sizing and cost. If it limits annual dry-well volume enough, ",
+                            _help_eq("η"),
+                            " for Dry Well(s) may fall below ",
+                            _help_eq("η_min"),
+                            ".",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Maximum dry well depth — rule cutoff "),
+                            _help_eq("d_dw"),
+                            " (ft). ",
+                            "Used in the unconfined dry-well head difference ",
+                            _help_eq(
+                                "Δh = d_gw − max(d_gw,op, d_dw)"
+                            ),
+                            " (feasibility help Stage 2b). If ",
+                            _help_eq("Δh ≤ 0"),
+                            ", dry-well count and rate are set to zero. This is not the "
+                            "construction depth limit listed in Section 3.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Minimum groundwater depth "),
+                            _help_eq("d_gw,min"),
+                            " (ft). ",
+                            "Shallowest allowed depth to water for operations and "
+                            "spreading-basin mound limits. Combined with Maximum MAR "
+                            "Storage Depth, the stricter value becomes the operational "
+                            "floor ",
+                            _help_eq("d_gw,op"),
+                            " used in ",
+                            _help_eq("Δh_allow"),
+                            " for spreading and in well head differences (feasibility "
+                            "help Stage 2b). A larger buffer is safer against "
+                            "waterlogging but can shrink usable MAR storage.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Average moisture content "),
+                            _help_eq("θ"),
+                            " (−). ",
+                            "Used only when Water Quality Q1 indicates source "
+                            "contaminants are present. Pore velocity and residence time "
+                            "follow ",
+                            _help_eq("v = i / θ"),
+                            " and ",
+                            _help_eq("t_R = b_unsat / v"),
+                            " (feasibility help Stage 2). Higher ",
+                            _help_eq("θ"),
+                            " lengthens ",
+                            _help_eq("t_R"),
+                            " and makes it easier to clear the contaminant-class "
+                            "thresholds below. Not applied to Injection Well options or "
+                            "confined sites.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Residence-time thresholds "),
+                            _help_eq("t*_c"),
+                            " (days). ",
+                            "Separate minima for pathogenic bacteria (default 30 days), "
+                            "organic matter (7 days), trace organic matter (30 days), and "
+                            "nutrients (30 days). A class is flagged when ",
+                            _help_eq("t_R ≤ t*_c"),
+                            ". All four thresholds feed only the soft Vadose zone "
+                            "residence time constraint (feasibility help Stages 2 and 4); "
+                            "they are not hard gates unless that soft metric is separately "
+                            "configured as hard.",
+                        ],
+                        className="mb-4",
+                    ),
+                    html.H6("5. Practical guidance", className="fw-bold mb-2"),
                     html.Ul(
                         [
                             html.Li(
                                 [
-                                    html.Strong("Initial Hydrologic Feasibility — "),
-                                    "Traffic-light pass/warn/fail for each engineering option "
-                                    "uses these thresholds (hydraulic conductivity, depth, "
-                                    "leakage, rechargability, well caps, groundwater depth).",
+                                    "For the algebraic roles of ",
+                                    _help_eq("A"),
+                                    ", ",
+                                    _help_eq("i"),
+                                    ", ",
+                                    _help_eq("Q_well"),
+                                    ", ",
+                                    _help_eq("N"),
+                                    ", and the mound iteration, open ",
+                                    html.Strong(
+                                        "Initial Hydrogeologic Feasibility Help"
+                                    ),
+                                    ", Stage 2b.",
                                 ]
                             ),
                             html.Li(
-                                [
-                                    html.Strong("Sizing & cost — "),
-                                    "Well counts, basin area, and dry-well capacity feed "
-                                    "Engineering and Cost Analysis; tighter caps usually "
-                                    "raise cost or reduce achievable recharge volume.",
-                                ]
+                                "After changing defaults, re-run Check Initial Feasibility "
+                                "so the knowledge graph and traffic lights refresh."
                             ),
                             html.Li(
-                                [
-                                    html.Strong("Hard / soft constraints — "),
-                                    "Recharge efficiency, mound/groundwater limits, and vadose "
-                                    "residence-time checks can pass or fail options before "
-                                    "ranking.",
-                                ]
-                            ),
-                            html.Li(
-                                [
-                                    html.Strong("Analysis & Decision — "),
-                                    "Feasibility metrics, DSS Algorithm scores, sensitivity, "
-                                    "and AI decision text all inherit these defaults. Overrides "
-                                    "should be documented when they change rankings.",
-                                ]
+                                "Document overrides when they change rankings on the "
+                                "Analysis or Decision tabs, because the same defaults "
+                                "propagate into full DSS scoring."
                             ),
                         ],
                         className="mb-0",
@@ -490,12 +610,11 @@ def create_default_parameters_help_modal():
         ],
         id="default-parameters-help-modal",
         is_open=False,
-        size="lg",
+        size="xl",
         scrollable=True,
         backdrop=True,
         keyboard=True,
     )
-
 
 def create_default_hydrologic_parameters_tab_content():
     """Content for the (3.2) Default Parameters tab (same level as 3.1)."""
@@ -624,122 +743,696 @@ def _build_initial_feasibility_traffic_placeholder():
             )
         )
     return html.Div(
-        [
-            html.P(
-                (
-                    'Click "Check Initial Feasibility" to evaluate each engineering option '
-                    "using hard and soft hydrogeologic constraints."
-                ),
-                className="text-muted fs-6 mb-2",
-            ),
-            html.Div(
-                dbc.Row(
-                    cols,
-                    className="g-2 g-md-3 align-items-start justify-content-lg-between",
-                ),
-                className="initial-feasibility-traffic initial-feasibility-traffic--pending mt-1",
-            ),
-        ]
+        dbc.Row(
+            cols,
+            className="g-2 g-md-3 align-items-start justify-content-lg-between",
+        ),
+        className="initial-feasibility-traffic initial-feasibility-traffic--pending mt-1",
     )
 
 
 def create_initial_hydrologic_feasibility_help_modal():
-    """Help modal for Initial Hydrologic Feasibility traffic-light check."""
+    """Help modal for Initial Hydrogeologic Feasibility traffic-light check."""
     return dbc.Modal(
         [
             dbc.ModalHeader(
-                dbc.ModalTitle("Initial Hydrologic Feasibility Help"),
+                dbc.ModalTitle("Initial Hydrogeologic Feasibility Help"),
                 close_button=True,
             ),
             dbc.ModalBody(
                 [
+                    html.H6("1. Purpose and scope", className="fw-bold mb-2"),
                     html.P(
-                        [
-                            "This card provides a quick hydrologic screening of each "
-                            "engineering option (Surface Recharge, Dry Well(s), "
-                            "Injection Well(s)) "
-                            "based on the Hydrogeology inputs you enter on this tab—stratigraphy, "
-                            "groundwater levels, ground surface elevation, and related settings.",
-                        ],
-                        className="text-muted mb-3",
+                        "Initial Hydrogeologic Feasibility is a screening calculation that "
+                        "asks, for each candidate managed aquifer recharge (MAR) option, "
+                        "whether present site hydrogeology and default rule parameters are "
+                        "compatible with that option. The options evaluated are Surface "
+                        "Recharge (for example, an infiltration basin), Dry Well(s), and "
+                        "Injection Well(s). The screen uses stratigraphy, groundwater "
+                        "levels, ground-surface elevation, aquitard classification, water-"
+                        "quality answers where relevant, and the Default Parameters "
+                        "thresholds. It is intentionally limited to hydrogeologic hard and "
+                        "soft constraints; full cost, environmental, legal, and multi-"
+                        "criteria ranking are completed on later tabs.",
+                        className="mb-3",
                     ),
-                    html.H6("How to run the check", className="fw-bold mb-2"),
+                    html.H6("2. How to run the check", className="fw-bold mb-2"),
                     html.Ol(
                         [
                             html.Li(
-                                "Complete (or review) Stratigraphy and Groundwater "
-                                "Level inputs as needed."
+                                "Enter or review Stratigraphy and Groundwater Level inputs, "
+                                "and confirm Default Parameters if site-specific overrides "
+                                "are needed."
                             ),
-                            html.Li([
-                                "Click ",
-                                html.Strong("Check Initial Feasibility"),
-                                ". MAR-Tool evaluates hard and soft hydrologic constraints "
-                                "for each option and shows a traffic-light result.",
-                            ]),
                             html.Li(
-                                "If evaluation fails, a message explains that some input may be "
-                                "incorrect or missing, along with the detailed error text."
+                                [
+                                    "Click ",
+                                    html.Strong("Check Initial Feasibility"),
+                                    ". The tool rebuilds intermediate hydrogeologic "
+                                    "quantities, evaluates hard and soft constraints for "
+                                    "each option, and maps the results to a traffic light.",
+                                ]
+                            ),
+                            html.Li(
+                                "If required inputs are missing or inconsistent, an error "
+                                "message is shown instead of traffic lights, together with "
+                                "diagnostic detail."
                             ),
                         ],
                         className="mb-4 ps-3",
                     ),
-                    html.H6("Traffic-light meanings", className="fw-bold mb-2"),
-                    html.Ul(
+                    html.H6(
+                        "3. Calculation procedure (step by step)",
+                        className="fw-bold mb-2",
+                    ),
+                    html.P(
+                        "The calculation proceeds in five stages. Stages 1–3 assemble "
+                        "shared site quantities; Stage 4 evaluates constraints option by "
+                        "option; Stage 5 aggregates those outcomes into a single traffic-"
+                        "light color.",
+                        className="mb-3",
+                    ),
+                    html.H6(
+                        "Stage 1 — Assemble site inputs",
+                        className="fw-semibold mb-2",
+                    ),
+                    html.P(
                         [
-                            html.Li([
-                                html.Span(
-                                    className="rounded-circle d-inline-block me-2",
-                                    style={
-                                        "width": "12px",
-                                        "height": "12px",
-                                        "backgroundColor": "#198754",
-                                        "verticalAlign": "middle",
-                                    },
-                                ),
-                                html.Strong("Green — Pass"),
-                                ": all hard constraints pass; soft constraints are "
-                                "acceptable or not applicable.",
-                            ]),
-                            html.Li([
-                                html.Span(
-                                    className="rounded-circle d-inline-block me-2",
-                                    style={
-                                        "width": "12px",
-                                        "height": "12px",
-                                        "backgroundColor": "#fd7e14",
-                                        "verticalAlign": "middle",
-                                    },
-                                ),
-                                html.Strong("Orange — Pass with Warnings"),
-                                ": no hard failures, but at least one soft constraint "
-                                "indicates added cost, warning, or mitigation.",
-                            ]),
-                            html.Li([
-                                html.Span(
-                                    className="rounded-circle d-inline-block me-2",
-                                    style={
-                                        "width": "12px",
-                                        "height": "12px",
-                                        "backgroundColor": "#dc3545",
-                                        "verticalAlign": "middle",
-                                    },
-                                ),
-                                html.Strong("Red — Fail"),
-                                ": a hard constraint fails, or a soft constraint rejects "
-                                "the option.",
-                            ]),
+                            "Let the stratigraphy consist of layers indexed by ",
+                            _help_eq("i = 1, …, n"),
+                            ", each with thickness ",
+                            _help_eq("b_i"),
+                            " (ft), hydraulic conductivity ",
+                            _help_eq("K_i"),
+                            " (ft/day), and storage parameter ",
+                            _help_eq("S_i"),
+                            " (specific yield or specific storage, as entered). One layer "
+                            "is designated the target recharge layer. Ground-surface "
+                            "elevation ",
+                            _help_eq("z_gs"),
+                            " and monthly groundwater elevations define depths to water. "
+                            "Average groundwater depth below ground is denoted ",
+                            _help_eq("d_gw"),
+                            ". An aquitard conductivity cutoff ",
+                            _help_eq("K_aquitard"),
+                            " classifies layer ",
+                            _help_eq("i"),
+                            " as an aquitard when ",
+                            _help_eq("K_i ≤ K_aquitard"),
+                            ". From that classification the site is labeled confined or "
+                            "unconfined, which selects which subsequent equations and "
+                            "constraints apply.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.H6(
+                        "Stage 2 — Evaluate the hydrogeologic knowledge graph",
+                        className="fw-semibold mb-2",
+                    ),
+                    html.P(
+                        [
+                            "Site inputs are passed through a directed knowledge graph of "
+                            "hydrogeologic rules. Representative derived quantities include "
+                            "the following.",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Infiltration suitability. "),
+                            "Let ",
+                            _help_eq("K_vadose,min"),
+                            " be the minimum hydraulic conductivity in the unsaturated "
+                            "zone and ",
+                            _help_eq("K_min"),
+                            " the Default Parameters threshold. Infiltration is treated as "
+                            "suitable when ",
+                            _help_eq("K_vadose,min ≥ K_min"),
+                            ". Spreading area is computed only if the target layer also "
+                            "satisfies ",
+                            _help_eq("K_target ≥ K_min"),
+                            "; otherwise the spreading area is set to zero.",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Recharge efficiency. "),
+                            "For each option, annual recharged volume ",
+                            _help_eq("V_r"),
+                            " and annual source volume ",
+                            _help_eq("V_s"),
+                            " define the rechargeable percentage ",
+                            _help_eq("η = 100 · V_r / V_s"),
+                            ". Injection and dry-well volumes depend on per-well rate "
+                            "limits and well-count caps from Default Parameters; surface "
+                            "volume depends on spreading area and infiltration rate.",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Confined leakage significance. "),
+                            "When the site is confined, transmissivity of the target unit "
+                            "is ",
+                            _help_eq("T = K_target · b_target"),
+                            " and leakance of an adjacent confining bed is ",
+                            _help_eq("L = K_confining / b_confining"),
+                            ". The leakage factor is ",
+                            _help_eq("B = √(T / L)"),
+                            ". Relative to the leakage radius ",
+                            _help_eq("R_leak"),
+                            ", significance is ",
+                            _help_eq("S = B / R_leak"),
+                            ". Classification uses ",
+                            _help_eq("S > 20"),
+                            " for low leakage, ",
+                            _help_eq("1 < S ≤ 20"),
+                            " for medium leakage, and ",
+                            _help_eq("S ≤ 1"),
+                            " for high leakage.",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Confined depth class. "),
+                            "Depth to the target unit is ",
+                            _help_eq("D = Σ b_i"),
+                            " over layers above the target. With moderate and too-deep "
+                            "thresholds ",
+                            _help_eq("D_mod"),
+                            " and ",
+                            _help_eq("D_too"),
+                            ", the class is Low Depth if ",
+                            _help_eq("D ≤ D_mod"),
+                            ", Moderate Deep if ",
+                            _help_eq("D_mod < D ≤ D_too"),
+                            ", and Too Deep if ",
+                            _help_eq("D > D_too"),
+                            ".",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Vadose residence time. "),
+                            "If Water Quality Q1 indicates source contaminants are "
+                            "present, pore velocity is ",
+                            _help_eq("v = i / θ"),
+                            ", where ",
+                            _help_eq("i"),
+                            " is design infiltration rate and ",
+                            _help_eq("θ"),
+                            " is average moisture content. Residence time is ",
+                            _help_eq("t_R = b_unsat / v"),
+                            ", with ",
+                            _help_eq("b_unsat"),
+                            " the unsaturated thickness. Each contaminant class with "
+                            "threshold ",
+                            _help_eq("t*_c"),
+                            " is flagged when ",
+                            _help_eq("t_R ≤ t*_c"),
+                            ". This pathway is not applied to Injection Well options or "
+                            "to confined sites.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.H6(
+                        "Stage 2b — Spreading-pond size and well-count calculations",
+                        className="fw-semibold mb-2",
+                    ),
+                    html.P(
+                        "Before recharge efficiency can be checked, the knowledge graph "
+                        "sizes each recharge pathway. Surface Recharge uses a spreading "
+                        "pond (or basin) footprint and an infiltration rate. Injection "
+                        "wells and dry wells use a per-well flow rate and a well count. "
+                        "The paragraphs below describe those calculations in the order "
+                        "they are performed.",
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Spreading pond (Surface Recharge). "),
+                            "Let ",
+                            _help_eq("V_month,max"),
+                            " be the largest monthly source-water volume and define a "
+                            "representative daily volume ",
+                            _help_eq("V_day = V_month,max / 30.25"),
+                            ". Let ",
+                            _help_eq("K_vadose,min"),
+                            " be the minimum vadose hydraulic conductivity and ",
+                            _help_eq("A_land"),
+                            " the maximum available land area. If the target recharge "
+                            "layer hydraulic conductivity is below the Default Parameters "
+                            "threshold ",
+                            _help_eq("K_min"),
+                            ", the spreading area is set to zero and Surface Recharge "
+                            "cannot accept water. Otherwise an initial footprint is",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            _help_eq(
+                                "A = minimum of (V_day / K_vadose,min) and A_land"
+                            ),
+                            ".",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            "Allowable mound height is the difference between average "
+                            "groundwater depth and the operational groundwater-depth "
+                            "floor, ",
+                            _help_eq("Δh_allow = d_gw − d_gw,op"),
+                            ". If that allowable height is missing or not positive, the "
+                            "basin is sized by vadose hydraulic conductivity alone: the "
+                            "infiltration rate is taken as ",
+                            _help_eq("i = K_vadose,min"),
+                            " and no mound iteration is needed.",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            "When ",
+                            _help_eq("Δh_allow > 0"),
+                            ", saturated-zone properties are formed from the layers below "
+                            "the water table. Thickness-weighted means give aquifer "
+                            "hydraulic conductivity ",
+                            _help_eq("K̄"),
+                            " and specific yield ",
+                            _help_eq("S̄_y"),
+                            ", together with saturated thickness ",
+                            _help_eq("b_sat"),
+                            ". The infiltration rate is initialized near the vadose limit, ",
+                            _help_eq("i ← 0.99 · K_vadose,min"),
+                            ". Then an iterative mound check is applied for up to 50 "
+                            "iterations:",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.Ol(
+                        [
+                            html.Li(
+                                [
+                                    "At the basin center and a long simulation time "
+                                    "(near steady state, ",
+                                    _help_eq("t = 50"),
+                                    " days in the current implementation), compute the "
+                                    "predicted mound rise ",
+                                    _help_eq("Δh_pred"),
+                                    " from the Hantush-type recharge-mound function using "
+                                    "the current rate ",
+                                    _help_eq("i"),
+                                    ", footprint ",
+                                    _help_eq("A"),
+                                    ", and saturated properties ",
+                                    _help_eq("K̄"),
+                                    ", ",
+                                    _help_eq("b_sat"),
+                                    ", and ",
+                                    _help_eq("S̄_y"),
+                                    ".",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "If ",
+                                    _help_eq("Δh_pred"),
+                                    " is finite and does not exceed ",
+                                    _help_eq("Δh_allow"),
+                                    ", stop. The pair ",
+                                    _help_eq("(A, i)"),
+                                    " is accepted.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "If the predicted mound is too large, scale the rate "
+                                    "downward. Because mound height scales approximately "
+                                    "with the square root of recharge rate, the update is ",
+                                    _help_eq(
+                                        "i ← i · 0.99 · (Δh_allow / Δh_pred)²"
+                                    ),
+                                    ", with a small positive floor so the rate never "
+                                    "collapses to zero numerically. Return to step 1.",
+                                ]
+                            ),
+                        ],
+                        className="mb-2 ps-3",
+                    ),
+                    html.P(
+                        [
+                            "The ratio ",
+                            _help_eq("i / K_vadose,min"),
+                            " is stored as an infiltration-to-conductivity factor. Annual "
+                            "surface recharge volume is then accumulated from the accepted "
+                            "footprint and rate, and compared with source volume to form "
+                            "the surface rechargeable percentage ",
+                            _help_eq("η"),
+                            ".",
                         ],
                         className="mb-3",
                     ),
                     html.P(
                         [
-                            "This is an ",
-                            html.Strong("initial"),
-                            " hydrologic screen. Full cost, environmental, legal, and "
-                            "multi-criteria results are refined on the Engineering, "
-                            "Analysis, and Decision tabs.",
+                            html.Strong("Number of injection wells. "),
+                            "Injection sizing first chooses a confined or unconfined "
+                            "regime from the inferred aquifer type. In either regime the "
+                            "peak daily source demand is again ",
+                            _help_eq("V_day = V_month,max / 30.25"),
+                            ". A hydrologic maximum rate per well, ",
+                            _help_eq("Q_hydro"),
+                            ", is obtained by inverting a Theis-type well response: given "
+                            "allowable head change ",
+                            _help_eq("Δh"),
+                            ", transmissivity ",
+                            _help_eq("T"),
+                            ", storativity ",
+                            _help_eq("S"),
+                            ", observation radius ",
+                            _help_eq("r = 1"),
+                            " ft, and time ",
+                            _help_eq("t = 50"),
+                            " days, solve for the pumping (injection) rate that produces "
+                            "that head change. The operating rate is then capped by the "
+                            "Default Parameters maximum injection rate ",
+                            _help_eq("Q_max"),
+                            ":",
                         ],
-                        className="small text-muted mb-0",
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            _help_eq("Q_well = minimum of Q_hydro and Q_max"),
+                            ".",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            "For ",
+                            html.Strong("confined"),
+                            " injection, allowable head change is based on fracture-"
+                            "gradient protection. With depth to the confined unit ",
+                            _help_eq("D_c"),
+                            ", ",
+                            _help_eq("Δh = D_c · 0.6 · 2.31"),
+                            " (0.6 psi/ft converted to feet of water). Transmissivity and "
+                            "storage use the target confined layer: ",
+                            _help_eq("T = K_target · b_target"),
+                            " and ",
+                            _help_eq("S = (sy/ss)_target · b_target"),
+                            ".",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            "For ",
+                            html.Strong("unconfined"),
+                            " injection, the target layer must be saturated (its bottom "
+                            "deeper than the average water table) and have adequate "
+                            "hydraulic conductivity; otherwise the well count is set to "
+                            "zero. Allowable head rise is ",
+                            _help_eq("Δh = max(d_gw − d_gw,op, 0)"),
+                            ", corrected for unconfined geometry as ",
+                            _help_eq(
+                                "Δh' = Δh − Δh² / (2 · b_sat)"
+                            ),
+                            ". Transmissivity and storage use saturated-zone thickness-"
+                            "weighted means, ",
+                            _help_eq("T = K̄ · b_sat"),
+                            " and ",
+                            _help_eq("S = S̄_y · b_sat"),
+                            ".",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            "The required number of wells is the ceiling of daily demand "
+                            "divided by per-well rate, then limited by the Default "
+                            "Parameters maximum well count ",
+                            _help_eq("N_max"),
+                            ":",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.P(
+                        [
+                            _help_eq(
+                                "N = minimum of ceil(V_day / Q_well) and N_max"
+                            ),
+                            ".",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            "If demand would require more than ",
+                            _help_eq("N_max"),
+                            " wells, the design is truncated. Annual injection volume is "
+                            "then based on ",
+                            _help_eq("N"),
+                            " wells at ",
+                            _help_eq("Q_well"),
+                            ", which can reduce ",
+                            _help_eq("η"),
+                            " and fail Recharge Efficiency.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Number of dry wells. "),
+                            "Dry-well sizing follows a parallel Theis-based structure, "
+                            "again distinguishing unconfined and confined regimes. In the ",
+                            html.Strong("unconfined"),
+                            " case, usable head difference is ",
+                            _help_eq(
+                                "Δh = d_gw − max(d_gw,op, d_dw)"
+                            ),
+                            ", where ",
+                            _help_eq("d_dw"),
+                            " is the Default Parameters dry-well rule-depth cutoff. If ",
+                            _help_eq("Δh ≤ 0"),
+                            ", no dry wells are assigned. Otherwise the same unconfined "
+                            "correction ",
+                            _help_eq("Δh'"),
+                            " and saturated-zone ",
+                            _help_eq("T"),
+                            " and ",
+                            _help_eq("S"),
+                            " are used to invert for ",
+                            _help_eq("Q_hydro"),
+                            ", after which ",
+                            _help_eq("Q_well"),
+                            " and ",
+                            _help_eq("N"),
+                            " are computed exactly as for injection wells (including the ",
+                            _help_eq("Q_max"),
+                            " and ",
+                            _help_eq("N_max"),
+                            " caps). In the ",
+                            html.Strong("confined"),
+                            " dry-well path, allowable head is taken as a fraction of "
+                            "depth to the confined unit, ",
+                            _help_eq("Δh = 0.20 · D_c"),
+                            ", and target-layer ",
+                            _help_eq("T"),
+                            " and ",
+                            _help_eq("S"),
+                            " are used in the Theis inversion before applying the same "
+                            "well-count formulas.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        "These sized volumes—surface spreading, injection, and dry "
+                        "well—are the inputs to the rechargeable percentages used by hard "
+                        "Recharge Efficiency and by soft Surface recharge suitability in "
+                        "the stages that follow.",
+                        className="mb-3",
+                    ),
+                    html.H6(
+                        "Stage 3 — Hard constraints (pass / fail)",
+                        className="fw-semibold mb-2",
+                    ),
+                    html.P(
+                        [
+                            "The three MAR options are evaluated one at a time: Surface "
+                            "Recharge, Dry Well(s), and Injection Well(s). For each of "
+                            "those options, every hard constraint returns either pass or "
+                            "fail, plus a short explanation. Principal hard checks "
+                            "include Physical surface rechargeability (Surface Recharge "
+                            "fails on confined sites), Vadose zone contaminant impact and "
+                            "Target aquifer anthropogenic contaminants (from water-"
+                            "quality answers), and Recharge Efficiency. Recharge "
+                            "Efficiency passes when that option’s rechargeable percentage "
+                            "meets or exceeds the Default Parameters minimum, that is ",
+                            _help_eq("η ≥ η_min"),
+                            ", where ",
+                            _help_eq("η"),
+                            " is the percent of annual source water the option can "
+                            "recharge and ",
+                            _help_eq("η_min"),
+                            " is the required minimum. Any hard failure is decisive for "
+                            "the traffic light in Stage 5.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.H6(
+                        "Stage 4 — Soft constraints (ordered response levels)",
+                        className="fw-semibold mb-2",
+                    ),
+                    html.P(
+                        [
+                            "For the same MAR option, each soft constraint returns an "
+                            "integer response ",
+                            _help_eq("r"),
+                            " in the set ",
+                            _help_eq("{-1, 0, 1, 2, 3, 4}"),
+                            ", together with optional penalty text. The scale is "
+                            "interpreted as follows: ",
+                            _help_eq("r = -1"),
+                            " means the constraint is irrelevant for that option or "
+                            "aquifer type; ",
+                            _help_eq("r = 0"),
+                            " means acceptable; ",
+                            _help_eq("r = 1"),
+                            " means acceptable with additional cost; ",
+                            _help_eq("r = 2"),
+                            " means warning; ",
+                            _help_eq("r = 3"),
+                            " means mitigation required; and ",
+                            _help_eq("r = 4"),
+                            " means reject. Examples include Vadose zone infiltration, "
+                            "Vadose zone residence time, Surface recharge suitability, "
+                            "Confined aquifer depth Suitability, and Confined leakage "
+                            "significance. Irrelevant responses (",
+                            _help_eq("r = -1"),
+                            ") are ignored when aggregating warnings.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.H6(
+                        "Stage 5 — Traffic-light aggregation",
+                        className="fw-semibold mb-2",
+                    ),
+                    html.P(
+                        "After hard and soft constraints are evaluated for a given MAR "
+                        "option, that option’s traffic color is assigned by the following "
+                        "ordered rules.",
+                        className="mb-2",
+                    ),
+                    html.Ol(
+                        [
+                            html.Li(
+                                "If any hard constraint failed, the result is red (Fail). "
+                                "The displayed detail is taken from the first failed hard "
+                                "constraint."
+                            ),
+                            html.Li(
+                                "Otherwise, if any soft constraint returned reject "
+                                "(response 4), the result is red (Fail), using that soft "
+                                "constraint’s penalty text when available."
+                            ),
+                            html.Li(
+                                "Otherwise, if any soft constraint returned a response of "
+                                "1, 2, or 3, the result is orange (Pass with Warnings). "
+                                "The status line reports the soft constraint with the "
+                                "largest of those response values."
+                            ),
+                            html.Li(
+                                "Otherwise the result is green (Pass): every hard "
+                                "constraint passed, and every relevant soft response is "
+                                "acceptable (response 0) or irrelevant."
+                            ),
+                        ],
+                        className="mb-3 ps-3",
+                    ),
+                    html.P(
+                        [
+                            "In compact form, if ",
+                            _help_eq("r_max"),
+                            " is the largest nonnegative soft response for that option, "
+                            "then the color is red if any hard constraint failed or ",
+                            _help_eq("r_max = 4"),
+                            "; orange if ",
+                            _help_eq("r_max"),
+                            " is 1, 2, or 3; and green otherwise.",
+                        ],
+                        className="mb-4",
+                    ),
+                    html.H6("4. Traffic-light meanings", className="fw-bold mb-2"),
+                    html.Ul(
+                        [
+                            html.Li(
+                                [
+                                    html.Span(
+                                        className="rounded-circle d-inline-block me-2",
+                                        style={
+                                            "width": "12px",
+                                            "height": "12px",
+                                            "backgroundColor": "#198754",
+                                            "verticalAlign": "middle",
+                                        },
+                                    ),
+                                    html.Strong("Green — Pass. "),
+                                    "All hard constraints pass, and soft constraints are "
+                                    "acceptable or not applicable.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    html.Span(
+                                        className="rounded-circle d-inline-block me-2",
+                                        style={
+                                            "width": "12px",
+                                            "height": "12px",
+                                            "backgroundColor": "#fd7e14",
+                                            "verticalAlign": "middle",
+                                        },
+                                    ),
+                                    html.Strong("Orange — Pass with Warnings. "),
+                                    "No hard failure and no soft reject, but at least one "
+                                    "soft constraint indicates added cost, a warning, or "
+                                    "required mitigation.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    html.Span(
+                                        className="rounded-circle d-inline-block me-2",
+                                        style={
+                                            "width": "12px",
+                                            "height": "12px",
+                                            "backgroundColor": "#dc3545",
+                                            "verticalAlign": "middle",
+                                        },
+                                    ),
+                                    html.Strong("Red — Fail. "),
+                                    "A hard constraint fails, or a soft constraint "
+                                    "rejects the option.",
+                                ]
+                            ),
+                        ],
+                        className="mb-3",
+                    ),
+                    html.H6("5. Limitations", className="fw-bold mb-2"),
+                    html.P(
+                        "This calculation is an initial hydrogeologic screen. It does not "
+                        "replace detailed engineering design, laboratory or field "
+                        "validation of hydraulic properties, or the full multi-criteria "
+                        "decision analysis performed on the Engineering, Analysis, and "
+                        "Decision tabs. Changing Default Parameters or stratigraphy "
+                        "changes the intermediate quantities in Stage 2 and can therefore "
+                        "change both constraint outcomes and traffic colors.",
+                        className="mb-0 text-muted",
                     ),
                 ]
             ),
@@ -754,7 +1447,7 @@ def create_initial_hydrologic_feasibility_help_modal():
         ],
         id="initial-feasibility-help-modal",
         is_open=False,
-        size="lg",
+        size="xl",
         scrollable=True,
         backdrop=True,
         keyboard=True,
@@ -774,7 +1467,7 @@ def _build_hydro_tab_header():
                                     html.Div(
                                         [
                                             html.Span(
-                                                "Initial Hydrologic Feasability",
+                                                "Initial Hydrogeologic Feasibility",
                                                 className="fw-bold",
                                             ),
                                             html.Button(
@@ -795,24 +1488,16 @@ def _build_hydro_tab_header():
                                 create_initial_hydrologic_feasibility_help_modal(),
                                 dbc.CardBody(
                                     [
+                                        html.P(
+                                            (
+                                                'Click "Check Initial Feasibility" to evaluate '
+                                                "potential MAR options using hard and soft "
+                                                "hydrogeologic constraints."
+                                            ),
+                                            className="text-muted fs-6 mb-2",
+                                        ),
                                         dbc.Row(
                                             [
-                                                dbc.Col(
-                                                    dcc.Loading(
-                                                        id="initial-feasibility-loading",
-                                                        type="circle",
-                                                        color="#198754",
-                                                        children=html.Div(
-                                                            id="initial-feasibility-traffic-output",
-                                                            children=_build_initial_feasibility_traffic_placeholder(),
-                                                            style={"minHeight": "4.5rem"},
-                                                        ),
-                                                    ),
-                                                    xs=12,
-                                                    md=9,
-                                                    lg=9,
-                                                    className="pe-md-2 min-w-0",
-                                                ),
                                                 dbc.Col(
                                                     dbc.Button(
                                                         "Check Initial Feasibility",
@@ -820,7 +1505,7 @@ def _build_hydro_tab_header():
                                                         color="success",
                                                         className=(
                                                             "text-wrap fw-semibold shadow-sm "
-                                                            "ms-md-auto d-block"
+                                                            "d-block"
                                                         ),
                                                         style={
                                                             "maxWidth": "11rem",
@@ -836,10 +1521,24 @@ def _build_hydro_tab_header():
                                                     xs=12,
                                                     md="auto",
                                                     className=(
-                                                        "d-flex justify-content-center "
-                                                        "justify-content-md-end align-items-start "
-                                                        "pt-2 pt-md-0"
+                                                        "d-flex justify-content-start "
+                                                        "align-items-start pb-2 pb-md-0"
                                                     ),
+                                                ),
+                                                dbc.Col(
+                                                    dcc.Loading(
+                                                        id="initial-feasibility-loading",
+                                                        type="circle",
+                                                        color="#198754",
+                                                        children=html.Div(
+                                                            id="initial-feasibility-traffic-output",
+                                                            children=_build_initial_feasibility_traffic_placeholder(),
+                                                            style={"minHeight": "4.5rem"},
+                                                        ),
+                                                    ),
+                                                    xs=12,
+                                                    md=True,
+                                                    className="ps-md-2 min-w-0",
                                                 ),
                                             ],
                                             className="g-2 align-items-start",
@@ -1005,30 +1704,54 @@ def _build_stratigraphy_tab():
         children=[
             html.Div(
                 [
-                    html.H5("Stratigraphy Configuration", className="mb-3"),
                     html.P(
-                        "Configure soil layers and their hydrogeological properties"
+                        "Configure soil layers and their hydrogeological properties. "
                         "Selecting a soil type auto-fills hydraulic conductivity, "
-                        "specific storage, and specific yield (you can still edit them).",
+                        "specific storage, and specific yield, but these can be "
+                        "overridden.",
                         className="mb-4",
                     ),
                     
                     html.Div(id="stratigraphy-error-message", className="mb-3", children=[]),
                     
                     # Table controls
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.ButtonGroup([
-                                dbc.Button("Add Layer", id="add-layer-btn", color="success", size="sm", title="Add a stratigraphy layer row"),
-                                dbc.Button("Delete Selected", id="delete-layer-btn", color="danger", size="sm", title="Delete selected layer rows"),
-                                dbc.Button("Move Up", id="move-up-btn", color="info", size="sm", title="Move selected layer up"),
-                                dbc.Button("Move Down", id="move-down-btn", color="info", size="sm", title="Move selected layer down"),
-                            ])
-                        ], width=8),
-                        dbc.Col([
-                            html.Small("Select rows to delete or move", className="text-muted")
-                        ], width=4)
-                    ], className="mb-3"),
+                    html.Small(
+                        "Select rows to delete or move",
+                        className="text-muted d-block mb-2",
+                    ),
+                    dbc.ButtonGroup(
+                        [
+                            dbc.Button(
+                                "Add Layer",
+                                id="add-layer-btn",
+                                color="success",
+                                size="sm",
+                                title="Add a stratigraphy layer row",
+                            ),
+                            dbc.Button(
+                                "Delete Selected",
+                                id="delete-layer-btn",
+                                color="danger",
+                                size="sm",
+                                title="Delete selected layer rows",
+                            ),
+                            dbc.Button(
+                                "Move Up",
+                                id="move-up-btn",
+                                color="info",
+                                size="sm",
+                                title="Move selected layer up",
+                            ),
+                            dbc.Button(
+                                "Move Down",
+                                id="move-down-btn",
+                                color="info",
+                                size="sm",
+                                title="Move selected layer down",
+                            ),
+                        ],
+                        className="mb-3",
+                    ),
                     
                     # Stratigraphy table
                     dbc.Table(
@@ -1046,7 +1769,7 @@ def _build_stratigraphy_tab():
                                         style={"width": "16%", "backgroundColor": "#2c3e50"},
                                     ),
                                     html.Th(
-                                        "Recharge Target Layer",
+                                        "Target Recharge Layer",
                                         className="fw-bold text-white text-center",
                                         style={"width": "12%", "backgroundColor": "#2c3e50"},
                                     ),
@@ -1080,7 +1803,6 @@ def _build_stratigraphy_tab():
                         responsive=True,
                         className="mb-1 excel-cell-table"
                     ),
-                    build_table_legend(compact=True),
                 ],
                 id="stratigraphy-content"
             )
@@ -1161,7 +1883,7 @@ def create_groundwater_level_help_modal():
                                 "constraints.",
                             ]),
                             html.Li([
-                                html.Strong("Initial Hydrologic Feasibility — "),
+                                html.Strong("Initial Hydrogeologic Feasibility — "),
                                 "Hard fails (red) or warnings (orange) for each engineering "
                                 "option often depend on insufficient unsaturated thickness, "
                                 "storage limits, or water-table interference.",
@@ -1217,10 +1939,6 @@ def _build_groundwater_level_tab():
                 [
                     html.Div(
                         [
-                            html.H5(
-                                "Groundwater Level Configuration",
-                                className="mb-0",
-                            ),
                             html.Button(
                                 "?",
                                 id="groundwater-level-help-btn",
@@ -1229,7 +1947,7 @@ def _build_groundwater_level_tab():
                                 title="Help: groundwater level configuration",
                             ),
                         ],
-                        className="d-flex align-items-center gap-2 mb-3",
+                        className="d-flex align-items-center justify-content-end mb-3",
                     ),
                     create_groundwater_level_help_modal(),
                     # Input fields for elevation and storage depth
@@ -1271,7 +1989,7 @@ def _build_groundwater_level_tab():
                                 id="constant-groundwater-level-check",
                                 label="Use January value for all months",
                                 value=False,
-                                className="mb-2 collapse-toggle-check",
+                                className="mb-2 collapse-toggle-check label-dark-grey",
                             ),
                             # Groundwater level table
                             dbc.Table(
@@ -1587,15 +2305,10 @@ def _build_recharge_mound_outputs_card():
                     [
                         html.Div(
                             [
-                                html.Span(
-                                    "Recharge Mound Outputs",
-                                    className="fw-bold me-3",
-                                ),
                                 dbc.Checkbox(
                                     id="view-recharge-mound-outputs-check",
-                                    label=html.Span(
-                                        "Additional information, check if you care!",
-                                        className="fw-semibold",
+                                    label=html.Strong(
+                                        "View Optional Recharge Mound Outputs"
                                     ),
                                     value=view_mound,
                                     className="mb-0 text-white collapse-toggle-check",
@@ -1686,10 +2399,11 @@ def _build_geometry_card():
                         data="unconfined",
                     ),
                     _build_geometry_tabs(),
-                ]
+                ],
+                className="flex-grow-1 overflow-auto",
             ),
         ],
-        className="mb-4",
+        className="mb-4 h-100 w-100 d-flex flex-column",
     )
 
 
@@ -1712,7 +2426,6 @@ def _build_view_card():
                                 children=[
                                     html.Div(
                                         [
-                                            html.H6("Stratigraphy Cross Section", className="mb-3"),
                                             html.P("Visual representation of subsurface stratigraphy layers", className="mb-3"),
                                             
                                             # Cross-section plot
@@ -1789,10 +2502,11 @@ def _build_view_card():
                         target="groundwater-plot",
                         placement="top",
                     ),
-                ]
+                ],
+                className="flex-grow-1",
             ),
         ],
-        className="mb-4",
+        className="mb-4 h-100 w-100 d-flex flex-column",
     )
 
 
@@ -2188,14 +2902,28 @@ def _build_geometry_hydrogeologic_parameters_card():
 
 
 def _build_geometry_and_view_cards():
-    """Build the Geometry and View cards side by side."""
+    """Build the Geometry and View cards side by side (equal half-width)."""
     return html.Div(
         [
             dbc.Row(
                 [
-                    dbc.Col(_build_geometry_card(), width=6),
-                    dbc.Col(_build_view_card(), width=6),
-                ]
+                    dbc.Col(
+                        _build_geometry_card(),
+                        xs=12,
+                        md=6,
+                        className="d-flex",
+                        style={"minWidth": 0},
+                    ),
+                    dbc.Col(
+                        _build_view_card(),
+                        xs=12,
+                        md=6,
+                        className="d-flex",
+                        style={"minWidth": 0},
+                    ),
+                ],
+                className="align-items-stretch g-3 w-100",
             ),
-        ]
+        ],
+        className="w-100",
     )

@@ -61,8 +61,8 @@ WQ_QUESTIONS = (
         "component_id": "env-wq-q3",
         "number": "3",
         "text": (
-            "Is the Vadose/Unsaturated Zone Impacted by Contaminants "
-            "(e.g. VOCs, metals, emerging contaminants)?"
+            "Is the vadose/unsaturated zone impacted by contaminants "
+            "(e.g., VOCs, metals, emerging contaminants)?"
         ),
         "options": YES_NO_UNKNOWN,
         "tooltip": "Contamination in the unsaturated zone above the target aquifer",
@@ -73,8 +73,8 @@ WQ_QUESTIONS = (
         "component_id": "env-wq-q4",
         "number": "4",
         "text": (
-            "Is the Target Aquifer Impacted by Anthropogenic Contaminants "
-            "(e.g. VOCs, metals, emerging contaminants)?"
+            "Is the target aquifer impacted by anthropogenic contaminants "
+            "(e.g., VOCs, metals, emerging contaminants)?"
         ),
         "options": YES_NO_UNKNOWN,
         "tooltip": "Human-caused contaminants already present in native groundwater",
@@ -85,8 +85,8 @@ WQ_QUESTIONS = (
         "component_id": "env-wq-q5",
         "number": "5",
         "text": (
-            "Is the Target Aquifer Impacted by Naturally Occurring Contaminants "
-            "(e.g. salts, inorganic compounds)?"
+            "Is the target aquifer impacted by naturally occurring contaminants "
+            "(e.g., salts, inorganic compounds)?"
         ),
         "options": YES_NO_UNKNOWN,
         "tooltip": "Naturally occurring salts or inorganics in native groundwater",
@@ -112,104 +112,150 @@ DECISION_LOGIC = {
     "source_contaminants": {
         WQ_UNKNOWN: {
             "score": 0, "color": "secondary", "treatment_key": "Q1_NA",
-            "rec": "Collect source-water contaminant data (VOCs, metals, PFAS) before final suitability assessment.",
+            "rec": "Collect source water contaminant data before final suitability assessment.",
         },
         WQ_NO: {
             "score": 0, "color": "success", "treatment_key": "Q1_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 5, "color": "danger", "treatment_key": "Q1_YES",
+            "score": 29, "color": "danger", "treatment_key": "Q1_YES",
             "rec": (
-                "If yes, MAR may still be possible based on site-specific conditions and overall "
-                "objectives, but additional considerations and potential costs may be necessary "
-                "and are beyond the scope of this tool."
+                "If the source water is impacted with anthropogenic contaminants, MAR may still "
+                "be possible based on site-specific conditions and overall objectives, but "
+                "additional considerations and potential costs may be necessary and are beyond "
+                "the scope of this tool."
             ),
         },
     },
     "source_turbidity": {
         WQ_UNKNOWN: {
             "score": 0, "color": "secondary", "treatment_key": "Q2_NA",
-            "rec": "Collect turbidity data before final suitability assessment.",
+            "rec": "Collect source water turbidity data before final suitability assessment.",
         },
         WQ_TURBIDITY_LOW: {
             "score": 0, "color": "success", "treatment_key": "Q2_LOW",
             "rec": "None.",
         },
         WQ_TURBIDITY_MOD: {
-            "score": 1, "color": "warning", "treatment_key": "Q2_MOD",
-            "rec": "Sedimentation/clarification recommended; evaluate seasonal variation.",
+            "score": 6, "color": "warning", "treatment_key": "Q2_MOD",
+            "rec": "Sedimentation/clarification may be needed; further evaluation required.",
         },
         WQ_TURBIDITY_HIGH: {
-            "score": 2, "color": "danger", "treatment_key": "Q2_HIGH",
+            "score": 12, "color": "danger", "treatment_key": "Q2_HIGH",
             "rec": "Pre-treatment required (sedimentation and filtration) to prevent clogging.",
         },
     },
     "vadose_impacted": {
         WQ_UNKNOWN: {
             "score": 0, "color": "secondary", "treatment_key": "Q3_NA",
-            "rec": "Investigate vadose/unsaturated zone contamination before recharge.",
+            "rec": "Investigate vadose/unsaturated zone contamination before final suitability assessment.",
         },
         WQ_NO: {
             "score": 0, "color": "success", "treatment_key": "Q3_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 3, "color": "danger", "treatment_key": "Q3_YES",
+            "score": 18, "color": "danger", "treatment_key": "Q3_YES",
             "rec": (
-                "Vadose/unsaturated zone is impacted by contaminants. "
-                "Surface recharge is not feasible; consider options that bypass "
-                "the vadose zone (e.g., injection) or site remediation."
+                "If the vadose/unsaturated zone is impacted by anthropogenic contaminants, "
+                "surface recharge methods are not feasible; consider recharge methods that "
+                "bypass the vadose zone (e.g., injection), a new recharge location, or "
+                "vadose/unsaturated zone remediation."
             ),
         },
     },
     "aquifer_anthropogenic": {
         WQ_UNKNOWN: {
             "score": 0, "color": "secondary", "treatment_key": "Q4_NA",
-            "rec": "Characterize native groundwater for anthropogenic contaminants before recharge.",
+            "rec": "Evaluate target aquifer for anthropogenic contamination before final suitability assessment.",
         },
         WQ_NO: {
             "score": 0, "color": "success", "treatment_key": "Q4_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 5, "color": "danger", "treatment_key": "Q4_YES",
+            "score": 29, "color": "danger", "treatment_key": "Q4_YES",
             "rec": (
-                "Target aquifer is impacted by anthropogenic contaminants. "
-                "Aquifer water quality is unsuitable; all MAR options are not feasible."
+                "If the target aquifer is impacted by anthropogenic contaminants, "
+                "recharge should not be implemented at this location; consider a new "
+                "recharge location."
             ),
         },
     },
     "aquifer_natural": {
         WQ_UNKNOWN: {
             "score": 0, "color": "secondary", "treatment_key": "Q5_NA",
-            "rec": "Characterize native groundwater for salts and naturally occurring inorganics.",
+            "rec": "Evaluate target aquifer for naturally occurring contamination before final suitability assessment.",
         },
         WQ_NO: {
             "score": 0, "color": "success", "treatment_key": "Q5_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 2, "color": "warning", "treatment_key": "Q5_YES",
+            "score": 12, "color": "warning", "treatment_key": "Q5_YES",
             "rec": (
-                "If yes, MAR may still be possible based on site-specific conditions and overall "
-                "objectives, but additional considerations and potential costs may be necessary "
-                "and are beyond the scope of this tool."
+                "If the target aquifer is impacted by naturally occurring contaminants, "
+                "recharge at this location may still be possible based on site-specific "
+                "conditions and overall objectives, but additional considerations and "
+                "potential costs may be necessary and are beyond the scope of this tool."
             ),
         },
     },
 }
 
-# Sum of maximum points from every assessment step (all HIGH / worst-case answers).
-RISK_SCORE_MAX = sum(
-    max(int(level.get("score", 0) or 0) for level in step.values())
-    for step in DECISION_LOGIC.values()
-)
+# Simple traffic colors for the Water Quality screening indicator.
+WQ_COLOR_GREEN = "green"
+WQ_COLOR_YELLOW = "yellow"
+WQ_COLOR_RED = "red"
 
-# Decision bands used by Final Assessment (must match update_dashboard thresholds).
-RISK_SCORE_SUITABLE_MAX = 2       # 0–2 Suitable
-RISK_SCORE_CONDITIONAL_MAX = 7    # 3–7 Conditionally suitable
-RISK_SCORE_UNSUITABLE_MIN = 8     # 8+ Not suitable
+WQ_COLOR_LABELS = {
+    WQ_COLOR_GREEN: "Green — suitable",
+    WQ_COLOR_YELLOW: "Yellow — caution",
+    WQ_COLOR_RED: "Red — not suitable",
+}
+
+WQ_COLOR_HEX = {
+    WQ_COLOR_GREEN: "#28a745",
+    WQ_COLOR_YELLOW: "#ffc107",
+    WQ_COLOR_RED: "#dc3545",
+}
+
+
+def classify_wq_color(answers: dict) -> str:
+    """
+    Classify Water Quality screening answers as green / yellow / red.
+
+    Rules (most severe wins):
+    - Red if question 4 is Yes (target aquifer anthropogenic contaminants).
+    - Yellow if question 1 or 5 is Yes, or any other Yes (e.g. question 3).
+    - Green if questions 1, 3, 4, and 5 are all No and turbidity is <5 NTU.
+    - Otherwise yellow (Unknown answers or elevated turbidity without a red trigger).
+    """
+    q1 = answers.get("source_contaminants", WQ_UNKNOWN)
+    q2 = answers.get("source_turbidity", WQ_UNKNOWN)
+    q3 = answers.get("vadose_impacted", WQ_UNKNOWN)
+    q4 = answers.get("aquifer_anthropogenic", WQ_UNKNOWN)
+    q5 = answers.get("aquifer_natural", WQ_UNKNOWN)
+
+    if q4 == WQ_YES:
+        return WQ_COLOR_RED
+
+    yes_no_keys = (q1, q3, q4, q5)
+    if any(v == WQ_YES for v in yes_no_keys):
+        return WQ_COLOR_YELLOW
+
+    if all(v == WQ_NO for v in yes_no_keys) and q2 == WQ_TURBIDITY_LOW:
+        return WQ_COLOR_GREEN
+
+    return WQ_COLOR_YELLOW
+
+
+# Kept for any legacy imports; color scale is primary for suitability.
+RISK_SCORE_MAX = 100
+RISK_SCORE_SUITABLE_MAX = 12
+RISK_SCORE_CONDITIONAL_MAX = 41
+RISK_SCORE_UNSUITABLE_MIN = 47
 
 ASSESSMENT_QUESTION_LABELS = {
     "source_contaminants": "1",
@@ -538,11 +584,6 @@ def _build_treatment_cost_guidance_card():
                 [
                     dbc.Col(
                         [
-                            html.P(
-                                "Treatment Cost",
-                                className="text-center mb-1 small fw-bold",
-                                style={"fontSize": "0.85rem"},
-                            ),
                             dcc.Graph(
                                 id="env-cost-gauge",
                                 config={"displayModeBar": False, "responsive": True},
@@ -565,7 +606,7 @@ def _build_treatment_cost_guidance_card():
                     dbc.Col(
                         [
                             html.H6(
-                                "Cost Details",
+                                "Cost Estimate Details",
                                 className="mb-1 text-info small",
                                 style={"fontSize": "0.85rem"},
                             ),
@@ -675,14 +716,12 @@ def _build_treatment_cost_guidance_card():
                         html.Div(
                             [
                                 html.Span(
-                                    "Treatment Cost Guidance",
+                                    "Treatment Cost Estimates",
                                     className="fw-bold me-3",
                                 ),
                                 dbc.Checkbox(
                                     id="view-treatment-cost-guidance-check",
-                                    label=html.Strong(
-                                        "Show optional treatment cost estimates"
-                                    ),
+                                    label=html.Strong("View"),
                                     value=view_costs,
                                     className="mb-0 text-white collapse-toggle-check",
                                     input_class_name="me-1",
@@ -702,20 +741,17 @@ def _build_treatment_cost_guidance_card():
                         dbc.Alert(
                             [
                                 html.Strong("Disclaimer: "),
-                                "These numbers are crude, first-order-of-magnitude estimates only. "
-                                "Actual treatment costs are complex and difficult to reduce to "
-                                "generic values—they vary strongly from site to site with water "
-                                "chemistry, flow rates, treatment train design, regulations, "
-                                "and local construction and operating conditions.",
+                                "These cost estimates are order-of-magnitude estimates only. "
+                                "Actual treatment costs are complex and vary based on "
+                                "site-specific conditions including water chemistry, flow rates, "
+                                "treatment train design, regulations, and local construction and "
+                                "operating conditions. The scorer, cost details, and summary "
+                                "table below are meant to be used as complementary screening "
+                                "guidance when comparing treatment options, not as a detailed "
+                                "engineering cost estimate.",
                             ],
                             color="warning",
                             className="mb-3 py-2 small",
-                        ),
-                        html.P(
-                            "Use the scorer, cost details, and summary table below as "
-                            "complementary screening guidance when comparing treatment needs—"
-                            "not as a detailed engineering cost estimate.",
-                            className="text-muted fs-6 mb-3",
                         ),
                         cost_body,
                     ],
@@ -762,26 +798,21 @@ def create_water_quality_content():
             }),
 
             dbc.Col([
-                html.H6("Water Quality Score", className="mb-2 text-info", style={"fontSize": "0.95rem"}),
-                dbc.Row([
-                    dbc.Col([
-                        html.P("Water Quality Score", className="text-center mb-1 small fw-bold", style={"fontSize": "0.85rem"}),
-                        dcc.Graph(
-                            id='env-score-gauge',
-                            config={'displayModeBar': False, 'responsive': True},
-                            style={'height': '200px', 'width': '100%', 'minHeight': '200px'}
+                html.Div(
+                    [
+                        html.P(
+                            "Water Quality Indicator",
+                            className="text-center mb-2 fw-bold",
+                            style={"fontSize": "1rem", "color": "#000"},
                         ),
-                    ], width=12),
-                ], className="mb-2"),
+                        html.Div(id="env-wq-color-scale"),
+                    ],
+                    className="mb-3",
+                ),
 
-                html.H6("Final Assessment", className="mb-2 text-danger", style={"fontSize": "0.95rem"}),
-                html.Div(id='env-final-decision-output', className="mb-2"),
-                html.H6("Water Quality Score Details", className="mt-2 mb-1 text-info small", style={"fontSize": "0.85rem"}),
-                html.Div(id='env-score-details-output', className="alert alert-light border mb-2 small", style={"padding": "0.5rem", "fontSize": "0.8rem"}),
-                html.Hr(className="my-2"),
-                html.H6("Required Treatment & Recommendations", className="mt-2 mb-2 text-info", style={"fontSize": "0.95rem"}),
+                html.H6("Potential Treatment Options & Recommendations", className="mt-2 mb-2 text-info", style={"fontSize": "0.95rem"}),
                 html.Div(id='env-treatment-summary-output', className="mb-2"),
-                html.H6("Recommendations by Risk Factor", className="mt-2 mb-1 text-secondary small", style={"fontSize": "0.85rem"}),
+                html.H6("Recommendations", className="mt-2 mb-1 text-secondary small", style={"fontSize": "0.85rem"}),
                 html.Ul(id='env-recommendations-list', className="list-group small", style={"fontSize": "0.8rem"}),
             ], width=12, lg=5, style={
                 "position": "sticky",
@@ -792,8 +823,9 @@ def create_water_quality_content():
         _build_treatment_cost_guidance_card(),
         *question_tooltips,
         dbc.Tooltip(
-            "Composite suitability score from the screening questions",
-            target="env-score-gauge",
+            "Green: all No and turbidity <5 NTU. Yellow: Yes on Q1, Q3, or Q5 "
+            "(or incomplete / elevated turbidity). Red: Yes on Q4.",
+            target="env-wq-color-scale",
             placement="top",
         ),
             ],

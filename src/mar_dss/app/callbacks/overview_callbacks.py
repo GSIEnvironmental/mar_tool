@@ -365,7 +365,9 @@ def setup_overview_callbacks(app):
         prevent_initial_call=True,
     )
     def apply_overview_map_basemap_overview(style_overview):
-        return _overview_map_figure_with_style(style_overview)
+        return _overview_map_figure_with_style(
+            style_overview, fill_container=True
+        )
 
     @app.callback(
         Output("water-source-location-map", "figure"),

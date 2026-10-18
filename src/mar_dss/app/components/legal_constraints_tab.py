@@ -18,7 +18,7 @@ from mar_dss.app.components.environmental_impact_tab import (
 # Each item: (title, why_it_matters, example_obstacles_tuple)
 REGULATORY_CONSIDERATIONS = (
     (
-        "Site feasibility",
+        "Site Feasibility",
         (
             (
                 "Site control and access (ownership, leases, easements)",
@@ -145,7 +145,7 @@ REGULATORY_CONSIDERATIONS = (
         ),
     ),
     (
-        "Water source feasibility",
+        "Water Source Feasibility",
         (
             (
                 "Legal right or entitlement to the source water (including storage for recharge)",
@@ -236,7 +236,7 @@ REGULATORY_CONSIDERATIONS = (
         ),
     ),
     (
-        "Water quality feasibility",
+        "Water Quality Feasibility",
         (
             (
                 "Recharge method implications (infiltration, injection, or both)",
@@ -392,7 +392,7 @@ REGULATORY_CONSIDERATIONS = (
         ),
     ),
     (
-        "Project and jurisdiction screen",
+        "Project And Jurisdiction Screen",
         (
             (
                 "Federal nexus that may trigger federal environmental laws and reviews (for example National Environmental Policy Act, Endangered Species Act, National Historic Preservation Act)",
@@ -527,20 +527,18 @@ def create_basic_regulation_feasibility_content():
         )
 
     return [
-        html.H4(
-            "Regulatory Considerations",
-            className="mb-3 text-primary",
-        ),
         html.P(
-            "Regulatory and permitting requirements for managed aquifer recharge are "
-            "complex and highly site-specific. This tab is meant to help you think "
-            "through some potential considerations early in planning—not to provide "
-            "a complete checklist or legal advice. The themes below are general "
-            "starting points only; they are not exhaustive, and what applies to your "
-            "project will depend on location, water source, recharge method, and "
-            "jurisdiction. Expand any item for why it matters and example obstacles. "
-            "This list is for planning awareness only—it is not scored and does not "
-            "affect feasibility rankings or the final engineering decision.",
+            "Regulatory and permitting requirements for MAR projects are highly "
+            "site-specific and can be complex. This tab is meant to help you think "
+            "through some potential considerations early in planning, and is not "
+            "meant to provide a complete checklist or legal advice. The regulatory "
+            "and permitting considerations below are general starting points only; "
+            "they are not exhaustive, and what applies to your project will depend "
+            "on location, water source, recharge method, and jurisdiction. Expand "
+            "any item for additional information and example difficulties for MAR "
+            "projects. The information provided in this tab is for planning "
+            "awareness only, it is not scored and does not affect feasibility "
+            "rankings or the final analysis provided by this tool.",
             className="text-muted mb-3",
         ),
         *section_cards,
@@ -645,35 +643,36 @@ def create_legal_constraints_content():
     return [
         html.Div(
             [
-                html.H4("How to use this tab", className="mb-2 text-primary"),
+                html.H4("How To Use This Tab", className="mb-2 text-primary"),
                 html.Ol(
                     [
                         html.Li(
                             [
-                                html.Strong("Step 1 — (5.1) Regulatory Considerations: "),
-                                "Review the basic themes to understand potential "
-                                "regulatory and permitting issues for your project.",
+                                html.Strong("(5.1) Regulatory and Permitting Considerations: "),
+                                "Review regulatory and permitting considerations for a MAR "
+                                "project to understand their potential applicability for "
+                                "your project.",
                             ],
                             className="mb-2",
                         ),
                         html.Li(
                             [
-                                html.Strong("Step 2 — (5.2) AI-Powered Regulatory and Permitting Factors: "),
+                                html.Strong("(5.2) AI-Powered Regulatory and Permitting Factors: "),
                                 "Build a prompt, then paste it into your preferred AI model "
-                                "to identify permits, agencies, and regulations relevant to "
-                                "your project location.",
+                                "to identify potential regulatory and permitting factors "
+                                "relevant to your project.",
                             ],
                             className="mb-2",
                         ),
                         html.Li(
                             [
                                 html.Strong(
-                                    "Step 3 — (5.3) AI-Powered Environmental, Ecological, "
+                                    "(5.3) AI-Powered Environmental, Ecological, "
                                     "and Cultural Factors: "
                                 ),
                                 "Build a prompt, then paste it into your preferred AI model "
-                                "to explore environmental, ecological, and cultural factors "
-                                "that may affect project feasibility.",
+                                "to explore potential environmental, ecological, and cultural "
+                                "factors relevant to your project.",
                             ],
                             className="mb-0",
                         ),
@@ -683,7 +682,7 @@ def create_legal_constraints_content():
                 dbc.Tabs(
                     [
                         dbc.Tab(
-                            label="(5.1) Regulatory Considerations",
+                            label="(5.1) Regulatory and Permitting Considerations",
                             id=tab_nav_id("basic-regulation-tab"),
                             tab_id="basic-regulation-tab",
                             children=create_basic_regulation_feasibility_content(),

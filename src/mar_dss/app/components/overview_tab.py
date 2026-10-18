@@ -437,54 +437,80 @@ def create_mar_purpose_section():
                 placement="top",
             ),
         ])
-    ])
+    ], className="h-100 w-100")
 
 
 def create_location_map_section():
     """Create location map section for overview with tooltips."""
     lat, lon, zoom, marker_name, basemap = get_overview_map_figure_params()
     header_text = get_overview_map_header_text()
-    return dbc.Card([
-        dbc.CardHeader(
-            overview_map_header_children(header_text),
-            id="location-card-header",
-            className="bg-primary text-white py-2",
-        ),
-        dbc.CardBody([
-            html.Label("Basemap", className="fw-bold small me-2"),
-            dcc.Dropdown(
-                id="overview-map-basemap",
-                options=OVERVIEW_BASEMAP_OPTIONS,
-                value=basemap,
-                clearable=False,
-                className="mb-2",
-                style={"maxWidth": "320px"},
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                overview_map_header_children(header_text),
+                id="location-card-header",
+                className="bg-primary text-white py-2",
             ),
-            dbc.Tooltip(
-                "Switch background tiles; center and zoom stay as last saved from the map. "
-                "Terrain uses OpenTopoMap (© OpenStreetMap contributors). "
-                "Satellite + streets uses Esri imagery and reference overlays; comply with Esri terms.",
-                target="overview-map-basemap",
-                placement="top",
+            dbc.CardBody(
+                [
+                    html.Label("Basemap", className="fw-bold small me-2"),
+                    dcc.Dropdown(
+                        id="overview-map-basemap",
+                        options=OVERVIEW_BASEMAP_OPTIONS,
+                        value=basemap,
+                        clearable=False,
+                        className="mb-2",
+                        style={"maxWidth": "320px"},
+                    ),
+                    dbc.Tooltip(
+                        "Switch background tiles; center and zoom stay as last saved from the map. "
+                        "Terrain uses OpenTopoMap (© OpenStreetMap contributors). "
+                        "Satellite + streets uses Esri imagery and reference overlays; comply with Esri terms.",
+                        target="overview-map-basemap",
+                        placement="top",
+                    ),
+                    html.Div(
+                        [
+                            dcc.Graph(
+                                figure=create_location_map(
+                                    lat=lat,
+                                    lon=lon,
+                                    location_name=marker_name,
+                                    zoom=float(zoom),
+                                    map_style=basemap,
+                                    fill_container=True,
+                                ),
+                                config={"displayModeBar": True, "scrollZoom": True},
+                                id="location-map",
+                                responsive=True,
+                                style={
+                                    "flex": "1 1 auto",
+                                    "minHeight": "360px",
+                                    "height": "100%",
+                                    "overflow": "hidden",
+                                },
+                            ),
+                            dbc.Tooltip(
+                                "Interactive map showing project location. Hover or click to explore geographic details",
+                                target="location-map",
+                                placement="top",
+                            ),
+                        ],
+                        id="overview-location-map-shell",
+                        className="d-flex flex-column flex-grow-1",
+                        style={
+                            "flex": "1 1 auto",
+                            "minHeight": 0,
+                            "overflow": "hidden",
+                        },
+                    ),
+                ],
+                className="d-flex flex-column flex-grow-1",
+                style={"minHeight": 0},
             ),
-            dcc.Graph(
-                figure=create_location_map(
-                    lat=lat,
-                    lon=lon,
-                    location_name=marker_name,
-                    zoom=float(zoom),
-                    map_style=basemap,
-                ),
-                config={"displayModeBar": True, "scrollZoom": True},
-                id="location-map",
-            ),
-            dbc.Tooltip(
-                "Interactive map showing project location. Hover or click to explore geographic details",
-                target="location-map",
-                placement="top",
-            ),
-        ])
-    ])
+        ],
+        className="h-100 w-100 d-flex flex-column",
+    )
 
 
 def create_site_description_section():
@@ -557,8 +583,19 @@ def create_site_description_section():
 def create_overview_content():
     """Create the complete overview tab content."""
     return [
-        dbc.Row([
-            dbc.Col([create_mar_purpose_section()], width=6),
-            dbc.Col([create_location_map_section()], width=6),
-        ], className="mb-4")
+        dbc.Row(
+            [
+                dbc.Col(
+                    create_mar_purpose_section(),
+                    width=6,
+                    className="d-flex pe-2",
+                ),
+                dbc.Col(
+                    create_location_map_section(),
+                    width=6,
+                    className="d-flex ps-2",
+                ),
+            ],
+            className="mb-4 g-0 align-items-stretch",
+        )
     ]

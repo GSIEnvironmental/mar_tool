@@ -391,35 +391,36 @@ def calculate_physical_feasibility(selected_technology, graph, node_values, aq_t
 
 
 def calculate_environmental_feasibility():
-    """Calculate environmental feasibility score based on risk assessment."""
-    env_inputs = [
-        dash_storage.get_data("wq_source_contaminants") or "Unknown",
-        dash_storage.get_data("wq_source_turbidity") or "Unknown",
-        dash_storage.get_data("wq_vadose_impacted") or "Unknown",
-        dash_storage.get_data("wq_aquifer_anthropogenic") or "Unknown",
-        dash_storage.get_data("wq_aquifer_natural") or "Unknown",
-    ]
-    
+    """Calculate environmental feasibility from Water Quality color scale."""
     try:
-        from mar_dss.app.components.environmental_impact_tab import DECISION_LOGIC, WQ_LOGIC_KEYS
-        env_score = 0
-        for key, value in zip(WQ_LOGIC_KEYS, env_inputs):
-            if key in DECISION_LOGIC and value in DECISION_LOGIC[key]:
-                score = DECISION_LOGIC[key][value].get("score", 0)
-                env_score += score
-        
-        # Convert risk score (0-8+) to feasibility score (0-100)
-        # Lower risk = higher feasibility
-        if env_score >= 8:
-            return 20  # Very high risk
-        elif env_score >= 5:
-            return 40  # High risk
-        elif env_score >= 3:
-            return 60  # Moderate risk
-        elif env_score >= 1:
-            return 80  # Low risk
-        else:
-            return 100  # No risk
+        from mar_dss.app.components.environmental_impact_tab import (
+            WQ_COLOR_GREEN,
+            WQ_COLOR_RED,
+            WQ_COLOR_YELLOW,
+            WQ_LOGIC_KEYS,
+            classify_wq_color,
+        )
+
+        storage_keys = [
+            "wq_source_contaminants",
+            "wq_source_turbidity",
+            "wq_vadose_impacted",
+            "wq_aquifer_anthropogenic",
+            "wq_aquifer_natural",
+        ]
+        answers = {
+            logic_key: dash_storage.get_data(storage_key) or "Unknown"
+            for logic_key, storage_key in zip(WQ_LOGIC_KEYS, storage_keys)
+        }
+        wq_color = classify_wq_color(answers)
+
+        if wq_color == WQ_COLOR_RED:
+            return 20
+        if wq_color == WQ_COLOR_YELLOW:
+            return 60
+        if wq_color == WQ_COLOR_GREEN:
+            return 100
+        return 60
     except Exception as e:
         logger.warning(f"Could not calculate environmental score: {e}")
         return 60  # Default moderate

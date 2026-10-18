@@ -24,16 +24,27 @@ def label_cell_style(row_index: int = 0) -> dict[str, str]:
     return {"backgroundColor": "#f8f9fa" if row_index % 2 else "white"}
 
 
-def build_table_legend(*, compact: bool = False) -> html.Div:
-    """Legend for amber = enter value, blue = calculated."""
+def build_table_legend(
+    *, compact: bool = False, include_calculated: bool = True
+) -> html.Div:
+    """Legend for amber = enter value, and optionally blue = calculated."""
     gap = "gap-1" if compact else "gap-1"
+    items: list = [
+        html.Span(className="excel-legend-swatch excel-legend-input me-1"),
+        html.Span(
+            "Enter value",
+            className="small me-3" if include_calculated else "small",
+        ),
+    ]
+    if include_calculated:
+        items.extend(
+            [
+                html.Span(className="excel-legend-swatch excel-legend-computed me-1"),
+                html.Span("Calculated", className="small"),
+            ]
+        )
     return html.Div(
-        [
-            html.Span(className="excel-legend-swatch excel-legend-input me-1"),
-            html.Span("Enter value", className="small me-3"),
-            html.Span(className="excel-legend-swatch excel-legend-computed me-1"),
-            html.Span("Calculated", className="small"),
-        ],
+        items,
         className=f"d-flex align-items-center mt-2 mb-0 text-muted {gap}",
     )
 

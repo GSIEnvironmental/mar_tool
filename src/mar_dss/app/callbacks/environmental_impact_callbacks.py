@@ -15,18 +15,19 @@ from mar_dss.app.components.environmental_impact_tab import (
     COST_SCALE_TO_SCORE,
     ASSESSMENT_QUESTION_LABELS,
     DEFAULT_WATER_QUALITY_RISK,
-    RISK_SCORE_MAX,
-    RISK_SCORE_SUITABLE_MAX,
-    RISK_SCORE_CONDITIONAL_MAX,
-    RISK_SCORE_UNSUITABLE_MIN,
     TREATMENT_COST_FT3_MAX,
     WQ_BENIGN_ANSWERS,
+    WQ_COLOR_HEX,
+    WQ_COLOR_LABELS,
+    WQ_COLOR_YELLOW,
     WQ_COMPONENT_IDS,
     WQ_LOGIC_KEYS,
     WQ_NO,
     WQ_QUESTIONS,
+    WQ_TURBIDITY_LOW,
     WQ_UNKNOWN,
     WQ_YES,
+    classify_wq_color,
     persist_wq_answer,
     _FT3_PER_M3,
 )
@@ -41,30 +42,28 @@ from mar_dss.app.utils.excel_table import (
     datatable_computed_data_style,
 )
 
-_WQ_DETAIL_BG = {
-    WQ_UNKNOWN: "#e2e3e5",
-    WQ_NO: "#d4edda",
-    "<5 NTU": "#d4edda",
-    "5-20 NTU": "#fff3cd",
-    ">20 NTU": "#f8d7da",
-    WQ_YES: "#f8d7da",
-}
-_WQ_DETAIL_FG = {
-    WQ_UNKNOWN: "#383d41",
-    WQ_NO: "#155724",
-    "<5 NTU": "#155724",
-    "5-20 NTU": "#856404",
-    ">20 NTU": "#721c24",
-    WQ_YES: "#721c24",
-}
+def _format_usd_per_ft3(cost) -> str:
+    """
+    Format a $/ft³ estimate for display.
+
+    Low unit costs (after m³→ft³ conversion) stay unrounded so they do not
+    collapse to $0.00; larger values use four decimal places.
+    """
+    value = float(cost or 0.0)
+    if value == 0:
+        return "$0.00/ft³"
+    if abs(value) < 0.01:
+        text = f"{value:.10f}".rstrip("0").rstrip(".")
+        return f"${text}/ft³"
+    return f"${value:.4f}/ft³"
 
 
-def _wq_detail_colors(value):
-    """Background and text colors for a screening answer in the score-details list."""
-    return (
-        _WQ_DETAIL_BG.get(value, "#f8f9fa"),
-        _WQ_DETAIL_FG.get(value, "#000000"),
-    )
+def _plotly_usd_per_ft3_format(cost) -> str:
+    """Plotly d3 number format: extra decimals when the cost is very small."""
+    value = float(cost or 0.0)
+    if 0 < abs(value) < 0.01:
+        return "$,.6f"
+    return "$,.4f"
 
 
 def calculate_cost_score(risks_and_treatments):
@@ -158,7 +157,12 @@ def calculate_cost_score(risks_and_treatments):
         'vadose_remediation': vadose_remediation_details
     }
     
-    return round(water_treatment_cost_per_ft3, 2), round(vadose_remediation_total_cost, 2), cost_details
+    # Return unrounded $/ft³ so low unit costs remain visible in reporting.
+    return (
+        float(water_treatment_cost_per_ft3),
+        round(vadose_remediation_total_cost, 2),
+        cost_details,
+    )
 
 
 def generate_required_treatment_summary(risks_and_treatments):
@@ -170,7 +174,7 @@ def generate_required_treatment_summary(risks_and_treatments):
     for risk, treatments in risks_and_treatments:
         for tech, cost in treatments:
             df_data.append({
-                "Risk Factor": risk,
+                "Question": risk,
                 "Treatment Technology": tech,
                 "Cost Scale": cost,
             })
@@ -194,7 +198,7 @@ def generate_required_treatment_summary(risks_and_treatments):
         "Moderate Study Cost": 3
     }
     df['Sort_Order'] = df['Cost Scale'].apply(lambda x: cost_order.get(x, 10))
-    df = df.sort_values(by=['Sort_Order', 'Risk Factor']).drop(columns=['Sort_Order'])
+    df = df.sort_values(by=['Sort_Order', 'Question']).drop(columns=['Sort_Order'])
 
     return html.Div(
         dash_table.DataTable(
@@ -224,18 +228,15 @@ def setup_environmental_impact_callbacks(app):
         prevent_initial_call=True,
     )
     def toggle_treatment_cost_guidance(view_costs):
-        """Show or hide Guidance of Treatment Costs when the view checkbox changes."""
+        """Show or hide Treatment Cost Estimates when the view checkbox changes."""
         checked = bool(view_costs)
         dash_storage.set_data("view_treatment_cost_guidance", checked)
         return checked
 
     @app.callback(
         [
-            Output('env-final-decision-output', 'children'),
-            Output('env-final-decision-output', 'style'),
-            Output('env-score-gauge', 'figure'),
+            Output('env-wq-color-scale', 'children'),
             Output('env-cost-gauge', 'figure'),
-            Output('env-score-details-output', 'children'),
             Output('env-cost-details-output', 'children'),
             Output('env-treatment-summary-output', 'children'),
             Output('env-recommendations-list', 'children')
@@ -264,23 +265,18 @@ def setup_environmental_impact_callbacks(app):
         
         # Map inputs to logic keys
         input_keys = list(WQ_LOGIC_KEYS)
-        
-        total_score = 0
-        risk_details = []
-        
-        # Critical flags tracking
-        critical_flags = []
-        
+        answers = dict(zip(input_keys, inputs))
+        wq_color = classify_wq_color(answers)
+
         # Collect all required treatments and recommendations
         required_treatments_raw = []
         recommendations_list = []
 
-        # 1. Calculate Score and Collect Details
+        # 1. Collect per-question details (treatments / recommendations)
         for key, value in zip(input_keys, inputs):
             step_logic = DECISION_LOGIC[key]
             score_data = step_logic.get(value, {"score": 0, "color": "dark", "treatment_key": "", "rec": "No data."})
             
-            score = score_data['score']
             treatment_key = score_data['treatment_key']
             recommendation = score_data['rec']
             
@@ -294,7 +290,7 @@ def setup_environmental_impact_callbacks(app):
                 recommendations_list.append(
                     html.Li(
                         f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}",
-                        className="list-group-item list-group-item-action list-group-item-secondary",
+                        className="list-group-item list-group-item-action list-group-item-warning",
                     )
                 )
             elif value not in WQ_BENIGN_ANSWERS and recommendation:
@@ -304,144 +300,39 @@ def setup_environmental_impact_callbacks(app):
                         className="list-group-item list-group-item-action list-group-item-" + score_data['color']
                     )
                 )
-            
-            # Only add to total score if not a critical flag
-            if score > 0:
-                total_score += score
-            
-            bg_color, text_color = _wq_detail_colors(value)
-            
-            risk_details.append(html.Div([
-                html.Span(
-                    f"{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}",
-                    className="font-weight-bold",
-                ),
-                html.Span(
-                    f"Score: {score} pt(s)",
-                    className="fw-semibold",
-                    style={"color": "#000"},
-                ),
-            ], className="d-flex justify-content-between mb-1 p-2 rounded", style={
-                "background-color": bg_color,
-                "color": text_color,
-                "border-left": f"4px solid {text_color}"
-            }))
 
-        # 2. Determine Final Decision
-        result_style = {
-            "padding": "20px",
-            "border-radius": "8px",
-            "color": "white",
-            "text-align": "center"
-        }
-        
-        # Check Critical Flags first
-        if critical_flags or total_score >= RISK_SCORE_UNSUITABLE_MIN:
-            result_style["background-color"] = "#dc3545"  # Red for not suitable
-            
-            reasons_for_rejection = [
-                html.P("The source water is **NOT SUITABLE** for MAR at this location", className="lead font-weight-bold")
-            ]
-            reasons_for_rejection.append(html.P(f"Total Water Quality Score: {total_score} points (Threshold: {RISK_SCORE_UNSUITABLE_MIN}+)", className="mb-2"))
-            
-            if critical_flags:
-                reasons_for_rejection.append(html.H6("⚠️ Critical Flags Triggered"))
-                reasons_for_rejection.extend([html.Li(flag, className="text-white text-left") for flag in critical_flags])
-            
-            reasons_for_rejection.append(
-                html.P("Recommended Action: **Evaluate alternative sources/locations.**", className="mt-3 font-weight-bold")
-            )
-            
-            decision_content = reasons_for_rejection
+        # 2. Color scale indicator
+        color_hex = WQ_COLOR_HEX[wq_color]
+        label_text = WQ_COLOR_LABELS[wq_color]
+        text_on_swatch = "#212529" if wq_color == WQ_COLOR_YELLOW else "#ffffff"
 
-        elif RISK_SCORE_SUITABLE_MAX < total_score <= RISK_SCORE_CONDITIONAL_MAX:
-            result_style["background-color"] = "#ffc107"  # Orange/Yellow for conditionally suitable
-            result_style["color"] = "#343a40"  # Dark text for better contrast
-            
-            decision_content = [
-                html.P("The source water is **CONDITIONALLY SUITABLE** for MAR", className="lead font-weight-bold"),
-                html.P(f"Total Water Quality Score: {total_score} points (Range: {RISK_SCORE_SUITABLE_MAX + 1}–{RISK_SCORE_CONDITIONAL_MAX})"),
-                html.P("Requires specific treatment and further studies to confirm economic viability and technical feasibility", className="mt-2"),
-                html.P("Action: **Proceed to required treatability/modeling studies.**", className="mt-3 font-weight-bold")
-            ]
-            
-        else:  # total_score <= RISK_SCORE_SUITABLE_MAX
-            result_style["background-color"] = "#28a745"  # Green for suitable
-            
-            decision_content = [
-                html.P("The source water is **SUITABLE** for MAR implementation", className="lead font-weight-bold"),
-                html.P(f"Total Water Quality Score: {total_score} points (Range: 0–{RISK_SCORE_SUITABLE_MAX})"),
-                html.P("Minimal to no treatment required. Low implementation cost", className="mt-2")
-            ]
-
-        # 3. Create Gauge Plot (axis max = theoretical max sum of all step scores)
-        try:
-            gauge_fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=total_score,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={
-                    'text': f"Total Water Quality Score (max {RISK_SCORE_MAX})",
-                    'font': {'size': 18, 'color': gauge_font},
-                },
-                number={'font': {'color': gauge_font}},
-                gauge={
-                    'axis': {
-                        'range': [0, RISK_SCORE_MAX],
-                        'tickwidth': 1,
-                        'tickcolor': gauge_font,
-                        'dtick': 5,
+        color_scale_children = html.Div(
+            [
+                html.Div(
+                    label_text,
+                    className="fw-bold text-center py-4 px-3 rounded",
+                    style={
+                        "backgroundColor": color_hex,
+                        "color": text_on_swatch,
+                        "fontSize": "1.15rem",
+                        "border": "1px solid #ced4da",
                     },
-                    'bar': {'color': "darkslategray"},
-                    'bgcolor': "white",
-                    'borderwidth': 2,
-                    'bordercolor': "gray",
-                    'steps': [
-                        {
-                            'range': [0, RISK_SCORE_SUITABLE_MAX + 1],
-                            'color': 'lightgreen',
-                        },
-                        {
-                            'range': [
-                                RISK_SCORE_SUITABLE_MAX + 1,
-                                RISK_SCORE_UNSUITABLE_MIN,
-                            ],
-                            'color': 'yellow',
-                        },
-                        {
-                            'range': [RISK_SCORE_UNSUITABLE_MIN, RISK_SCORE_MAX],
-                            'color': 'red',
-                        },
+                ),
+                html.Ul(
+                    [
+                        html.Li("Green: all No and turbidity <5 NTU"),
+                        html.Li("Yellow: Yes on question 1, 3, or 5 (or Unknown / elevated turbidity)"),
+                        html.Li("Red: Yes on question 4"),
                     ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': min(total_score, RISK_SCORE_MAX),
-                    },
-                },
-            ))
-            gauge_fig.update_layout(
-                margin=dict(l=10, r=10, t=50, b=10), 
-                height=250,
-                autosize=True,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font={'color': gauge_font},
-            )
-        except Exception as e:
-            # Fallback figure if there's an error
-            gauge_fig = go.Figure()
-            gauge_fig.add_annotation(
-                text=f"Error creating gauge: {str(e)}",
-                xref="paper", yref="paper",
-                x=0.5, y=0.5, showarrow=False
-            )
-            gauge_fig.update_layout(height=250)
+                    className="small text-muted mt-2 mb-0 ps-3",
+                ),
+            ]
+        )
 
-        # 4. Calculate Costs
+        # 3. Calculate Costs
         water_treatment_cost_per_ft3, vadose_remediation_total_cost, cost_details = calculate_cost_score(required_treatments_raw)
         
-        # 5. Create Cost Gauge Plot (axis max = theoretical worst-case $/ft³)
+        # 4. Create Cost Gauge Plot (axis max = theoretical worst-case $/ft³)
         try:
             # Never clip the needle: expand if an unexpected value exceeds the map max
             cost_axis_max = max(
@@ -449,19 +340,17 @@ def setup_environmental_impact_callbacks(app):
                 float(water_treatment_cost_per_ft3) * 1.05,
                 0.05,
             )
+            usd_ft3_format = _plotly_usd_per_ft3_format(water_treatment_cost_per_ft3)
             cost_gauge_fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=water_treatment_cost_per_ft3,
                 domain={'x': [0, 1], 'y': [0, 1]},
                 title={
-                    'text': (
-                        f"Water Treatment Cost ($/ft³)<br>"
-                        f"<span style='font-size:12px'>scale max ${cost_axis_max:.2f}/ft³</span>"
-                    ),
+                    'text': "Estimated Water Treatment Cost ($/ft³)",
                     'font': {'size': 16, 'color': gauge_font},
                 },
                 number={
-                    'valueformat': '$,.2f',
+                    'valueformat': usd_ft3_format,
                     'suffix': '/ft³',
                     'font': {'color': gauge_font},
                 },
@@ -470,7 +359,7 @@ def setup_environmental_impact_callbacks(app):
                         'range': [0, cost_axis_max],
                         'tickwidth': 1,
                         'tickcolor': gauge_font,
-                        'tickformat': '$,.2f',
+                        'tickformat': usd_ft3_format,
                     },
                     'bar': {'color': "darkorange"},
                     'bgcolor': "white",
@@ -508,7 +397,7 @@ def setup_environmental_impact_callbacks(app):
             )
             cost_gauge_fig.update_layout(height=250)
         
-        # 6. Generate Cost Details Output (with two sections)
+        # 5. Generate Cost Details Output (with two sections)
         cost_details_html = []
         
         # Section 1: Water Treatment Costs
@@ -518,15 +407,18 @@ def setup_environmental_impact_callbacks(app):
         if water_treatment_details or vadose_remediation_details:
             # Water Treatment Section
             if water_treatment_details:
-                cost_details_html.append(html.H6("(1) Water Treatment Costs (per ft³ of source water)", className="font-weight-bold mt-3 mb-2 text-primary"))
-                cost_details_html.append(html.P(f"Total Water Treatment Cost: ${water_treatment_cost_per_ft3:.2f}/ft³", className="font-weight-bold mb-2"))
+                cost_details_html.append(html.H6("Estimated Water Treatment Costs (per ft3 of water)", className="font-weight-bold mt-3 mb-2 text-primary"))
+                cost_details_html.append(html.P(
+                    f"Total Water Treatment Cost: {_format_usd_per_ft3(water_treatment_cost_per_ft3)}",
+                    className="font-weight-bold mb-2",
+                ))
                 for detail in water_treatment_details:
                     cost_per_ft3 = detail.get('cost_per_ft3', 0)
                     if cost_per_ft3 > 0:
                         cost_details_html.append(html.Div([
                             html.Span(f"{detail['risk_factor']}: {detail['technology']}", className="font-weight-bold"),
                             html.Span(
-                                f"${cost_per_ft3:.2f}/ft³",
+                                _format_usd_per_ft3(cost_per_ft3),
                                 className="fw-semibold",
                                 style={"color": "#000"},
                             ),
@@ -545,6 +437,8 @@ def setup_environmental_impact_callbacks(app):
                 cost_details_html.append(html.Div([
                     html.P([
                         html.Strong("Note: "),
+                        "This is a one-time total project cost estimate, not a per-volume ($/ft³) unit cost, "
+                        "so it is not included on the Estimated Water Treatment Cost gauge. "
                         "Vadose zone remediation costs can vary by orders of magnitude depending on contaminant type, "
                         "site size, depth, remediation technology, and regulatory requirements. "
                         "Typical range: $50,000 - $10,000,000. "
@@ -572,17 +466,22 @@ def setup_environmental_impact_callbacks(app):
                 html.P("No treatment required. Water Treatment Cost: $0.00/ft³", className="text-muted")
             ]
         
-        # 7. Generate Treatment Summary Table
+        # 6. Generate Treatment Summary Table
         treatment_summary_table = generate_required_treatment_summary(required_treatments_raw)
         
-        # 8. Format Recommendations
+        # 7. Format Recommendations
         if not recommendations_list:
-            if all(v in (WQ_UNKNOWN, WQ_NO, "<5 NTU") for v in inputs):
+            if all(v in (WQ_UNKNOWN, WQ_NO, WQ_TURBIDITY_LOW) for v in inputs):
+                has_unknown = any(v == WQ_UNKNOWN for v in inputs)
                 recommendations_list = [
                     html.Li(
                         "All screening answers are Unknown or No (or turbidity <5 NTU). "
                         "Collect water quality data where marked Unknown.",
-                        className="list-group-item list-group-item-secondary",
+                        className=(
+                            "list-group-item list-group-item-warning"
+                            if has_unknown
+                            else "list-group-item list-group-item-secondary"
+                        ),
                     )
                 ]
             else:
@@ -593,7 +492,13 @@ def setup_environmental_impact_callbacks(app):
                     )
                 ]
             
-        return decision_content, result_style, gauge_fig, cost_gauge_fig, risk_details, cost_details_html, treatment_summary_table, recommendations_list
+        return (
+            color_scale_children,
+            cost_gauge_fig,
+            cost_details_html,
+            treatment_summary_table,
+            recommendations_list,
+        )
     
     # Callbacks to save water quality inputs to data storage
     def _register_wq_persist(storage_key, component_id):

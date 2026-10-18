@@ -68,7 +68,7 @@ def _coerce_aquitard_k_ft_day(val):
 
 
 def _render_initial_feasibility_status(status_line: str):
-    """Bold green 'Pass' / bold red 'Fail' for Initial Hydrologic Feasibility rows."""
+    """Bold green 'Pass' / bold red 'Fail' for Initial Hydrogeologic Feasibility rows."""
     if not status_line:
         return ""
     if status_line == "Pass":
@@ -458,7 +458,7 @@ def setup_hydro_callbacks(app):
         prevent_initial_call=True,
     )
     def toggle_initial_feasibility_help_modal(open_clicks, close_clicks, is_open):
-        """Open or close the Initial Hydrologic Feasibility help popup."""
+        """Open or close the Initial Hydrogeologic Feasibility help popup."""
         ctx = dash.callback_context
         if not ctx.triggered:
             return dash.no_update
@@ -1603,10 +1603,10 @@ def setup_hydro_callbacks(app):
 
         # Define colors for different layer types
         layer_colors = {
-            "Gravel": "#808080",      # Gray
+            "Gravel": "#BDBDBD",      # Light gray (distinct from Other)
             "Sand": "#F4A460",        # Sandy brown
-            "Silt": "#D2B48C",        # Tan
-            "Loam": "#DEB887",        # Burlywood
+            "Silt": "#C4A574",        # Dusty khaki (distinct from Loam)
+            "Loam": "#8FBC8F",        # Soft green-brown (organic-rich loam)
             "Clay": "#A0522D",        # Sienna
             "Other": "#6C757D",       # Mid gray (unspecified / average mix)
         }
@@ -1730,7 +1730,7 @@ def setup_hydro_callbacks(app):
                     x=[0.18],
                     y=[recharge_target_mid_depth],
                     mode="markers",
-                    name="Recharge target",
+                    name="Target Recharge Layer",
                     marker=dict(
                         symbol="circle",
                         size=18,
@@ -1738,7 +1738,7 @@ def setup_hydro_callbacks(app):
                         line=dict(width=2, color="#15803d"),
                     ),
                     hovertemplate=(
-                        "<b>Recharge target layer</b><br>"
+                        "<b>Target Recharge Layer</b><br>"
                         f"{recharge_target_layer_name or ''}<br>"
                         f"Depth at layer midpoint: {recharge_target_mid_depth:.1f} ft bgs"
                         f"{elev_hover}"
