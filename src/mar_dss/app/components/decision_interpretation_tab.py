@@ -253,11 +253,12 @@ CONSTRAINT_HELP = {
             "Soft check on land-use compatibility for land-intensive surface recharge."
         ),
         "triggered": (
-            "Residential / commercial / urban land uses → additional cost for Surface "
-            "Recharge; otherwise acceptable."
+            "Overview land use Residential or Commercial/Industrial → additional "
+            "cost for Surface Recharge; Agricultural / Open Space → acceptable. "
+            "Dry Well and Injection Well stay acceptable."
         ),
         "why": (
-            "Urban land is costly and may face zoning limits for basins and spreading."
+            "Developed land is costly and may face zoning limits for basins and spreading."
         ),
     },
     "Source Water Contaminants": {
@@ -287,17 +288,34 @@ CONSTRAINT_HELP = {
             "(scraping, well rehabilitation)."
         ),
     },
-    "Need for Remediation": {
+    "Vadose Zone Contaminant Impact": {
         "meaning": (
-            "Water-quality soft check on vadose impact for the surface recharge pathway."
+            "Water-quality soft check on vadose / unsaturated-zone contaminant "
+            "impact for the surface recharge pathway (Water Quality Q3)."
         ),
         "triggered": (
             "Confined → irrelevant. Vadose impacted Yes + Surface Recharge → reject. "
-            "Wells that bypass the vadose stay acceptable. Unknown → data-gap warning."
+            "Wells that bypass the vadose stay acceptable. Unknown → yellow data-gap "
+            "warning (missing information — not a remediation requirement)."
         ),
         "why": (
             "Surface recharge through an impacted vadose can transport contaminants; "
-            "wells may still be viable."
+            "wells may still be viable. Unknown means collect data first."
+        ),
+    },
+    # Legacy alias kept for older saved DSS result payloads
+    "Need for Remediation": {
+        "meaning": (
+            "Legacy name for Vadose Zone Contaminant Impact (Water Quality Q3)."
+        ),
+        "triggered": (
+            "Confined → irrelevant. Vadose impacted Yes + Surface Recharge → reject. "
+            "Wells that bypass the vadose stay acceptable. Unknown → yellow data-gap "
+            "warning (missing information — not a remediation requirement)."
+        ),
+        "why": (
+            "Surface recharge through an impacted vadose can transport contaminants; "
+            "wells may still be viable. Unknown means collect data first."
         ),
     },
     "Target Aquifer Anthropogenic Contaminants": {
@@ -449,8 +467,21 @@ def _cost_line(label, value_text, emphasize=False):
     )
 
 
-def _cost_section_body(option_name, legacy_cost):
-    """Build capital / maintenance / NPV display for an option."""
+def _cost_section_body(option_name, legacy_cost, not_feasible=False):
+    """Build capital / maintenance / NPV display for an option.
+
+    Not-feasible options show N/A for all cost fields (same policy as Cost Analysis).
+    """
+    if not_feasible:
+        return html.Div(
+            [
+                _cost_line("Capital cost (total)", "N/A", emphasize=True),
+                _cost_line("Annual maintenance cost", "N/A"),
+                _cost_line("Net present value (20 years)", "N/A"),
+            ],
+            className="di-cost-block",
+        )
+
     capital, maintenance, npv = _option_cost_totals(option_name)
     has_stored = capital > 0 or maintenance > 0 or npv > 0
 
@@ -591,6 +622,42 @@ def _constraint_help_modal():
     )
 
 
+def _enrich_issue_labels(labels, soft_constraints):
+    """Replace bare constraint names with data-gap vs finding-specific text.
+
+    Prefer penalty text from soft constraints so Unknown answers say \"data gap\"
+    and confirmed issues (e.g. contamination) say that. Already-descriptive
+    labels from the DSS are left unchanged when they include detail after ':'.
+    """
+    try:
+        from mar_dss.mar.dss import _format_soft_issue_message
+    except ImportError:
+        from ...mar.dss import _format_soft_issue_message
+
+    by_name = {
+        sc.get("name"): sc
+        for sc in (soft_constraints or [])
+        if isinstance(sc, dict) and sc.get("name")
+    }
+    enriched = []
+    for label in labels or []:
+        text = label if isinstance(label, str) else str(label)
+        # Already enriched by DSS (Name: detail)
+        if ": " in text and not text.endswith(":"):
+            name_part = text.split(":", 1)[0].strip()
+            if name_part in by_name:
+                enriched.append(_format_soft_issue_message(by_name[name_part]))
+                continue
+            enriched.append(text)
+            continue
+        sc = by_name.get(text)
+        if sc is not None:
+            enriched.append(_format_soft_issue_message(sc))
+        else:
+            enriched.append(text)
+    return enriched
+
+
 def _create_option_interpretation(option_name, result, filters=None):
     """Create detailed interpretation content for a selected option."""
     status = result.get("status", "Unknown")
@@ -605,6 +672,9 @@ def _create_option_interpretation(option_name, result, filters=None):
         filter_data = filters[option_name]
         hard_constraints = filter_data.get("hard", [])
         soft_constraints = filter_data.get("soft", [])
+
+    warnings = _enrich_issue_labels(warnings, soft_constraints)
+    mitigations = _enrich_issue_labels(mitigations, soft_constraints)
 
     status_color = _get_status_color(status)
 
@@ -643,7 +713,14 @@ def _create_option_interpretation(option_name, result, filters=None):
     ]
 
     sections.append(
-        _section("Cost information", _cost_section_body(option_name, cost))
+        _section(
+            "Cost information",
+            _cost_section_body(
+                option_name,
+                cost,
+                not_feasible=(display_status == "Not Feasible"),
+            ),
+        )
     )
 
     if warnings:

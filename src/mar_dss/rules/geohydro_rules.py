@@ -167,7 +167,7 @@ def aquifer_inference_regime(strat_df, monthly_gw_depth):
 
 # Default max *K* (ft/day) for classifying a dashboard layer as an aquitard when the user
 # does not supply ``aquitard_k_max_ft_day`` and dashboard storage has no value.
-DEFAULT_AQUITARD_K_MAX_FT_DAY = 1e-3
+DEFAULT_AQUITARD_K_MAX_FT_DAY = 0.1
 
 
 def _resolve_aquitard_k_max_ft_day(explicit):

@@ -33,7 +33,8 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
     initial_surface_rechargeability = {
         "name": "Physical surface rechargeability",
         "pass": check,
-        "why": why
+        "why": why,
+        "type": "hydrogeologic",
     }
     constraints.append(initial_surface_rechargeability)
 
@@ -61,6 +62,7 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
         "name": "Vadose zone contaminant impact",
         "pass": vadose_check,
         "why": vadose_why,
+        "type": "water_quality",
     })
 
     # ==================================================================
@@ -82,6 +84,7 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
         "name": "Target aquifer anthropogenic contaminants",
         "pass": anthro_check,
         "why": anthro_why,
+        "type": "water_quality",
     })
 
     # ==================================================================
@@ -152,8 +155,8 @@ def hard_constraints(option: MAROption) -> List[Dict[str, bool]]:
     recharge_efficiency_metric = {
         "name": "Recharge Efficiency",
         "pass": check,
-        "why": why
-       
+        "why": why,
+        "type": "hydrogeologic",
     }
     constraints.append(recharge_efficiency_metric)
 

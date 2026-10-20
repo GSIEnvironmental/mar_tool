@@ -1016,7 +1016,11 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("aq_type", "unconfined")
             dash_storage.set_data("confined_aquifer_head_ft", None)
             dash_storage.set_data("max_dry_well_depth_ft", 120.0)
-            dash_storage.set_data("aquitard_conductivity_ft_day", 1e-3)
+            from mar_dss.rules.geohydro_rules import DEFAULT_AQUITARD_K_MAX_FT_DAY
+
+            dash_storage.set_data(
+                "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
+            )
             _strat_new = default_stratigraphy_layers()
             normalize_stratigraphy_recharge_target(_strat_new)
             dash_storage.set_data("stratigraphy_data", _strat_new)

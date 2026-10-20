@@ -98,8 +98,7 @@ def create_engineering_help_modals():
                     className="bg-light border rounded p-2 small mb-2",
                 ),
                 html.P(
-                    "Smaller N_events → larger Q_design and more conservative sizing"
-                    "Capture fraction is fixed at 1.",
+                    "Capture fraction is fixed at 1 (100% of the design event).",
                     className="small text-muted mb-3",
                 ),
                 html.H6(
@@ -121,9 +120,37 @@ def create_engineering_help_modals():
                 html.P(
                     "Dividing by 12 (not 24) gives a peak twice the uniform 24-hour "
                     "average — a screening approximation, not a site-calibrated "
-                    "hydrograph. Downstream cards size conveyance and treatment from "
-                    "Q_peak and basins from V_day.",
-                    className="small text-muted mb-0",
+                    "hydrograph. Downstream facilities are sized from Q_peak and V_day.",
+                    className="small text-muted mb-3",
+                ),
+                html.H6("How this affects final price", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Fewer events (smaller N_events): "),
+                                "larger Q_design and V_day → larger peak flow → "
+                                "larger sediment traps, storage ponds, basins, and "
+                                "related O&M → ",
+                                html.Strong("higher capital, maintenance, and NPV"),
+                                ".",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("More events (larger N_events): "),
+                                "smaller design event → ",
+                                html.Strong("lower cost"),
+                                " (less conservative sizing).",
+                            ]
+                        ),
+                        html.Li(
+                            "Does not change conveyance length ($/LF × distance) or "
+                            "whether sediment/storage are Yes/No — those are separate "
+                            "choices — but it does scale volume- and flow-based line items."
+                        ),
+                    ],
+                    className="mb-0",
                 ),
             ],
         ),
@@ -132,7 +159,7 @@ def create_engineering_help_modals():
             "Conveyance to Recharge Site Help",
             [
                 html.P(
-                    "Choose how source water is conveyed to the recharge site"
+                    "Choose how source water is conveyed to the recharge site. "
                     "Length is the straight-line (great-circle) distance between "
                     "the source and recharge locations on the Water Source tab.",
                     className="text-muted mb-3",
@@ -143,44 +170,78 @@ def create_engineering_help_modals():
                         html.Li(
                             [
                                 html.Strong("Gravity Flow in Ditch/Channel: "),
-                                "open-channel civil cost only (channel capacity ≥ Q_peak).",
+                                "open-channel civil cost only.",
                             ]
                         ),
                         html.Li(
                             [
                                 html.Strong("Gravity Flow in Pipeline: "),
-                                "gravity pipe/culvert civil cost only "
-                                "(Capacity ≥ Q_peak).",
+                                "gravity pipe/culvert civil cost only.",
                             ]
                         ),
                         html.Li(
                             [
                                 html.Strong("Pumped into Pipeline: "),
-                                "force-main package (pipe + pumping) along the "
-                                "conveyance length.",
+                                "single force-main unit rate that already includes "
+                                "pipe + pumping ($400/LF); no separate capital pump-"
+                                "package line.",
                             ]
                         ),
                         html.Li(
                             [
                                 html.Strong("Pumped into Ditch/Channel: "),
-                                "channel civil cost plus a separate pump package "
-                                "(lift into the ditch/channel).",
+                                "channel civil ($100/LF) plus a separate pump package "
+                                "($307/LF) to lift into the ditch/channel.",
                             ]
                         ),
                     ],
                     className="mb-3",
                 ),
-                html.H6("Cost model", className="fw-bold mb-2"),
+                html.H6("Capital and O&M unit rates", className="fw-bold mb-2"),
                 html.Pre(
                     "L (ft) = haversine(source, recharge) × 5280\n"
                     "\n"
-                    "Gravity ditch/channel:   Channel @ $93/LF × L\n"
-                    "Gravity pipeline:       Pipeline @ $72/LF × L\n"
-                    "Pumped pipeline:        Pumped conveyance @ $400/LF × L\n"
-                    "Pumped ditch/channel:   Channel @ $93/LF × L\n"
-                    "                      + Pump package @ $307/LF × L\n"
-                    "                        (civil + pump ≈ $400/LF total)",
-                    className="bg-light border rounded p-2 small mb-0",
+                    "Capital:\n"
+                    "  Gravity ditch/channel:   $93/LF × L\n"
+                    "  Gravity pipeline:       $72/LF × L\n"
+                    "  Pumped pipeline:        $400/LF × L  (pipe + pumping combined)\n"
+                    "  Pumped ditch/channel:   $100/LF civil × L\n"
+                    "                        + $307/LF pump package × L\n"
+                    "                          (= $407/LF total)\n"
+                    "\n"
+                    "Annual O&M:\n"
+                    "  Gravity / pumped ditch: $50/LF ditch maintenance × L\n"
+                    "  Gravity pipeline:       $5/LF pipeline maintenance × L\n"
+                    "  Pumped pipeline:        $0/LF pipe O&M\n"
+                    "  Either pumped option:   + $2,000 lump-sum pump package O&M",
+                    className="bg-light border rounded p-2 small mb-3",
+                ),
+                html.H6("How this affects final price", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Method: "),
+                                "gravity options are much cheaper than pumped. "
+                                "Among pumped options, ditch ($407/LF + ditch O&M) "
+                                "is slightly higher capital and higher annual O&M "
+                                "than pipeline ($400/LF + pump O&M only).",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Distance L: "),
+                                "set by source and recharge map points on Water "
+                                "Source. Longer L increases all $/LF capital and "
+                                "O&M line items proportionally.",
+                            ]
+                        ),
+                        html.Li(
+                            "Conveyance cost is added to every recharge option’s "
+                            "capital / maintenance / NPV totals on Cost Analysis."
+                        ),
+                    ],
+                    className="mb-0",
                 ),
             ],
         ),
@@ -191,7 +252,8 @@ def create_engineering_help_modals():
                 html.P(
                     "Choose whether sediment removal (for example a pond or filter) "
                     "is needed before recharge. When Yes, capital and maintenance "
-                    "costs for sediment removal are included.",
+                    "costs for sediment removal are included; when No, those line "
+                    "items are zeroed.",
                     className="text-muted mb-3",
                 ),
                 html.H6("Removal target (automatic)", className="fw-bold mb-2"),
@@ -217,7 +279,44 @@ def create_engineering_help_modals():
                     "V_trap (gal) = t_settle (min) × Q_peak (gpm)\n"
                     "Footprint (ft²) = V_trap (ft³) / Water Depth (ft)\n"
                     "  with V_trap (ft³) = V_trap (gal) / 7.48",
-                    className="bg-light border rounded p-2 small mb-0",
+                    className="bg-light border rounded p-2 small mb-3",
+                ),
+                html.H6("How this affects final price", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Yes: "),
+                                "adds sediment-pond capital (trash rack, pond "
+                                "earthwork scaled by footprint) and related annual "
+                                "maintenance → ",
+                                html.Strong("higher total cost"),
+                                ".",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("No: "),
+                                "sediment-pond capital and O&M drop to zero → ",
+                                html.Strong("lower total cost"),
+                                ".",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Fine vs Medium Silt (from WQ Q2): "),
+                                "Fine Silt needs longer settling → larger trap "
+                                "volume/footprint → higher pond cost when sediment "
+                                "removal is Yes. Medium Silt is typically smaller/cheaper.",
+                            ]
+                        ),
+                        html.Li(
+                            "Pond size also grows with Q_peak, so fewer design "
+                            "events (larger design flow) increase sediment-removal "
+                            "cost when this option is Yes."
+                        ),
+                    ],
+                    className="mb-0",
                 ),
             ],
         ),
@@ -226,7 +325,7 @@ def create_engineering_help_modals():
             "Storage Help",
             [
                 html.P(
-                    "Choose whether a storage pond is needed prior to recharge"
+                    "Choose whether a storage pond is needed prior to recharge. "
                     "When Yes, capital costs for temporary storage are included.",
                     className="text-muted mb-3",
                 ),
@@ -247,7 +346,36 @@ def create_engineering_help_modals():
                     "Pumped conveyance to storage (automatic):\n"
                     "  Distance = 500 ft (hard-coded)\n"
                     "  Includes: pipeline, pumping/bag filter, controls, electrical",
-                    className="bg-light border rounded p-2 small mb-0",
+                    className="bg-light border rounded p-2 small mb-3",
+                ),
+                html.H6("How this affects final price", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Yes: "),
+                                "adds storage-pond capital (area scales with V_day) "
+                                "plus the fixed 500 ft pumped conveyance package → ",
+                                html.Strong("higher capital, maintenance, and NPV"),
+                                ".",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("No: "),
+                                "storage pond and its 500 ft conveyance package are "
+                                "omitted → ",
+                                html.Strong("lower total cost"),
+                                ".",
+                            ]
+                        ),
+                        html.Li(
+                            "Larger design events (fewer events per month) increase "
+                            "V_day and therefore storage pond area and cost when "
+                            "storage is Yes."
+                        ),
+                    ],
+                    className="mb-0",
                 ),
             ],
         ),
@@ -256,9 +384,10 @@ def create_engineering_help_modals():
             "Recharge Methods Help",
             [
                 html.P(
-                    "Choose which recharge methods you would like to evaluate"
-                    "Sizing uses transfer rates and capacities from DSS defaults; "
-                    "surface methods are volume-based from V_day and available area.",
+                    "Cost is estimated for all three recharge engineering options "
+                    "(checkboxes are fixed on — not user-selectable). Results appear "
+                    "side-by-side on Analysis → (7.2) Cost Analysis. Infeasible "
+                    "options show N/A and are omitted from the NPV chart.",
                     className="text-muted mb-3",
                 ),
                 html.H6(
@@ -279,20 +408,22 @@ def create_engineering_help_modals():
                             [
                                 html.Strong("Surface recharge methods: "),
                                 "e.g. infiltration basin, Ag MAR, Flood MAR; "
-                                "footprint from volume and depth, constrained by "
+                                "footprint from V_day and depth, constrained by "
                                 "maximum infiltration area.",
                             ]
                         ),
                         html.Li(
                             [
                                 html.Strong("Dry well(s): "),
-                                "vadose-zone wells; count from capacity vs transfer rate.",
+                                "vadose-zone wells; count and rate from hydrogeology "
+                                "/ Default Parameters.",
                             ]
                         ),
                         html.Li(
                             [
                                 html.Strong("Injection well(s): "),
-                                "direct aquifer injection; count from per-well Q limits.",
+                                "direct aquifer injection; count and rate from "
+                                "hydrogeology / Default Parameters.",
                             ]
                         ),
                     ],
@@ -320,7 +451,39 @@ def create_engineering_help_modals():
                     "\n"
                     "Pumped conveyance to infiltration (always on):\n"
                     "  pipeline, pumping/bag filter, controls, electrical",
-                    className="bg-light border rounded p-2 small mb-0",
+                    className="bg-light border rounded p-2 small mb-3",
+                ),
+                html.H6("How this affects final price", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            "Shared upstream costs (conveyance to site, sediment, "
+                            "storage) are included in each option’s totals; method-"
+                            "specific costs (basin earthwork vs dry/injection wells) "
+                            "differ by column."
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Surface recharge: "),
+                                "cost grows with required basin area (V_day). Larger "
+                                "design events raise surface-recharge capital.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Dry / injection wells: "),
+                                "cost grows mainly with well count and capacity from "
+                                "the hydrogeology sizing (not from the conveyance "
+                                "radio). More wells → higher capital and O&M.",
+                            ]
+                        ),
+                        html.Li(
+                            "If an option is not feasible after Analysis, Cost "
+                            "Analysis shows N/A for that option instead of a dollar "
+                            "amount."
+                        ),
+                    ],
+                    className="mb-0",
                 ),
             ],
         ),
@@ -545,7 +708,7 @@ def create_engineering_elements_content():
                                     ],
                                     className="g-2 eng-section-pair",
                                 ),
-                                # Recharge Methods
+                                # Recharge Methods (all three always estimated)
                                 html.Div(
                                     [
                                         _eng_card_title(
@@ -554,9 +717,10 @@ def create_engineering_elements_content():
                                             "Help: surface, dry wells, injection wells",
                                         ),
                                         _eng_question(
-                                            "Which recharge method would you like to evaluate?"
+                                            "Cost for the following recharge engineering "
+                                            "options will be estimated"
                                         ),
-                                        dbc.RadioItems(
+                                        dbc.Checklist(
                                             options=[
                                                 {
                                                     "label": (
@@ -564,18 +728,25 @@ def create_engineering_elements_content():
                                                         "(e.g., Infiltration Basin, Ag MAR, Flood MAR)"
                                                     ),
                                                     "value": "infiltration_basin",
+                                                    "disabled": True,
                                                 },
                                                 {
                                                     "label": "Dry Well(s)",
                                                     "value": "dry_wells",
+                                                    "disabled": True,
                                                 },
                                                 {
                                                     "label": "Injection Well(s)",
                                                     "value": "injection_wells",
+                                                    "disabled": True,
                                                 },
                                             ],
-                                            value="infiltration_basin",
-                                            id="infiltration-method-radio",
+                                            value=[
+                                                "infiltration_basin",
+                                                "dry_wells",
+                                                "injection_wells",
+                                            ],
+                                            id="infiltration-method-checklist",
                                             className="eng-radio-stack",
                                         ),
                                     ],
@@ -647,8 +818,8 @@ def create_engineering_elements_content():
             placement="top",
         ),
         dbc.Tooltip(
-            "Choose which recharge method to evaluate for sizing and costing",
-            target="infiltration-method-radio",
+            "Cost is estimated for all three recharge options (not user-selectable)",
+            target="infiltration-method-checklist",
             placement="top",
         ),
     ]
@@ -663,8 +834,11 @@ def create_cost_content():
             [
                 html.P(
                     "Capital, annual maintenance, and 20-year net present value are "
-                    "built from the Engineering options you selected and the design "
-                    "flow (Q_design → Q_peak / V_day).",
+                    "built from Engineering settings and the design flow "
+                    "(Q_design → Q_peak / V_day). Costs are estimated for all three "
+                    "recharge methods. Totals refresh when you open this Cost "
+                    "Analysis tab so Engineering changes (e.g. conveyance method) "
+                    "are reflected.",
                     className="text-muted mb-3",
                 ),
                 html.Ul(
@@ -692,10 +866,51 @@ def create_cost_content():
                     ],
                     className="mb-3",
                 ),
+                html.H6("How Engineering parameters change the price", className="fw-bold mb-2"),
+                html.Ul(
+                    [
+                        html.Li(
+                            [
+                                html.Strong("Events per month: "),
+                                "fewer events → larger design event → higher "
+                                "volume/flow-based costs; more events → lower cost.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Conveyance method & distance: "),
+                                "gravity ≪ pumped; longer source→recharge distance "
+                                "scales all $/LF conveyance capital and O&M.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Sediment removal Yes/No: "),
+                                "Yes adds pond + O&M (size from Q_peak and Fine/"
+                                "Medium Silt); No removes those costs.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Storage Yes/No: "),
+                                "Yes adds storage pond (from V_day) plus 500 ft "
+                                "pumped conveyance; No removes those costs.",
+                            ]
+                        ),
+                        html.Li(
+                            [
+                                html.Strong("Recharge method columns: "),
+                                "surface / dry well / injection each get their own "
+                                "totals; infeasible options show N/A (no NPV bars).",
+                            ]
+                        ),
+                    ],
+                    className="mb-3",
+                ),
                 html.P(
                     "Detail tables (Capital, Maintenance, NPV) list unit costs and "
-                    "quantities for each line item. Values update when you change "
-                    "Engineering options and re-run analysis.",
+                    "quantities for each line item. Open or re-open (7.2) Cost "
+                    "Analysis after changing Engineering options to refresh the numbers.",
                     className="mb-0",
                 ),
             ],

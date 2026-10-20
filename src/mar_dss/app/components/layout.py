@@ -674,6 +674,9 @@ def _build_root_layout() -> html.Div:
             # Bumped when stratigraphy / groundwater is copied into dash_storage (avoid
             # circular callbacks that write the same dcc.Store they listen to).
             dcc.Store(id="stratigraphy-dash-sync-ping", data=0),
+            # Bumped when stratigraphy numeric validation fails so inputs remount
+            # with the last valid store values (Dash otherwise leaves the bad typed value).
+            dcc.Store(id="stratigraphy-validation-tick", data=0),
             dcc.Store(id="groundwater-dash-sync-ping", data=0),
             # Incremented on every (7) Analysis top-tab click (including re-clicks).
             dcc.Store(id="analysis-rerun-count", data=0),

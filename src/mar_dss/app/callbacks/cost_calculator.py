@@ -602,11 +602,11 @@ class CostCalculator:
                 'Pumped into Pipeline', 'LF', 400, dist,
             ]
         elif conveyance_method == "pumped_ditch":
-            # Hybrid: channel civil + pump package (together ≈ old $400/LF pumped)
+            # Hybrid: channel civil + pump package
             irow += 1
             df.loc[irow] = [
                 'CONVEYANCE TO RECHARGE SITE',
-                'Pumped into Ditch/Channel — Civil', 'LF', 93, dist,
+                'Pumped into Ditch/Channel — Civil', 'LF', 100, dist,
             ]
             irow += 1
             df.loc[irow] = [

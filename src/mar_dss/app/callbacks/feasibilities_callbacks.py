@@ -688,12 +688,35 @@ def _build_empty_engineering_options_summary():
 
 
 def _prepare_constraints_data(results, filters, constraint_type=None):
-    """Prepare constraint data for heatmap, optionally filtered by type."""
+    """Prepare constraint data for heatmap, optionally filtered by type.
+
+    Returns
+    -------
+    sorted_constraints :
+        Constraint names for the heatmap columns.
+    constraint_data :
+        ``{option_name: {constraint_name: response_level}}``.
+    detail_data :
+        ``{option_name: {constraint_name: detail_text}}`` for hover (penalty /
+        why text). Data-gap Unknown answers keep warning level 2 but use
+        data-gap wording rather than remediation language.
+    """
     all_constraints = set()
     constraint_data = {}  # {option_name: {constraint_name: response_level}}
+    detail_data = {}  # {option_name: {constraint_name: detail_text}}
+
+    _RESPONSE_LABELS = {
+        -1: "Irrelevant",
+        0: "Acceptable",
+        1: "Acceptable with additional cost",
+        2: "Warning",
+        3: "Mitigation needed",
+        4: "Reject",
+    }
     
     for option_name in results.keys():
         constraint_data[option_name] = {}
+        detail_data[option_name] = {}
         if option_name in filters:
             filter_data = filters[option_name]
             hard_constraints = filter_data.get('hard', [])
@@ -708,6 +731,10 @@ def _prepare_constraints_data(results, filters, constraint_type=None):
                     # Hard constraint: 0 if pass, 4 if fail
                     response_level = 0 if hc.get('pass', True) else 4
                     constraint_data[option_name][constraint_name] = response_level
+                    detail_data[option_name][constraint_name] = (
+                        hc.get("why")
+                        or ("Pass" if response_level == 0 else "Fail")
+                    )
             
             # Process soft constraints (use response level directly)
             for sc in soft_constraints:
@@ -718,14 +745,21 @@ def _prepare_constraints_data(results, filters, constraint_type=None):
                 if constraint_type is None or constraint_type_value == constraint_type:
                     all_constraints.add(constraint_name)
                     response_level = sc.get('response', 0)
+                    penalties = sc.get("penalty") or []
+                    if penalties:
+                        detail = penalties[0] if isinstance(penalties[0], str) else str(penalties[0])
+                    else:
+                        detail = _RESPONSE_LABELS.get(
+                            response_level, f"Response {response_level}"
+                        )
                     # If this constraint already exists (from hard), keep the higher severity
                     if constraint_name in constraint_data[option_name]:
-                        constraint_data[option_name][constraint_name] = max(
-                            constraint_data[option_name][constraint_name],
-                            response_level
-                        )
+                        if response_level >= constraint_data[option_name][constraint_name]:
+                            constraint_data[option_name][constraint_name] = response_level
+                            detail_data[option_name][constraint_name] = detail
                     else:
                         constraint_data[option_name][constraint_name] = response_level
+                        detail_data[option_name][constraint_name] = detail
     
     # Filter constraint_data to only include constraints that are in all_constraints
     # This ensures we only show constraints that match the type filter
@@ -734,18 +768,33 @@ def _prepare_constraints_data(results, filters, constraint_type=None):
             k: v for k, v in constraint_data[option_name].items() 
             if k in all_constraints
         }
+        detail_data[option_name] = {
+            k: v for k, v in detail_data[option_name].items()
+            if k in all_constraints
+        }
     
-    return sorted(all_constraints), constraint_data
+    return sorted(all_constraints), constraint_data, detail_data
 
 
 def _create_constraints_heatmap(results, filters, constraint_type=None, title=None, is_dark=False):
     """Create the constraints heatmap chart and legend for a specific constraint type."""
-    sorted_constraints, constraint_data = _prepare_constraints_data(results, filters, constraint_type)
+    sorted_constraints, constraint_data, detail_data = _prepare_constraints_data(
+        results, filters, constraint_type
+    )
     option_names = list(results.keys())
     font_color = "#f8f9fa" if is_dark else "#212529"
     grid_color = "#495057" if is_dark else "lightgray"
     plot_bg = "#212529" if is_dark else "white"
     paper_bg = "rgba(0,0,0,0)" if is_dark else "white"
+
+    _RESPONSE_LABELS = {
+        -1: "Irrelevant",
+        0: "Acceptable",
+        1: "Acceptable with additional cost",
+        2: "Warning",
+        3: "Mitigation needed",
+        4: "Reject",
+    }
     
     if title is None:
         title = "Constraints Heatmap"
@@ -773,7 +822,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
     y_data = []  # Option names
     response_levels = []  # Response levels for coloring
     marker_sizes = []  # Marker sizes (fixed or based on response level)
-    hover_texts = []  # Hover text
+    status_details = []  # Penalty / why text for hover
     
     for option_name in option_names:
         for constraint_name in sorted_constraints:
@@ -783,7 +832,10 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
             response_levels.append(response_level)
             # Fixed marker size, or could vary based on response level
             marker_sizes.append(34)  # Circle diameter for measles/heatmap markers
-            hover_texts.append(f'{option_name}<br>{constraint_name}<br>Response Level: {response_level}')
+            status_details.append(
+                detail_data.get(option_name, {}).get(constraint_name)
+                or _RESPONSE_LABELS.get(response_level, f"Response {response_level}")
+            )
     
     # Create color mapping for response levels
     color_map = {
@@ -822,8 +874,20 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
             text=[str(response_levels[i]) for i in relevant_indices],
             textposition='middle center',
             textfont=dict(size=9, color='white', family='Arial, sans-serif'),
-            hovertemplate='<b>%{customdata[0]}</b><br>%{x}<br>Response Level: %{customdata[1]}<extra></extra>',
-            customdata=[[y_data[i], response_levels[i]] for i in relevant_indices],
+            hovertemplate=(
+                "<b>%{customdata[0]}</b><br>%{x}<br>"
+                "Response: %{customdata[1]} (%{customdata[2]})<br>"
+                "%{customdata[3]}<extra></extra>"
+            ),
+            customdata=[
+                [
+                    y_data[i],
+                    response_levels[i],
+                    _RESPONSE_LABELS.get(response_levels[i], str(response_levels[i])),
+                    status_details[i],
+                ]
+                for i in relevant_indices
+            ],
             showlegend=False
         ))
     
@@ -1194,17 +1258,21 @@ def setup_feasibilities_callbacks(app):
         Output("hydro-constraints-help-modal", "is_open"),
         [
             Input("hydro-constraints-help-btn", "n_clicks"),
+            Input("hydro-constraints-help-note-btn", "n_clicks"),
             Input("hydro-constraints-help-close", "n_clicks"),
         ],
         State("hydro-constraints-help-modal", "is_open"),
         prevent_initial_call=True,
     )
-    def toggle_hydro_constraints_help(open_clicks, close_clicks, is_open):
+    def toggle_hydro_constraints_help(open_clicks, note_clicks, close_clicks, is_open):
         ctx = dash.callback_context
         if not ctx.triggered:
             return dash.no_update
         trigger = ctx.triggered[0]["prop_id"]
-        if "hydro-constraints-help-btn" in trigger:
+        if (
+            "hydro-constraints-help-btn" in trigger
+            or "hydro-constraints-help-note-btn" in trigger
+        ):
             return True
         if "hydro-constraints-help-close" in trigger:
             return False
@@ -1214,17 +1282,21 @@ def setup_feasibilities_callbacks(app):
         Output("wq-constraints-help-modal", "is_open"),
         [
             Input("wq-constraints-help-btn", "n_clicks"),
+            Input("wq-constraints-help-note-btn", "n_clicks"),
             Input("wq-constraints-help-close", "n_clicks"),
         ],
         State("wq-constraints-help-modal", "is_open"),
         prevent_initial_call=True,
     )
-    def toggle_wq_constraints_help(open_clicks, close_clicks, is_open):
+    def toggle_wq_constraints_help(open_clicks, note_clicks, close_clicks, is_open):
         ctx = dash.callback_context
         if not ctx.triggered:
             return dash.no_update
         trigger = ctx.triggered[0]["prop_id"]
-        if "wq-constraints-help-btn" in trigger:
+        if (
+            "wq-constraints-help-btn" in trigger
+            or "wq-constraints-help-note-btn" in trigger
+        ):
             return True
         if "wq-constraints-help-close" in trigger:
             return False
@@ -1337,7 +1409,7 @@ def setup_feasibilities_callbacks(app):
         )
     
 def _create_spider_plots(dss_results, categorized_data):
-    """Create spider plots for each MAR option (7 axes including $/acre-ft efficiency)."""
+    """Create spider plots for each MAR option (6 axes including $/acre-ft efficiency)."""
     if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
         return html.Div(
             "No DSS evaluation results available. Please run the feasibility analysis first.",

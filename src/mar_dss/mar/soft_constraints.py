@@ -25,8 +25,8 @@ WQ_TURBIDITY_HIGH = ">20 NTU"
 
 def _water_quality_data_gap_penalty(parameter_label: str) -> str:
     return (
-        f"{_WQ_DATA_GAP_PREFIX}{parameter_label} not available; "
-        "assumed very low risk pending water quality data collection."
+        f"{_WQ_DATA_GAP_PREFIX}{parameter_label} status is Unknown; "
+        "collect site data before treating this as a remediation or rejection trigger."
     )
 
 
@@ -463,7 +463,7 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
     })
 
     # ==================================================================
-    # 3. Need for Remediation (vadose / unsaturated zone)
+    # 3. Vadose zone contaminant impact (Water Quality Q3)
     # ==================================================================
     remediation_needed_response = 0
     remediation_needed_penalty = []
@@ -489,11 +489,14 @@ def soft_constraints(option: MAROption) -> List[Dict[str, Any]]:
         )
 
     constraints.append({
-        "name": "Need for Remediation",
+        "name": "Vadose Zone Contaminant Impact",
         "response": remediation_needed_response,
         "penalty": remediation_needed_penalty,
         "type": "environmental",
-        "hard": True if "Need for Remediation" in hardend_constraints else False
+        "hard": True
+        if "Vadose Zone Contaminant Impact" in hardend_constraints
+        or "Need for Remediation" in hardend_constraints
+        else False,
     })
 
     # ==================================================================

@@ -65,7 +65,11 @@ WQ_QUESTIONS = (
             "(e.g., VOCs, metals, emerging contaminants)?"
         ),
         "options": YES_NO_UNKNOWN,
-        "tooltip": "Contamination in the unsaturated zone above the target aquifer",
+        "tooltip": (
+            "Contamination in the unsaturated zone above the target aquifer. "
+            "Vadose treatment applies mainly to surface recharge (or when the "
+            "target is the unsaturated zone); injection can bypass the vadose."
+        ),
     },
     {
         "key": "aquifer_anthropogenic",
@@ -149,7 +153,7 @@ DECISION_LOGIC = {
     "vadose_impacted": {
         WQ_UNKNOWN: {
             "score": 0, "color": "secondary", "treatment_key": "Q3_NA",
-            "rec": "Investigate vadose/unsaturated zone contamination before final suitability assessment.",
+            "rec": "Collect information about potential contamination in the vadose zone",
         },
         WQ_NO: {
             "score": 0, "color": "success", "treatment_key": "Q3_NO",
@@ -158,10 +162,14 @@ DECISION_LOGIC = {
         WQ_YES: {
             "score": 18, "color": "danger", "treatment_key": "Q3_YES",
             "rec": (
-                "If the vadose/unsaturated zone is impacted by anthropogenic contaminants, "
-                "surface recharge methods are not feasible; consider recharge methods that "
-                "bypass the vadose zone (e.g., injection), a new recharge location, or "
-                "vadose/unsaturated zone remediation."
+                "If the vadose/unsaturated zone is impacted by contaminants, "
+                "vadose remediation (or avoiding the pathway) applies only when "
+                "surface recharge is chosen or the target aquifer is the "
+                "unsaturated zone. Injection wells can bypass the vadose and may "
+                "not require vadose treatment; for confined aquifers injection is "
+                "typically the only option, so the vadose is not a consideration. "
+                "For surface recharge, consider bypassing the vadose (e.g., "
+                "injection), a new recharge location, or vadose remediation."
             ),
         },
     },
@@ -179,7 +187,8 @@ DECISION_LOGIC = {
             "rec": (
                 "If the target aquifer is impacted by anthropogenic contaminants, "
                 "recharge should not be implemented at this location; consider a new "
-                "recharge location."
+                "recharge location. Any associated treatment cost estimates are for "
+                "pumped (recovered) water, not for the recharge water."
             ),
         },
     },
@@ -198,7 +207,9 @@ DECISION_LOGIC = {
                 "If the target aquifer is impacted by naturally occurring contaminants, "
                 "recharge at this location may still be possible based on site-specific "
                 "conditions and overall objectives, but additional considerations and "
-                "potential costs may be necessary and are beyond the scope of this tool."
+                "potential costs may be necessary and are beyond the scope of this tool. "
+                "Any associated treatment cost estimates are for pumped (recovered) water, "
+                "not for the recharge water."
             ),
         },
     },

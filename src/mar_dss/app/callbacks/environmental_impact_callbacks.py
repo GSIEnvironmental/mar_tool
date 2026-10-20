@@ -165,7 +165,7 @@ def calculate_cost_score(risks_and_treatments):
     )
 
 
-def generate_required_treatment_summary(risks_and_treatments):
+def generate_required_treatment_summary(risks_and_treatments, *, recovered_water_note=False):
     """Generate the treatment summary table."""
     if not risks_and_treatments:
         return html.P("No specific treatment required based on inputs", className="text-muted")
@@ -200,7 +200,17 @@ def generate_required_treatment_summary(risks_and_treatments):
     df['Sort_Order'] = df['Cost Scale'].apply(lambda x: cost_order.get(x, 10))
     df = df.sort_values(by=['Sort_Order', 'Question']).drop(columns=['Sort_Order'])
 
-    return html.Div(
+    children = []
+    if recovered_water_note:
+        children.append(
+            html.P(
+                "For Questions 4 and/or 5 answered Yes, treatment cost estimates are for "
+                "pumped (recovered) water, not for the recharge water.",
+                className="text-muted small mb-2",
+                style={"fontSize": "0.75rem"},
+            )
+        )
+    children.append(
         dash_table.DataTable(
             id='env-treatment-summary-table',
             columns=[{"name": i, "id": i} for i in df.columns],
@@ -214,9 +224,9 @@ def generate_required_treatment_summary(risks_and_treatments):
                 whiteSpace='normal',
             ),
             style_data=datatable_computed_data_style(whiteSpace='normal'),
-        ),
-        className='treatment-table'
+        )
     )
+    return html.Div(children, className='treatment-table')
 
 
 def setup_environmental_impact_callbacks(app):
@@ -399,6 +409,18 @@ def setup_environmental_impact_callbacks(app):
         
         # 5. Generate Cost Details Output (with two sections)
         cost_details_html = []
+        q4_or_q5_yes = (
+            answers.get("aquifer_anthropogenic") == WQ_YES
+            or answers.get("aquifer_natural") == WQ_YES
+        )
+        recovered_water_note = html.Div(
+            [
+                html.Strong("Note: "),
+                "For Questions 4 and/or 5 answered Yes, the treatment cost estimates "
+                "below are for pumped (recovered) water, not for the recharge water.",
+            ],
+            className="alert alert-info mb-3 py-2 small",
+        )
         
         # Section 1: Water Treatment Costs
         water_treatment_details = cost_details.get('water_treatment', [])
@@ -408,6 +430,8 @@ def setup_environmental_impact_callbacks(app):
             # Water Treatment Section
             if water_treatment_details:
                 cost_details_html.append(html.H6("Estimated Water Treatment Costs (per ft3 of water)", className="font-weight-bold mt-3 mb-2 text-primary"))
+                if q4_or_q5_yes:
+                    cost_details_html.append(recovered_water_note)
                 cost_details_html.append(html.P(
                     f"Total Water Treatment Cost: {_format_usd_per_ft3(water_treatment_cost_per_ft3)}",
                     className="font-weight-bold mb-2",
@@ -439,6 +463,10 @@ def setup_environmental_impact_callbacks(app):
                         html.Strong("Note: "),
                         "This is a one-time total project cost estimate, not a per-volume ($/ft³) unit cost, "
                         "so it is not included on the Estimated Water Treatment Cost gauge. "
+                        "Include this vadose remediation cost only if surface recharge is selected "
+                        "or the target aquifer is the unsaturated zone. Injection can bypass the "
+                        "vadose and may not require this treatment; for confined aquifers injection "
+                        "is typically the only option, so the vadose is not a consideration. "
                         "Vadose zone remediation costs can vary by orders of magnitude depending on contaminant type, "
                         "site size, depth, remediation technology, and regulatory requirements. "
                         "Typical range: $50,000 - $10,000,000. "
@@ -467,7 +495,10 @@ def setup_environmental_impact_callbacks(app):
             ]
         
         # 6. Generate Treatment Summary Table
-        treatment_summary_table = generate_required_treatment_summary(required_treatments_raw)
+        treatment_summary_table = generate_required_treatment_summary(
+            required_treatments_raw,
+            recovered_water_note=q4_or_q5_yes,
+        )
         
         # 7. Format Recommendations
         if not recommendations_list:

@@ -216,21 +216,25 @@ def _constraint_help_btn(btn_id, title):
     )
 
 
-def _constraint_help_note(modal_target_label="?"):
-    """Inline note pointing users to the panel help icon."""
+def _constraint_help_note(btn_id, title="Help: constraint meanings"):
+    """Inline note with an active ? button that opens the panel help modal."""
     return html.P(
         [
             "Click the ",
-            html.Span(
-                modal_target_label,
+            html.Button(
+                "?",
+                id=btn_id,
+                type="button",
                 className="mar-help-btn eng-help-btn d-inline-flex align-items-center "
                 "justify-content-center",
+                title=title,
                 style={
                     "width": "1.25rem",
                     "height": "1.25rem",
                     "fontSize": "0.7rem",
                     "verticalAlign": "middle",
-                    "pointerEvents": "none",
+                    "padding": "0",
+                    "lineHeight": "1",
                 },
             ),
             " icon for more details about the meaning of each constraint — "
@@ -289,6 +293,11 @@ def _response_level_help_block():
                         "score on the Performance Comparison spiders "
                         "(points drop from 10 at level 0 toward 0 at level 4)."
                     ),
+                    html.Li(
+                        "For Water Quality answers of Unknown, level 2 (yellow) is a "
+                        "data-gap warning — collect information; it does not mean "
+                        "remediation is already required."
+                    ),
                 ],
                 className="mb-3",
             ),
@@ -335,7 +344,8 @@ def _hydrogeologic_constraints_help_modal():
                                 "supports meaningful infiltration.",
                                 "Always Irrelevant (−1 / grey) for Injection Well. "
                                 "Confined → −1. If infiltration is inadequate, "
-                                "Surface Recharge → 3 (consider bypassing the vadose).",
+                                "Surface Recharge → 3 (consider bypassing the vadose); "
+                                "Dry Well stays 0.",
                                 "Low infiltration capacity limits recharge volume for "
                                 "surface methods; injection wells bypass the vadose.",
                             ),
@@ -344,7 +354,7 @@ def _hydrogeologic_constraints_help_modal():
                                 "Whether the vadose zone currently contains pollution.",
                                 "Always Irrelevant (−1 / grey) for Injection Well. "
                                 "Confined → −1. If pollution is present, Surface "
-                                "Recharge → 3 (bypass or remediate).",
+                                "Recharge → 3 (bypass or remediate); Dry Well stays 0.",
                                 "Recharge through a polluted vadose can mobilize "
                                 "contaminants; injection wells bypass that pathway.",
                             ),
@@ -416,10 +426,12 @@ def _hydrogeologic_constraints_help_modal():
                                 "Land Use",
                                 "Compatibility of land use with land-intensive "
                                 "surface recharge.",
-                                "Residential / commercial / urban land uses → 1 "
-                                "(extra land cost) for Surface Recharge; otherwise 0.",
-                                "Urban land is costly and may face zoning limits for "
-                                "basins and spreading areas.",
+                                "Overview land use Residential or "
+                                "Commercial/Industrial → 1 (extra land cost) for "
+                                "Surface Recharge; Agricultural / Open Space → 0. "
+                                "Dry Well and Injection Well stay 0.",
+                                "Developed land is costly and may face zoning limits "
+                                "for basins and spreading areas.",
                             ),
                         ],
                         className="mb-0",
@@ -482,14 +494,18 @@ def _water_quality_constraints_help_modal():
                                 "O&M (scraping, well rehabilitation).",
                             ),
                             _constraint_entry(
-                                "Need for Remediation",
+                                "Vadose Zone Contaminant Impact",
                                 "Whether the vadose / unsaturated zone is contaminant-"
-                                "impacted (surface pathway risk).",
+                                "impacted (surface pathway risk; Water Quality Q3).",
                                 "Confined aquifers → −1. Vadose impacted Yes + Surface "
-                                "Recharge → 4 (reject). Well options stay 0 when they "
-                                "bypass the vadose. Unknown → data-gap warning (2).",
+                                "Recharge → 4 (reject). Dry Well and Injection Well "
+                                "stay 0 (can bypass the vadose). Unknown → yellow "
+                                "data-gap warning (2) — missing information, not a "
+                                "remediation requirement.",
                                 "Surface recharge through an impacted vadose can "
-                                "transport contaminants; wells may still be viable.",
+                                "transport contaminants; well options that bypass the "
+                                "vadose may still be viable. Unknown means collect data, "
+                                "not that remediation is already required.",
                             ),
                             _constraint_entry(
                                 "Target Aquifer Anthropogenic Contaminants",
@@ -547,7 +563,10 @@ def _hydrogeologic_constraints_panel():
                     ),
                     dbc.CardBody(
                         [
-                            _constraint_help_note(),
+                            _constraint_help_note(
+                                "hydro-constraints-help-note-btn",
+                                "Help: hydrogeologic constraint meanings",
+                            ),
                             dcc.Graph(
                                 id="hydrogeologic-constraints-heatmap-chart",
                                 style={"height": "520px", "width": "100%"},
@@ -584,7 +603,10 @@ def _water_quality_constraints_panel():
                     ),
                     dbc.CardBody(
                         [
-                            _constraint_help_note(),
+                            _constraint_help_note(
+                                "wq-constraints-help-note-btn",
+                                "Help: water quality constraint meanings",
+                            ),
                             dcc.Graph(
                                 id="environmental-constraints-heatmap-chart",
                                 style={"height": "520px", "width": "100%"},

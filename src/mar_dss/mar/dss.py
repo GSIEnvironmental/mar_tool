@@ -1,6 +1,65 @@
 from typing import Any, Dict, List
 
 
+def _strip_soft_penalty_prefix(detail: str) -> str:
+    """Remove leading Warning:/Mitigation:/Cost:/Action:/Reject: tags from penalty text."""
+    text = (detail or "").strip()
+    lower = text.lower()
+    for prefix in (
+        "warning: data gap — ",
+        "warning: data gap - ",
+        "warning: data gap—",
+        "warning: data gap-",
+        "warning: data gap:",
+        "warning: ",
+        "mitigation: ",
+        "cost: ",
+        "action: ",
+        "reject: ",
+        "reject :: ",
+    ):
+        if lower.startswith(prefix):
+            return text[len(prefix) :].strip()
+    return text
+
+
+def _format_soft_issue_message(sm: Dict[str, Any]) -> str:
+    """Build a specific warning/mitigation label from a soft metric.
+
+    Distinguishes data-gap Unknown answers from confirmed findings (e.g.
+    contamination) using the soft-constraint penalty text.
+    """
+    name = sm.get("name") or "Constraint"
+    penalties = sm.get("penalty") or []
+    detail = ""
+    if isinstance(penalties, (list, tuple)) and penalties:
+        first = penalties[0]
+        detail = (first if isinstance(first, str) else str(first)).strip()
+    elif isinstance(penalties, str):
+        detail = penalties.strip()
+
+    if not detail:
+        return name
+
+    detail_lower = detail.lower()
+    cleaned = _strip_soft_penalty_prefix(detail)
+
+    if "data gap" in detail_lower:
+        # Ensure the label itself says "data gap" even if the body is long.
+        if cleaned.lower().startswith("data gap"):
+            return f"{name}: {cleaned}"
+        return f"{name}: data gap — {cleaned}"
+
+    # Confirmed contaminant findings: lead with contamination when the body says so.
+    if any(
+        token in detail_lower
+        for token in ("contaminant", "contamination", "pollution")
+    ):
+        return f"{name}: contamination — {cleaned}"
+
+    return f"{name}: {cleaned}"
+
+
 def _numeric_cost_penalty(sm: Dict[str, Any]) -> float:
     """Return the dollar amount to add for a soft metric (non-numeric → 0).
 
@@ -137,10 +196,10 @@ class DecisionSupportSystem:
                 cost += _numeric_cost_penalty(sm)
 
             if level == 2:
-                warnings.append(sm["name"])
+                warnings.append(_format_soft_issue_message(sm))
 
             elif level == 3:
-                mitigations.append(sm["name"])
+                mitigations.append(_format_soft_issue_message(sm))
 
             elif level == 4:
                 return {

@@ -8,7 +8,7 @@ Green: otherwise (only acceptable / irrelevant soft responses, all hard pass).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Optional, Sequence, Tuple
 
 RESPONSE_LABELS = {
     -1: "Irrelevant",
@@ -20,6 +20,32 @@ RESPONSE_LABELS = {
 }
 
 TrafficColor = Literal["green", "orange", "red"]
+
+# Soft constraints use "environmental" for Water Quality screening items.
+# Hard constraints use "water_quality" for the same domain.
+HYDROGEOLOGIC_CONSTRAINT_TYPES = frozenset({"hydrogeologic"})
+
+
+def _constraint_type(constraint: Dict[str, Any]) -> str:
+    raw = constraint.get("type")
+    if raw is None or str(raw).strip() == "":
+        return "hydrogeologic"
+    return str(raw).strip().lower()
+
+
+def filter_constraints_by_type(
+    constraints: Sequence[Dict[str, Any]],
+    allowed_types: Optional[Iterable[str]],
+) -> List[Dict[str, Any]]:
+    """Keep constraints whose ``type`` is in *allowed_types* (case-insensitive).
+
+    If *allowed_types* is None, return all constraints unchanged.
+    Constraints without a ``type`` are treated as hydrogeologic.
+    """
+    if allowed_types is None:
+        return list(constraints)
+    allowed = {str(t).strip().lower() for t in allowed_types}
+    return [c for c in constraints if _constraint_type(c) in allowed]
 
 
 def classify_constraints_traffic_light(
@@ -77,8 +103,22 @@ def evaluate_option_traffic_light(
     option: Any,
     hard_constraints_fn,
     soft_constraints_fn,
+    *,
+    allowed_types: Optional[Iterable[str]] = None,
 ) -> Tuple[TrafficColor, str]:
-    """Run MAR constraint builders for one option and classify."""
-    hc_list = hard_constraints_fn(option)
-    sc_list = soft_constraints_fn(option)
+    """Run MAR constraint builders for one option and classify.
+
+    Parameters
+    ----------
+    allowed_types:
+        If set (e.g. ``HYDROGEOLOGIC_CONSTRAINT_TYPES``), only constraints whose
+        ``type`` is in this set are used. Water quality / environmental items are
+        omitted from the Initial Hydrogeologic Feasibility screen.
+    """
+    hc_list = filter_constraints_by_type(
+        hard_constraints_fn(option), allowed_types
+    )
+    sc_list = filter_constraints_by_type(
+        soft_constraints_fn(option), allowed_types
+    )
     return classify_constraints_traffic_light(hc_list, sc_list)

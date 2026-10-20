@@ -162,7 +162,7 @@ def build_project_storage_defaults() -> dict[str, Any]:
         "aq_type": "unconfined",
         "confined_aquifer_head_ft": None,
         "max_dry_well_depth_ft": 120.0,
-        "aquitard_conductivity_ft_day": 1e-3,
+        "aquitard_conductivity_ft_day": 0.1,
         "stratigraphy_data": strat,
         "groundwater_data": normalize_groundwater_data([]),
         "ground_surface_elevation": 120.0,

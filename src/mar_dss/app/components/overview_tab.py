@@ -161,9 +161,10 @@ def create_starting_information_help_modal():
         ),
         (
             "Land Use",
-            "Primary land use at the site (residential, commercial/industrial, agricultural, "
-            "or open space). Included in project context for AI-assisted decisions and informs "
-            "assumptions about infiltration, disturbance, and site suitability.",
+            "Primary land use at the site (Residential, Commercial/Industrial, Agricultural, "
+            "or Open Space). Residential or Commercial/Industrial adds a soft land-cost "
+            "warning for Surface Recharge in feasibility scoring. Also included in project "
+            "context for AI-assisted decisions and site-suitability assumptions.",
         ),
         (
             "Ground Surface Slope (%)",

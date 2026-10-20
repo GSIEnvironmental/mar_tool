@@ -41,7 +41,10 @@ from mar_dss.mar import soft_constraints as sc_module
 from mar_dss.mar.options import mar_options
 from mar_dss.mar.forward_run import evaluate_and_store_decision_graph
 from mar_dss.app.callbacks.analysis_callbacks import get_session_graph, get_graph_inputs
-from mar_dss.app.utils.initial_hydro_feasibility import evaluate_option_traffic_light
+from mar_dss.app.utils.initial_hydro_feasibility import (
+    HYDROGEOLOGIC_CONSTRAINT_TYPES,
+    evaluate_option_traffic_light,
+)
 from mar_dss.app.utils.plotly_contour_grid import rectilinear_grid_for_plotly_contour
 
 DEFAULT_MAX_DRY_WELL_DEPTH_FT = 120.0
@@ -1000,14 +1003,18 @@ def setup_hydro_callbacks(app):
     
     @app.callback(
         Output("stratigraphy-table-body", "children"),
-        [Input("stratigraphy-data-store", "data")],
+        [
+            Input("stratigraphy-data-store", "data"),
+            Input("stratigraphy-validation-tick", "data"),
+        ],
         prevent_initial_call=False
     )
-    def update_stratigraphy_table(data):
+    def update_stratigraphy_table(data, validation_tick):
         """Update the stratigraphy table based on stored data."""
         if not data:
             return []
-        
+
+        tick = validation_tick if validation_tick is not None else 0
         rows = []
         for i, row in enumerate(data):
             # Create checkbox for selection
@@ -1032,46 +1039,53 @@ def setup_hydro_callbacks(app):
                 className="table-cell-input-borderless",
             )
             
-            # Create thickness input
+            # key includes validation tick so rejected edits remount with store values
             thickness_input = dbc.Input(
                 id={"type": "thickness-input", "index": i},
                 value=row["thickness"],
                 type="number",
+                min=1e-12,
                 step="0.1",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",
+                key=f"thickness-{i}-{tick}",
             )
             
-            # Create input fields
             conductivity_input = dbc.Input(
                 id={"type": "conductivity-input", "index": i},
                 value=row["conductivity"],
                 type="number",
+                min=1e-12,
                 step="0.001",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",
+                key=f"conductivity-{i}-{tick}",
             )
             
             storage_input = dbc.Input(
                 id={"type": "storage-input", "index": i},
                 value=row["storage"],
                 type="number",
+                min=1e-12,
                 step="0.000001",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",
+                key=f"storage-{i}-{tick}",
             )
             
             yield_input = dbc.Input(
                 id={"type": "yield-input", "index": i},
                 value=row["yield"],
                 type="number",
+                min=1e-12,
                 step="0.01",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",
+                key=f"yield-{i}-{tick}",
             )
             
             rows.append(html.Tr([
@@ -1203,58 +1217,110 @@ def setup_hydro_callbacks(app):
     @app.callback(
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
         Output("stratigraphy-error-message", "children"),
+        Output("stratigraphy-validation-tick", "data"),
         [Input({"type": "layer-checkbox", "index": dash.dependencies.ALL}, "value"),
          Input({"type": "layer-select", "index": dash.dependencies.ALL}, "value"),
          Input({"type": "thickness-input", "index": dash.dependencies.ALL}, "value"),
          Input({"type": "conductivity-input", "index": dash.dependencies.ALL}, "value"),
          Input({"type": "storage-input", "index": dash.dependencies.ALL}, "value"),
          Input({"type": "yield-input", "index": dash.dependencies.ALL}, "value")],
-        [State("stratigraphy-data-store", "data")],
+        [
+            State("stratigraphy-data-store", "data"),
+            State("stratigraphy-validation-tick", "data"),
+        ],
         prevent_initial_call=True
     )
-    def update_table_data(checkbox_values, layer_values, thickness_values, conductivity_values, storage_values, yield_values, data):
+    def update_table_data(
+        checkbox_values,
+        layer_values,
+        thickness_values,
+        conductivity_values,
+        storage_values,
+        yield_values,
+        data,
+        validation_tick,
+    ):
         """Update table data when inputs change.
 
         Changing soil type auto-fills K, Ss, and Sy for that row from SOIL_PROPERTIES
         only when the soil type value actually changes. Manual edits to thickness,
         K, Ss, and Sy are kept afterward.
-        Negative numeric values are rejected with an error message.
-        Values must be greater than zero (0 or less is rejected).
+
+        Thickness, hydraulic conductivity, specific storage, and specific yield must
+        all be numbers greater than zero. Invalid or blank entries are rejected, an
+        error alert is shown, and the table remounts with the last valid values.
         """
+        tick = validation_tick if validation_tick is not None else 0
         if not data:
-            return data, []
+            return data, [], tick
+
+        original = data
         data = copy.deepcopy(data)
         errors = []
 
-        def _parse_positive(raw, field_label, row_num):
-            """Return float if valid and > 0; else append error and return None."""
-            if raw is None or (isinstance(raw, str) and str(raw).strip() == ""):
-                return None
-            try:
-                value = float(raw)
-            except (TypeError, ValueError):
-                errors.append(
-                    f"Row {row_num}: {field_label} must be a number."
-                )
-                return None
-            if value <= 0:
-                errors.append(
-                    f"Row {row_num}: {field_label} must be greater than zero."
-                )
-                return None
-            return value
+        numeric_types = {
+            "thickness-input": ("thickness", "Thickness"),
+            "conductivity-input": ("conductivity", "Hydraulic Conductivity"),
+            "storage-input": ("storage", "Specific Storage"),
+            "yield-input": ("yield", "Specific Yield"),
+        }
 
         triggered_layer_idx = None
+        triggered_numeric_type = None
+        triggered_numeric_idx = None
         if callback_context.triggered:
             try:
                 import json as _json
 
                 tid = callback_context.triggered[0]["prop_id"].split(".")[0]
                 parsed = _json.loads(tid)
-                if parsed.get("type") == "layer-select":
-                    triggered_layer_idx = int(parsed["index"])
+                t = parsed.get("type")
+                idx = int(parsed["index"])
+                if t == "layer-select":
+                    triggered_layer_idx = idx
+                elif t in numeric_types:
+                    triggered_numeric_type = t
+                    triggered_numeric_idx = idx
             except (ValueError, KeyError, TypeError):
-                triggered_layer_idx = None
+                pass
+
+        def _apply_positive(raw, field_label, row_num, *, strict):
+            """Return float if valid and > 0; None to keep prior store value.
+
+            When *strict* (the cell the user just edited), blank / ≤0 / non-numeric
+            values append an error. Non-strict cells ignore blanks (remount noise)
+            and only apply when a valid positive number is present.
+            """
+            blank = raw is None or (isinstance(raw, str) and str(raw).strip() == "")
+            if blank:
+                if strict:
+                    errors.append(
+                        f"Row {row_num}: {field_label} must be greater than zero."
+                    )
+                return None
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                if strict:
+                    errors.append(
+                        f"Row {row_num}: {field_label} must be a number "
+                        "greater than zero."
+                    )
+                return None
+            if value <= 0:
+                if strict:
+                    errors.append(
+                        f"Row {row_num}: {field_label} must be greater than zero."
+                    )
+                return None
+            return value
+
+        input_lists = {
+            "thickness-input": thickness_values,
+            "conductivity-input": conductivity_values,
+            "storage-input": storage_values,
+            "yield-input": yield_values,
+        }
 
         for i, row in enumerate(data):
             row_num = i + 1
@@ -1276,45 +1342,41 @@ def setup_hydro_callbacks(app):
             if new_layer is not None:
                 row["layer"] = new_layer
 
-            if i < len(thickness_values):
-                parsed = _parse_positive(
-                    thickness_values[i], "Thickness", row_num
-                )
-                if parsed is not None:
-                    row["thickness"] = parsed
-
-            # Only auto-fill K / Ss / Sy when the user actually changes soil type.
-            # Remounts of the table must not wipe manual edits.
             if soil_type_changed:
+                # Thickness still comes from the input; K / Ss / Sy from soil defaults.
+                if i < len(thickness_values):
+                    parsed = _apply_positive(
+                        thickness_values[i],
+                        "Thickness",
+                        row_num,
+                        strict=(
+                            triggered_numeric_type == "thickness-input"
+                            and triggered_numeric_idx == i
+                        ),
+                    )
+                    if parsed is not None:
+                        row["thickness"] = parsed
                 props = soil_property_defaults(new_layer)
                 row["conductivity"] = props["conductivity"]
                 row["storage"] = props["storage"]
                 row["yield"] = props["yield"]
                 continue
 
-            if i < len(conductivity_values):
-                parsed = _parse_positive(
-                    conductivity_values[i],
-                    "Hydraulic Conductivity",
-                    row_num,
+            for type_key, (store_key, label) in numeric_types.items():
+                values = input_lists[type_key]
+                if i >= len(values):
+                    continue
+                strict = (
+                    triggered_numeric_type == type_key
+                    and triggered_numeric_idx == i
+                )
+                parsed = _apply_positive(
+                    values[i], label, row_num, strict=strict
                 )
                 if parsed is not None:
-                    row["conductivity"] = parsed
-            if i < len(storage_values):
-                parsed = _parse_positive(
-                    storage_values[i], "Specific Storage", row_num
-                )
-                if parsed is not None:
-                    row["storage"] = parsed
-            if i < len(yield_values):
-                parsed = _parse_positive(
-                    yield_values[i], "Specific Yield", row_num
-                )
-                if parsed is not None:
-                    row["yield"] = parsed
+                    row[store_key] = parsed
 
         if errors:
-            # Deduplicate while preserving order
             seen = set()
             unique_errors = []
             for msg in errors:
@@ -1324,19 +1386,28 @@ def setup_hydro_callbacks(app):
             alert = dbc.Alert(
                 [
                     html.Strong("Invalid stratigraphy values"),
+                    html.P(
+                        "All thickness, hydraulic conductivity, specific storage, "
+                        "and specific yield values must be greater than zero.",
+                        className="mb-2 mt-2",
+                    ),
                     html.Ul(
                         [html.Li(msg) for msg in unique_errors],
-                        className="mb-0 mt-2",
+                        className="mb-0",
                     ),
                 ],
                 color="danger",
                 className="mb-0",
                 dismissable=True,
             )
-        else:
-            alert = []
+            # Keep last valid store values; bump tick so inputs remount cleaned.
+            return dash.no_update, alert, tick + 1
 
-        return data, alert    
+        # Avoid store churn (and remount loops) when nothing actually changed.
+        if data == original:
+            return dash.no_update, [], tick
+
+        return data, [], tick    
     # Groundwater Level Table Callbacks
     @app.callback(
         Output("groundwater-table-body", "children"),
@@ -2126,6 +2197,7 @@ def setup_hydro_callbacks(app):
                     option,
                     hc_module.hard_constraints,
                     sc_module.soft_constraints,
+                    allowed_types=HYDROGEOLOGIC_CONSTRAINT_TYPES,
                 )
                 dot = _TRAFFIC_DOT[color]
                 name_cls = (

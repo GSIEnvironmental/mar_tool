@@ -158,17 +158,56 @@ def _format_cost_column_values(df, cost_columns, label_col=None, round_all=False
 
 
 def _get_not_feasible_option_names():
-    """Option names rejected by feasibility analysis (same logic as Feasibilities tab)."""
-    dss_results = dash_storage.get_data("dss_results")
-    if dss_results is None or not hasattr(dss_results, "results") or not dss_results.results:
-        return set()
-    from mar_dss.app.callbacks.feasibilities_callbacks import _categorize_options
+    """Option names rejected by feasibility analysis (same logic as Feasibilities tab).
 
-    categorized = _categorize_options(
-        dss_results.results,
-        getattr(dss_results, "filters", {}),
-    )
-    return {opt["name"] for opt in categorized.get("rejected", [])}
+    Prefers stored DSS results. If Analysis has not been run yet, evaluates hard
+    (and soft reject) constraints directly so Cost Analysis can still show N/A.
+    """
+    dss_results = dash_storage.get_data("dss_results")
+    if dss_results is not None and hasattr(dss_results, "results") and dss_results.results:
+        from mar_dss.app.callbacks.feasibilities_callbacks import _categorize_options
+
+        categorized = _categorize_options(
+            dss_results.results,
+            getattr(dss_results, "filters", {}),
+        )
+        return {opt["name"] for opt in categorized.get("rejected", [])}
+
+    not_feasible = set()
+    try:
+        from mar_dss.mar import hard_constraints as hc_module
+        from mar_dss.mar import soft_constraints as sc_module
+        from mar_dss.mar.options import mar_options
+
+        if dash_storage.get_data("decision_graph") is None:
+            return set()
+        for option in mar_options():
+            if any(
+                not hc.get("pass", True)
+                for hc in hc_module.hard_constraints(option)
+            ):
+                not_feasible.add(option.name)
+                continue
+            for sc in sc_module.soft_constraints(option):
+                response = sc.get("response", 0)
+                is_hard = sc.get("hard", True)
+                if response == 4 or (is_hard and response >= 2):
+                    not_feasible.add(option.name)
+                    break
+    except Exception:
+        return set()
+    return not_feasible
+
+
+def _mask_infeasible_cost_columns(df, cost_columns, not_feasible_options):
+    """Replace cost column cells with N/A for options that are not feasible."""
+    if df is None or df.empty or not not_feasible_options:
+        return df
+    for col in cost_columns:
+        option_name = _COST_COLUMN_TO_OPTION.get(col)
+        if option_name and option_name in not_feasible_options and col in df.columns:
+            df[col] = "N/A"
+    return df
 
 
 def _coerce_stored_dataframe(value):
@@ -581,32 +620,33 @@ def setup_cost_callbacks(app):
         _sync_storage_pumped_conveyance(current == "yes")
         return current
 
-    # Callback to save infiltration method to data storage
+    # All three recharge methods are always estimated (fixed checklist; not user-editable).
+    _ALL_INFILTRATION_METHODS = [
+        "infiltration_basin",
+        "dry_wells",
+        "injection_wells",
+    ]
+
     @app.callback(
-        Output("infiltration-method-radio", "value"),
+        Output("infiltration-method-checklist", "value"),
         [
-            Input("infiltration-method-radio", "value"),
-            Input("infiltration-method-radio", "id")
+            Input("infiltration-method-checklist", "value"),
+            Input("infiltration-method-checklist", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_infiltration_method(value, component_id):
-        """Handle infiltration method selection and save to data storage."""
-        ctx = dash.callback_context
+        """Keep all three recharge methods selected and sync related storage."""
         # Always keep pumped conveyance to infiltration fully active (hidden UI)
         _sync_pumped_infiltration_always_on()
         # Always keep max recharge area at 70% of MAR site (hidden UI)
         _sync_max_infiltration_area_always_on()
 
-        if not ctx.triggered:
-            # Initial load - get saved value or use default, and save it
-            method = dash_storage.get_data("infiltration_method") or "infiltration_basin"
-            dash_storage.set_data("infiltration_method", method)
-            return method
-        
-        current_selection = value if value else "infiltration_basin"
-        dash_storage.set_data("infiltration_method", current_selection)
-        return current_selection
+        dash_storage.set_data("infiltration_method", "infiltration_basin")
+        dash_storage.set_data(
+            "infiltration_methods", list(_ALL_INFILTRATION_METHODS)
+        )
+        return list(_ALL_INFILTRATION_METHODS)
     
     @app.callback(
         [
@@ -627,7 +667,13 @@ def setup_cost_callbacks(app):
         top_tab,
         analysis_tab,
     ):
-        """Update cost calculations based on engineering inputs."""        
+        """Update cost calculations based on engineering inputs.
+
+        Always recalculates when the Cost Analysis tab is shown so changes such as
+        conveyance method (stored from Engineering) are reflected. Do not Input
+        Engineering component ids here — that tab is lazy-loaded and those ids
+        are absent until Engineering has been opened.
+        """
         
         # Only calculate if we're on the Analysis tab and Cost sub-tab is selected
         if not top_tab or not analysis_tab or top_tab != "analysis" or analysis_tab != "analysis-cost":
@@ -640,31 +686,22 @@ def setup_cost_callbacks(app):
                 dash.no_update,
                 dash.no_update,
             )
-       
-        # Check if cost data already exists (from integrated analysis)
-        existing_capital_costs = dash_storage.get_data("capital_cost_num")
-        existing_capital_df = _coerce_stored_dataframe(
-            dash_storage.get_data("capital_costs_calculations_df")
-        )
-        existing_maintenance_df = _coerce_stored_dataframe(
-            dash_storage.get_data("maintenance_costs_calculations_df")
-        )
-        existing_npv_df = _coerce_stored_dataframe(
-            dash_storage.get_data("npv_calculations_df")
-        )
 
-        if existing_capital_costs is not None and existing_capital_df is not None:
-            # Cost data already exists from integrated analysis - use it without recalculating
-            print("Using existing cost data from integrated analysis (skipping recalculation)")
-            capital_cost_num = existing_capital_costs
-            cost_calculator = None  # We'll use stored DataFrames instead
-            
-            # Get maintenance costs and NPV from storage
-            maintenance_cost_num = dash_storage.get_data("maintenance_cost_num")
-            net_val_dict = dash_storage.get_data("net_val") or {}
-        else:
-            # Cost data doesn't exist - run calculation
-            print("Cost data not found - running cost calculation...")
+        cost_calculator = None
+        try:
+            from mar_dss.app.callbacks.analysis_callbacks import (
+                create_and_run_cost_calculator,
+            )
+
+            cost_calculator = create_and_run_cost_calculator()
+        except Exception as exc:
+            print(
+                f"create_and_run_cost_calculator failed ({exc}); "
+                "falling back to local CostCalculator"
+            )
+            cost_calculator = None
+
+        if cost_calculator is None:
             monthly = dash_storage.get_data("monthly_flow") or []
             try:
                 max_monthly = max(float(v or 0) for v in monthly) if monthly else 0.0
@@ -687,58 +724,82 @@ def setup_cost_callbacks(app):
                 dash_storage.get_data("conveyance_method") or _DEFAULT_CONVEYANCE
             )
             dash_storage.set_data("conveyance_method", conveyance_method)
-            
+
             storm_design_depth = 1.8
             from mar_dss.rules.defaults import get_default
 
             cost_calculator = CostCalculator(
-            water_source="stormwater", storm_design_depth=storm_design_depth,
-            drainage_basin_area_acres=35, # todo: this should be renamed to MAR site area.
-            total_storm_volume_af=6.52, # todo: not used, remove if not needed
-            basin_soil_type_infiltration_rate_in_per_hr=0.2,
-            total_runoff_volume_ft3=runoff_volume_ft3,
-            fine_sediment_removal_goal= sediment_target_display,
-            distance_collection_to_sediment_pond_ft=distance_to_sediment_ft,
-            distance_sediment_to_storage_pond_ft=distance_to_storage_pond_ft,
-            dry_well_infiltration_rate_in_per_hr=5,
-            dry_well_transfer_rate_gpm=float(
-                get_default("max_dry_well_transfer_rate_gpm")
-            ),
-            injection_well_transfer_rate_gpm=50,
-            number_of_injection_wells=5,
-            collection_to_sediment_removal__conveyance_method=conveyance_method,
-            dry_well_diameter_ft=6,
-            recharge_method="dry_well"
-        )
+                water_source="stormwater",
+                storm_design_depth=storm_design_depth,
+                drainage_basin_area_acres=35,
+                total_storm_volume_af=6.52,
+                basin_soil_type_infiltration_rate_in_per_hr=0.2,
+                total_runoff_volume_ft3=runoff_volume_ft3,
+                fine_sediment_removal_goal=sediment_target_display,
+                distance_collection_to_sediment_pond_ft=distance_to_sediment_ft,
+                distance_sediment_to_storage_pond_ft=distance_to_storage_pond_ft,
+                dry_well_infiltration_rate_in_per_hr=5,
+                dry_well_transfer_rate_gpm=float(
+                    get_default("max_dry_well_transfer_rate_gpm")
+                ),
+                injection_well_transfer_rate_gpm=50,
+                number_of_injection_wells=5,
+                collection_to_sediment_removal__conveyance_method=conveyance_method,
+                dry_well_diameter_ft=6,
+                recharge_method="dry_well",
+            )
             cost_calculator.calculate_cost()
-            cols = ['Spreading Pond Cost ($)', 'Injection Wells Cost ($)', 'Dry Wells Cost ($)']
-            capital_cost_num = cost_calculator.capital_costs_calculations.loc['Capital Total Cost',
-             cols]
-            dash_storage.set_data(
-                "capital_cost_num",
-                totals_series_to_storage_dict(capital_cost_num, CAPITAL_COST_TOTAL_KEYS),
-            )
 
-            cols = [ 'Spreading Pond Maintenance Cost ($)', 'Injection Wells Maintenance Cost ($)', 'Dry Wells Maintenance Cost ($)']
-            maintenance_cost_num = cost_calculator.maintenance_costs_calculations.loc['Annual Grand Maintenance Cost', cols]
-            dash_storage.set_data(
-                "maintenance_cost_num",
-                totals_series_to_storage_dict(maintenance_cost_num, MAINTENANCE_COST_TOTAL_KEYS),
-            )
-            cols =['Spreading Pond Net Present Value ($)',
-           'Injection Wells Net Present Value ($)',
-           'Dry Wells Net Present Value ($)']
-            net_val = cost_calculator.net_present_value_calculations[cols].values[-1]
-            net_val_dict = {}
-            for i, col in enumerate(cols):
-                net_val_dict[col] =net_val[i]
-            net_val = net_val_dict
-            dash_storage.set_data("net_val",net_val_dict)
-            
-            # Store DataFrames for future use
-            dash_storage.set_data("capital_costs_calculations_df", cost_calculator.capital_costs_calculations)
-            dash_storage.set_data("maintenance_costs_calculations_df", cost_calculator.maintenance_costs_calculations)
-            dash_storage.set_data("npv_calculations_df", cost_calculator.net_present_value_calculations)
+        cols = [
+            "Spreading Pond Cost ($)",
+            "Injection Wells Cost ($)",
+            "Dry Wells Cost ($)",
+        ]
+        capital_cost_num = cost_calculator.capital_costs_calculations.loc[
+            "Capital Total Cost", cols
+        ]
+        dash_storage.set_data(
+            "capital_cost_num",
+            totals_series_to_storage_dict(capital_cost_num, CAPITAL_COST_TOTAL_KEYS),
+        )
+
+        cols = [
+            "Spreading Pond Maintenance Cost ($)",
+            "Injection Wells Maintenance Cost ($)",
+            "Dry Wells Maintenance Cost ($)",
+        ]
+        maintenance_cost_num = cost_calculator.maintenance_costs_calculations.loc[
+            "Annual Grand Maintenance Cost", cols
+        ]
+        dash_storage.set_data(
+            "maintenance_cost_num",
+            totals_series_to_storage_dict(
+                maintenance_cost_num, MAINTENANCE_COST_TOTAL_KEYS
+            ),
+        )
+        cols = [
+            "Spreading Pond Net Present Value ($)",
+            "Injection Wells Net Present Value ($)",
+            "Dry Wells Net Present Value ($)",
+        ]
+        net_val = cost_calculator.net_present_value_calculations[cols].values[-1]
+        net_val_dict = {}
+        for i, col in enumerate(cols):
+            net_val_dict[col] = net_val[i]
+        dash_storage.set_data("net_val", net_val_dict)
+
+        dash_storage.set_data(
+            "capital_costs_calculations_df",
+            cost_calculator.capital_costs_calculations,
+        )
+        dash_storage.set_data(
+            "maintenance_costs_calculations_df",
+            cost_calculator.maintenance_costs_calculations,
+        )
+        dash_storage.set_data(
+            "npv_calculations_df",
+            cost_calculator.net_present_value_calculations,
+        )
         
         # Get selected technology to determine which cost to display
         selected_technology = dash_storage.get_data("selected_mar_technology")
@@ -858,7 +919,7 @@ def setup_cost_callbacks(app):
         
         # Create Capital Cost Table
         capital_df = _cost_table_dataframe(
-            existing_capital_df, cost_calculator, "capital_costs_calculations"
+            None, cost_calculator, "capital_costs_calculations"
         )
         # Reset index to make it a column
         capital_df = capital_df.reset_index()
@@ -879,6 +940,9 @@ def setup_cost_callbacks(app):
         _round_total_rows_in_cost_df(capital_df, cost_columns, label_col=capital_label_col)
         _format_cost_column_values(
             capital_df, cost_columns, label_col=capital_label_col, round_all=False
+        )
+        _mask_infeasible_cost_columns(
+            capital_df, cost_columns, not_feasible_options
         )
         
         # Fill NaN values with empty strings for better display
@@ -909,7 +973,7 @@ def setup_cost_callbacks(app):
         
         # Create Maintenance Cost Table
         maintenance_df = _cost_table_dataframe(
-            existing_maintenance_df, cost_calculator, "maintenance_costs_calculations"
+            None, cost_calculator, "maintenance_costs_calculations"
         )
         # Reset index to make it a column
         maintenance_df = maintenance_df.reset_index()
@@ -941,6 +1005,9 @@ def setup_cost_callbacks(app):
             label_col=maint_label_col,
             round_all=False,
         )
+        _mask_infeasible_cost_columns(
+            maintenance_df, maintenance_cost_columns, not_feasible_options
+        )
         
         # Fill NaN values with empty strings for better display
         maintenance_df = maintenance_df.fillna('')
@@ -970,7 +1037,7 @@ def setup_cost_callbacks(app):
         
         # Create Net Present Value Table and Plot
         npv_df = _cost_table_dataframe(
-            existing_npv_df, cost_calculator, "net_present_value_calculations"
+            None, cost_calculator, "net_present_value_calculations"
         )
         # Reset index to make Year a column
         npv_df = npv_df.reset_index()
@@ -1007,6 +1074,9 @@ def setup_cost_callbacks(app):
                     f"${v}" if v not in ("", None) and not str(v).startswith("$") else (v or "")
                     for v in npv_df[col]
                 ]
+        _mask_infeasible_cost_columns(
+            npv_df, npv_columns, not_feasible_options
+        )
         
         # Get selected technology to determine which NPV to display
         selected_technology = dash_storage.get_data("selected_mar_technology")
@@ -1026,21 +1096,31 @@ def setup_cost_callbacks(app):
             "dry_wells": "Dry Wells Net Present Value ($)",
             "Dry Well": "Dry Wells Net Present Value ($)",
         }
+
+        def _add_npv_trace(col, color, *, name=None):
+            option_name = _COST_COLUMN_TO_OPTION.get(col)
+            # Skip bars for infeasible options (cost shown as N/A elsewhere)
+            if option_name in not_feasible_options:
+                return
+            display_name = name or col.replace(" Net Present Value ($)", "")
+            npv_plot.add_trace(
+                go.Bar(
+                    x=npv_df_plot["Year"],
+                    y=npv_df_plot[col],
+                    name=display_name,
+                    marker_color=color,
+                    text=[f"${val:,.0f}" for val in npv_df_plot[col]],
+                    textposition="outside",
+                    hovertemplate=f"Year: %{{x}}<br>{col}: $%{{y:,.0f}}<extra></extra>",
+                )
+            )
         
         if selected_technology is None:
             # Show all three technologies
             colors = ['#3498db', '#2ecc71', '#e74c3c']
             for i, col in enumerate(npv_columns):
                 if col in npv_df_plot.columns:
-                    npv_plot.add_trace(go.Bar(
-                        x=npv_df_plot['Year'],
-                        y=npv_df_plot[col],
-                        name=col.replace(' Net Present Value ($)', ''),
-                        marker_color=colors[i],
-                        text=[f"${val:,.0f}" for val in npv_df_plot[col]],
-                        textposition='outside',
-                        hovertemplate=f'Year: %{{x}}<br>{col}: $%{{y:,.0f}}<extra></extra>'
-                    ))
+                    _add_npv_trace(col, colors[i])
             npv_plot.update_layout(
                 title='Net Present Value Over 20 Years',
                 xaxis_title='Year',
@@ -1065,28 +1145,13 @@ def setup_cost_callbacks(app):
                         break
             
             if cost_column and cost_column in npv_df_plot.columns:
-                npv_plot.add_trace(go.Bar(
-                    x=npv_df_plot['Year'],
-                    y=npv_df_plot[cost_column],
-                    marker_color='#3498db',
-                    text=[f"${val:,.0f}" for val in npv_df_plot[cost_column]],
-                    textposition='outside',
-                    hovertemplate=f'Year: %{{x}}<br>{cost_column}: $%{{y:,.0f}}<extra></extra>'
-                ))
+                _add_npv_trace(cost_column, "#3498db")
             else:
                 # Fallback: show all three
                 colors = ['#3498db', '#2ecc71', '#e74c3c']
                 for i, col in enumerate(npv_columns):
                     if col in npv_df_plot.columns:
-                        npv_plot.add_trace(go.Bar(
-                            x=npv_df_plot['Year'],
-                            y=npv_df_plot[col],
-                            name=col.replace(' Net Present Value ($)', ''),
-                            marker_color=colors[i],
-                            text=[f"${val:,.0f}" for val in npv_df_plot[col]],
-                            textposition='outside',
-                            hovertemplate=f'Year: %{{x}}<br>{col}: $%{{y:,.0f}}<extra></extra>'
-                        ))
+                        _add_npv_trace(col, colors[i])
             
             npv_plot.update_layout(
                 title='Net Present Value Over 20 Years',

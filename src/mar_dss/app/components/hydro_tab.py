@@ -769,11 +769,10 @@ def create_initial_hydrologic_feasibility_help_modal():
                         "compatible with that option. The options evaluated are Surface "
                         "Recharge (for example, an infiltration basin), Dry Well(s), and "
                         "Injection Well(s). The screen uses stratigraphy, groundwater "
-                        "levels, ground-surface elevation, aquitard classification, water-"
-                        "quality answers where relevant, and the Default Parameters "
-                        "thresholds. It is intentionally limited to hydrogeologic hard and "
-                        "soft constraints; full cost, environmental, legal, and multi-"
-                        "criteria ranking are completed on later tabs.",
+                        "levels, ground-surface elevation, aquitard classification, and the "
+                        "Default Parameters thresholds. It evaluates only hydrogeologic hard "
+                        "and soft constraints—water quality, environmental, legal, and cost "
+                        "screens are completed on later tabs.",
                         className="mb-3",
                     ),
                     html.H6("2. How to run the check", className="fw-bold mb-2"),
@@ -789,8 +788,10 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     "Click ",
                                     html.Strong("Check Initial Feasibility"),
                                     ". The tool rebuilds intermediate hydrogeologic "
-                                    "quantities, evaluates hard and soft constraints for "
-                                    "each option, and maps the results to a traffic light.",
+                                    "quantities, evaluates hydrogeologic hard and soft "
+                                    "constraints for each option (excluding water quality "
+                                    "and environmental screens), and maps the results to "
+                                    "a traffic light.",
                                 ]
                             ),
                             html.Li(
@@ -1266,14 +1267,20 @@ def create_initial_hydrologic_feasibility_help_modal():
                         [
                             "The three MAR options are evaluated one at a time: Surface "
                             "Recharge, Dry Well(s), and Injection Well(s). For each of "
-                            "those options, every hard constraint returns either pass or "
-                            "fail, plus a short explanation. Principal hard checks "
-                            "include Physical surface rechargeability (Surface Recharge "
-                            "fails on confined sites), Vadose zone contaminant impact and "
-                            "Target aquifer anthropogenic contaminants (from water-"
-                            "quality answers), and Recharge Efficiency. Recharge "
-                            "Efficiency passes when that option’s rechargeable percentage "
-                            "meets or exceeds the Default Parameters minimum, that is ",
+                            "those options, every ",
+                            html.Strong("hydrogeologic"),
+                            " hard constraint returns either pass or fail, plus a short "
+                            "explanation. This Initial Feasibility screen uses only "
+                            "hydrogeologic hard checks—principally Physical surface "
+                            "rechargeability (Surface Recharge fails on confined sites) "
+                            "and Recharge Efficiency. Water-quality hard checks "
+                            "(vadose contaminant impact, target aquifer anthropogenic "
+                            "contaminants) are ",
+                            html.Strong("not"),
+                            " included here; they are applied later on the Analysis / "
+                            "Water Quality path. Recharge Efficiency passes when that "
+                            "option’s rechargeable percentage meets or exceeds the "
+                            "Default Parameters minimum, that is ",
                             _help_eq("η ≥ η_min"),
                             ", where ",
                             _help_eq("η"),
@@ -1291,13 +1298,16 @@ def create_initial_hydrologic_feasibility_help_modal():
                     ),
                     html.P(
                         [
-                            "For the same MAR option, each soft constraint returns an "
-                            "integer response ",
+                            "For the same MAR option, each ",
+                            html.Strong("hydrogeologic"),
+                            " soft constraint returns an integer response ",
                             _help_eq("r"),
                             " in the set ",
                             _help_eq("{-1, 0, 1, 2, 3, 4}"),
-                            ", together with optional penalty text. The scale is "
-                            "interpreted as follows: ",
+                            ", together with optional penalty text. Environmental / "
+                            "water-quality soft constraints are excluded from this "
+                            "Initial Feasibility screen. The scale is interpreted as "
+                            "follows: ",
                             _help_eq("r = -1"),
                             " means the constraint is irrelevant for that option or "
                             "aquifer type; ",
@@ -1312,8 +1322,8 @@ def create_initial_hydrologic_feasibility_help_modal():
                             _help_eq("r = 4"),
                             " means reject. Examples include Vadose zone infiltration, "
                             "Vadose zone residence time, Surface recharge suitability, "
-                            "Confined aquifer depth Suitability, and Confined leakage "
-                            "significance. Irrelevant responses (",
+                            "Confined aquifer depth Suitability, Confined leakage "
+                            "significance, and Land Use. Irrelevant responses (",
                             _help_eq("r = -1"),
                             ") are ignored when aggregating warnings.",
                         ],
@@ -2859,14 +2869,18 @@ def _max_dry_well_depth_input_value():
 
 
 def _aquitard_conductivity_input_value():
-    """Initial display for aquitard K threshold (ft/day); default 1e-3."""
+    """Initial display for aquitard K threshold (ft/day); default 0.1."""
+    from mar_dss.rules.geohydro_rules import DEFAULT_AQUITARD_K_MAX_FT_DAY
+
     raw = dash_storage.get_data("aquitard_conductivity_ft_day")
     try:
-        aquitard_k = float(raw) if raw is not None else 1e-3
+        aquitard_k = (
+            float(raw) if raw is not None else DEFAULT_AQUITARD_K_MAX_FT_DAY
+        )
         if aquitard_k <= 0:
-            aquitard_k = 1e-3
+            aquitard_k = DEFAULT_AQUITARD_K_MAX_FT_DAY
     except (TypeError, ValueError):
-        aquitard_k = 1e-3
+        aquitard_k = DEFAULT_AQUITARD_K_MAX_FT_DAY
     if isinstance(aquitard_k, (int, float)):
         return f"{float(aquitard_k):.12f}".rstrip("0").rstrip(".")
     return str(aquitard_k)
@@ -2924,7 +2938,7 @@ def _build_geometry_hydrogeologic_parameters_card():
                                     dbc.Input(
                                         id="aquitard-conductivity-input",
                                         type="text",
-                                        placeholder="e.g. 0.001",
+                                        placeholder="e.g. 0.1",
                                         autoComplete="off",
                                         debounce=True,
                                         value=_aquitard_conductivity_input_value(),

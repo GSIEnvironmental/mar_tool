@@ -1233,9 +1233,11 @@ def create_volume_estimates_help_modal():
             dbc.ModalBody(
                 [
                     html.P(
-                        "Document how much water may be available for MAR each month"
+                        "Document how much water may be available for MAR each month. "
                         "These flows are saved with your project and feed engineering "
-                        "sizing, cost analysis, and feasibility decision rules.",
+                        "sizing, cost analysis, and feasibility decision rules. The "
+                        "maximum monthly value also sets Engineering Design Metrics "
+                        "(design event flow = max monthly flow ÷ number of events).",
                         className="text-muted mb-3",
                     ),
                     html.Dl(
