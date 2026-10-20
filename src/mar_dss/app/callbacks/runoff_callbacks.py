@@ -31,9 +31,15 @@ from mar_dss.app.utils.tab_tooltips import TOOLTIPS_ENABLED
 
 
 try:
-    from mar_dss.app.components.runoff_calculator_tab import create_runoff_map
+    from mar_dss.app.components.runoff_calculator_tab import (
+        _project_location_map_center,
+        create_runoff_map,
+    )
 except ImportError:
-    from ..components.runoff_calculator_tab import create_runoff_map
+    from ..components.runoff_calculator_tab import (
+        _project_location_map_center,
+        create_runoff_map,
+    )
 df = pd.DataFrame()
 
 
@@ -124,6 +130,27 @@ def _runoff_calc_excel_table(table_data):
             computed_highlight_params=RUNOFF_CALC_COMPUTED_PARAMS,
         )
     )
+
+
+_RUNOFF_NEGATIVE_INPUT_ALERT = dbc.Alert(
+    "Water Source: negative values are not allowed. "
+    "All table input values must be zero or greater.",
+    color="danger",
+    className="py-2 small mb-2",
+)
+
+
+def _param_input_values_have_negative(values) -> bool:
+    """True if any editable table input is a finite number less than zero."""
+    for raw in values or []:
+        if raw is None or raw == "":
+            continue
+        try:
+            if float(raw) < 0:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
 
 
 def _recompute_runoff_dependent_values(table_data):
@@ -748,8 +775,13 @@ def setup_runoff_callbacks(app):
         print(f"Callback triggered with: {clickData}")  # Debug print
         
         if clickData is None:
-            # Return default values on initial load
-            return 38.5816, -121.4944, "Map ready - click to update coordinates"
+            # Initial load: match Project Location map center
+            lat, lon, _ = _project_location_map_center()
+            return (
+                lat,
+                lon,
+                f"Map centered on Project Location: {lat:.4f}, {lon:.4f}",
+            )
         
         # Extract coordinates from clickData (Leaflet format)
         lat = clickData['latlng']['lat']
@@ -757,6 +789,35 @@ def setup_runoff_callbacks(app):
         
         # Return the new coordinates directly to the input fields
         return lat, lon, f"Map Click Coordinates: {lat:.4f}, {lon:.4f}"
+
+    @app.callback(
+        Output("selected-latitude", "value", allow_duplicate=True),
+        Output("selected-longitude", "value", allow_duplicate=True),
+        [
+            Input("project-location-store", "data"),
+            Input("optional-runoff-tabs", "active_tab"),
+            Input("top-tabs", "active_tab"),
+        ],
+        prevent_initial_call=True,
+    )
+    def sync_watershed_map_center_from_project_location(
+        _project_location, runoff_tab, top_tab
+    ):
+        """Keep Watershed Information map center aligned with Project Location."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update, dash.no_update
+
+        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+        # Tab switches: only sync when Watershed Information is visible.
+        if trigger in ("optional-runoff-tabs", "top-tabs"):
+            if top_tab != "water-source":
+                return dash.no_update, dash.no_update
+            if runoff_tab and runoff_tab != "rainfall-watershed-tab":
+                return dash.no_update, dash.no_update
+
+        lat, lon, _ = _project_location_map_center()
+        return lat, lon
 
     # Callback 2: Update marker and map center based on input fields (exact same as open3.py)
     @app.callback(
@@ -938,6 +999,7 @@ def setup_runoff_callbacks(app):
                 dash.no_update,
                 dash.no_update,
             )
+        lat, lon, _ = _project_location_map_center()
         return (
             [],
             [],
@@ -948,13 +1010,14 @@ def setup_runoff_callbacks(app):
                 className="text-muted",
             ),
             html.Div(
-                "Drainage point and map layers reset. Click the map to choose a new point.",
+                "Drainage point and map layers reset to Project Location. "
+                "Click the map to choose a new point.",
                 className="alert alert-info",
                 role="alert",
             ),
-            "Map ready - click to set a new drainage point",
-            None,
-            None,
+            f"Map reset to Project Location: {lat:.4f}, {lon:.4f}",
+            lat,
+            lon,
         )
 
     # Callback to save impervious outlet option (1A/1B) to data storage
@@ -1161,17 +1224,25 @@ def setup_runoff_callbacks(app):
 
     # Callback for composite CN table based on 1A/1B selection
     @app.callback(
-        [Output('composite-cn-table', 'children'),
-         Output('composite-cn-table-store', 'data')],
+        [
+            Output('composite-cn-table', 'children'),
+            Output('composite-cn-table-store', 'data'),
+            Output('composite-cn-input-error', 'children', allow_duplicate=True),
+        ],
         [Input('impervious-outlet-option', 'value'),
          Input('impervious-curve-number-select', 'value'),
          Input('cover-description-select', 'value'),
-         Input('soil-type-select', 'value')]
+         Input('soil-type-select', 'value')],
+        prevent_initial_call="initial_duplicate",
     )
     def update_composite_cn_table(selected_option, impervious_cn_selection, cover_description, soil_type):
         """Update the composite CN table based on 1A or 1B selection."""
         if not selected_option:
-            return html.Div("Please select an option (1A or 1B).", className="text-muted"), None
+            return (
+                html.Div("Please select an option (1A or 1B).", className="text-muted"),
+                None,
+                None,
+            )
         
         # Get CN impervious value from the impervious curve number selection
         cn_impervious_map = {
@@ -1235,7 +1306,11 @@ def setup_runoff_callbacks(app):
                 {"Parameter": "Composite CN", "Value": 0}
             ]
         else:
-            return html.Div("Invalid option selected.", className="text-danger")
+            return (
+                html.Div("Invalid option selected.", className="text-danger"),
+                None,
+                None,
+            )
         
         if table_data:
             # Compute Composite CN based on the formula
@@ -1271,14 +1346,21 @@ def setup_runoff_callbacks(app):
             table = _composite_cn_excel_table(table_data)
             # Save table data to storage
             dash_storage.set_data("composite_cn_datatable", table_data)
-            return table, table_data
+            return table, table_data, None
         
-        return html.Div("No data available for this option.", className="text-warning"), None
+        return (
+            html.Div("No data available for this option.", className="text-warning"),
+            None,
+            None,
+        )
 
     # Callback to recompute Composite CN when table values are edited
     @app.callback(
-        [Output('composite-cn-table', 'children', allow_duplicate=True),
-         Output('composite-cn-table-store', 'data', allow_duplicate=True)],
+        [
+            Output('composite-cn-table', 'children', allow_duplicate=True),
+            Output('composite-cn-table-store', 'data', allow_duplicate=True),
+            Output('composite-cn-input-error', 'children'),
+        ],
         [
             Input({"type": "composite-cn-value", "param": ALL}, "value"),
             Input('impervious-outlet-option', 'value'),
@@ -1293,20 +1375,25 @@ def setup_runoff_callbacks(app):
         """Recompute Composite CN when any table value is edited."""
         ctx = dash.callback_context
         if not ctx.triggered:
-            return dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, dash.no_update
 
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         # Option changes are handled by update_composite_cn_table; skip here.
         if trigger_id == "impervious-outlet-option":
-            return dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, None
 
         if not store_data or not selected_option or not input_ids:
-            return dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, dash.no_update
 
+        error = (
+            _RUNOFF_NEGATIVE_INPUT_ALERT
+            if _param_input_values_have_negative(values)
+            else None
+        )
         updated_data = rows_from_param_inputs(values, input_ids, store_data)
         updated_data = _compute_composite_cn_rows(updated_data, selected_option)
         dash_storage.set_data("composite_cn_datatable", updated_data)
-        return _composite_cn_excel_table(updated_data), updated_data
+        return _composite_cn_excel_table(updated_data), updated_data, error
 
     # Sync Composite CN into runoff calculations store (Excel table views that store)
     @app.callback(
@@ -1373,6 +1460,7 @@ def setup_runoff_callbacks(app):
 
     @app.callback(
         Output("runoff-calculations-table", "data", allow_duplicate=True),
+        Output("runoff-calculations-input-error", "children"),
         Input({"type": "runoff-calc-value", "param": ALL}, "value"),
         State({"type": "runoff-calc-value", "param": ALL}, "id"),
         State("runoff-calculations-table", "data"),
@@ -1381,13 +1469,18 @@ def setup_runoff_callbacks(app):
     def apply_runoff_calc_input_edits(values, input_ids, current_table_data):
         """Commit blur edits from runoff calc inputs and recompute dependents."""
         if not current_table_data or not input_ids:
-            return dash.no_update
+            return dash.no_update, dash.no_update
+        error = (
+            _RUNOFF_NEGATIVE_INPUT_ALERT
+            if _param_input_values_have_negative(values)
+            else None
+        )
         updated = rows_from_param_inputs(values, input_ids, current_table_data)
         updated = _recompute_runoff_dependent_values(updated)
         if _runoff_rows_equal(updated, current_table_data):
-            return dash.no_update
+            return dash.no_update, error
         dash_storage.set_data("runoff_calculations_table", updated)
-        return updated
+        return updated, error
 
     # Callback to save runoff single storm latitude to data storage
     @app.callback(

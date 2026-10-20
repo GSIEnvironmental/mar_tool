@@ -707,7 +707,6 @@ def create_editable_flow_table(flow_data=None):
                             id={"type": "monthly-flow-input", "month": month},
                             type="number",
                             value=flow,
-                            min=0,
                             step=1,
                             debounce=True,
                             size="sm",
@@ -1349,6 +1348,10 @@ def create_water_source_info_tab():
                                                         dcc.Store(
                                                             id="flow-data-store",
                                                             data=_get_flow_store_data(),
+                                                        ),
+                                                        html.Div(
+                                                            id="monthly-flow-input-error",
+                                                            className="mb-2",
                                                         ),
                                                         create_editable_flow_table(
                                                             _get_flow_store_data()

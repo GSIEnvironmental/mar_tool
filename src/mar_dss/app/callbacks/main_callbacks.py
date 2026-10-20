@@ -382,9 +382,17 @@ def setup_main_callbacks(app, dashboard_instance):
             for id_dict in input_ids
         ]
 
+    _WATER_SOURCE_NEGATIVE_INPUT_ALERT = dbc.Alert(
+        "Water Source: negative values are not allowed. "
+        "All table input values must be zero or greater.",
+        color="danger",
+        className="py-2 small mb-0",
+    )
+
     @app.callback(
         Output({"type": "monthly-flow-input", "month": ALL}, "value", allow_duplicate=True),
         Output("flow-data-store", "data", allow_duplicate=True),
+        Output("monthly-flow-input-error", "children", allow_duplicate=True),
         Input("constant-monthly-flow-check", "value"),
         Input({"type": "monthly-flow-input", "month": "Jan"}, "value"),
         State({"type": "monthly-flow-input", "month": ALL}, "id"),
@@ -394,9 +402,9 @@ def setup_main_callbacks(app, dashboard_instance):
     def apply_constant_monthly_flow(use_constant, jan_value, input_ids, values):
         """Propagate January to all months while the constant-flow checkbox is on."""
         if not input_ids:
-            return [], dash.no_update
+            return [], dash.no_update, dash.no_update
         if not use_constant:
-            return [dash.no_update] * len(input_ids), dash.no_update
+            return [dash.no_update] * len(input_ids), dash.no_update, dash.no_update
 
         try:
             from mar_dss.app.components.water_source_tab import (
@@ -420,7 +428,7 @@ def setup_main_callbacks(app, dashboard_instance):
             else:
                 jan_val = float(jan_value)
         except (TypeError, ValueError):
-            return [dash.no_update] * len(input_ids), dash.no_update
+            return [dash.no_update] * len(input_ids), dash.no_update, dash.no_update
 
         out = []
         needs_update = False
@@ -445,16 +453,19 @@ def setup_main_callbacks(app, dashboard_instance):
             else:
                 out.append(dash.no_update)
 
+        error = (
+            _WATER_SOURCE_NEGATIVE_INPUT_ALERT if jan_val < 0 else None
+        )
         flow_data = {month: jan_val for month in FLOW_MONTHS}
         stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
         if needs_update or not flow_dicts_equal(flow_data, stored):
             dash_storage.set_data(
                 "monthly_flow", [flow_data[month] for month in FLOW_MONTHS]
             )
-            return out, flow_data
+            return out, flow_data, error
         if not needs_update:
-            return [dash.no_update] * len(input_ids), dash.no_update
-        return out, dash.no_update
+            return [dash.no_update] * len(input_ids), dash.no_update, error
+        return out, dash.no_update, error
 
     # Push store → month inputs only for external updates (runoff / tab sync).
     @app.callback(
@@ -497,17 +508,19 @@ def setup_main_callbacks(app, dashboard_instance):
             return [dash.no_update] * len(input_ids)
         return new_values
 
-    # If a cell is cleared by click/focus/blur without a new number, restore stored value
+    # If a cell is cleared by click/focus/blur without a new number, restore stored value.
+    # Negatives are allowed to remain but trigger an error message.
     @app.callback(
         Output({"type": "monthly-flow-input", "month": ALL}, "value", allow_duplicate=True),
+        Output("monthly-flow-input-error", "children"),
         Input({"type": "monthly-flow-input", "month": ALL}, "value"),
         State({"type": "monthly-flow-input", "month": ALL}, "id"),
         prevent_initial_call=True,
     )
     def restore_blank_monthly_flow_inputs(values, input_ids):
-        """Do not let blank/None edits wipe populated monthly flow cells to zero."""
+        """Restore blank cells; warn (do not block) when any monthly flow is negative."""
         if not input_ids or values is None:
-            return []
+            return [], dash.no_update
 
         try:
             from mar_dss.app.components.water_source_tab import (
@@ -519,6 +532,7 @@ def setup_main_callbacks(app, dashboard_instance):
         stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
         out = []
         needs_restore = False
+        has_negative = False
         for id_dict, raw in zip(input_ids, values):
             month = id_dict.get("month") if isinstance(id_dict, dict) else None
             stored_val = stored.get(month, 0.0) if month else 0.0
@@ -526,17 +540,22 @@ def setup_main_callbacks(app, dashboard_instance):
             if blank:
                 out.append(stored_val)
                 needs_restore = True
-            else:
-                try:
-                    out.append(float(raw))
-                except (TypeError, ValueError):
-                    out.append(stored_val)
-                    needs_restore = True
+                continue
+            try:
+                parsed = float(raw)
+            except (TypeError, ValueError):
+                out.append(stored_val)
+                needs_restore = True
+                continue
+            if parsed < 0:
+                has_negative = True
+            out.append(parsed)
 
+        error = _WATER_SOURCE_NEGATIVE_INPUT_ALERT if has_negative else None
         # ALL outputs require a list; a single no_update is invalid
         if not needs_restore:
-            return [dash.no_update] * len(input_ids)
-        return out
+            return [dash.no_update] * len(input_ids), error
+        return out, error
 
     # Keep chart in sync with the table and with flow-data-store (tab open / runoff)
     @app.callback(

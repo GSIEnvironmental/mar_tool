@@ -148,7 +148,7 @@ def create_starting_information_help_modal():
         ),
         (
             "Project Location",
-            "Geographic site location, set by panning/zooming the map on this tab or when "
+            "Geographic site location, set by clicking the map on this tab or when "
             "opening a saved project. Used for mapping, regional rainfall and watershed tools, "
             "and location context in feasibility and AI decisions.",
         ),
@@ -343,7 +343,7 @@ def create_mar_purpose_section():
             html.Hr(className="my-2"),
             html.Label("Project Location", className="fw-bold small mb-1"),
             html.Small(
-                "Automatically detected from the map on the right",
+                "Set by clicking the map on the right",
                 className="text-muted d-block mb-1",
             ),
             dbc.Input(
@@ -471,6 +471,15 @@ def create_location_map_section():
                     ),
                     html.Div(
                         [
+                            dcc.Store(
+                                id="overview-map-mapbox-click-store",
+                                data=None,
+                            ),
+                            html.Div(
+                                id="overview-map-click-relay-hook",
+                                style={"display": "none"},
+                                children=[],
+                            ),
                             dcc.Graph(
                                 figure=create_location_map(
                                     lat=lat,
@@ -491,7 +500,8 @@ def create_location_map_section():
                                 },
                             ),
                             dbc.Tooltip(
-                                "Interactive map showing project location. Hover or click to explore geographic details",
+                                "Click the map to place the project location marker. "
+                                "Pan and zoom to explore; basemap can be changed above.",
                                 target="location-map",
                                 placement="top",
                             ),

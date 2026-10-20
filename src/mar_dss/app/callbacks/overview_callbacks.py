@@ -386,6 +386,18 @@ def setup_overview_callbacks(app):
     app.clientside_callback(
         ClientsideFunction(
             namespace="clientside",
+            function_name="installOverviewMapClickRelay",
+        ),
+        Output("overview-map-click-relay-hook", "children"),
+        [
+            Input("location-map", "figure"),
+            Input("top-tabs", "active_tab"),
+        ],
+    )
+
+    app.clientside_callback(
+        ClientsideFunction(
+            namespace="clientside",
             function_name="installWaterSourceMapClickRelay",
         ),
         Output("water-source-map-click-relay-hook", "children"),
@@ -394,6 +406,54 @@ def setup_overview_callbacks(app):
             Input("top-tabs", "active_tab"),
         ],
     )
+
+    @app.callback(
+        Output("location-map", "figure", allow_duplicate=True),
+        Output("location-card-header", "children", allow_duplicate=True),
+        Output("project-location-input", "value", allow_duplicate=True),
+        Output("project-location-store", "data", allow_duplicate=True),
+        Input("overview-map-mapbox-click-store", "data"),
+        State("overview-map-basemap", "value"),
+        prevent_initial_call=True,
+    )
+    def place_overview_site_from_map_click(picked, basemap_dropdown_value):
+        """Place the red project-location marker at the map click."""
+        if not picked or not isinstance(picked, dict):
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+        lat = picked.get("lat")
+        lon = picked.get("lon")
+        try:
+            lat_f = float(lat)
+            lon_f = float(lon)
+        except (TypeError, ValueError):
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+        dash_storage.set_data("overview_map_lat", lat_f)
+        dash_storage.set_data("overview_map_lon", lon_f)
+
+        try:
+            from mar_dss.app.components.water_source_tab import get_location_details
+        except ImportError:
+            from ..components.water_source_tab import get_location_details
+
+        location_name = get_location_details(lat_f, lon_f)
+        dash_storage.set_data("project_location", location_name)
+        dash_storage.set_data(
+            "overview_map_location_label",
+            f"Project Location — {location_name}",
+        )
+
+        fig = _overview_map_figure_with_style(
+            basemap_dropdown_value, fill_container=True
+        )
+        hdr = get_overview_map_header_text()
+        return (
+            fig,
+            overview_map_header_children(hdr),
+            location_name,
+            location_name,
+        )
 
     @app.callback(
         Output("water-source-location-map", "figure", allow_duplicate=True),

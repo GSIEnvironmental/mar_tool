@@ -151,12 +151,14 @@ def build_param_value_table(
     input_highlight_params: Optional[Iterable[str]] = None,
     computed_highlight_params: Optional[Iterable[str]] = None,
     table_class: str = "table table-sm table-bordered mb-0 excel-cell-table",
+    min_value: Optional[float] = None,
 ) -> html.Table:
     """Build a two-column Parameter / Value table with borderless number inputs.
 
     ``rows`` items: ``{"Parameter": str, "Value": number}``.
     ``input_type`` is the Dash pattern-matching id ``type`` for value inputs
     (``{"type": input_type, "param": <Parameter>}``).
+    ``min_value`` sets the HTML ``min`` attribute on editable number inputs when given.
     """
     readonly = set(readonly_params or [])
     input_highlight = set(input_highlight_params or [])
@@ -201,6 +203,9 @@ def build_param_value_table(
                 className="align-middle py-0 px-1",
             )
         else:
+            input_kwargs = {}
+            if min_value is not None:
+                input_kwargs["min"] = min_value
             value_cell = html.Td(
                 dbc.Input(
                     id={"type": input_type, "param": param},
@@ -209,6 +214,7 @@ def build_param_value_table(
                     debounce=True,
                     size="sm",
                     className="text-center table-cell-input-borderless excel-cell-input",
+                    **input_kwargs,
                 ),
                 className="align-middle py-0 px-1",
             )

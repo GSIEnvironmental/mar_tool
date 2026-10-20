@@ -216,8 +216,42 @@ def _get_runoff_calculations_data():
     ]
 
 
-def create_runoff_map(lat=38.5816, lon=-121.4944, zoom=10):
+def _project_location_map_center():
+    """Lat/lon/zoom from the Project Location (Overview / Water Source) map."""
+    try:
+        from mar_dss.app.components.overview_tab import (
+            DEFAULT_OVERVIEW_MAP_LAT,
+            DEFAULT_OVERVIEW_MAP_LON,
+            DEFAULT_OVERVIEW_MAP_ZOOM,
+            get_overview_map_figure_params,
+        )
+    except ImportError:
+        from ..components.overview_tab import (
+            DEFAULT_OVERVIEW_MAP_LAT,
+            DEFAULT_OVERVIEW_MAP_LON,
+            DEFAULT_OVERVIEW_MAP_ZOOM,
+            get_overview_map_figure_params,
+        )
+    try:
+        lat, lon, zoom, _, _ = get_overview_map_figure_params()
+        return float(lat), float(lon), float(zoom)
+    except (TypeError, ValueError):
+        return (
+            float(DEFAULT_OVERVIEW_MAP_LAT),
+            float(DEFAULT_OVERVIEW_MAP_LON),
+            float(DEFAULT_OVERVIEW_MAP_ZOOM),
+        )
+
+
+def create_runoff_map(lat=None, lon=None, zoom=None):
     """Create an interactive runoff analysis map using Leaflet."""
+    proj_lat, proj_lon, proj_zoom = _project_location_map_center()
+    if lat is None:
+        lat = proj_lat
+    if lon is None:
+        lon = proj_lon
+    if zoom is None:
+        zoom = proj_zoom
     return dl.Map(
         center=[lat, lon],
         zoom=zoom,
@@ -233,13 +267,14 @@ def create_runoff_map(lat=38.5816, lon=-121.4944, zoom=10):
 
 
 def create_map_card():
-    """Create the map card component."""
+    """Create the map card component (centered on Project Location)."""
     return dbc.Card([
         dbc.CardHeader("Runoff Analysis Map", className="fw-bold bg-primary text-white"),
         dbc.CardBody([
             create_runoff_map(),
             dbc.Tooltip(
-                "Click the map to set coordinates; use layers for markers, stations, and watershed",
+                "Centered on Project Location. Click the map to set watershed "
+                "coordinates; use layers for markers, stations, and watershed",
                 target="runoff-map",
                 placement="top",
             ),
@@ -249,11 +284,13 @@ def create_map_card():
 
 def create_coordinate_inputs():
     """Create the latitude and longitude input fields."""
+    lat, lon, _ = _project_location_map_center()
     return [
         html.Label("Selected Latitude", className="fw-bold"),
         dbc.Input(
             id="selected-latitude",
             type="number",
+            value=lat,
             placeholder="Click map to set latitude",
             debounce=True,
             step=0.000001,
@@ -263,6 +300,7 @@ def create_coordinate_inputs():
         dbc.Input(
             id="selected-longitude",
             type="number",
+            value=lon,
             placeholder="Click map to set longitude",
             debounce=True,
             step=0.000001,
@@ -665,7 +703,7 @@ def create_composite_cn_help_modal():
         ),
         (
             "R % (option 1B only)",
-            "Routing factor (%): fraction of impervious area whose runoff travels over "
+            "Routing factor (%): percentage of impervious area whose runoff travels over "
             "pervious land before reaching the outlet. Used in the option 1B composite "
             "CN equation.",
         ),
@@ -1285,7 +1323,7 @@ def create_curve_number_tab():
                                                     "label": (
                                                         "1A: Pick this one if all of your impervious areas "
                                                         "outlet directly to the drainage system "
-                                                        "(see figure below)."
+                                                        "(see figure for description)."
                                                     ),
                                                     "value": "1A",
                                                 },
@@ -1327,6 +1365,7 @@ def create_curve_number_tab():
                                     ),
                                     create_composite_cn_help_modal(),
                                     html.Div(id="composite-cn-table", className="mt-0"),
+                                    html.Div(id="composite-cn-input-error", className="mt-2"),
                                     dcc.Store(id="composite-cn-table-store", data=None),
                                     *create_curve_number_selection_modal(),
                                 ], width=6),
@@ -1431,6 +1470,10 @@ def create_curve_number_tab():
                                                     ),
                                                 ],
                                                 className="d-flex align-items-center mb-2",
+                                            ),
+                                            html.Div(
+                                                id="runoff-calculations-input-error",
+                                                className="mb-2",
                                             ),
                                             create_runoff_calculations_help_modal(),
                                             dcc.Store(

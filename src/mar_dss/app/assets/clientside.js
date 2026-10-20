@@ -1,116 +1,214 @@
+function marInstallMapboxClickRelay(graphElementId, storeId, handlerKey) {
+  var dc = window.dash_clientside;
+  try {
+    if (!dc || typeof dc.set_props !== "function") {
+      return;
+    }
+
+    var wrapTimerKey = "__marMapRelayWrapTimer_" + handlerKey;
+    var wrapTryKey = "__marMapRelayWrapTries_" + handlerKey;
+    var maxTries = 200;
+
+    function isLikelyMapboxMap(obj) {
+      return (
+        obj &&
+        typeof obj.on === "function" &&
+        typeof obj.project === "function"
+      );
+    }
+
+    function findMapboxGlMap(plotDiv) {
+      try {
+        var layout = plotDiv._fullLayout || {};
+        var keys = Object.keys(layout).filter(function (k) {
+          var L = layout[k];
+          return L && L._subplot && k.slice(0, 7) === "mapbox";
+        });
+        if (layout.mapbox && keys.indexOf("mapbox") < 0) {
+          keys.unshift("mapbox");
+        }
+        var names = ["map", "mapboxMap", "_map", "mapbox"];
+        var i, j, mb, sp, m;
+        for (i = 0; i < keys.length; i++) {
+          mb = layout[keys[i]];
+          if (!mb || !mb._subplot) continue;
+          sp = mb._subplot;
+          for (j = 0; j < names.length; j++) {
+            m = sp[names[j]];
+            if (isLikelyMapboxMap(m)) return m;
+          }
+          if (isLikelyMapboxMap(sp)) return sp;
+        }
+      } catch (eFind) {}
+      return null;
+    }
+
+    function wireMap(map) {
+      if (!map) return false;
+      var dblKey = handlerKey + "Dbl";
+      if (map[handlerKey]) {
+        try {
+          map.off("click", map[handlerKey]);
+        } catch (eOff) {}
+      }
+      if (map[dblKey]) {
+        try {
+          map.off("dblclick", map[dblKey]);
+        } catch (eOffDbl) {}
+      }
+      function placeFromEvent(e) {
+        try {
+          if (!e || !e.lngLat) return;
+          // Prefer stopping Mapbox double-click zoom so placement matches single click.
+          if (e.originalEvent) {
+            try {
+              e.originalEvent.preventDefault();
+              e.originalEvent.stopPropagation();
+            } catch (ePrev) {}
+          }
+          if (typeof e.preventDefault === "function") {
+            try {
+              e.preventDefault();
+            } catch (ePrev2) {}
+          }
+          dc.set_props(storeId, {
+            data: {
+              lat: e.lngLat.lat,
+              lon: e.lngLat.lng,
+              nonce: Date.now(),
+            },
+          });
+        } catch (eSet) {}
+      }
+      map[handlerKey] = placeFromEvent;
+      map[dblKey] = placeFromEvent;
+      map.on("click", map[handlerKey]);
+      map.on("dblclick", map[dblKey]);
+      try {
+        // Disable Mapbox double-click zoom so dblclick places the marker instead.
+        if (typeof map.doubleClickZoom === "object" && map.doubleClickZoom.disable) {
+          map.doubleClickZoom.disable();
+        }
+      } catch (eZoom) {}
+      return true;
+    }
+
+    function bindOnce() {
+      var wrap = document.getElementById(graphElementId);
+      if (!wrap) {
+        return false;
+      }
+      // Hidden / zero-size panes often have no Mapbox GL instance yet.
+      if (wrap.offsetParent === null && wrap.getClientRects().length === 0) {
+        return false;
+      }
+
+      var gd =
+        wrap.getElementsByClassName("plotly-graph-div")[0] ||
+        wrap.querySelector(".js-plotly-plot");
+      if (!gd || !gd._fullLayout) {
+        return false;
+      }
+
+      var tryKey = "__marMapRelayTries_" + handlerKey;
+      var afterKey = "__marAfterPlotRelay_" + handlerKey;
+      var map = findMapboxGlMap(gd);
+      if (!map) {
+        return false;
+      }
+
+      wireMap(map);
+      gd[tryKey] = 0;
+
+      if (gd[afterKey]) {
+        try {
+          gd.removeListener("plotly_afterplot", gd[afterKey]);
+        } catch (eRm) {}
+      }
+      gd[afterKey] = function () {
+        // Re-bind after Plotly rebuilds the map instance.
+        window[wrapTryKey] = 0;
+        scheduleBind(true);
+      };
+      gd.on("plotly_afterplot", gd[afterKey]);
+      return true;
+    }
+
+    function scheduleBind(resetTries) {
+      if (resetTries) {
+        window[wrapTryKey] = 0;
+      }
+      if (window[wrapTimerKey]) {
+        clearTimeout(window[wrapTimerKey]);
+      }
+      window[wrapTimerKey] = setTimeout(function () {
+        if (bindOnce()) {
+          window[wrapTryKey] = 0;
+          return;
+        }
+        window[wrapTryKey] = (window[wrapTryKey] || 0) + 1;
+        if (window[wrapTryKey] < maxTries) {
+          scheduleBind(false);
+        }
+      }, 150);
+    }
+
+    // Fresh attempt whenever Dash re-invokes the clientside callback.
+    scheduleBind(true);
+
+    // Late layout passes (flex height / tab paint) often finish after first plot.
+    setTimeout(function () {
+      scheduleBind(true);
+    }, 400);
+    setTimeout(function () {
+      scheduleBind(true);
+    }, 1200);
+  } catch (eOuter) {}
+}
+
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
   clientside: {
     /** Bind Mapbox GL `click` on Plotly Scattermapbox so Dash sees map-background picks. */
     installWaterSourceMapClickRelay: function (_figure, _activeTab) {
-      var dc = window.dash_clientside;
-      try {
-        if (!dc || typeof dc.set_props !== "function") {
-          return dc.no_update;
-        }
-        var wrap = document.getElementById("water-source-location-map");
-        if (!wrap) {
-          return dc.no_update;
-        }
-        var gd =
-          wrap.getElementsByClassName("plotly-graph-div")[0] ||
-          wrap.querySelector(".js-plotly-plot");
-        if (!gd || !gd._fullLayout) {
-          return dc.no_update;
-        }
+      marInstallMapboxClickRelay(
+        "water-source-location-map",
+        "water-source-map-mapbox-click-store",
+        "__marWaterSourceClickRelay"
+      );
+      return window.dash_clientside.no_update;
+    },
 
-        function isLikelyMapboxMap(obj) {
-          return (
-            obj &&
-            typeof obj.on === "function" &&
-            typeof obj.project === "function"
-          );
-        }
-
-        function findMapboxGlMap(plotDiv) {
-          try {
-            var layout = plotDiv._fullLayout || {};
-            var keys = Object.keys(layout).filter(function (k) {
-              var L = layout[k];
-              return L && L._subplot && k.slice(0, 7) === "mapbox";
-            });
-            if (layout.mapbox && keys.indexOf("mapbox") < 0) {
-              keys.unshift("mapbox");
-            }
-            var names = ["map", "mapboxMap", "_map", "mapbox"];
-            var i, j, mb, sp, m;
-            for (i = 0; i < keys.length; i++) {
-              mb = layout[keys[i]];
-              if (!mb || !mb._subplot) continue;
-              sp = mb._subplot;
-              for (j = 0; j < names.length; j++) {
-                m = sp[names[j]];
-                if (isLikelyMapboxMap(m)) return m;
-              }
-              if (isLikelyMapboxMap(sp)) return sp;
-            }
-          } catch (eFind) {}
-          return null;
-        }
-
-        function wireMap(map) {
-          if (!map) return;
-          if (map.__marWaterSourceClickRelay) {
-            try {
-              map.off("click", map.__marWaterSourceClickRelay);
-            } catch (eOff) {}
-          }
-          map.__marWaterSourceClickRelay = function (e) {
-            try {
-              if (!e || !e.lngLat) return;
-              dc.set_props("water-source-map-mapbox-click-store", {
-                data: {
-                  lat: e.lngLat.lat,
-                  lon: e.lngLat.lng,
-                  nonce: Date.now(),
-                },
-              });
-            } catch (eSet) {}
-          };
-          map.on("click", map.__marWaterSourceClickRelay);
-        }
-
-        function tryBind() {
-          var map = findMapboxGlMap(gd);
-          if (map) {
-            gd.__marWaterMapRelayTries = 0;
-            wireMap(map);
-            return true;
-          }
-          return false;
-        }
-
-        function scheduleBind() {
-          if (gd.__marWaterRelayTimer) clearTimeout(gd.__marWaterRelayTimer);
-          gd.__marWaterRelayTimer = setTimeout(function () {
-            if (tryBind()) return;
-            gd.__marWaterMapRelayTries = (gd.__marWaterMapRelayTries || 0) + 1;
-            if (gd.__marWaterMapRelayTries < 120) scheduleBind();
-          }, 120);
-        }
-
-        scheduleBind();
-
-        var afterKey = "__marWaterAfterPlotRelay";
-        if (gd[afterKey]) {
-          try {
-            gd.removeListener("plotly_afterplot", gd[afterKey]);
-          } catch (eRm) {}
-        }
-        gd[afterKey] = function () {
-          scheduleBind();
-        };
-        gd.on("plotly_afterplot", gd[afterKey]);
-      } catch (eOuter) {}
-
+    /** Overview project-location map: click places the red circle. */
+    installOverviewMapClickRelay: function (_figure, _activeTab) {
+      marInstallMapboxClickRelay(
+        "location-map",
+        "overview-map-mapbox-click-store",
+        "__marOverviewClickRelay"
+      );
       return window.dash_clientside.no_update;
     },
 
     resizeMapOnTab: function(topTab, optionalRunoffActiveTab) {
+      if (topTab === "overview") {
+        // Mapbox often finishes init after the Overview pane is painted.
+        setTimeout(function () {
+          marInstallMapboxClickRelay(
+            "location-map",
+            "overview-map-mapbox-click-store",
+            "__marOverviewClickRelay"
+          );
+        }, 0);
+        setTimeout(function () {
+          marInstallMapboxClickRelay(
+            "location-map",
+            "overview-map-mapbox-click-store",
+            "__marOverviewClickRelay"
+          );
+          try {
+            window.dispatchEvent(new Event("resize"));
+          } catch (eResize) {}
+        }, 250);
+      }
       if (topTab === "water-source" && optionalRunoffActiveTab === "runoff-calculator") {
         // Defer to next tick so the tab is fully visible before resizing
         setTimeout(function() {

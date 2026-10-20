@@ -2270,10 +2270,109 @@ def create_recharge_mound_outputs_help_modal():
                             html.Dd(
                                 "Map of the MAR footprint. Use Show Contour Lines to "
                                 "display estimated recharge-mound head contours for the "
-                                "current hydrogeologic inputs.",
-                                className="mb-0",
+                                "current hydrogeologic inputs. Contour method depends on "
+                                "whether the site is classified as confined or unconfined.",
+                                className="mb-3",
                             ),
                         ]
+                    ),
+                    html.H6("How mound contours are computed", className="fw-bold mb-2"),
+                    html.P(
+                        [
+                            "Contours are evaluated on a plan-view grid over the MAR "
+                            "footprint, then clipped to that rectangle. A uniform "
+                            "regional hydraulic gradient of ",
+                            _help_eq("i_reg = 0.02"),
+                            " (2%) is added along ",
+                            _help_eq("x"),
+                            " so the displayed surface is ",
+                            _help_eq("z = h_mound − i_reg · x"),
+                            " (ft). Simulation time for the analytical kernels is ",
+                            _help_eq("t = 50"),
+                            " days.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.H6("Confined aquifer (Theis)", className="fw-bold mb-2"),
+                    html.P(
+                        [
+                            "For confined sites, contours use the Theis well solution for "
+                            "head rise (injection treated as a source) at radial distance ",
+                            _help_eq("r = √(x² + y²)"),
+                            " from the footprint center. Aquifer transmissivity and "
+                            "storativity come from the recharge-target layer: ",
+                            _help_eq("T = K · B"),
+                            " and ",
+                            _help_eq("S = S_s · B"),
+                            ".",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.Pre(
+                        "u = (r² · S) / (4 · T · t)\n"
+                        "W(u) = E₁(u) = ∫_u^∞ (e^{-y} / y) dy\n"
+                        "h_Theis(r, t) = (Q / (4 · π · T)) · W(u)",
+                        className="bg-light border rounded p-2 small mb-2",
+                    ),
+                    html.P(
+                        [
+                            "Injection rate ",
+                            _help_eq("Q"),
+                            " is the lesser of the configured maximum injection rate per "
+                            "well and the Theis rate that produces allowable head rise ",
+                            _help_eq("H_max"),
+                            " at a reference well radius (",
+                            _help_eq("r ≈ 1"),
+                            " ft), with ",
+                            _help_eq("H_max = 0.6 · 2.31 · D_conf"),
+                            " where ",
+                            _help_eq("D_conf"),
+                            " is the depth to the top of the confined target unit (ft).",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.H6("Unconfined aquifer (Hantush-type rectangular recharge)", className="fw-bold mb-2"),
+                    html.P(
+                        [
+                            "For unconfined sites, contours use a Hantush-type solution for "
+                            "continuous recharge over a rectangular basin of half-length ",
+                            _help_eq("ℓ"),
+                            " and half-width ",
+                            _help_eq("a"),
+                            " (from the designed spreading area). Saturated-zone "
+                            "properties below the water table are thickness-weighted "
+                            "means ",
+                            _help_eq("K̄"),
+                            " and ",
+                            _help_eq("S̄_y"),
+                            " with saturated thickness ",
+                            _help_eq("b"),
+                            ". Recharge strength ",
+                            _help_eq("w"),
+                            " is the designed infiltration rate (ft/day).",
+                        ],
+                        className="mb-2",
+                    ),
+                    html.Pre(
+                        "ν = 4 · t · K̄ · b / S̄_y\n"
+                        "\n"
+                        "S(x, y) = S₁ + S₂ + S₃ + S₄\n"
+                        "  S₁ = ∫₀¹ erf((ℓ + x)/√(ν τ)) · erf((a + y)/√(ν τ)) dτ\n"
+                        "  S₂ = ∫₀¹ erf((ℓ + x)/√(ν τ)) · erf((a − y)/√(ν τ)) dτ\n"
+                        "  S₃ = ∫₀¹ erf((ℓ − x)/√(ν τ)) · erf((a + y)/√(ν τ)) dτ\n"
+                        "  S₄ = ∫₀¹ erf((ℓ − x)/√(ν τ)) · erf((a − y)/√(ν τ)) dτ\n"
+                        "\n"
+                        "Δh(x, y) = √[ (w / (2 · K̄)) · (K̄ · b / S̄_y) · t · S(x, y) ]",
+                        className="bg-light border rounded p-2 small mb-2",
+                    ),
+                    html.P(
+                        [
+                            "The plotted mound field is ",
+                            _help_eq("h_mound = Δh(x, y)"),
+                            " (ft of water-table rise). Contours are then combined with "
+                            "the same 2% regional gradient as in the confined case.",
+                        ],
+                        className="mb-0",
                     ),
                 ]
             ),
@@ -2512,11 +2611,23 @@ def _build_view_card():
 
 DEFAULT_MAX_DRY_WELL_DEPTH_FT = 120.0
 
-_FIELD_NOTE_STYLE = {"fontSize": "0.72rem", "lineHeight": 1.25, "color": "#000"}
+# Field titles stay solid black; notes use a softer muted italic for contrast.
+_FIELD_TITLE_STYLE = {
+    "fontSize": "0.72rem",
+    "lineHeight": 1.2,
+    "color": "#212529",
+    "fontWeight": "600",
+}
+_FIELD_NOTE_STYLE = {
+    "fontSize": "0.72rem",
+    "lineHeight": 1.25,
+    "color": "#6c757d",
+    "fontStyle": "italic",
+}
 
 
 def _input_field_note(text: str):
-    """Single-line helper text under a compact numeric input."""
+    """Helper text under a compact numeric input (muted italic vs field title)."""
     return html.Small(
         text,
         className="d-block",
@@ -2625,7 +2736,7 @@ def _build_rule_defaults_fields_children():
                         label,
                         className="mb-0 small",
                         htmlFor=inp_id,
-                        style={"fontSize": "0.72rem", "lineHeight": 1.2, "color": "#000"},
+                        style=_FIELD_TITLE_STYLE,
                     ),
                     dbc.Input(
                         id=inp_id,
@@ -2656,7 +2767,7 @@ def _build_rule_defaults_fields_children():
                     "Confined aquifer — moderate-depth threshold (ft)",
                     className="mb-0 small",
                     htmlFor=lo_id,
-                    style={"fontSize": "0.72rem", "lineHeight": 1.2, "color": "#000"},
+                    style=_FIELD_TITLE_STYLE,
                 ),
                 dbc.Input(
                     id=lo_id,
@@ -2684,7 +2795,7 @@ def _build_rule_defaults_fields_children():
                     "Confined aquifer — too-deep threshold (ft)",
                     className="mb-0 small",
                     htmlFor=hi_id,
-                    style={"fontSize": "0.72rem", "lineHeight": 1.2, "color": "#000"},
+                    style=_FIELD_TITLE_STYLE,
                 ),
                 dbc.Input(
                     id=hi_id,
@@ -2712,7 +2823,11 @@ def _build_rule_defaults_fields_children():
         html.Div(
             "Overrides for mar_dss.rules.defaults (blank = built-in default).",
             className="small mb-2",
-            style={"fontSize": "0.75rem", "color": "#000"},
+            style={
+                "fontSize": "0.75rem",
+                "color": "#6c757d",
+                "fontStyle": "italic",
+            },
         ),
         dbc.Row(rule_cols + deep_cols, className="g-2 gx-2 gy-1 mb-0"),
     ]
@@ -2804,7 +2919,7 @@ def _build_geometry_hydrogeologic_parameters_card():
                                         "Aquitard hydraulic conductivity (ft/day)",
                                         className="mb-0 small",
                                         htmlFor="aquitard-conductivity-input",
-                                        style={"fontSize": "0.72rem", "color": "#000"},
+                                        style=_FIELD_TITLE_STYLE,
                                     ),
                                     dbc.Input(
                                         id="aquitard-conductivity-input",
@@ -2842,7 +2957,7 @@ def _build_geometry_hydrogeologic_parameters_card():
                                         "Confined aquifer head (ft)",
                                         className="mb-0 small",
                                         htmlFor="confined-aquifer-head-input",
-                                        style={"fontSize": "0.72rem", "color": "#000"},
+                                        style=_FIELD_TITLE_STYLE,
                                     ),
                                     dbc.Input(
                                         id="confined-aquifer-head-input",
@@ -2869,7 +2984,7 @@ def _build_geometry_hydrogeologic_parameters_card():
                                         "Maximum dry well depth (ft)",
                                         className="mb-0 small",
                                         htmlFor="max-dry-well-depth-input",
-                                        style={"fontSize": "0.72rem", "color": "#000"},
+                                        style=_FIELD_TITLE_STYLE,
                                     ),
                                     dbc.Input(
                                         id="max-dry-well-depth-input",
