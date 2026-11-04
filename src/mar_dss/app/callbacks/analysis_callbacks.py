@@ -687,19 +687,24 @@ def create_and_run_cost_calculator():
     if graph is None:
         raise ValueError("decision_graph is missing; run graph evaluation before cost calculation")
 
-    from mar_dss.rules.defaults import get_default
+    from mar_dss.rules.defaults import (
+        ft3_per_day_to_gpm,
+        get_default,
+        get_max_injection_Q_per_well_ft3_day,
+    )
 
     number_of_injection_wells_results = graph.get_node_value("number_of_injection_wells")
     # compute_number_of_injection_wells returns None when neither confined nor unconfined is true
+    # Q_per_well from sizing is always ft³/day.
     if not isinstance(number_of_injection_wells_results, dict):
-        q_def = float(get_default("max_injection_Q_per_well"))
+        q_def_ft3_day = float(get_max_injection_Q_per_well_ft3_day())
         logger.warning(
             "number_of_injection_wells not available from graph (confined/unconfined may be unset); "
             "using placeholder values for cost calculator"
         )
         number_of_injection_wells_results = {
             "number_of_wells": 5,
-            "Q_per_well": q_def,
+            "Q_per_well": q_def_ft3_day,
         }
 
     number_of_injection_wells = int(
@@ -707,7 +712,7 @@ def create_and_run_cost_calculator():
     )
     injection_Q_ft3_per_day = float(
         number_of_injection_wells_results.get(
-            "Q_per_well", get_default("max_injection_Q_per_well")
+            "Q_per_well", get_max_injection_Q_per_well_ft3_day()
         )
     )
 
@@ -722,10 +727,8 @@ def create_and_run_cost_calculator():
     else:
         recharge_method = "dry_well"
     
-    # Convert ft³/day to gpm (gallons per minute)
-    # 1 ft³ = 7.48052 gallons, 1 day = 1440 minutes
-    # gpm = (ft³/day) × (7.48052 gallons/ft³) / (1440 minutes/day)
-    injection_Q_gpm = injection_Q_ft3_per_day * 7.48052 / 1440
+    # Graph / Theis sizing stores Q_per_well in ft³/day; cost calculator wants gpm.
+    injection_Q_gpm = ft3_per_day_to_gpm(injection_Q_ft3_per_day)
     
     storm_design_depth = 1.8
     cost_calculator = CostCalculator(

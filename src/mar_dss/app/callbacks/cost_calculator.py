@@ -477,9 +477,15 @@ class CostCalculator:
             df['Well Capacity (gal/hr)'] / 60.0
         )
 
-        df['Number of Wells Required'] = np.ceil(
-            self.dry_well_transfer_rate_gpm / df['Well Capacity (gpm)']
-        )
+        # Always use geohydro_rules dry-well count (DSS / decision graph), not a
+        # separate capacity-based recount from transfer rate ÷ well capacity.
+        try:
+            n_wells = float(self.number_of_dry_wells or 0)
+        except (TypeError, ValueError):
+            n_wells = 0.0
+        if not np.isfinite(n_wells) or n_wells < 0:
+            n_wells = 0.0
+        df['Number of Wells Required'] = n_wells
         df['Infiltration Rate (gal/day)'] = (
             df['Well Capacity (gpm)'] *
             df['Number of Wells Required'] * 24 * 60
@@ -765,29 +771,16 @@ class CostCalculator:
             'Electrical System', 'LS', unit_price, 1
         ]
 
-        mask = (
-            self.dry_wells_infiltration_calculations['Well Diameter (ft)'] ==
-            self.dry_well_diameter_ft
-        )
-
-        # unit_price = 0
-        # if self.recharge_method == "dry_well":
         unit_price = 50000
         irow += 1
         irow_dry_well = irow
-        if self.number_of_dry_wells is not None:
-            df.loc[irow] = [
-                'INFILTRATION', 'Dry Well Cost', 'LF', unit_price,
-               self.number_of_dry_wells
-            ]
-        else:
-            
-            df.loc[irow] = [
-                'INFILTRATION', 'Dry Well Cost', 'LF', unit_price,
-                self.dry_wells_infiltration_calculations[mask][
-                    "Number of Wells Required"
-                ].values[0]
-            ]
+        try:
+            n_dry = float(self.number_of_dry_wells or 0)
+        except (TypeError, ValueError):
+            n_dry = 0.0
+        df.loc[irow] = [
+            'INFILTRATION', 'Dry Well Cost', 'LF', unit_price, n_dry
+        ]
         unit_price = 250000
         irow += 1
         irow_injection_wells = irow
@@ -978,15 +971,10 @@ class CostCalculator:
             'Power', 'LS', 2000, 1
         ]
 
-        mask = (
-            self.dry_wells_infiltration_calculations['Well Diameter (ft)'] ==
-            self.dry_well_diameter_ft
-        )
-        nwells = (
-            self.dry_wells_infiltration_calculations[mask][
-                "Number of Wells Required"
-            ].values[0]
-        )
+        try:
+            nwells = float(self.number_of_dry_wells or 0)
+        except (TypeError, ValueError):
+            nwells = 0.0
         unit_price = 0
         if self.recharge_method == "dry_well":
             unit_price = 1000

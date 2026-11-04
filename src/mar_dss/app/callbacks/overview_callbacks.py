@@ -621,9 +621,15 @@ def setup_overview_callbacks(app):
         )
 
     def _load_project_rows_into_storage(df):
-        """Populate dash_storage from a key/value CSV export."""
+        """Populate dash_storage from a key/value CSV export.
+
+        Skip ``workspace`` / ``filename``: those must reflect where *this* user
+        opened or saved the file, not paths embedded from a colleague's machine.
+        """
         for _, row in df.iterrows():
             key = row["key"]
+            if key in ("workspace", "filename"):
+                continue
             value = row["value"]
 
             if is_missing_storage_value(value):
@@ -640,6 +646,13 @@ def setup_overview_callbacks(app):
             dash_storage.set_data(key, value)
 
         apply_project_storage_defaults()
+
+    def _bind_project_path_to_opened_file(fn: str) -> str:
+        """Point workspace/filename at the file that was actually opened."""
+        workspace_dir, base_name = split_project_path(fn)
+        dash_storage.set_data("workspace", workspace_dir)
+        dash_storage.set_data("filename", base_name)
+        return format_project_path(workspace_dir, base_name)
 
     # Callback for Open button - load project from file (native picker when available)
     @app.callback(
@@ -667,10 +680,7 @@ def setup_overview_callbacks(app):
 
         if isinstance(picked, str) and picked:
             fn = picked
-            workspace_dir, base_name = split_project_path(fn)
-            dash_storage.set_data("workspace", workspace_dir)
-            dash_storage.set_data("filename", base_name)
-            path_out = format_project_path(workspace_dir, base_name)
+            path_out = _bind_project_path_to_opened_file(fn)
         else:
             # Tk unavailable: use combined path from storage
             data = dash_storage.get_data_storage()
@@ -719,6 +729,8 @@ def setup_overview_callbacks(app):
                     blob = json.load(f)
                 if isinstance(blob, dict):
                     for key, value in blob.items():
+                        if key in ("workspace", "filename"):
+                            continue
                         if is_missing_storage_value(value):
                             continue
                         dash_storage.set_data(key, _parse_literal_if_needed(value))
@@ -734,13 +746,11 @@ def setup_overview_callbacks(app):
                 print(f"Loaded CSV with {len(df)} rows")
                 _load_project_rows_into_storage(df)
 
+            # Always bind save path to the file just opened (ignore embedded paths).
+            path_after = _bind_project_path_to_opened_file(fn)
+
             if dash_storage.get_data("overview_map_basemap") == "stamen-terrain":
                 dash_storage.set_data("overview_map_basemap", "opentopomap")
-
-            path_after = format_project_path(
-                dash_storage.get_data("workspace"),
-                dash_storage.get_data("filename"),
-            )
             strat_out = stratigraphy_store_payload_from_storage()
             gw_out = normalize_groundwater_data(dash_storage.get_data("groundwater_data") or [])
             project_loc = normalize_stored_string(dash_storage.get_data("project_location"))

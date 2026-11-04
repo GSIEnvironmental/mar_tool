@@ -728,6 +728,35 @@ def setup_cost_callbacks(app):
             storm_design_depth = 1.8
             from mar_dss.rules.defaults import get_default
 
+            # Prefer geohydro dry-/injection-well counts from the decision graph.
+            graph = dash_storage.get_data("decision_graph")
+            n_dry = 0
+            n_inj = 5
+            q_inj_gpm = 50.0
+            if graph is not None:
+                dry_result = graph.get_node_value("number_of_dry_wells")
+                if isinstance(dry_result, dict):
+                    try:
+                        n_dry = int(float(dry_result.get("number_of_dry_wells", 0) or 0))
+                    except (TypeError, ValueError):
+                        n_dry = 0
+                inj_result = graph.get_node_value("number_of_injection_wells")
+                if isinstance(inj_result, dict):
+                    try:
+                        n_inj = int(float(inj_result.get("number_of_wells", 5) or 5))
+                    except (TypeError, ValueError):
+                        n_inj = 5
+                    try:
+                        from mar_dss.rules.defaults import ft3_per_day_to_gpm
+
+                        q_inj_gpm = ft3_per_day_to_gpm(
+                            float(inj_result.get("Q_per_well", 0) or 0)
+                        )
+                        if q_inj_gpm <= 0:
+                            q_inj_gpm = 50.0
+                    except (TypeError, ValueError):
+                        q_inj_gpm = 50.0
+
             cost_calculator = CostCalculator(
                 water_source="stormwater",
                 storm_design_depth=storm_design_depth,
@@ -742,11 +771,12 @@ def setup_cost_callbacks(app):
                 dry_well_transfer_rate_gpm=float(
                     get_default("max_dry_well_transfer_rate_gpm")
                 ),
-                injection_well_transfer_rate_gpm=50,
-                number_of_injection_wells=5,
+                injection_well_transfer_rate_gpm=q_inj_gpm,
+                number_of_injection_wells=n_inj,
                 collection_to_sediment_removal__conveyance_method=conveyance_method,
                 dry_well_diameter_ft=6,
                 recharge_method="dry_well",
+                number_of_dry_wells=n_dry,
             )
             cost_calculator.calculate_cost()
 

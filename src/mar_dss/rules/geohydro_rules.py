@@ -8,7 +8,11 @@ from mar_dss.rules.analytical_solutions import (
     mounding_integral_sum_at_point,
     theis_drawdown_or_Q,
 )
-from mar_dss.rules.defaults import get_default
+from mar_dss.rules.defaults import (
+    get_default,
+    get_max_dry_well_transfer_rate_ft3_day,
+    get_max_injection_Q_per_well_ft3_day,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -618,7 +622,7 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
         Ss = strat_df.iloc[target_layer_index]["sy/ss"]
         transmissivity = kaq * B
         Ss = Ss * B
-        Qmax = get_default("max_injection_Q_per_well") 
+        Qmax = get_max_injection_Q_per_well_ft3_day()
         max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=Hmax, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
         Q_per_well = min(Qmax, max_Q_per_well)     
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)       
@@ -681,7 +685,7 @@ def compute_number_of_injection_wells(source_water_volume, op_gw_depth, strat_df
     max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=dh_corrected, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
 
     #max_Q_per_well = (2 * 3.14159 * k_mean*saturated_thickness*dh) / (np.log(300))
-    Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
+    Qmax = get_max_injection_Q_per_well_ft3_day()
     Q_per_well = min(max_Q_per_well, Qmax)
     number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
     number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
@@ -726,7 +730,7 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=dh_corrected, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
 
         #max_Q_per_well = (2 * 3.14159 * k_mean*saturated_thickness*dh) / (np.log(300))
-        Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
+        Qmax = get_max_dry_well_transfer_rate_ft3_day()
         Q_per_well = min(max_Q_per_well, Qmax)
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
         number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
@@ -740,7 +744,7 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
     transmissivity = strat_df.iloc[target_layer_index]["K"] * strat_df.iloc[target_layer_index]["thickness"]
     Ss = strat_df.iloc[target_layer_index]["sy/ss"] * strat_df.iloc[target_layer_index]["thickness"]
     max_Q_per_well = theis_drawdown_or_Q(Q_or_dh=Hmax_local, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
-    Qmax = get_default("max_injection_Q_per_well") #  ft^3/day, arround 20L/sec
+    Qmax = get_max_dry_well_transfer_rate_ft3_day()
     Q_per_well = min(Qmax, max_Q_per_well)
     number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
     number_of_wells = min(get_default("max_number_of_injection_wells"), number_of_wells)
@@ -1134,7 +1138,7 @@ def build_confined_theis_xy_plot_dict(
             out["error"] = "Transmissivity or storativity must be positive."
             return out
 
-        Qmax = float(get_default("max_injection_Q_per_well"))
+        Qmax = float(get_max_injection_Q_per_well_ft3_day())
         q_cap = theis_drawdown_or_Q(
             Q_or_dh=Hmax,
             T=transmissivity,

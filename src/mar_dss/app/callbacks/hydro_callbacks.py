@@ -1040,12 +1040,16 @@ def setup_hydro_callbacks(app):
             )
             
             # key includes validation tick so rejected edits remount with store values
+            # Use step="any" for hydro properties. Fixed steps + a tiny min
+            # (e.g. 1e-12) make HTML5 reject valid values like Ss=0.000005
+            # because (value - min) / step is not an integer; the browser then
+            # sends blank and validation reports "must be greater than zero."
             thickness_input = dbc.Input(
                 id={"type": "thickness-input", "index": i},
                 value=row["thickness"],
                 type="number",
-                min=1e-12,
-                step="0.1",
+                min=0,
+                step="any",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",
@@ -1056,8 +1060,8 @@ def setup_hydro_callbacks(app):
                 id={"type": "conductivity-input", "index": i},
                 value=row["conductivity"],
                 type="number",
-                min=1e-12,
-                step="0.001",
+                min=0,
+                step="any",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",
@@ -1068,8 +1072,8 @@ def setup_hydro_callbacks(app):
                 id={"type": "storage-input", "index": i},
                 value=row["storage"],
                 type="number",
-                min=1e-12,
-                step="0.000001",
+                min=0,
+                step="any",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",
@@ -1080,8 +1084,8 @@ def setup_hydro_callbacks(app):
                 id={"type": "yield-input", "index": i},
                 value=row["yield"],
                 type="number",
-                min=1e-12,
-                step="0.01",
+                min=0,
+                step="any",
                 size="sm",
                 debounce=True,
                 className="table-cell-input-borderless",

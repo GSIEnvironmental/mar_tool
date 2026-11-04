@@ -8,10 +8,12 @@ defaults['excessive_deep_aquifer'] = [1500.0, 3000.0]
 
 # maximum perecenatge of source water that can be recharged
 defaults["maximum_rechargability"] = 50
-defaults["max_injection_Q_per_well"] = 100000 #  ft^3/day
+# Cap on injection rate per well — gallons per minute.
+# Hydrologic kernels still use ft³/day via :func:`get_max_injection_Q_per_well_ft3_day`.
+defaults["max_injection_Q_per_well"] = 500  # gpm
 defaults["max_number_of_injection_wells"] = 20
 
-# dry well
+# dry well — transfer-rate cap used for dry-well count sizing (gpm → ft³/day)
 defaults["max_dry_well_transfer_rate_gpm"] = 50
 defaults["max_drywell_depth_ft"] = 10
 
@@ -31,6 +33,45 @@ defaults["Nutrients_residence_time"] = 30
 
 RULE_DEFAULTS_OVERRIDES_STORAGE_KEY = "rule_defaults_overrides"
 
+GALLONS_PER_FT3 = 7.48051948
+MINUTES_PER_DAY = 1440.0
+# Overrides above this are treated as legacy ft³/day (old default was 100000).
+_LEGACY_INJECTION_Q_FT3_DAY_THRESHOLD = 5000.0
+
+
+def gpm_to_ft3_per_day(gpm) -> float:
+    """Convert gallons per minute to cubic feet per day."""
+    return float(gpm) * MINUTES_PER_DAY / GALLONS_PER_FT3
+
+
+def ft3_per_day_to_gpm(ft3_per_day) -> float:
+    """Convert cubic feet per day to gallons per minute."""
+    return float(ft3_per_day) * GALLONS_PER_FT3 / MINUTES_PER_DAY
+
+
+def _coerce_injection_q_gpm(val, fallback):
+    """Interpret stored max injection Q as gpm; convert legacy ft³/day if needed."""
+    try:
+        raw = float(val)
+    except (TypeError, ValueError):
+        return fallback
+    if not (raw > 0) or raw != raw:  # NaN / non-positive
+        return fallback
+    # Old UI stored ft³/day (~1e5); new UI stores gpm (~500).
+    if raw > _LEGACY_INJECTION_Q_FT3_DAY_THRESHOLD:
+        return ft3_per_day_to_gpm(raw)
+    return raw
+
+
+def get_max_injection_Q_per_well_ft3_day() -> float:
+    """Maximum injection rate per well in ft³/day for Theis / well-count sizing."""
+    return gpm_to_ft3_per_day(get_default("max_injection_Q_per_well"))
+
+
+def get_max_dry_well_transfer_rate_ft3_day() -> float:
+    """Maximum dry-well transfer rate in ft³/day for dry-well count sizing."""
+    return gpm_to_ft3_per_day(get_default("max_dry_well_transfer_rate_gpm"))
+
 
 def get_default(key):
     """
@@ -49,6 +90,8 @@ def get_default(key):
             if isinstance(val, (list, tuple)) and len(val) >= 2:
                 return [float(val[0]), float(val[1])]
             return list(base)
+        if key == "max_injection_Q_per_well":
+            return _coerce_injection_q_gpm(val, float(base))
         if isinstance(base, bool):
             return bool(val)
         if isinstance(base, int) and not isinstance(base, bool):

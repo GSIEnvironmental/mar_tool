@@ -453,15 +453,16 @@ def create_default_parameters_help_modal():
                         [
                             html.Strong("Maximum injection flow rate per well "),
                             _help_eq("Q_max"),
-                            " (ft³/day). ",
-                            "Caps the Theis-derived hydrologic rate in Stage 2b: ",
+                            " (gallons/minute). ",
+                            "Caps the Theis-derived hydrologic rate in Stage 2b "
+                            "(converted internally to ft³/day): ",
                             _help_eq("Q_well = minimum of Q_hydro and Q_max"),
                             ". A lower cap increases the required well count or forces "
                             "truncation against ",
                             _help_eq("N_max"),
                             ", which can reduce ",
                             _help_eq("η"),
-                            ".",
+                            ". Default is 500 gpm.",
                         ],
                         className="mb-3",
                     ),
@@ -484,12 +485,16 @@ def create_default_parameters_help_modal():
                     html.P(
                         [
                             html.Strong("Maximum dry well transfer rate "),
-                            "(gallons/minute). ",
-                            "Upper bound on pumping or transfer into a dry well during "
-                            "sizing and cost. If it limits annual dry-well volume enough, ",
+                            _help_eq("Q_dw"),
+                            " (gallons/minute). ",
+                            "Caps the Theis-derived dry-well rate in Stage 2b "
+                            "(converted internally to ft³/day): ",
+                            _help_eq("Q_well = minimum of Q_hydro and Q_dw"),
+                            ". Also used for dry-well transfer timing in cost. A lower "
+                            "cap increases required dry-well count (against ",
+                            _help_eq("N_max"),
+                            ") and can reduce ",
                             _help_eq("η"),
-                            " for Dry Well(s) may fall below ",
-                            _help_eq("η_min"),
                             ".",
                         ],
                         className="mb-3",
@@ -1234,11 +1239,13 @@ def create_initial_hydrologic_feasibility_help_modal():
                             _help_eq("Q_well"),
                             " and ",
                             _help_eq("N"),
-                            " are computed exactly as for injection wells (including the ",
-                            _help_eq("Q_max"),
-                            " and ",
+                            " use the Maximum dry well transfer rate ",
+                            _help_eq("Q_dw"),
+                            " (gpm → ft³/day) and ",
                             _help_eq("N_max"),
-                            " caps). In the ",
+                            " caps: ",
+                            _help_eq("Q_well = minimum of Q_hydro and Q_dw"),
+                            ". In the ",
                             html.Strong("confined"),
                             " dry-well path, allowable head is taken as a fraction of "
                             "depth to the confined unit, ",
@@ -1248,7 +1255,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                             " and ",
                             _help_eq("S"),
                             " are used in the Theis inversion before applying the same "
-                            "well-count formulas.",
+                            "dry-well transfer-rate and well-count caps.",
                         ],
                         className="mb-3",
                     ),
@@ -2668,9 +2675,10 @@ RULE_DEFAULT_SCALAR_ROWS = [
     ),
     (
         "max_injection_Q_per_well",
-        "Maximum injection flow rate per well (ft³/day)",
+        "Maximum injection flow rate per well (gallons/minute)",
         1,
-        "Maximum injection flow rate assumed per well for feasibility and routing rules.",
+        "Maximum injection flow rate per well (gpm) for feasibility and well-count "
+        "rules. Converted to ft³/day for Theis sizing. Default 500 gpm.",
     ),
     (
         "max_number_of_injection_wells",
@@ -2682,7 +2690,8 @@ RULE_DEFAULT_SCALAR_ROWS = [
         "max_dry_well_transfer_rate_gpm",
         "Maximum dry well transfer rate (gallons/minute)",
         1,
-        "Upper limit on pumping or transfer into the dry well (gallons per minute).",
+        "Caps dry-well rate for well-count sizing and cost transfer timing (gpm; "
+        "converted to ft³/day for Theis sizing).",
     ),
     (
         "max_drywell_depth_ft",
