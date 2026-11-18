@@ -733,7 +733,7 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
         Qmax = get_max_dry_well_transfer_rate_ft3_day()
         Q_per_well = min(max_Q_per_well, Qmax)
         number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
-        number_of_wells =min(get_default("max_number_of_injection_wells"), number_of_wells)
+        number_of_wells = min(get_default("max_number_of_dry_wells"), number_of_wells)
                                         
         return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
 
@@ -747,46 +747,61 @@ def compute_number_of_dry_wells(source_water_volume, op_gw_depth, strat_df, gw_d
     Qmax = get_max_dry_well_transfer_rate_ft3_day()
     Q_per_well = min(Qmax, max_Q_per_well)
     number_of_wells = np.ceil((np.max(source_water_volume)/30.25) / Q_per_well)
-    number_of_wells = min(get_default("max_number_of_injection_wells"), number_of_wells)
+    number_of_wells = min(get_default("max_number_of_dry_wells"), number_of_wells)
     return {"number_of_dry_wells": number_of_wells, "Q_per_dry_well": Q_per_well}
 
       
     
+
+def _monthly_capacity_recharge_volume(monthly_capacity_ft3, source_water_volume):
+    """Sum over months: min(monthly well/system capacity, monthly source).
+
+    Months with no available source water contribute zero.
+    """
+    try:
+        capacity = float(monthly_capacity_ft3)
+    except (TypeError, ValueError):
+        return 0.0
+    if not np.isfinite(capacity) or capacity <= 0:
+        return 0.0
+
+    vols = np.asarray(source_water_volume, dtype=float).ravel()
+    annual = 0.0
+    for i in range(min(12, len(vols))):
+        v = float(vols[i]) if np.isfinite(vols[i]) else 0.0
+        if v <= 0:
+            continue
+        annual += min(capacity, v)
+    return annual
+
 
 def compute_annual_recharge_volume(design_sizing_result, source_water_volume):
     if design_sizing_result is None:
         return None # irrelevant for confined aquifer
     spread_area = design_sizing_result["spread_area"]
     infl_rate = design_sizing_result["infl_rate"]
-    inf_k_ratio = design_sizing_result["inf_k_ratio"]
+    # Same month-by-month rule as injection / dry wells:
+    # V_m = min(V_source,m, A × i × 30.25); dry months → 0.
+    monthly_capacity = float(spread_area) * float(infl_rate) * 30.25
+    return _monthly_capacity_recharge_volume(monthly_capacity, source_water_volume)
 
-    annual_recharge_volume = 0
-    # 30.25 is the number of days in a month
-    for i in range(12):
-        current_month_storage = spread_area * infl_rate * 30.25
-        act_recharge =min(current_month_storage, source_water_volume[i])
-        annual_recharge_volume += act_recharge
-
-    return annual_recharge_volume   
 
 def compute_annual_injection_volume(number_of_injection_wells_result, source_water_volume):
     if number_of_injection_wells_result is None:
         return None # irrelevant for confined aquifer
     number_of_wells = number_of_injection_wells_result["number_of_wells"]
     Q_per_well = number_of_injection_wells_result["Q_per_well"]
-    annual_injection_volume = number_of_wells * Q_per_well * 365.25
-
-    annual_injection_volume = min(annual_injection_volume, np.sum(source_water_volume))
-    return annual_injection_volume
+    # Monthly capacity = N × Q (ft³/day) × 30.25 days; zero source months → zero recharge.
+    monthly_capacity = float(number_of_wells) * float(Q_per_well) * 30.25
+    return _monthly_capacity_recharge_volume(monthly_capacity, source_water_volume)
 
 def compute_annual_dry_well_volume(number_of_dry_wells_result, source_water_volume):
     if number_of_dry_wells_result is None:
         return None # irrelevant for confined aquifer
     number_of_wells = number_of_dry_wells_result["number_of_dry_wells"]
     Q_per_dry_well = number_of_dry_wells_result["Q_per_dry_well"]
-    annual_dry_well_volume = number_of_wells * Q_per_dry_well * 365.25
-    annual_dry_well_volume = min(annual_dry_well_volume, np.sum(source_water_volume))
-    return annual_dry_well_volume
+    monthly_capacity = float(number_of_wells) * float(Q_per_dry_well) * 30.25
+    return _monthly_capacity_recharge_volume(monthly_capacity, source_water_volume)
 
 def compute_vadose_residence_time(wq_source_contaminants, design_sizing, strat_df, avg_gw_depth):
     """Residence time (days) in the vadose zone.
@@ -876,9 +891,10 @@ def compute_confined_storage_volume(confined, strat_df, Hmax, injection_wells_re
             dh_from_well_at_300ft = theis_drawdown_or_Q(Q_or_dh=Q_per_well, T=transmissivity, S=Ss, r=300, t=50, compute_Q=False)
             dh_superimposed = (Hmax/injection_wells_result["number_of_wells"]) + (dh_from_well_at_300ft * (injection_wells_result["number_of_wells"] -1))
             max_injection_rate = theis_drawdown_or_Q(Q_or_dh=dh_superimposed, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True)
-         
-        
-        return max_injection_rate * 365.25
+
+        # Same month-by-month accounting as unconfined injection / dry wells.
+        monthly_capacity = float(max_injection_rate) * 30.25
+        return _monthly_capacity_recharge_volume(monthly_capacity, source_water_volume)
     else:
         return None
 

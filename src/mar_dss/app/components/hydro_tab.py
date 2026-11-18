@@ -469,16 +469,30 @@ def create_default_parameters_help_modal():
                     html.P(
                         [
                             html.Strong("Maximum number of injection wells "),
-                            _help_eq("N_max"),
+                            _help_eq("N_max,inj"),
                             ". ",
                             "Appears in ",
                             _help_eq(
-                                "N = minimum of ceil(V_day / Q_well) and N_max"
+                                "N = minimum of ceil(V_day / Q_well) and N_max,inj"
                             ),
-                            " for both injection and dry-well sizing (feasibility help "
-                            "Stage 2b). Truncation below the hydrologic need reduces "
-                            "annual well-based recharge and can fail hard Recharge "
-                            "Efficiency.",
+                            " for injection-well sizing (feasibility help Stage 2b). "
+                            "Truncation below the hydrologic need reduces annual "
+                            "injection recharge and can fail hard Recharge Efficiency.",
+                        ],
+                        className="mb-3",
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Maximum number of dry wells "),
+                            _help_eq("N_max,dw"),
+                            ". ",
+                            "Appears in ",
+                            _help_eq(
+                                "N = minimum of ceil(V_day / Q_well) and N_max,dw"
+                            ),
+                            " for dry-well sizing (feasibility help Stage 2b). "
+                            "Truncation below the hydrologic need reduces annual "
+                            "dry-well recharge and can fail hard Recharge Efficiency.",
                         ],
                         className="mb-3",
                     ),
@@ -492,7 +506,7 @@ def create_default_parameters_help_modal():
                             _help_eq("Q_well = minimum of Q_hydro and Q_dw"),
                             ". Also used for dry-well transfer timing in cost. A lower "
                             "cap increases required dry-well count (against ",
-                            _help_eq("N_max"),
+                            _help_eq("N_max,dw"),
                             ") and can reduce ",
                             _help_eq("η"),
                             ".",
@@ -1182,8 +1196,8 @@ def create_initial_hydrologic_feasibility_help_modal():
                         [
                             "The required number of wells is the ceiling of daily demand "
                             "divided by per-well rate, then limited by the Default "
-                            "Parameters maximum well count ",
-                            _help_eq("N_max"),
+                            "Parameters maximum injection-well count ",
+                            _help_eq("N_max,inj"),
                             ":",
                         ],
                         className="mb-2",
@@ -1191,7 +1205,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                     html.P(
                         [
                             _help_eq(
-                                "N = minimum of ceil(V_day / Q_well) and N_max"
+                                "N = minimum of ceil(V_day / Q_well) and N_max,inj"
                             ),
                             ".",
                         ],
@@ -1200,7 +1214,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                     html.P(
                         [
                             "If demand would require more than ",
-                            _help_eq("N_max"),
+                            _help_eq("N_max,inj"),
                             " wells, the design is truncated. Annual injection volume is "
                             "then based on ",
                             _help_eq("N"),
@@ -1242,7 +1256,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                             " use the Maximum dry well transfer rate ",
                             _help_eq("Q_dw"),
                             " (gpm → ft³/day) and ",
-                            _help_eq("N_max"),
+                            _help_eq("N_max,dw"),
                             " caps: ",
                             _help_eq("Q_well = minimum of Q_hydro and Q_dw"),
                             ". In the ",
@@ -2684,7 +2698,13 @@ RULE_DEFAULT_SCALAR_ROWS = [
         "max_number_of_injection_wells",
         "Maximum number of injection wells",
         1,
-        "Cap on the count of injection wells used in scenario logic.",
+        "Cap on the count of injection wells used in well-count sizing.",
+    ),
+    (
+        "max_number_of_dry_wells",
+        "Maximum number of dry wells",
+        1,
+        "Cap on the count of dry wells used in well-count sizing.",
     ),
     (
         "max_dry_well_transfer_rate_gpm",

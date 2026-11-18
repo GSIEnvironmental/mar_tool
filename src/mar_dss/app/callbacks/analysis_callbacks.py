@@ -866,40 +866,24 @@ def run_integrated_analysis():
         cost_calculator = None
         cost_mapping = None
     else:
-        # Step 2: Extract capital costs
-        capital_costs = extract_capital_costs(cost_calculator)
-        
-        # Extract maintenance costs
-        cols = ['Spreading Pond Maintenance Cost ($)', 'Injection Wells Maintenance Cost ($)', 'Dry Wells Maintenance Cost ($)']
-        maintenance_cost_num = cost_calculator.maintenance_costs_calculations.loc['Annual Grand Maintenance Cost', cols]
-        
+        # Step 2: Persist capital / O&M / NPV, honoring Capital table unit-cost overrides
+        try:
+            from mar_dss.app.callbacks.cost_callbacks import (
+                persist_calculator_costs_with_unit_overrides,
+            )
+        except ImportError:
+            from .cost_callbacks import persist_calculator_costs_with_unit_overrides
+
+        capital_totals, maint_totals, _net_val = (
+            persist_calculator_costs_with_unit_overrides(cost_calculator)
+        )
+        capital_costs = pd.Series(capital_totals)
+        maintenance_cost_num = pd.Series(maint_totals)
+
         # Step 3: Map costs to option names (including maintenance costs)
         cost_mapping = map_costs_to_options(capital_costs, maintenance_cost_num)
         logger.debug(f"Cost mapping: {cost_mapping}")
-        
-        # Store cost data in dash_storage for UI display (dict keys = calculator columns)
-        dash_storage.set_data(
-            "capital_cost_num",
-            totals_series_to_storage_dict(capital_costs, CAPITAL_COST_TOTAL_KEYS),
-        )
-        dash_storage.set_data(
-            "maintenance_cost_num",
-            totals_series_to_storage_dict(maintenance_cost_num, MAINTENANCE_COST_TOTAL_KEYS),
-        )
-        
-        # Store NPV
-        cols = ['Spreading Pond Net Present Value ($)', 'Injection Wells Net Present Value ($)', 'Dry Wells Net Present Value ($)']
-        net_val = cost_calculator.net_present_value_calculations[cols].values[-1]
-        net_val_dict = {}
-        for i, col in enumerate(cols):
-            net_val_dict[col] = net_val[i]
-        dash_storage.set_data("net_val", net_val_dict)
-        
-        # Store cost calculator DataFrames for table display (without recalculating)
-        dash_storage.set_data("capital_costs_calculations_df", cost_calculator.capital_costs_calculations)
-        dash_storage.set_data("maintenance_costs_calculations_df", cost_calculator.maintenance_costs_calculations)
-        dash_storage.set_data("npv_calculations_df", cost_calculator.net_present_value_calculations)
-        
+
         # Store full cost mapping (with capital and maintenance costs)
         dash_storage.set_data("cost_mapping", cost_mapping)
     

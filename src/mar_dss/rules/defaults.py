@@ -12,6 +12,7 @@ defaults["maximum_rechargability"] = 50
 # Hydrologic kernels still use ft³/day via :func:`get_max_injection_Q_per_well_ft3_day`.
 defaults["max_injection_Q_per_well"] = 500  # gpm
 defaults["max_number_of_injection_wells"] = 20
+defaults["max_number_of_dry_wells"] = 20
 
 # dry well — transfer-rate cap used for dry-well count sizing (gpm → ft³/day)
 defaults["max_dry_well_transfer_rate_gpm"] = 50

@@ -546,8 +546,9 @@ class CostCalculator:
         df = pd.DataFrame(columns=columns)        
 
         # ======== collection point and site preparation ========
-        # Flow capture structure, diversion pump, and rough grading are always
-        # included (no longer user-selectable on the Engineering tab).
+        # Flow capture structure and diversion pump are always included
+        # (no longer user-selectable on the Engineering tab).
+        # Rough grading is listed under INFILTRATION (below).
         irow = 0
         flow_capture_values = [
             "flow_capture_structure",
@@ -556,15 +557,7 @@ class CostCalculator:
         ]
         dash_storage.set_data("flow_capture_values", flow_capture_values)
 
-        unit_price = 1500
-        df.loc[irow] = [
-            'COLLECTION BASIN PREPARATION',
-            'Rough Grading/Grubbing in Field', 'acres', unit_price,
-            self.hydro.basin_area_acres
-        ]
-
         # ======== flow capture structure ========
-        irow += 1
         unit_price = 10000
         df.loc[irow] = [
             'COLLECTION BASIN PREPARATION', 'Flow Capture Structure',
@@ -605,7 +598,7 @@ class CostCalculator:
             irow += 1
             df.loc[irow] = [
                 'CONVEYANCE TO RECHARGE SITE',
-                'Pumped into Pipeline', 'LF', 400, dist,
+                'Pipeline', 'LF', 60, dist,
             ]
         elif conveyance_method == "pumped_ditch":
             # Hybrid: channel civil + pump package
@@ -665,7 +658,6 @@ class CostCalculator:
             dash_storage.set_data(
                 "pumped_storage_values",
                 [
-                    "pipeline_cost",
                     "pumping_bag_filter_cost",
                     "controls",
                     "electrical_system",
@@ -677,54 +669,24 @@ class CostCalculator:
             dash_storage.set_data("storage_pond_values", [])
             dash_storage.set_data("pumped_storage_values", [])
 
-        pumped_storage_values = dash_storage.get_data("pumped_storage_values") or []
-        # ======== pipeline to storage pond ========
-        unit_price = 0
-        if storage:
-            if "pipeline_cost" in pumped_storage_values:
-                unit_price = 72
-   
+        # Pumping / controls / electrical under PUMPED CONVEYANCE.
+        # Base package = 1 (infiltration). Each of storage pond and sediment
+        # removal pond adds one more package → 2× or 3× when both are present.
+        pumped_pkg_count = 1 + int(bool(storage)) + int(bool(needed_yes))
         irow += 1
         df.loc[irow] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Pipeline Cost',
-            'LF', unit_price, self.distance_sediment_to_storage_pond_ft
+            'PUMPED CONVEYANCE',
+            'Pumping and Bag Filter Cost', 'LS', 100000, pumped_pkg_count
         ]
-        # ======== pumping and bag filter cost for storage pond ========
-        unit_price = 0        
-        if storage:
-            if "pumping_bag_filter_cost" in pumped_storage_values:
-                unit_price = 100000
         irow += 1
         df.loc[irow] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Pumping and Bag Filter Cost', 'LS', unit_price, 1
+            'PUMPED CONVEYANCE',
+            'Controls', 'LS', 50000, pumped_pkg_count
         ]
-
-        # ======== controls  ========
-        unit_price = 0
-        if storage:         
-            if "controls" in pumped_storage_values:
-                unit_price = 50000         
-        
         irow += 1
         df.loc[irow] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Controls', 'LS', unit_price, 1
-        ]
-        # if self.engineering_elements["Electrical System for Storage Pond"] and storage:
-        #     unit_price = 20000
-        # else:
-        # ======== electrical system for storage pond ========
-        unit_price = 0
-        if storage:
-            if "electrical_system" in pumped_storage_values:
-                unit_price = 20000
-           
-        irow += 1
-        df.loc[irow] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Electrical System', 'LS', unit_price, 1
+            'PUMPED CONVEYANCE',
+            'Electrical System', 'LS', 20000, pumped_pkg_count
         ]
 
         if storage:
@@ -737,12 +699,9 @@ class CostCalculator:
             self.storage_pond.area_ft2 / 43560.0
         ]
 
-        # ==== infiltration site (pumped conveyance always fully included)
+        # ==== infiltration site (pipeline only; pump/controls/electrical consolidated above)
         pumped_infiltration_values = [
             "infiltration_pipeline_cost",
-            "infiltration_pumping_bag_filter_cost",
-            "infiltration_controls",
-            "infiltration_electrical_system",
         ]
         dash_storage.set_data("pumped_infiltration_values", pumped_infiltration_values)
 
@@ -752,26 +711,17 @@ class CostCalculator:
             'PUMPED CONVEYANCE TO INFILTRATION SITE',
             'Pipeline Cost', 'LF', unit_price, 500
         ]
-        unit_price = 100000
+
+        # Rough grading / grubbing belongs with infiltration works (not collection).
         irow += 1
+        unit_price = 1500
         df.loc[irow] = [
-            'PUMPED CONVEYANCE TO INFILTRATION SITE',
-            'Pumping and Bag Filter Cost', 'LS', unit_price, 1
-        ]
-        unit_price = 50000
-        irow += 1
-        df.loc[irow] = [
-            'PUMPED CONVEYANCE TO INFILTRATION SITE',
-            'Controls', 'LS', unit_price, 1
-        ]
-        unit_price = 20000
-        irow += 1
-        df.loc[irow] = [
-            'PUMPED CONVEYANCE TO INFILTRATION SITE',
-            'Electrical System', 'LS', unit_price, 1
+            'INFILTRATION',
+            'Rough Grading/Grubbing in Field', 'acres', unit_price,
+            1.0
         ]
 
-        unit_price = 50000
+        unit_price = 75000
         irow += 1
         irow_dry_well = irow
         try:
@@ -781,7 +731,7 @@ class CostCalculator:
         df.loc[irow] = [
             'INFILTRATION', 'Dry Well Cost', 'LF', unit_price, n_dry
         ]
-        unit_price = 250000
+        unit_price = 400000
         irow += 1
         irow_injection_wells = irow
         df.loc[irow] = [
@@ -789,11 +739,32 @@ class CostCalculator:
             self.number_of_injection_wells
         ]
        
-        unit_price = 100000
+        # Distribution piping: $60,000/EA × max(n_wells − 1, 0); separate rows
+        # because injection and dry-well counts differ.
+        dist_piping_unit_cost = 60000
+
+        def _wells_minus_one(n_wells):
+            try:
+                n = float(n_wells or 0)
+            except (TypeError, ValueError):
+                return 0.0
+            if not np.isfinite(n) or n <= 1:
+                return 0.0
+            return n - 1.0
+
         irow += 1
-        irow_distribution_piping = irow
+        irow_dist_piping_injection = irow
         df.loc[irow] = [
-            'INFILTRATION', "Distribution Piping", "LS", unit_price, 1
+            'INFILTRATION', "Distribution Piping - Injection", "EA",
+            dist_piping_unit_cost,
+            _wells_minus_one(self.number_of_injection_wells),
+        ]
+        irow += 1
+        irow_dist_piping_dry = irow
+        df.loc[irow] = [
+            'INFILTRATION', "Distribution Piping - Dry Well", "EA",
+            dist_piping_unit_cost,
+            _wells_minus_one(self.number_of_dry_wells),
         ]
         irow += 1
         irow_infiltration_basin = irow
@@ -804,55 +775,48 @@ class CostCalculator:
             43560.0
         ]
 
+        # Catalog Unit Cost $ stays fixed for display. Method columns zero out
+        # rows that do not apply to that recharge option (do not mutate Unit Cost $).
+        line_cost = df['Unit Cost $'] * df['Number of Units']
+        method_exclude = {
+            "Spreading Pond": [
+                irow_dry_well,
+                irow_injection_wells,
+                irow_dist_piping_injection,
+                irow_dist_piping_dry,
+            ],
+            "Injection Wells": [
+                irow_dry_well,
+                irow_dist_piping_dry,
+                irow_infiltration_basin,
+            ],
+            "Dry Wells": [
+                irow_injection_wells,
+                irow_dist_piping_injection,
+                irow_infiltration_basin,
+            ],
+        }
+
         for recharge_method in ["Spreading Pond", "Injection Wells", "Dry Wells"]:
             name = recharge_method + " Cost ($)"
-            unit_price = 0
-            if recharge_method == "Spreading Pond":
-                unit_price = 200000
-                df.loc[irow_dry_well,  'Unit Cost $'] = 0 # dru well
-                df.loc[irow_injection_wells,  'Unit Cost $'] = 0 # injection wells
-                df.loc[irow_distribution_piping,  'Unit Cost $'] = 0 # distribution piping
-                df.loc[irow_infiltration_basin,  'Unit Cost $'] = unit_price # infiltration basin
-            elif recharge_method == "Injection Wells":
-                unit_price = 250000
-                df.loc[irow_dry_well,  'Unit Cost $'] = 0 # dru well
-                df.loc[irow_injection_wells,  'Unit Cost $'] = unit_price # injection wells
-                df.loc[irow_distribution_piping,  'Unit Cost $'] = 100000 # distribution piping
-                df.loc[irow_infiltration_basin,  'Unit Cost $'] = 0 # infiltration basin
-            elif recharge_method == "Dry Wells":
-                unit_price = 50000                 
-                df.loc[irow_dry_well,  'Unit Cost $'] = unit_price # dry well
-                df.loc[irow_injection_wells,  'Unit Cost $'] = 0 # injection wells
-                df.loc[irow_distribution_piping,  'Unit Cost $'] = 100000 # distribution piping
-                df.loc[irow_infiltration_basin,  'Unit Cost $'] = 0 # infiltration basin
-
-            df[name] = (
-                df['Unit Cost $'] * df['Number of Units']
-            )
+            col = line_cost.copy()
+            for i_ex in method_exclude[recharge_method]:
+                col.loc[i_ex] = 0.0
+            df[name] = col
             subtotal = df[name].sum()
             df.loc['Subtotal', name] = subtotal
-            df.loc['Project Management', name] = subtotal * 0.1
-            df.loc['Permitting',name] = subtotal * 0.02
-            df.loc['Legal Fees', name] = subtotal * 0.02
-            df.loc['Engineering', name] = subtotal * 0.1
-            df.loc['Construction Admin and Oversight',name] = (
-                subtotal * 0.12
-            )
+            df.loc['Project Management (10%)', name] = subtotal * 0.1
+            df.loc['Permitting (15%)', name] = subtotal * 0.15
+            df.loc['Engineering (18%)', name] = subtotal * 0.18
 
-            df.loc['subtotal_with_fees',name] = (
-            df.loc['Subtotal',name] +
-            df.loc['Project Management', name] +
-            df.loc['Permitting', name] +
-            df.loc['Legal Fees', name] +
-            df.loc['Engineering', name] +
-            df.loc['Construction Admin and Oversight', name]
-            )
-            df.loc['Contingency', name] = (
-            df.loc['subtotal_with_fees', name] * 0.3
+            df.loc['subtotal_with_fees', name] = (
+            df.loc['Subtotal', name] +
+            df.loc['Project Management (10%)', name] +
+            df.loc['Permitting (15%)', name] +
+            df.loc['Engineering (18%)', name]
             )
             df.loc['Capital Total Cost', name] = (
-            df.loc['subtotal_with_fees', name] +
-            df.loc['Contingency', name]
+            df.loc['subtotal_with_fees', name]
              )
 
             
@@ -877,200 +841,37 @@ class CostCalculator:
         self.capital_costs_calculations = df
 
     def maintenance_costs(self):
+        """Annual O&M = 5% of each option's Capital Total Cost."""
+        maint_fraction = 0.05
         columns = [
             'Category', 'Item', 'Unit', 'Unit Cost $', 'Number of Units'
         ]
         df = pd.DataFrame(columns=columns)
         df.loc[0] = [
-            'COLLECTION BASIN', 'Rough Grading', 'LS', 5000, 1.0
-        ]
-        df.loc[1] = [
-            'COLLECTION BASIN', 'Material Hauling', 'LS', 2000, 1.0
-        ]
-        df.loc[2] = [
-            'COLLECTION BASIN', 'Flow Capture Structure', 'LS', 1000, 1.0
-        ]
-
-        method = self.collection_to_sediment_removal__conveyance_method
-        dist = self.distance_collection_to_sediment_pond_ft
-
-        unit_price = 50.0 if method in ("gravity_ditch", "pumped_ditch") else 0
-        df.loc[3] = [
-            'CONVEYANCE TO RECHARGE SITE',
-            'Ditch/Channel Maintenance', 'LF', unit_price, dist,
-        ]
-
-        unit_price = 5 if method == "gravity_pipeline" else 0
-        df.loc[4] = [
-            'CONVEYANCE TO RECHARGE SITE',
-            'Gravity Pipeline Maintenance', 'LF', unit_price, dist,
-        ]
-
-        unit_price = 0
-        if method == "pumped_pipeline":
-            unit_price = 2000
-        elif method == "pumped_ditch":
-            unit_price = 2000
-        df.loc[5] = [
-            'CONVEYANCE TO RECHARGE SITE',
-            'Pump Package Maintenance', 'LS', unit_price, 1,
-        ]
-
-        needed = dash_storage.get_data("sediment_removal_needed")
-        if needed is None:
-            remove_legacy = dash_storage.get_data("remove_sediment_removal_pond")
-            needed_yes = not bool(remove_legacy)
-        else:
-            needed_yes = needed == "yes"
-
-        df.loc[6] = [
-            'SEDIMENT REMOVAL POND', 'Trash Rack Maintenance',
-            'LS', 5000 if needed_yes else 0, 1
-        ]
-        df.loc[7] = [
-            'SEDIMENT REMOVAL POND', 'Sediment Removal Maintenance',
-            'Acre', 75000 if needed_yes else 0, self.sediment_removal_pond_area_acres
-        ]
-
-        df.loc[8] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Pipeline Maintenance', 'LS', 3000, 1
-        ]
-        df.loc[9] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Pump Maintenance', 'LS', 10000, 1
-        ]
-        df.loc[10] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Pumping and Bag Filter Cost', 'LS', 10000, 1
-        ]
-        df.loc[11] = [
-            'PUMPED CONVEYANCE TO STORAGE/INFILTRATION POND',
-            'Power', 'LS', 2000, 1
-        ]
-
-        df.loc[12] = [
-            'STORAGE POND', 'Sediment Removal and Grading', 'Acre', 2500,
-            self.storage_pond.area_ft2 / 43560.0
-        ]
-
-        df.loc[13] = [
-            'PUMPED CONVEYANCE TO INFILTRATION SITE',
-            'Pipeline Maintenance', 'LS', 1000, 1
-        ]
-        df.loc[14] = [
-            'PUMPED CONVEYANCE TO INFILTRATION SITE',
-            'Pump Maintenance', 'LS', 2500, 1
-        ]
-        df.loc[15] = [
-            'PUMPED CONVEYANCE TO INFILTRATION SITE',
-            'Pumping and Bag Filter Cost', 'LS', 10000, 1
-        ]
-        df.loc[16] = [
-            'PUMPED CONVEYANCE TO INFILTRATION SITE',
-            'Power', 'LS', 2000, 1
-        ]
-
-        try:
-            nwells = float(self.number_of_dry_wells or 0)
-        except (TypeError, ValueError):
-            nwells = 0.0
-        unit_price = 0
-        if self.recharge_method == "dry_well":
-            unit_price = 1000
-        df.loc[17] = [
-            'INFILTRATION', 'Dry Well Maintenance', 'EA', unit_price,
-            nwells
-        ]
-        unit_price = 0
-        if self.recharge_method == "injection_well":
-            unit_price = 2000
-        df.loc[18] = [
-            'INFILTRATION', 'Injection Well Maintenance', 'EA', unit_price,
-            self.number_of_injection_wells
-        ]
-        unit_price = 0
-        if self.recharge_method in ["infiltration_basin"]:
-            unit_price = 2000
-        df.loc[19] = [
-            'INFILTRATION', 'Injection Well Pumping and Bag Filter',
-            'LS', unit_price, 1.0
-        ]
-        unit_price = 0
-        if self.recharge_method in ["injection_well"]:
-            unit_price = 1000
-        df.loc[20] = [
-            'INFILTRATION', 'Injection Well Power', 'LS', unit_price, 1
-        ]
-        unit_price = 0
-        if self.recharge_method in ["infiltration_basin"]:
-            unit_price = 2500
-        df.loc[21] = [
-            'INFILTRATION', 'Infiltration Basin Maintenance',
-            'Acre', unit_price,
-            self.infiltration_basin_calculations["Basin Area (sf)"][0] /
-            43560.0
+            'ANNUAL O&M',
+            'Maintenance (5% of capital)',
+            'LS',
+            maint_fraction,
+            1.0,
         ]
         for recharge_method in ["Spreading Pond", "Injection Wells", "Dry Wells"]:
             name = recharge_method + " Maintenance Cost ($)"
-            unit_price = 0
-            if recharge_method == "Spreading Pond":
-               
-                df.loc[17,  'Unit Cost $'] = 0 # DRY WELL
-                df.loc[18,  'Unit Cost $'] = 0 # injection well maintenance
-                df.loc[19,  'Unit Cost $'] = 0 # injection well pumping and bag filter
-                df.loc[20,  'Unit Cost $'] = 0 # injection well power
-                df.loc[21,  'Unit Cost $'] = 2500 # infiltration basin maintenance
-            elif recharge_method == "Injection Wells":
-                df.loc[17,  'Unit Cost $'] = 0 # DRY WELL
-                df.loc[18,  'Unit Cost $'] = 2000 # injection well maintenance
-                df.loc[19,  'Unit Cost $'] = 2000 # injection well pumping and bag filter
-                df.loc[20,  'Unit Cost $'] = 1000 # injection well power
-                df.loc[21,  'Unit Cost $'] = 0 # infiltration basin maintenance
-            elif recharge_method == "Dry Wells":
-                df.loc[17,  'Unit Cost $'] = 1000 # DRY WELL
-                df.loc[18,  'Unit Cost $'] = 0 # injection well maintenance
-                df.loc[19,  'Unit Cost $'] = 0 # injection well pumping and bag filter
-                df.loc[20,  'Unit Cost $'] = 0 # injection well power
-                df.loc[21,  'Unit Cost $'] = 0 # infiltration basin maintenance
-            
-            
-
-            df[name] = (
-                df['Unit Cost $'] * df['Number of Units']
-            )
-
-            subtotal = df[name].sum()
-            df.loc['Subtotal Maintenance Cost ($)', name] = (
-                subtotal
-            )
-
-            df.loc['Project Management', name] = (
-                subtotal * 0.1
-            )
-            df.loc['Reporting', name] = (
-                subtotal * 0.02
-            )
-            df.loc['Engineering', name] = (
-                subtotal * 0.1
-            )
-            df.loc['Construction Admin and Oversight', name] = (
-                subtotal * 0.12
-            )
-            df.loc['Subtotal with Admin Fees', name] = (
-                subtotal +
-                df.loc['Project Management', name] +
-                df.loc['Reporting', name] +
-                df.loc['Engineering', name] +
-                df.loc['Construction Admin and Oversight', name]
-            )
-            df.loc['Contingency', name] = (
-                df.loc['Subtotal with Admin Fees', name] * 0.3
-            )
-            df.loc['Annual Grand Maintenance Cost', name] = (
-                df.loc['Subtotal with Admin Fees', name] +
-                df.loc['Contingency', name]
-            )
+            cap_col = recharge_method + " Cost ($)"
+            try:
+                capital = float(
+                    self.capital_costs_calculations.loc[
+                        'Capital Total Cost', cap_col
+                    ]
+                )
+            except (KeyError, TypeError, ValueError):
+                capital = 0.0
+            if not np.isfinite(capital) or capital < 0:
+                capital = 0.0
+            maint = capital * maint_fraction
+            df[name] = 0.0
+            df.loc[0, name] = maint
+            df.loc['Subtotal Maintenance Cost ($)', name] = maint
+            df.loc['Annual Grand Maintenance Cost', name] = maint
 
         self.maintenance_costs_calculations = df
 

@@ -82,9 +82,21 @@ _QUANTITY_BILL_SKIP_ITEMS = frozenset(
         "Capital Total Cost",
         "Annual Grand Maintenance Cost",
         "Contingency",
+        "Contingency (30%)",
         "Legal Fees",
+        "Legal Fees (2%)",
         "Engineering",
+        "Engineering (10%)",
+        "Engineering (18%)",
         "Construction Admin and Oversight",
+        "Construction Admin and Oversight (12%)",
+        "Project Management",
+        "Project Management (10%)",
+        "Permitting",
+        "Permitting (2%)",
+        "Permitting (15%)",
+        "Reporting",
+        "Reporting (2%)",
     }
 )
 

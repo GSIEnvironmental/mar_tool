@@ -133,4 +133,6 @@ def create_analysis_tab_content():
         dcc.Store(id="knowledge-graph-store", data={"initialized": False}),
         # Store for feasibility metrics
         dcc.Store(id="feasibility-metrics-store", data={"score": "0%", "cost": "$0 - $0"}),
+        # Bumped when Capital Cost unit prices change so Feasibility Summary refreshes
+        dcc.Store(id="cost-economics-revision", data=0),
     ]

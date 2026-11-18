@@ -62,6 +62,58 @@ def _eng_help_modal(section, title, body_children):
     )
 
 
+def _cost_summary_metric_card(title, display_id, accent, background, title_color):
+    """Equal-height Cost Summary metric card with distinct color theme."""
+    return dbc.Col(
+        dbc.Card(
+            [
+                html.Div(
+                    style={
+                        "height": "5px",
+                        "backgroundColor": accent,
+                        "borderTopLeftRadius": "0.375rem",
+                        "borderTopRightRadius": "0.375rem",
+                    }
+                ),
+                dbc.CardBody(
+                    [
+                        html.Div(
+                            title,
+                            className="text-center mb-3",
+                            style={
+                                "fontSize": "0.72rem",
+                                "fontWeight": "700",
+                                "letterSpacing": "0.06em",
+                                "textTransform": "uppercase",
+                                "color": title_color,
+                            },
+                        ),
+                        html.Div(
+                            "$0",
+                            id=display_id,
+                            style={
+                                "minHeight": "8rem",
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "center",
+                                "width": "100%",
+                            },
+                        ),
+                    ],
+                    className="px-3 py-3",
+                ),
+            ],
+            className="h-100 shadow-sm",
+            style={
+                "backgroundColor": background,
+                "border": f"1px solid {accent}",
+            },
+        ),
+        md=4,
+        className="mb-3",
+    )
+
+
 def create_engineering_help_modals():
     """One help modal per Engineering Elements card."""
     return [
@@ -181,9 +233,9 @@ def create_engineering_help_modals():
                         ),
                         html.Li(
                             [
-                                html.Strong("Pumped into Pipeline: "),
+                                html.Strong("Pipeline: "),
                                 "single force-main unit rate that already includes "
-                                "pipe + pumping ($400/LF); no separate capital pump-"
+                                "pipe + pumping ($60/LF); no separate capital pump-"
                                 "package line.",
                             ]
                         ),
@@ -204,7 +256,7 @@ def create_engineering_help_modals():
                     "Capital:\n"
                     "  Gravity ditch/channel:   $93/LF × L\n"
                     "  Gravity pipeline:       $72/LF × L\n"
-                    "  Pumped pipeline:        $400/LF × L  (pipe + pumping combined)\n"
+                    "  Pipeline:               $60/LF × L  (pipe + pumping combined)\n"
                     "  Pumped ditch/channel:   $100/LF civil × L\n"
                     "                        + $307/LF pump package × L\n"
                     "                          (= $407/LF total)\n"
@@ -225,7 +277,7 @@ def create_engineering_help_modals():
                                 "gravity options are much cheaper than pumped. "
                                 "Among pumped options, ditch ($407/LF + ditch O&M) "
                                 "is slightly higher capital and higher annual O&M "
-                                "than pipeline ($400/LF + pump O&M only).",
+                                "than pipeline ($60/LF + pump O&M only).",
                             ]
                         ),
                         html.Li(
@@ -596,7 +648,7 @@ def create_engineering_elements_content():
                                                     "value": "gravity_ditch",
                                                 },
                                                 {
-                                                    "label": "Pumped into Pipeline",
+                                                    "label": "Pipeline",
                                                     "value": "pumped_pipeline",
                                                 },
                                                 {
@@ -853,7 +905,7 @@ def create_cost_content():
                         html.Li(
                             [
                                 html.Strong("Annual Maintenance: "),
-                                "recurring O&M line items tied to those facilities.",
+                                "5% of each option's Capital Total Cost.",
                             ]
                         ),
                         html.Li(
@@ -924,6 +976,14 @@ def create_cost_content():
                             "cost-summary",
                             "Help: capital, maintenance, and NPV",
                         ),
+                        html.P(
+                            "This estimate adheres to the Association for the "
+                            "Advancement of Cost Engineering (AACE) International "
+                            "Class 5 classification (Concept Screening), applying "
+                            "a range of -20% for the lower bound and +50% for the "
+                            "higher bound.",
+                            className="mb-0 mt-2 text-muted",
+                        ),
                     ]
                 ),
             ],
@@ -931,92 +991,29 @@ def create_cost_content():
         ),
         dbc.Row(
             [
-                dbc.Col(
-                    [
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(
-                                            "Capital Cost",
-                                            className="text-center mb-3"
-                                        ),
-                                        html.H2(
-                                            "$0",
-                                            className="text-center",
-                                            id="capital-cost-display",
-                                            style={
-                                                "font-size": "1.75rem",
-                                                "font-weight": "bold",
-                                                "color": "#2c3e50"
-                                            }
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4 text-center",
-                        )
-                    ],
-                    width=4,
+                _cost_summary_metric_card(
+                    title="Capital Cost",
+                    display_id="capital-cost-display",
+                    accent="#1f6f78",
+                    background="#e6f3f4",
+                    title_color="#14555c",
                 ),
-                dbc.Col(
-                    [
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(
-                                            "Annual Maintenance Cost",
-                                            className="text-center mb-3"
-                                        ),
-                                        html.H2(
-                                            "$0",
-                                            className="text-center",
-                                            id="annual-maintenance-cost-display",
-                                            style={
-                                                "font-size": "1.75rem",
-                                                "font-weight": "bold",
-                                                "color": "#2c3e50"
-                                            }
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4 text-center",
-                        )
-                    ],
-                    width=4,
+                _cost_summary_metric_card(
+                    title="Annual Maintenance",
+                    display_id="annual-maintenance-cost-display",
+                    accent="#3d5a80",
+                    background="#e8eef6",
+                    title_color="#2a4060",
                 ),
-                dbc.Col(
-                    [
-                        dbc.Card(
-                            [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(
-                                            "Net Present Value After 20 Years",
-                                            className="text-center mb-3"
-                                        ),
-                                        html.H2(
-                                            "$0",
-                                            className="text-center",
-                                            id="npv-20-years-display",
-                                            style={
-                                                "font-size": "1.75rem",
-                                                "font-weight": "bold",
-                                                "color": "#2c3e50"
-                                            }
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-4 text-center",
-                        )
-                    ],
-                    width=4,
+                _cost_summary_metric_card(
+                    title="NPV (20 Years)",
+                    display_id="npv-20-years-display",
+                    accent="#b45309",
+                    background="#fff4e8",
+                    title_color="#8a3d07",
                 ),
             ],
-            className="mb-4",
+            className="mb-4 g-3",
         ),
         dbc.Tabs(
             [
@@ -1091,7 +1088,7 @@ def create_cost_content():
         ),
         tab_tooltip(
             "maintenance-cost-table-tab",
-            "Annual operating and maintenance cost breakdown by component",
+            "Annual O&M as 5% of capital for each recharge option",
         ),
         tab_tooltip(
             "npv-table-tab",

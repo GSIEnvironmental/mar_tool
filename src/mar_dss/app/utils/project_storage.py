@@ -133,7 +133,6 @@ def build_project_storage_defaults() -> dict[str, Any]:
         "storage_needed": "yes",
         "storage_pond_values": ["storage_pond_construction"],
         "pumped_storage_values": [
-            "pipeline_cost",
             "pumping_bag_filter_cost",
             "controls",
             "electrical_system",
@@ -141,9 +140,6 @@ def build_project_storage_defaults() -> dict[str, Any]:
         "distance_to_storage_pond_ft": 500.0,
         "pumped_infiltration_values": [
             "infiltration_pipeline_cost",
-            "infiltration_pumping_bag_filter_cost",
-            "infiltration_controls",
-            "infiltration_electrical_system",
         ],
         "view_runoff_calculator": False,
         "view_recharge_mound_outputs": False,

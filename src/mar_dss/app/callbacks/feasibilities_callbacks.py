@@ -119,13 +119,30 @@ def _format_per_acre_ft(val):
     return f"${rounded:,.0f}/acre-ft"
 
 
+def _round_to_nearest(val, step):
+    """Round ``val`` to the nearest multiple of ``step``."""
+    return round(val / step) * step
+
+
 def _format_per_acre_ft_range(val):
-    """Format a unit cost as a low–high range (−20% to +50%), nearest $100."""
+    """Format a unit cost as a low–high range (−20% to +50%), nearest $100.
+
+    When both ends round to the same $100 bucket (common for O&M near
+    ~$60–$100/acre-ft), fall back to nearest $10 so the Class 5 band stays visible.
+    """
     if val is None or not math.isfinite(val) or val <= 0:
         return "—"
-    low = round((val * _COST_RANGE_LOW_FACTOR) / 100.0) * 100.0
-    high = round((val * _COST_RANGE_HIGH_FACTOR) / 100.0) * 100.0
-    return f"${low:,.0f} – ${high:,.0f}/acre-ft"
+    low = val * _COST_RANGE_LOW_FACTOR
+    high = val * _COST_RANGE_HIGH_FACTOR
+    low_r = _round_to_nearest(low, 100.0)
+    high_r = _round_to_nearest(high, 100.0)
+    # $100 steps collapse or go to $0 for small unit O&M — use $10 instead.
+    if low_r == high_r or low_r <= 0:
+        low_r = _round_to_nearest(low, 10.0)
+        high_r = _round_to_nearest(high, 10.0)
+    if low_r == high_r:
+        return f"${low:,.0f} – ${high:,.0f}/acre-ft"
+    return f"${low_r:,.0f} – ${high_r:,.0f}/acre-ft"
 
 
 def _format_volume_acre_ft(val):
@@ -133,6 +150,42 @@ def _format_volume_acre_ft(val):
     if val is None or not math.isfinite(val) or val <= 0:
         return "—"
     return f"{val:,.1f} acre-ft/yr"
+
+
+def _recharge_percentage(option_name):
+    """Share of source water recharged (%) for a MAR option from the decision graph."""
+    graph = dash_storage.get_data("decision_graph")
+    if graph is None:
+        return None
+
+    confined = bool(graph.get_node_value("confined"))
+    if option_name == "Injection Well" and confined:
+        raw = graph.get_node_value("confined_rechargability")
+    else:
+        rechargability = graph.get_node_value("rechargability") or {}
+        if not isinstance(rechargability, dict):
+            rechargability = {}
+        key = {
+            "Surface Recharge": "surface_recharge_percentage",
+            "Injection Well": "injection_recharge_percentage",
+            "Dry Well": "dry_well_recharge_percentage",
+        }.get(option_name)
+        raw = rechargability.get(key) if key else None
+
+    try:
+        pct = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(pct) or pct < 0:
+        return None
+    return min(pct, 100.0)
+
+
+def _format_recharge_percent(val):
+    """Format recharge share of source water as a percentage (capped at 100%)."""
+    if val is None or not math.isfinite(val) or val < 0:
+        return "—"
+    return f"{min(val, 100.0):.1f}%"
 
 
 def _well_counts_from_graph():
@@ -201,6 +254,7 @@ def _collect_engineering_option_economics():
             maintenance_val = float(raw) if pd.notna(raw) else 0.0
 
         acre_ft = _annual_recharged_volume_acre_ft(option_name)
+        recharge_pct = _recharge_percentage(option_name)
         if option_name == "Injection Well":
             wells_required = n_injection
             wells_label = "Injection wells required"
@@ -216,6 +270,7 @@ def _collect_engineering_option_economics():
             "capital": capital_val,
             "maintenance": maintenance_val,
             "acre_ft": acre_ft,
+            "recharge_pct": recharge_pct,
             "capital_per_acre_ft": capital_val / acre_ft if acre_ft > 0 and capital_val > 0 else None,
             "maintenance_per_acre_ft": maintenance_val / acre_ft if acre_ft > 0 and maintenance_val > 0 else None,
             "wells_required": wells_required,
@@ -333,6 +388,16 @@ def _build_engineering_options_summary(categorized_data):
                                     _format_volume_acre_ft(econ["acre_ft"]),
                                     highlight=True,
                                 ),
+                                _option_metric_row(
+                                    "Recharge %",
+                                    (
+                                        "N/A"
+                                        if not_feasible
+                                        else _format_recharge_percent(
+                                            econ.get("recharge_pct")
+                                        )
+                                    ),
+                                ),
                                 *(
                                     [
                                         _option_metric_row(
@@ -446,7 +511,7 @@ def _ensure_dss_results_available():
                       dss_results.results)
     
     # Only run analysis if results don't exist
-    if 1:
+    if not has_dss_results:
         logger.debug("No DSS results found - running feasibility analysis")
         try:
             from mar_dss.app.callbacks.analysis_callbacks import run_feasibility_analysis
@@ -1327,15 +1392,21 @@ def setup_feasibilities_callbacks(app):
             Input("analysis-tabs", "active_tab"),
             Input("knowledge-graph-store", "data"),
             Input("app-container", "className"),
+            Input("cost-economics-revision", "data"),
         ],
         prevent_initial_call=False
     )
-    def update_feasibilities_dashboard(active_tab, _graph_store, container_class):
+    def update_feasibilities_dashboard(
+        active_tab, _graph_store, container_class, _cost_revision
+    ):
         """Update engineering options economics and feasibility charts from DSS results.
         
         Listens to ``knowledge-graph-store`` so the Feasibilities view refreshes whenever
         the Analysis pipeline finishes (e.g. selecting the Analysis top tab), not only when
         switching away from and back to this sub-tab.
+
+        Also listens to ``cost-economics-revision`` so Capital Cost table unit-price
+        edits refresh the Feasibility Summary cards and cost charts.
         
         This callback depends on Analysis tab callbacks completing first.
         When Feasibilities sub-tab is selected, it ensures analysis has run and then
@@ -1372,7 +1443,7 @@ def setup_feasibilities_callbacks(app):
         # Categorize options
         categorized_data = _categorize_options(results, filters)
         
-        # Build components
+        # Build components (costs come from capital_cost_num, including unit-price edits)
         engineering_summary = _build_engineering_options_summary(categorized_data)
         
         # Create separate heatmaps for each constraint type

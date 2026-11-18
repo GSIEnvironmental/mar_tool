@@ -4,6 +4,7 @@ Callbacks for Cost calculations and display in the Engineering tab.
 
 import dash
 from dash import Input, Output, State, html, dash_table, dcc, MATCH
+from dash.dash_table.Format import Format, Scheme
 import dash_bootstrap_components as dbc
 import json
 import pandas as pd
@@ -242,6 +243,764 @@ def _cost_table_dataframe(stored_df, cost_calculator, calculator_attr):
     return pd.DataFrame()
 
 
+_CAPITAL_COST_COLS = list(CAPITAL_COST_TOTAL_KEYS)
+_MAINT_COST_COLS = list(MAINTENANCE_COST_TOTAL_KEYS)
+_NPV_COLS = (
+    "Spreading Pond Net Present Value ($)",
+    "Injection Wells Net Present Value ($)",
+    "Dry Wells Net Present Value ($)",
+)
+
+_CAPITAL_UNIT_OVERRIDES_KEY = "capital_cost_unit_overrides"
+_MAINT_UNIT_OVERRIDES_KEY = "maintenance_cost_unit_overrides"
+_COST_ECONOMICS_REVISION_KEY = "cost_economics_revision"
+# Annual O&M is a flat fraction of each option's Capital Total Cost.
+_MAINTENANCE_FRACTION_OF_CAPITAL = 0.05
+
+
+def bump_cost_economics_revision():
+    """Invalidate Feasibility Summary / cost charts that depend on stored totals."""
+    try:
+        rev = int(dash_storage.get_data(_COST_ECONOMICS_REVISION_KEY) or 0)
+    except (TypeError, ValueError):
+        rev = 0
+    rev += 1
+    dash_storage.set_data(_COST_ECONOMICS_REVISION_KEY, rev)
+    return rev
+
+
+def persist_calculator_costs_with_unit_overrides(cost_calculator):
+    """
+    Store capital / maintenance / NPV from a CostCalculator, applying any
+    user Unit Cost $ overrides from the Capital Cost table.
+    """
+    if cost_calculator is None:
+        return None, None, None
+
+    capital_df = cost_calculator.capital_costs_calculations.copy().reset_index()
+    capital_df, label_col = _ensure_label_column(capital_df)
+    _apply_unit_overrides_to_display_df(
+        capital_df,
+        dash_storage.get_data(_CAPITAL_UNIT_OVERRIDES_KEY),
+        label_col=label_col,
+    )
+    _recompute_capital_display_df(capital_df, label_col=label_col)
+    capital_totals = _totals_from_display_df(
+        capital_df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col
+    )
+    maint_totals = _maintenance_totals_from_capital(capital_totals)
+    npv_df = _compute_npv_series(capital_totals, maint_totals)
+    net_val = {
+        col: float(npv_df[col].iloc[-1])
+        for col in _NPV_COLS
+        if col in npv_df.columns
+    }
+
+    dash_storage.set_data(
+        "capital_cost_num",
+        totals_series_to_storage_dict(
+            pd.Series(capital_totals), CAPITAL_COST_TOTAL_KEYS
+        ),
+    )
+    dash_storage.set_data(
+        "maintenance_cost_num",
+        totals_series_to_storage_dict(
+            pd.Series(maint_totals), MAINTENANCE_COST_TOTAL_KEYS
+        ),
+    )
+    dash_storage.set_data("net_val", net_val)
+    dash_storage.set_data(
+        "capital_costs_calculations_df",
+        cost_calculator.capital_costs_calculations,
+    )
+    dash_storage.set_data(
+        "maintenance_costs_calculations_df",
+        cost_calculator.maintenance_costs_calculations,
+    )
+    dash_storage.set_data("npv_calculations_df", npv_df.copy())
+    bump_cost_economics_revision()
+    return capital_totals, maint_totals, net_val
+
+
+def feasibility_economics_summary_from_storage():
+    """Rebuild Feasibility Summary option cards from current stored costs."""
+    try:
+        from mar_dss.app.callbacks.feasibilities_callbacks import (
+            _build_engineering_options_summary,
+            _categorize_options,
+        )
+    except ImportError:
+        from .feasibilities_callbacks import (
+            _build_engineering_options_summary,
+            _categorize_options,
+        )
+
+    dss_results = dash_storage.get_data("dss_results")
+    if (
+        dss_results is None
+        or not hasattr(dss_results, "results")
+        or not dss_results.results
+    ):
+        return dash.no_update
+    filters = getattr(dss_results, "filters", {}) or {}
+    categorized = _categorize_options(dss_results.results, filters)
+    return _build_engineering_options_summary(categorized)
+
+# Method columns exclude technology-specific line items by Item name.
+_CAPITAL_METHOD_EXCLUDE_ITEMS = {
+    "Spreading Pond Cost ($)": {
+        "Dry Well Cost",
+        "Injection Wells",
+        "Distribution Piping - Injection",
+        "Distribution Piping - Dry Well",
+    },
+    "Injection Wells Cost ($)": {
+        "Dry Well Cost",
+        "Distribution Piping - Dry Well",
+        "Infiltration Basin",
+    },
+    "Dry Wells Cost ($)": {
+        "Injection Wells",
+        "Distribution Piping - Injection",
+        "Infiltration Basin",
+    },
+}
+_MAINT_METHOD_EXCLUDE_ITEMS = {
+    "Spreading Pond Maintenance Cost ($)": {
+        "Dry Well Maintenance",
+        "Injection Well Maintenance",
+        "Injection Well Pumping and Bag Filter",
+        "Injection Well Power",
+    },
+    "Injection Wells Maintenance Cost ($)": {
+        "Dry Well Maintenance",
+        "Infiltration Basin Maintenance",
+    },
+    "Dry Wells Maintenance Cost ($)": {
+        "Injection Well Maintenance",
+        "Injection Well Pumping and Bag Filter",
+        "Injection Well Power",
+        "Infiltration Basin Maintenance",
+    },
+}
+
+_CAPITAL_SOFT_FEE_ROWS = (
+    ("Project Management (10%)", 0.10),
+    ("Permitting (15%)", 0.15),
+    ("Engineering (18%)", 0.18),
+)
+_MAINT_SOFT_FEE_ROWS = (
+    ("Project Management (10%)", 0.10),
+    ("Reporting (2%)", 0.02),
+    ("Engineering (18%)", 0.18),
+)
+_CAPITAL_SOFT_LABELS = frozenset(
+    {
+        "Subtotal",
+        "subtotal_with_fees",
+        "Capital Total Cost",
+        *(label for label, _ in _CAPITAL_SOFT_FEE_ROWS),
+    }
+)
+_MAINT_SOFT_LABELS = frozenset(
+    {
+        "Subtotal Maintenance Cost ($)",
+        "Subtotal with Admin Fees",
+        "Annual Grand Maintenance Cost",
+        *(label for label, _ in _MAINT_SOFT_FEE_ROWS),
+    }
+)
+
+
+def _parse_cost_float(value, default=0.0):
+    """Parse a table cell to float (handles blanks and currency strings)."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return default
+    if isinstance(value, (int, float)):
+        try:
+            v = float(value)
+            return v if v == v else default
+        except (TypeError, ValueError):
+            return default
+    text = str(value).strip()
+    if not text or text.lower() in ("nan", "none", "n/a"):
+        return default
+    text = text.replace("$", "").replace(",", "")
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return default
+
+
+def _row_item_name(row):
+    item = row.get("Item") if isinstance(row, dict) else None
+    if item is None or (isinstance(item, float) and pd.isna(item)):
+        return ""
+    text = str(item).strip()
+    return "" if text.lower() in ("", "nan", "none") else text
+
+
+def _row_label_text(row, label_col="Row Label"):
+    label = row.get(label_col) if isinstance(row, dict) else None
+    if label is None or (isinstance(label, float) and pd.isna(label)):
+        return ""
+    return str(label).strip()
+
+
+def _is_editable_cost_line_row(row, soft_labels, label_col="Row Label"):
+    """True for bill-of-quantity rows (not soft-cost / total rows)."""
+    label = _row_label_text(row, label_col)
+    if label in soft_labels:
+        return False
+    return bool(_row_item_name(row))
+
+
+def _apply_unit_overrides_to_display_df(df, overrides, label_col="Row Label"):
+    """Apply stored per-Item Unit Cost $ overrides (quantities stay calculated)."""
+    if df is None or df.empty or not isinstance(overrides, dict) or not overrides:
+        return df
+    for i in df.index:
+        item = _row_item_name(df.loc[i].to_dict())
+        if not item or item not in overrides:
+            continue
+        ov = overrides.get(item) or {}
+        if "Unit Cost $" in ov and ov["Unit Cost $"] is not None:
+            df.at[i, "Unit Cost $"] = _parse_cost_float(ov["Unit Cost $"])
+    return df
+
+
+def _extract_unit_overrides_from_display_df(df, soft_labels, label_col="Row Label"):
+    """Build Item → {Unit Cost $} from editable line rows."""
+    overrides = {}
+    if df is None or df.empty:
+        return overrides
+    for i in df.index:
+        row = df.loc[i].to_dict()
+        if not _is_editable_cost_line_row(row, soft_labels, label_col):
+            continue
+        item = _row_item_name(row)
+        overrides[item] = {
+            "Unit Cost $": _parse_cost_float(row.get("Unit Cost $")),
+        }
+    return overrides
+
+
+def _recompute_method_costs_from_units(
+    df,
+    cost_columns,
+    exclude_by_col,
+    soft_labels,
+    soft_fee_rows,
+    subtotal_label,
+    fees_subtotal_label,
+    grand_total_label,
+    label_col="Row Label",
+):
+    """
+    Rebuild method cost columns from Unit Cost $ × Number of Units, then soft fees.
+
+    Soft-cost rows are not editable sources; their values are recomputed.
+    """
+    if df is None or df.empty:
+        return df
+
+    for col in cost_columns:
+        if col not in df.columns:
+            continue
+        excl = exclude_by_col.get(col, set())
+        for i in df.index:
+            row = df.loc[i].to_dict()
+            label = _row_label_text(row, label_col)
+            if label in soft_labels:
+                continue
+            item = _row_item_name(row)
+            if not item:
+                df.at[i, col] = 0.0
+                continue
+            line = (
+                _parse_cost_float(row.get("Unit Cost $"))
+                * _parse_cost_float(row.get("Number of Units"))
+            )
+            df.at[i, col] = 0.0 if item in excl else line
+
+        line_sum = 0.0
+        for i in df.index:
+            row = df.loc[i].to_dict()
+            if not _is_editable_cost_line_row(row, soft_labels, label_col):
+                continue
+            line_sum += _parse_cost_float(df.at[i, col])
+
+        fees_sum = sum(line_sum * rate for _, rate in soft_fee_rows)
+        with_fees = line_sum + fees_sum
+        for i in df.index:
+            label = _row_label_text(df.loc[i].to_dict(), label_col)
+            if label == subtotal_label:
+                df.at[i, col] = line_sum
+            elif label == fees_subtotal_label or label == grand_total_label:
+                df.at[i, col] = with_fees
+            else:
+                for fee_label, rate in soft_fee_rows:
+                    if label == fee_label:
+                        df.at[i, col] = line_sum * rate
+                        break
+    return df
+
+
+def _recompute_capital_display_df(df, label_col="Row Label"):
+    return _recompute_method_costs_from_units(
+        df,
+        _CAPITAL_COST_COLS,
+        _CAPITAL_METHOD_EXCLUDE_ITEMS,
+        _CAPITAL_SOFT_LABELS,
+        _CAPITAL_SOFT_FEE_ROWS,
+        subtotal_label="Subtotal",
+        fees_subtotal_label="subtotal_with_fees",
+        grand_total_label="Capital Total Cost",
+        label_col=label_col,
+    )
+
+
+def _recompute_maintenance_display_df(df, label_col="Row Label"):
+    return _recompute_method_costs_from_units(
+        df,
+        _MAINT_COST_COLS,
+        _MAINT_METHOD_EXCLUDE_ITEMS,
+        _MAINT_SOFT_LABELS,
+        _MAINT_SOFT_FEE_ROWS,
+        subtotal_label="Subtotal Maintenance Cost ($)",
+        fees_subtotal_label="Subtotal with Admin Fees",
+        grand_total_label="Annual Grand Maintenance Cost",
+        label_col=label_col,
+    )
+
+
+def _totals_from_display_df(df, cost_columns, total_label, label_col="Row Label"):
+    """Read method totals from the grand-total soft-cost row."""
+    out = {col: 0.0 for col in cost_columns}
+    if df is None or df.empty:
+        return out
+    for i in df.index:
+        if _row_label_text(df.loc[i].to_dict(), label_col) != total_label:
+            continue
+        for col in cost_columns:
+            if col in df.columns:
+                out[col] = _parse_cost_float(df.at[i, col])
+        break
+    return out
+
+
+def _maintenance_totals_from_capital(capital_totals):
+    """Annual O&M = fraction of each option's capital total."""
+    out = {}
+    for cap_col, maint_col in zip(CAPITAL_COST_TOTAL_KEYS, MAINTENANCE_COST_TOTAL_KEYS):
+        out[maint_col] = (
+            _parse_cost_float(
+                (capital_totals or {}).get(cap_col)
+                if isinstance(capital_totals, dict)
+                else (
+                    capital_totals.get(cap_col)
+                    if hasattr(capital_totals, "get")
+                    else 0
+                )
+            )
+            * _MAINTENANCE_FRACTION_OF_CAPITAL
+        )
+    return out
+
+
+def _simple_maintenance_display_df(capital_totals):
+    """Build the simplified maintenance table (5% of capital per option)."""
+    maint_totals = _maintenance_totals_from_capital(capital_totals)
+    line = {
+        "Row Label": 0,
+        "Category": "ANNUAL O&M",
+        "Item": "Maintenance (5% of capital)",
+        "Unit": "LS",
+        "Unit Cost $": None,
+        "Number of Units": 1.0,
+    }
+    for col in _MAINT_COST_COLS:
+        line[col] = maint_totals.get(col, 0.0)
+    rows = [line]
+    for label in (
+        "Subtotal Maintenance Cost ($)",
+        "Annual Grand Maintenance Cost",
+    ):
+        row = {
+            "Row Label": label,
+            "Category": "",
+            "Item": "",
+            "Unit": "",
+            "Unit Cost $": None,
+            "Number of Units": None,
+        }
+        for col in _MAINT_COST_COLS:
+            row[col] = maint_totals.get(col, 0.0)
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _compute_npv_series(capital_totals, maintenance_totals):
+    """20-year NPV table matching CostCalculator.net_present_value."""
+    annual_esclation_rate = 2.99 / 100.0
+    npv_discount_rate = 5.01 / 100.0
+    df = pd.DataFrame({"Year": list(range(1, 21))})
+    methods = (
+        ("Spreading Pond", "Spreading Pond Cost ($)", "Spreading Pond Maintenance Cost ($)",
+         "Spreading Pond Net Present Value ($)"),
+        ("Injection Wells", "Injection Wells Cost ($)", "Injection Wells Maintenance Cost ($)",
+         "Injection Wells Net Present Value ($)"),
+        ("Dry Wells", "Dry Wells Cost ($)", "Dry Wells Maintenance Cost ($)",
+         "Dry Wells Net Present Value ($)"),
+    )
+    for _name, cap_key, maint_key, npv_key in methods:
+        capital_cost = _parse_cost_float(capital_totals.get(cap_key))
+        annual_maintenance_cost = _parse_cost_float(maintenance_totals.get(maint_key))
+        inflation_adjusted = []
+        pv_costs = 0.0
+        net_value = []
+        for i in range(1, 21):
+            if i == 1:
+                current = annual_maintenance_cost
+            else:
+                previous = inflation_adjusted[i - 2]
+                current = previous + previous * annual_esclation_rate
+            inflation_adjusted.append(current)
+            pv_costs = pv_costs + (current / (1 + npv_discount_rate) ** i)
+            net_value.append(pv_costs + capital_cost)
+        df[npv_key] = net_value
+    return df
+
+
+def _prepare_cost_display_df(df, cost_columns, not_feasible_options, label_col="Row Label"):
+    """Round/format method columns and mask infeasible options for DataTable."""
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    # Keep Unit Cost / Number of Units numeric for editing
+    for col in ("Unit Cost $", "Number of Units"):
+        if col not in out.columns:
+            continue
+
+        def _num_or_none(x, *, round_to=None):
+            if (
+                x is None
+                or (isinstance(x, float) and pd.isna(x))
+                or str(x).strip() == ""
+            ):
+                return None
+            val = _parse_cost_float(x)
+            if round_to is not None:
+                return round(val, round_to)
+            return val
+
+        if col == "Number of Units":
+            out[col] = out[col].apply(lambda x: _num_or_none(x, round_to=2))
+        else:
+            out[col] = out[col].apply(_num_or_none)
+    _round_total_rows_in_cost_df(out, cost_columns, label_col=label_col)
+    _format_cost_column_values(
+        out, cost_columns, label_col=label_col, round_all=False
+    )
+    _mask_infeasible_cost_columns(out, cost_columns, not_feasible_options)
+    return out.fillna("")
+
+
+def _editable_cost_datatable(df, table_id, summary_styles):
+    """DataTable with editable Unit Cost $ (Number of Units is read-only)."""
+    columns = []
+    for col in df.columns:
+        if col == "Number of Units":
+            columns.append(
+                {
+                    "name": col,
+                    "id": col,
+                    "type": "numeric",
+                    "editable": False,
+                    "format": Format(precision=2, scheme=Scheme.fixed),
+                }
+            )
+        elif col == "Unit Cost $":
+            columns.append(
+                {
+                    "name": col,
+                    "id": col,
+                    "type": "numeric",
+                    "editable": True,
+                }
+            )
+        else:
+            columns.append({"name": col, "id": col, "editable": False})
+    return dash_table.DataTable(
+        id=table_id,
+        data=df.to_dict("records"),
+        columns=columns,
+        style_cell=datatable_base_style_cell(textAlign="left"),
+        style_header=datatable_base_style_header(),
+        style_data=datatable_computed_data_style(whiteSpace="normal", height="auto"),
+        style_data_conditional=list(summary_styles)
+        + [
+            {
+                "if": {"column_id": "Unit Cost $"},
+                "backgroundColor": "#fff8e1",
+            },
+        ],
+        page_size=50,
+        tooltip_header={
+            "Unit Cost $": "Editable — change unit cost and totals recalculate",
+            "Number of Units": "Calculated quantity (not editable)",
+        },
+        tooltip_delay=0,
+        tooltip_duration=None,
+    )
+
+
+def _cost_summary_single_value(text):
+    """Centered single total for Cost Summary cards."""
+    return html.Div(
+        text,
+        style={
+            "fontSize": "1.25rem",
+            "fontWeight": "700",
+            "color": "#1c2833",
+            "fontVariantNumeric": "tabular-nums",
+            "letterSpacing": "-0.01em",
+            "textAlign": "center",
+            "width": "100%",
+        },
+    )
+
+
+def _cost_summary_option_rows(rows):
+    """Neat label / value rows for Spreading, Injection, Dry Well."""
+    children = []
+    for i, (label, value) in enumerate(rows):
+        children.append(
+            html.Div(
+                [
+                    html.Div(
+                        label,
+                        style={
+                            "fontSize": "0.7rem",
+                            "fontWeight": "700",
+                            "letterSpacing": "0.05em",
+                            "textTransform": "uppercase",
+                            "color": "#6c757d",
+                            "marginBottom": "0.15rem",
+                        },
+                    ),
+                    html.Div(
+                        value,
+                        style={
+                            "fontSize": "0.92rem",
+                            "fontWeight": "600",
+                            "color": "#1c2833",
+                            "fontVariantNumeric": "tabular-nums",
+                            "lineHeight": "1.25",
+                        },
+                    ),
+                ],
+                style={
+                    "padding": "0.5rem 0",
+                    "borderBottom": (
+                        "1px solid #e8ecef" if i < len(rows) - 1 else "none"
+                    ),
+                },
+            )
+        )
+    return html.Div(children, style={"width": "100%", "textAlign": "left"})
+
+
+def _format_cost_summary_display(
+    cost_data, cost_type, selected_technology, not_feasible_options
+):
+    """Format Cost Summary cards (capital / maintenance / NPV)."""
+    if cost_data is None:
+        return _cost_summary_single_value("$0")
+
+    if isinstance(cost_data, dict):
+        cost_data = pd.Series(cost_data)
+
+    def _cost_str_for_option(option_name, value):
+        if option_name in not_feasible_options:
+            return "N/A"
+        if not pd.notna(value) or float(value) == 0:
+            return "$0"
+        return _format_total_usd_range(value)
+
+    def _three_option_block(spreading, injection, dry_well):
+        return _cost_summary_option_rows(
+            [
+                ("Spreading", _cost_str_for_option("Surface Recharge", spreading)),
+                ("Injection", _cost_str_for_option("Injection Well", injection)),
+                ("Dry Well", _cost_str_for_option("Dry Well", dry_well)),
+            ]
+        )
+
+    if isinstance(cost_data, pd.Series):
+        if cost_type == "Capital":
+            spreading_col = "Spreading Pond Cost ($)"
+            injection_col = "Injection Wells Cost ($)"
+            dry_well_col = "Dry Wells Cost ($)"
+        elif cost_type == "Maintenance":
+            spreading_col = "Spreading Pond Maintenance Cost ($)"
+            injection_col = "Injection Wells Maintenance Cost ($)"
+            dry_well_col = "Dry Wells Maintenance Cost ($)"
+        elif cost_type == "NPV":
+            spreading_col = "Spreading Pond Net Present Value ($)"
+            injection_col = "Injection Wells Net Present Value ($)"
+            dry_well_col = "Dry Wells Net Present Value ($)"
+        else:
+            spreading_col = "Spreading Pond Cost ($)"
+            injection_col = "Injection Wells Cost ($)"
+            dry_well_col = "Dry Wells Cost ($)"
+
+        if selected_technology is None:
+            spreading = cost_data.get(spreading_col, 0) if spreading_col in cost_data.index else 0
+            injection = cost_data.get(injection_col, 0) if injection_col in cost_data.index else 0
+            dry_well = cost_data.get(dry_well_col, 0) if dry_well_col in cost_data.index else 0
+            return _three_option_block(spreading, injection, dry_well)
+
+        tech_mapping = {
+            "spreading_basins": spreading_col,
+            "Surface Recharge": spreading_col,
+            "injection_wells": injection_col,
+            "Injection Well": injection_col,
+            "dry_wells": dry_well_col,
+            "Dry Well": dry_well_col,
+        }
+        cost_column = None
+        for tech_key, col_name in tech_mapping.items():
+            if (
+                tech_key.lower() in str(selected_technology).lower()
+                or str(selected_technology).lower() in tech_key.lower()
+            ):
+                if col_name in cost_data.index:
+                    cost_column = col_name
+                    break
+        if cost_column and cost_column in cost_data.index:
+            option_name = _COST_COLUMN_TO_OPTION.get(cost_column)
+            if option_name in not_feasible_options:
+                return _cost_summary_single_value("N/A")
+            cost_value = cost_data[cost_column]
+            return _cost_summary_single_value(
+                _format_total_usd_range(cost_value)
+                if pd.notna(cost_value)
+                else "$0"
+            )
+        spreading = cost_data.get(spreading_col, 0) if spreading_col in cost_data.index else 0
+        injection = cost_data.get(injection_col, 0) if injection_col in cost_data.index else 0
+        dry_well = cost_data.get(dry_well_col, 0) if dry_well_col in cost_data.index else 0
+        return _three_option_block(spreading, injection, dry_well)
+
+    return _cost_summary_single_value(
+        _format_total_usd_range(cost_data) if pd.notna(cost_data) else "$0"
+    )
+
+
+def _build_npv_panel(npv_df, not_feasible_options):
+    """NPV chart + table panel used by Cost Analysis."""
+    npv_columns = list(_NPV_COLS)
+    npv_df_plot = npv_df.copy()
+    for col in npv_columns:
+        if col in npv_df_plot.columns:
+            npv_df_plot[col] = npv_df_plot[col].apply(
+                lambda x: _round_to_nearest_thousand(x)
+                if pd.notna(x) and str(x).strip() != ""
+                else x
+            )
+    for col in npv_columns:
+        if col in npv_df.columns:
+            npv_df[col] = npv_df[col].apply(
+                lambda x: f"{_round_to_nearest_thousand(x):,.0f}"
+                if pd.notna(x) and str(x).strip() != ""
+                else ""
+            )
+    _mask_infeasible_cost_columns(npv_df, npv_columns, not_feasible_options)
+    npv_df = npv_df.fillna("")
+
+    npv_plot = go.Figure()
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    for i, col in enumerate(npv_columns):
+        if col not in npv_df_plot.columns:
+            continue
+        option_name = _COST_COLUMN_TO_OPTION.get(col)
+        if option_name in not_feasible_options:
+            continue
+        yvals = npv_df_plot[col]
+        npv_plot.add_trace(
+            go.Bar(
+                x=npv_df_plot["Year"]
+                if "Year" in npv_df_plot.columns
+                else list(range(1, 21)),
+                y=yvals,
+                name=col.replace(" Net Present Value ($)", ""),
+                marker_color=colors[i % len(colors)],
+                text=[f"${_parse_cost_float(v):,.0f}" for v in yvals],
+                textposition="outside",
+                hovertemplate="Year: %{x}<br>" + col + ": $%{y:,.0f}<extra></extra>",
+            )
+        )
+    npv_plot.update_layout(
+        title="Net Present Value Over 20 Years",
+        xaxis_title="Year",
+        yaxis_title="Net Present Value ($)",
+        xaxis=dict(tickmode="linear", tick0=1, dtick=1),
+        yaxis=dict(tickformat="$,.0f"),
+        height=500,
+        autosize=True,
+        margin=dict(l=50, r=50, t=50, b=50),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        barmode="group",
+    )
+    table = dash_table.DataTable(
+        data=npv_df.to_dict("records"),
+        columns=[{"name": col, "id": col} for col in npv_df.columns],
+        style_cell=datatable_base_style_cell(textAlign="left"),
+        style_header=datatable_base_style_header(),
+        style_data=datatable_computed_data_style(whiteSpace="normal", height="auto"),
+        style_data_conditional=[
+            {
+                "if": {"row_index": max(len(npv_df) - 1, 0)},
+                "backgroundColor": "#bbdefb",
+                "fontWeight": "bold",
+                "color": "#0d47a1",
+            }
+        ],
+        page_size=25,
+    )
+    return dbc.Container(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.H5("Net Present Value Chart", className="mb-3"),
+                            dcc.Graph(
+                                figure=npv_plot, id="npv-chart", style={"height": "500px"}
+                            ),
+                        ],
+                        width=12,
+                    )
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.H5("Net Present Value Table", className="mb-3"),
+                            table,
+                        ],
+                        width=12,
+                    )
+                ]
+            ),
+        ],
+        fluid=True,
+    )
+
+
 _LEGACY_CONVEYANCE = {
     "trapezoidal": "gravity_ditch",
     "pipeline": "gravity_pipeline",
@@ -320,17 +1079,15 @@ def _sync_sediment_target_from_turbidity():
 
 
 _DEFAULT_PUMPED_STORAGE_VALUES = [
-    "pipeline_cost",
     "pumping_bag_filter_cost",
     "controls",
     "electrical_system",
 ]
 _STORAGE_CONVEYANCE_DISTANCE_FT = 500.0
+# Pipeline only — pump / bag filter / controls / electrical are consolidated
+# under PUMPED CONVEYANCE in capital costs.
 _DEFAULT_PUMPED_INFILTRATION_VALUES = [
     "infiltration_pipeline_cost",
-    "infiltration_pumping_bag_filter_cost",
-    "infiltration_controls",
-    "infiltration_electrical_system",
 ]
 # Fraction of MAR site area available for recharge (rest for other infrastructure)
 _DEFAULT_MAX_INFILTRATION_AREA_FRACTION = 0.70
@@ -656,6 +1413,7 @@ def setup_cost_callbacks(app):
             Output("capital-cost-table-content", "children"),
             Output("maintenance-cost-table-content", "children"),
             Output("npv-table-content", "children"),
+            Output("cost-economics-revision", "data"),
         ],
         [
             Input("top-tabs", "active_tab"),
@@ -679,6 +1437,7 @@ def setup_cost_callbacks(app):
         if not top_tab or not analysis_tab or top_tab != "analysis" or analysis_tab != "analysis-cost":
           
             return (
+                dash.no_update,
                 dash.no_update,
                 dash.no_update,
                 dash.no_update,
@@ -835,406 +1594,172 @@ def setup_cost_callbacks(app):
         selected_technology = dash_storage.get_data("selected_mar_technology")
         not_feasible_options = _get_not_feasible_option_names()
 
-        def _cost_str_for_option(option_name, value):
-            if option_name in not_feasible_options:
-                return "N/A"
-            if not pd.notna(value) or float(value) == 0:
-                return "$0"
-            return _format_total_usd_range(value)
-
-        # Format costs - show all three or one based on selection
-        def format_cost_display(cost_data, cost_type="Capital"):
-            """Format cost display to show 3 values or 1 based on selection."""
-            if cost_data is None:
-                return "$0"
-
-            if isinstance(cost_data, dict):
-                cost_data = pd.Series(cost_data)
-
-            if isinstance(cost_data, pd.Series):
-                # We have three cost values
-                # Get column names based on cost type
-                if cost_type == "Capital":
-                    spreading_col = "Spreading Pond Cost ($)"
-                    injection_col = "Injection Wells Cost ($)"
-                    dry_well_col = "Dry Wells Cost ($)"
-                elif cost_type == "Maintenance":
-                    spreading_col = "Spreading Pond Maintenance Cost ($)"
-                    injection_col = "Injection Wells Maintenance Cost ($)"
-                    dry_well_col = "Dry Wells Maintenance Cost ($)"
-                elif cost_type == "NPV":
-                    spreading_col = "Spreading Pond Net Present Value ($)"
-                    injection_col = "Injection Wells Net Present Value ($)"
-                    dry_well_col = "Dry Wells Net Present Value ($)"
-                else:
-                    spreading_col = "Spreading Pond Cost ($)"
-                    injection_col = "Injection Wells Cost ($)"
-                    dry_well_col = "Dry Wells Cost ($)"
-                
-                if selected_technology is None:
-                    # Show all three values
-                    spreading = cost_data.get(spreading_col, 0) if spreading_col in cost_data.index else 0
-                    injection = cost_data.get(injection_col, 0) if injection_col in cost_data.index else 0
-                    dry_well = cost_data.get(dry_well_col, 0) if dry_well_col in cost_data.index else 0
-                    
-                    spreading_str = _cost_str_for_option("Surface Recharge", spreading)
-                    injection_str = _cost_str_for_option("Injection Well", injection)
-                    dry_well_str = _cost_str_for_option("Dry Well", dry_well)
-                    return html.Div([
-                        html.Div(f"Spreading: {spreading_str}", style={"margin-bottom": "5px"}),
-                        html.Div(f"Injection: {injection_str}", style={"margin-bottom": "5px"}),
-                        html.Div(f"Dry Well: {dry_well_str}")
-                    ])
-                else:
-                    # Show selected technology cost
-                    tech_mapping = {
-                        "spreading_basins": spreading_col,
-                        "Surface Recharge": spreading_col,
-                        "injection_wells": injection_col,
-                        "Injection Well": injection_col,
-                        "dry_wells": dry_well_col,
-                        "Dry Well": dry_well_col,
-                    }
-                    
-                    # Try to find matching column
-                    cost_column = None
-                    for tech_key, col_name in tech_mapping.items():
-                        if (tech_key.lower() in str(selected_technology).lower() or 
-                            str(selected_technology).lower() in tech_key.lower()):
-                            if col_name in cost_data.index:
-                                cost_column = col_name
-                                break
-                    
-                    if cost_column and cost_column in cost_data.index:
-                        option_name = _COST_COLUMN_TO_OPTION.get(cost_column)
-                        if option_name in not_feasible_options:
-                            return "N/A"
-                        cost_value = cost_data[cost_column]
-                        return (
-                            _format_total_usd_range(cost_value)
-                            if pd.notna(cost_value)
-                            else "$0"
-                        )
-                    else:
-                        # Fallback: show all three
-                        spreading = cost_data.get(spreading_col, 0) if spreading_col in cost_data.index else 0
-                        injection = cost_data.get(injection_col, 0) if injection_col in cost_data.index else 0
-                        dry_well = cost_data.get(dry_well_col, 0) if dry_well_col in cost_data.index else 0
-                        
-                        spreading_str = _cost_str_for_option("Surface Recharge", spreading)
-                        injection_str = _cost_str_for_option("Injection Well", injection)
-                        dry_well_str = _cost_str_for_option("Dry Well", dry_well)
-                        return html.Div([
-                            html.Div(f"Spreading: {spreading_str}", style={"margin-bottom": "5px"}),
-                            html.Div(f"Injection: {injection_str}", style={"margin-bottom": "5px"}),
-                            html.Div(f"Dry Well: {dry_well_str}")
-                        ])
-            else:
-                # Single value (old format)
-                return (
-                    _format_total_usd_range(cost_data)
-                    if pd.notna(cost_data)
-                    else "$0"
-                )
-        
-        capital_cost = format_cost_display(capital_cost_num, "Capital")
-        annual_maintenance_cost = format_cost_display(maintenance_cost_num, "Maintenance")
-        
-        # Format NPV display - convert dict to Series for format_cost_display
-        if net_val_dict:
-            npv_series = pd.Series(net_val_dict)
-            npv_20_years = format_cost_display(npv_series, "NPV")
-        else:
-            npv_20_years = "$0"
-        
-        # Create Capital Cost Table
+        # Capital table — apply user unit/quantity overrides, then recompute
         capital_df = _cost_table_dataframe(
             None, cost_calculator, "capital_costs_calculations"
         )
-        # Reset index to make it a column
         capital_df = capital_df.reset_index()
         capital_df, capital_label_col = _ensure_label_column(capital_df)
-        
-        # Format numeric columns
-        if 'Number of Units' in capital_df.columns:
-            def format_units(x):
-                try:
-                    if pd.notna(x) and x != '' and str(x).strip() != '':
-                        return f"{float(x):.2f}"
-                    return ''
-                except (ValueError, TypeError):
-                    return ''
-            capital_df['Number of Units'] = capital_df['Number of Units'].apply(format_units)
-        
-        cost_columns = ['Spreading Pond Cost ($)', 'Injection Wells Cost ($)', 'Dry Wells Cost ($)']
-        _round_total_rows_in_cost_df(capital_df, cost_columns, label_col=capital_label_col)
-        _format_cost_column_values(
-            capital_df, cost_columns, label_col=capital_label_col, round_all=False
+        _apply_unit_overrides_to_display_df(
+            capital_df,
+            dash_storage.get_data(_CAPITAL_UNIT_OVERRIDES_KEY),
+            label_col=capital_label_col,
         )
-        _mask_infeasible_cost_columns(
-            capital_df, cost_columns, not_feasible_options
+        _recompute_capital_display_df(capital_df, label_col=capital_label_col)
+        capital_totals = _totals_from_display_df(
+            capital_df,
+            _CAPITAL_COST_COLS,
+            "Capital Total Cost",
+            label_col=capital_label_col,
         )
-        
-        # Fill NaN values with empty strings for better display
-        capital_df = capital_df.fillna('')
-
-        summary_styles = [
+        dash_storage.set_data(
+            "capital_cost_num",
+            totals_series_to_storage_dict(
+                pd.Series(capital_totals), CAPITAL_COST_TOTAL_KEYS
+            ),
+        )
+        capital_df_display = _prepare_cost_display_df(
+            capital_df, _CAPITAL_COST_COLS, not_feasible_options, capital_label_col
+        )
+        capital_summary_styles = [
             {
-                'if': {
-                    'filter_query': '{Row Label} contains "Total" || {Row Label} contains "Subtotal" || {Row Label} contains "Capital" || {Item} = null'
+                "if": {
+                    "filter_query": (
+                        '{Row Label} contains "Total" || {Row Label} contains "Subtotal" '
+                        '|| {Row Label} contains "Capital" || {Item} = null'
+                    )
                 },
-                'backgroundColor': '#bbdefb',
-                'fontWeight': 'bold',
-                'color': '#0d47a1',
+                "backgroundColor": "#bbdefb",
+                "fontWeight": "bold",
+                "color": "#0d47a1",
             }
         ]
-        
-        capital_cost_table = dash_table.DataTable(
-            data=capital_df.to_dict('records'),
-            columns=[
-                {'name': col, 'id': col} for col in capital_df.columns
-            ],
-            style_cell=datatable_base_style_cell(textAlign='left'),
-            style_header=datatable_base_style_header(),
-            style_data=datatable_computed_data_style(whiteSpace='normal', height='auto'),
-            style_data_conditional=summary_styles,
-            page_size=50
+        capital_cost_table = html.Div(
+            [
+                html.Div(
+                    [
+                        dbc.Button(
+                            "Reset unit costs to defaults",
+                            id="reset-capital-unit-costs-btn",
+                            size="sm",
+                            className="me-2",
+                            style={
+                                "backgroundColor": "#fd7e14",
+                                "borderColor": "#fd7e14",
+                                "color": "white",
+                            },
+                        ),
+                        html.Span(
+                            "Yellow Unit Cost $ cells are editable. "
+                            "Number of Units is calculated and not editable.",
+                            className="small fw-bold",
+                        ),
+                    ],
+                    className="d-flex align-items-center flex-wrap mb-2 gap-2",
+                ),
+                _editable_cost_datatable(
+                    capital_df_display,
+                    "capital-cost-datatable",
+                    capital_summary_styles,
+                ),
+            ]
         )
-        
-        # Create Maintenance Cost Table
-        maintenance_df = _cost_table_dataframe(
-            None, cost_calculator, "maintenance_costs_calculations"
-        )
-        # Reset index to make it a column
-        maintenance_df = maintenance_df.reset_index()
-        maintenance_df, maint_label_col = _ensure_label_column(maintenance_df)
-        
-        # Format numeric columns
-        if 'Number of Units' in maintenance_df.columns:
-            def format_units(x):
-                try:
-                    if pd.notna(x) and x != '' and str(x).strip() != '':
-                        return f"{float(x):.2f}"
-                    return ''
-                except (ValueError, TypeError):
-                    return ''
-            maintenance_df['Number of Units'] = maintenance_df['Number of Units'].apply(format_units)
-        
-        maintenance_cost_columns = [
-            'Spreading Pond Maintenance Cost ($)',
-            'Injection Wells Maintenance Cost ($)',
-            'Dry Wells Maintenance Cost ($)',
-        ]
-        # Round Subtotal / Total rows to nearest $1,000 (same as capital table)
-        _round_total_rows_in_cost_df(
-            maintenance_df, maintenance_cost_columns, label_col=maint_label_col
-        )
-        _format_cost_column_values(
-            maintenance_df,
-            maintenance_cost_columns,
-            label_col=maint_label_col,
-            round_all=False,
-        )
-        _mask_infeasible_cost_columns(
-            maintenance_df, maintenance_cost_columns, not_feasible_options
-        )
-        
-        # Fill NaN values with empty strings for better display
-        maintenance_df = maintenance_df.fillna('')
 
+        # Maintenance = 5% of capital (no line-item O&M model)
+        maintenance_totals = _maintenance_totals_from_capital(capital_totals)
+        dash_storage.set_data(
+            "maintenance_cost_num",
+            totals_series_to_storage_dict(
+                pd.Series(maintenance_totals), MAINTENANCE_COST_TOTAL_KEYS
+            ),
+        )
+        dash_storage.set_data(_MAINT_UNIT_OVERRIDES_KEY, {})
+        maintenance_df_display = _prepare_cost_display_df(
+            _simple_maintenance_display_df(capital_totals),
+            _MAINT_COST_COLS,
+            not_feasible_options,
+            "Row Label",
+        )
         maintenance_summary_styles = [
             {
-                'if': {
-                    'filter_query': '{Row Label} contains "Total" || {Row Label} contains "Subtotal" || {Row Label} contains "Maintenance" || {Item} = null'
+                "if": {
+                    "filter_query": (
+                        '{Row Label} contains "Total" || {Row Label} contains "Subtotal" '
+                        '|| {Row Label} contains "Maintenance" || {Item} = null'
+                    )
                 },
-                'backgroundColor': '#bbdefb',
-                'fontWeight': 'bold',
-                'color': '#0d47a1',
+                "backgroundColor": "#bbdefb",
+                "fontWeight": "bold",
+                "color": "#0d47a1",
             }
         ]
-        
-        maintenance_cost_table = dash_table.DataTable(
-            data=maintenance_df.to_dict('records'),
-            columns=[
-                {'name': col, 'id': col} for col in maintenance_df.columns
-            ],
-            style_cell=datatable_base_style_cell(textAlign='left'),
-            style_header=datatable_base_style_header(),
-            style_data=datatable_computed_data_style(whiteSpace='normal', height='auto'),
-            style_data_conditional=maintenance_summary_styles,
-            page_size=50
-        )
-        
-        # Create Net Present Value Table and Plot
-        npv_df = _cost_table_dataframe(
-            None, cost_calculator, "net_present_value_calculations"
-        )
-        # Reset index to make Year a column
-        npv_df = npv_df.reset_index()
-        if 'index' in npv_df.columns:
-            npv_df = npv_df.rename(columns={'index': 'Year'})
-        elif 'Year' not in npv_df.columns and npv_df.index.name == 'Year':
-            npv_df.index.name = None
-            npv_df = npv_df.reset_index()
-            npv_df = npv_df.rename(columns={'index': 'Year'})
-        
-        npv_columns = [
-            'Spreading Pond Net Present Value ($)',
-            'Injection Wells Net Present Value ($)',
-            'Dry Wells Net Present Value ($)'
+        # Read-only table (O&M is derived from capital, not edited here)
+        maint_columns = [
+            {
+                "name": col,
+                "id": col,
+                "editable": False,
+                **(
+                    {
+                        "type": "numeric",
+                        "format": Format(precision=2, scheme=Scheme.fixed),
+                    }
+                    if col == "Number of Units"
+                    else ({"type": "numeric"} if col == "Unit Cost $" else {})
+                ),
+            }
+            for col in maintenance_df_display.columns
         ]
-
-        # Round all NPV values to nearest $1,000 for plot and table
-        npv_df_plot = npv_df.copy()
-        for col in npv_columns:
-            if col in npv_df_plot.columns:
-                npv_df_plot[col] = npv_df_plot[col].apply(
-                    lambda x: _round_to_nearest_thousand(x)
-                    if pd.notna(x) and str(x).strip() != ""
-                    else x
-                )
-
-        _format_cost_column_values(
-            npv_df, npv_columns, label_col=None, round_all=True
+        maintenance_cost_table = html.Div(
+            [
+                html.P(
+                    "Annual maintenance is 5% of each option's Capital Total Cost.",
+                    className="text-muted small mb-2 fw-bold",
+                ),
+                dash_table.DataTable(
+                    id="maintenance-cost-datatable",
+                    data=maintenance_df_display.to_dict("records"),
+                    columns=maint_columns,
+                    style_cell=datatable_base_style_cell(textAlign="left"),
+                    style_header=datatable_base_style_header(),
+                    style_data=datatable_computed_data_style(
+                        whiteSpace="normal", height="auto"
+                    ),
+                    style_data_conditional=maintenance_summary_styles,
+                    page_size=50,
+                ),
+            ]
         )
-        # Prefer $ prefix in NPV table for clarity
-        for col in npv_columns:
-            if col in npv_df.columns:
-                npv_df[col] = [
-                    f"${v}" if v not in ("", None) and not str(v).startswith("$") else (v or "")
-                    for v in npv_df[col]
-                ]
-        _mask_infeasible_cost_columns(
-            npv_df, npv_columns, not_feasible_options
-        )
-        
-        # Get selected technology to determine which NPV to display
-        selected_technology = dash_storage.get_data("selected_mar_technology")
-        
-        # Fill NaN values with empty strings for better display
-        npv_df = npv_df.fillna('')
-        
-        # Create the bar plot
-        npv_plot = go.Figure()
-        
-        # Map technology to column name
-        tech_to_column = {
-            "spreading_basins": "Spreading Pond Net Present Value ($)",
-            "Surface Recharge": "Spreading Pond Net Present Value ($)",
-            "injection_wells": "Injection Wells Net Present Value ($)",
-            "Injection Well": "Injection Wells Net Present Value ($)",
-            "dry_wells": "Dry Wells Net Present Value ($)",
-            "Dry Well": "Dry Wells Net Present Value ($)",
+
+        npv_df = _compute_npv_series(capital_totals, maintenance_totals)
+        net_val_dict = {
+            col: float(npv_df[col].iloc[-1])
+            for col in _NPV_COLS
+            if col in npv_df.columns
         }
+        dash_storage.set_data("net_val", net_val_dict)
+        dash_storage.set_data("npv_calculations_df", npv_df.copy())
 
-        def _add_npv_trace(col, color, *, name=None):
-            option_name = _COST_COLUMN_TO_OPTION.get(col)
-            # Skip bars for infeasible options (cost shown as N/A elsewhere)
-            if option_name in not_feasible_options:
-                return
-            display_name = name or col.replace(" Net Present Value ($)", "")
-            npv_plot.add_trace(
-                go.Bar(
-                    x=npv_df_plot["Year"],
-                    y=npv_df_plot[col],
-                    name=display_name,
-                    marker_color=color,
-                    text=[f"${val:,.0f}" for val in npv_df_plot[col]],
-                    textposition="outside",
-                    hovertemplate=f"Year: %{{x}}<br>{col}: $%{{y:,.0f}}<extra></extra>",
-                )
-            )
-        
-        if selected_technology is None:
-            # Show all three technologies
-            colors = ['#3498db', '#2ecc71', '#e74c3c']
-            for i, col in enumerate(npv_columns):
-                if col in npv_df_plot.columns:
-                    _add_npv_trace(col, colors[i])
-            npv_plot.update_layout(
-                title='Net Present Value Over 20 Years',
-                xaxis_title='Year',
-                yaxis_title='Net Present Value ($)',
-                xaxis=dict(tickmode='linear', tick0=1, dtick=1),
-                yaxis=dict(tickformat='$,.0f'),
-                height=500,
-                autosize=True,
-                margin=dict(l=50, r=50, t=50, b=50),
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                barmode='group'
-            )
-        else:
-            # Show selected technology only
-            cost_column = None
-            for tech_key, col_name in tech_to_column.items():
-                if (tech_key.lower() in str(selected_technology).lower() or 
-                    str(selected_technology).lower() in tech_key.lower()):
-                    if col_name in npv_df_plot.columns:
-                        cost_column = col_name
-                        break
-            
-            if cost_column and cost_column in npv_df_plot.columns:
-                _add_npv_trace(cost_column, "#3498db")
-            else:
-                # Fallback: show all three
-                colors = ['#3498db', '#2ecc71', '#e74c3c']
-                for i, col in enumerate(npv_columns):
-                    if col in npv_df_plot.columns:
-                        _add_npv_trace(col, colors[i])
-            
-            npv_plot.update_layout(
-                title='Net Present Value Over 20 Years',
-                xaxis_title='Year',
-                yaxis_title='Net Present Value ($)',
-                xaxis=dict(tickmode='linear', tick0=1, dtick=1),
-                yaxis=dict(tickformat='$,.0f'),
-                height=500,
-                autosize=True,
-                margin=dict(l=50, r=50, t=50, b=50),
-                plot_bgcolor='white',
-                paper_bgcolor='white'
-            )
-        
-        npv_table = dash_table.DataTable(
-            data=npv_df.to_dict('records'),
-            columns=[
-                {'name': col, 'id': col} for col in npv_df.columns
-            ],
-            style_cell=datatable_base_style_cell(textAlign='left'),
-            style_header=datatable_base_style_header(),
-            style_data=datatable_computed_data_style(whiteSpace='normal', height='auto'),
-            style_data_conditional=[
-                {
-                    'if': {'row_index': len(npv_df) - 1},
-                    'backgroundColor': '#bbdefb',
-                    'fontWeight': 'bold',
-                    'color': '#0d47a1',
-                }
-            ],
-            page_size=25
+        capital_cost = _format_cost_summary_display(
+            pd.Series(capital_totals),
+            "Capital",
+            selected_technology,
+            not_feasible_options,
         )
-        
-        # Combine table and plot in a row layout
-        npv_table = dbc.Container([
-            dbc.Row([
-                dbc.Col([
-                    html.H5("Net Present Value Chart", className="mb-3"),
-                    dcc.Graph(
-                        figure=npv_plot,
-                        id='npv-chart',
-                        style={'height': '500px'}
-                    )
-                ], width=12)
-            ]),
-            dbc.Row([
-                dbc.Col([
-                    html.H5("Net Present Value Table", className="mb-3"),
-                    npv_table
-                ], width=12)
-            ])
-        ], fluid=True)
-        
+        annual_maintenance_cost = _format_cost_summary_display(
+            pd.Series(maintenance_totals),
+            "Maintenance",
+            selected_technology,
+            not_feasible_options,
+        )
+        npv_20_years = _format_cost_summary_display(
+            pd.Series(net_val_dict),
+            "NPV",
+            selected_technology,
+            not_feasible_options,
+        )
+        npv_table = _build_npv_panel(npv_df, not_feasible_options)
+
         return (
             capital_cost,
             annual_maintenance_cost,
@@ -1242,5 +1767,160 @@ def setup_cost_callbacks(app):
             capital_cost_table,
             maintenance_cost_table,
             npv_table,
+            bump_cost_economics_revision(),
         )
+
+    def _capital_edit_outputs(capital_totals, capital_display_df):
+        """Shared outputs after capital changes: capital + 5% O&M + NPV."""
+        selected_technology = dash_storage.get_data("selected_mar_technology")
+        not_feasible_options = _get_not_feasible_option_names()
+        maint_totals = _maintenance_totals_from_capital(capital_totals)
+        dash_storage.set_data(
+            "maintenance_cost_num",
+            totals_series_to_storage_dict(
+                pd.Series(maint_totals), MAINTENANCE_COST_TOTAL_KEYS
+            ),
+        )
+        maint_display_df = _prepare_cost_display_df(
+            _simple_maintenance_display_df(capital_totals),
+            _MAINT_COST_COLS,
+            not_feasible_options,
+            "Row Label",
+        )
+        capital_display = _format_cost_summary_display(
+            pd.Series(capital_totals),
+            "Capital",
+            selected_technology,
+            not_feasible_options,
+        )
+        maint_display = _format_cost_summary_display(
+            pd.Series(maint_totals),
+            "Maintenance",
+            selected_technology,
+            not_feasible_options,
+        )
+        npv_df = _compute_npv_series(capital_totals, maint_totals)
+        net_val = {
+            col: float(npv_df[col].iloc[-1])
+            for col in _NPV_COLS
+            if col in npv_df.columns
+        }
+        dash_storage.set_data("net_val", net_val)
+        dash_storage.set_data("npv_calculations_df", npv_df.copy())
+        npv_display = _format_cost_summary_display(
+            pd.Series(net_val),
+            "NPV",
+            selected_technology,
+            not_feasible_options,
+        )
+        revision = bump_cost_economics_revision()
+        return (
+            capital_display_df.to_dict("records"),
+            capital_display,
+            maint_display_df.to_dict("records"),
+            maint_display,
+            npv_display,
+            _build_npv_panel(npv_df, not_feasible_options),
+            revision,
+        )
+
+    def _rebuild_capital_display_from_defaults():
+        """Rebuild capital table from calculator defaults (no unit-cost overrides)."""
+        not_feasible_options = _get_not_feasible_option_names()
+        raw = _coerce_stored_dataframe(
+            dash_storage.get_data("capital_costs_calculations_df")
+        )
+        if raw is None or raw.empty:
+            try:
+                from mar_dss.app.callbacks.analysis_callbacks import (
+                    create_and_run_cost_calculator,
+                )
+
+                calc = create_and_run_cost_calculator()
+                raw = calc.capital_costs_calculations.copy()
+            except Exception:
+                return None
+        df = raw.reset_index()
+        df, label_col = _ensure_label_column(df)
+        _recompute_capital_display_df(df, label_col=label_col)
+        totals = _totals_from_display_df(
+            df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col
+        )
+        dash_storage.set_data(
+            "capital_cost_num",
+            totals_series_to_storage_dict(
+                pd.Series(totals), CAPITAL_COST_TOTAL_KEYS
+            ),
+        )
+        display_df = _prepare_cost_display_df(
+            df, _CAPITAL_COST_COLS, not_feasible_options, label_col
+        )
+        return _capital_edit_outputs(totals, display_df)
+
+    def _sync_costs_after_capital_unit_edit(rows):
+        """Recompute capital method/soft costs after Unit Cost $ edit."""
+        if not rows:
+            return (dash.no_update,) * 7
+
+        df = pd.DataFrame(rows)
+        df, label_col = _ensure_label_column(df)
+        not_feasible_options = _get_not_feasible_option_names()
+        soft_labels = _CAPITAL_SOFT_LABELS
+        for i in df.index:
+            row = df.loc[i].to_dict()
+            if not _is_editable_cost_line_row(row, soft_labels, label_col):
+                df.at[i, "Unit Cost $"] = None
+        _recompute_capital_display_df(df, label_col=label_col)
+        overrides = _extract_unit_overrides_from_display_df(
+            df, soft_labels, label_col
+        )
+        dash_storage.set_data(_CAPITAL_UNIT_OVERRIDES_KEY, overrides)
+        totals = _totals_from_display_df(
+            df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col
+        )
+        dash_storage.set_data(
+            "capital_cost_num",
+            totals_series_to_storage_dict(
+                pd.Series(totals), CAPITAL_COST_TOTAL_KEYS
+            ),
+        )
+        display_df = _prepare_cost_display_df(
+            df, _CAPITAL_COST_COLS, not_feasible_options, label_col
+        )
+        return _capital_edit_outputs(totals, display_df)
+
+    @app.callback(
+        Output("capital-cost-datatable", "data"),
+        Output("capital-cost-display", "children", allow_duplicate=True),
+        Output("maintenance-cost-datatable", "data", allow_duplicate=True),
+        Output("annual-maintenance-cost-display", "children", allow_duplicate=True),
+        Output("npv-20-years-display", "children", allow_duplicate=True),
+        Output("npv-table-content", "children", allow_duplicate=True),
+        Output("cost-economics-revision", "data", allow_duplicate=True),
+        Input("capital-cost-datatable", "data_timestamp"),
+        State("capital-cost-datatable", "data"),
+        prevent_initial_call=True,
+    )
+    def on_capital_cost_units_edited(_ts, rows):
+        return _sync_costs_after_capital_unit_edit(rows)
+
+    @app.callback(
+        Output("capital-cost-datatable", "data", allow_duplicate=True),
+        Output("capital-cost-display", "children", allow_duplicate=True),
+        Output("maintenance-cost-datatable", "data", allow_duplicate=True),
+        Output("annual-maintenance-cost-display", "children", allow_duplicate=True),
+        Output("npv-20-years-display", "children", allow_duplicate=True),
+        Output("npv-table-content", "children", allow_duplicate=True),
+        Output("cost-economics-revision", "data", allow_duplicate=True),
+        Input("reset-capital-unit-costs-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def on_reset_capital_unit_costs(n_clicks):
+        if not n_clicks:
+            return (dash.no_update,) * 7
+        dash_storage.set_data(_CAPITAL_UNIT_OVERRIDES_KEY, {})
+        rebuilt = _rebuild_capital_display_from_defaults()
+        if rebuilt is None:
+            return (dash.no_update,) * 7
+        return rebuilt
 
