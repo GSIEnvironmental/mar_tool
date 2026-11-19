@@ -22,8 +22,16 @@ function marInstallMapboxClickRelay(graphElementId, storeId, handlerKey) {
         var layout = plotDiv._fullLayout || {};
         var keys = Object.keys(layout).filter(function (k) {
           var L = layout[k];
-          return L && L._subplot && k.slice(0, 7) === "mapbox";
+          // Plotly 6+/7: subplot key "map"; older: "mapbox" / "mapbox2"...
+          return (
+            L &&
+            L._subplot &&
+            (k === "map" || k.slice(0, 3) === "map" || k.slice(0, 7) === "mapbox")
+          );
         });
+        if (layout.map && keys.indexOf("map") < 0) {
+          keys.unshift("map");
+        }
         if (layout.mapbox && keys.indexOf("mapbox") < 0) {
           keys.unshift("mapbox");
         }

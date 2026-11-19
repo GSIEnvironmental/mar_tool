@@ -221,16 +221,21 @@ def _normalize_map_style(map_style):
     return style
 
 
+# Plotly 7 removed Scattermapbox / layout.mapbox in favor of Scattermap / layout.map.
+_SCATTER_MAP_TRACE = getattr(go, "Scattermapbox", None) or go.Scattermap
+_MAP_LAYOUT_KEY = "mapbox" if hasattr(go, "Scattermapbox") else "map"
+
+
 def _mapbox_dict_for_style(style, center_lat, center_lon, zoom):
-    """Mapbox layout subtree for Scattermapbox (tiles / preset style)."""
+    """Map layout subtree for Scattermap / Scattermapbox (tiles / preset style)."""
     style = _normalize_map_style(style)
-    mapbox = dict(
+    map_layout = dict(
         center=dict(lat=float(center_lat), lon=float(center_lon)),
         zoom=float(zoom),
     )
     if style == "opentopomap":
-        mapbox["style"] = "white-bg"
-        mapbox["layers"] = [
+        map_layout["style"] = "white-bg"
+        map_layout["layers"] = [
             dict(
                 sourcetype="raster",
                 source=list(_OPENTOPOMAP_TILES),
@@ -238,8 +243,8 @@ def _mapbox_dict_for_style(style, center_lat, center_lon, zoom):
             )
         ]
     elif style == "satellite-streets":
-        mapbox["style"] = "white-bg"
-        mapbox["layers"] = [
+        map_layout["style"] = "white-bg"
+        map_layout["layers"] = [
             dict(sourcetype="raster", source=[_ESRI_WORLD_IMAGERY], below="traces"),
             dict(
                 sourcetype="raster",
@@ -253,8 +258,8 @@ def _mapbox_dict_for_style(style, center_lat, center_lon, zoom):
             ),
         ]
     else:
-        mapbox["style"] = style
-    return mapbox
+        map_layout["style"] = style
+    return map_layout
 
 
 _WATER_MAP_SOURCE_KEYS = ("water_map_source_lat", "water_map_source_lon")
@@ -375,7 +380,7 @@ def create_water_source_sites_map(
     style = _normalize_map_style(map_style)
     fig = go.Figure()
     fig.add_trace(
-        go.Scattermapbox(
+        _SCATTER_MAP_TRACE(
             lat=[float(source_lat)],
             lon=[float(source_lon)],
             mode="markers",
@@ -386,7 +391,7 @@ def create_water_source_sites_map(
         )
     )
     fig.add_trace(
-        go.Scattermapbox(
+        _SCATTER_MAP_TRACE(
             lat=[float(recharge_lat)],
             lon=[float(recharge_lon)],
             mode="markers",
@@ -396,14 +401,14 @@ def create_water_source_sites_map(
             name="Recharge Site",
         )
     )
-    mapbox = _mapbox_dict_for_style(style, center_lat, center_lon, zoom)
-    layout = dict(
-        mapbox=mapbox,
-        margin=dict(l=0, r=0, t=0, b=0),
-        uirevision=uirevision,
-        dragmode="pan",
-        showlegend=False,
-    )
+    map_layout = _mapbox_dict_for_style(style, center_lat, center_lon, zoom)
+    layout = {
+        _MAP_LAYOUT_KEY: map_layout,
+        "margin": dict(l=0, r=0, t=0, b=0),
+        "uirevision": uirevision,
+        "dragmode": "pan",
+        "showlegend": False,
+    }
     if fill_container:
         layout["autosize"] = True
     else:
@@ -461,7 +466,7 @@ def create_location_map(
     style = _normalize_map_style(map_style)
     fig = go.Figure()
     fig.add_trace(
-        go.Scattermapbox(
+        _SCATTER_MAP_TRACE(
             lat=[lat],
             lon=[lon],
             mode="markers",
@@ -471,13 +476,13 @@ def create_location_map(
             name=location_name,
         )
     )
-    mapbox = _mapbox_dict_for_style(style, lat, lon, zoom)
-    layout = dict(
-        mapbox=mapbox,
-        margin=dict(l=0, r=0, t=0, b=0),
-        uirevision=uirevision,
-        dragmode="pan",
-    )
+    map_layout = _mapbox_dict_for_style(style, lat, lon, zoom)
+    layout = {
+        _MAP_LAYOUT_KEY: map_layout,
+        "margin": dict(l=0, r=0, t=0, b=0),
+        "uirevision": uirevision,
+        "dragmode": "pan",
+    }
     if fill_container:
         layout["autosize"] = True
     else:

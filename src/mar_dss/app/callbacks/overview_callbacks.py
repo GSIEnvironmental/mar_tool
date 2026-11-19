@@ -81,33 +81,35 @@ except ImportError:
 
 
 def _extract_mapbox_view_from_relayout(relayout_data):
-    """Parse Plotly mapbox relayout payload for center and zoom."""
+    """Parse Plotly map/mapbox relayout payload for center and zoom."""
     if not relayout_data:
         return None, None, None
     lat = lon = zoom = None
-    z = relayout_data.get("mapbox.zoom")
-    if z is not None:
-        try:
-            zoom = float(z)
-        except (TypeError, ValueError):
-            pass
-    center = relayout_data.get("mapbox.center")
-    if isinstance(center, dict):
-        try:
-            lat = float(center["lat"])
-            lon = float(center["lon"])
-        except (KeyError, TypeError, ValueError):
-            pass
-    if lat is None and "mapbox.center.lat" in relayout_data:
-        try:
-            lat = float(relayout_data["mapbox.center.lat"])
-        except (TypeError, ValueError):
-            pass
-    if lon is None and "mapbox.center.lon" in relayout_data:
-        try:
-            lon = float(relayout_data["mapbox.center.lon"])
-        except (TypeError, ValueError):
-            pass
+    # Plotly 6+/7 use ``map.*``; older releases used ``mapbox.*``.
+    for prefix in ("map", "mapbox"):
+        z = relayout_data.get(f"{prefix}.zoom")
+        if z is not None and zoom is None:
+            try:
+                zoom = float(z)
+            except (TypeError, ValueError):
+                pass
+        center = relayout_data.get(f"{prefix}.center")
+        if isinstance(center, dict) and lat is None:
+            try:
+                lat = float(center["lat"])
+                lon = float(center["lon"])
+            except (KeyError, TypeError, ValueError):
+                pass
+        if lat is None and f"{prefix}.center.lat" in relayout_data:
+            try:
+                lat = float(relayout_data[f"{prefix}.center.lat"])
+            except (TypeError, ValueError):
+                pass
+        if lon is None and f"{prefix}.center.lon" in relayout_data:
+            try:
+                lon = float(relayout_data[f"{prefix}.center.lon"])
+            except (TypeError, ValueError):
+                pass
     return lat, lon, zoom
 
 
@@ -116,9 +118,9 @@ def _relayout_has_mapbox_camera(relayout_data):
     if not relayout_data or not isinstance(relayout_data, dict):
         return False
     for key in relayout_data:
-        if key == "mapbox.zoom":
+        if key in ("map.zoom", "mapbox.zoom"):
             return True
-        if key.startswith("mapbox.center"):
+        if key.startswith("map.center") or key.startswith("mapbox.center"):
             return True
     return False
 
