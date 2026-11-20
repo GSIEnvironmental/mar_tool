@@ -4,6 +4,7 @@ Dashboard launcher for MAR DSS.
 
 from __future__ import annotations
 
+import os
 import webbrowser
 
 from mar_dss.app.main import DashboardApp
@@ -28,7 +29,8 @@ def launch_dashboard_waitress(
     open_browser: bool = True,
 ) -> None:
     """
-    Run the dashboard behind Waitress (WSGI). Intended for frozen/production-style runs.
+    Run the dashboard behind Waitress (WSGI). The `mar_dss` command and the
+    Docker image use this.
 
     Args:
         port: Listen port.
@@ -38,34 +40,20 @@ def launch_dashboard_waitress(
     """
     from waitress import serve
 
-    from mar_dss.startup_banner import (
-        is_frozen_distribution,
-        print_startup_footer,
-        print_startup_status,
-    )
-
-    if is_frozen_distribution():
-        print_startup_status("Loading application modules and project data stores...")
-
     dashboard = DashboardApp()
 
-    if is_frozen_distribution():
-        print_startup_status("Building dashboard layout and registering callbacks...")
-
-    display_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
-    url = f"http://{display_host}:{port}/"
-
-    if not is_frozen_distribution():
-        print(f"Dashboard (Waitress) at: {url}")
+    # Behind a proxy, MAR_PUBLIC_URL is the address users open.
+    public_url = os.environ.get("MAR_PUBLIC_URL")
+    if public_url:
+        print(f"MAR-Tool is running at {public_url}", flush=True)
+    else:
+        display_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
+        print(f"Dashboard (Waitress) at: http://{display_host}:{port}/")
         if host == "0.0.0.0":
             print("Listening on all interfaces (0.0.0.0).")
-    else:
-        print_startup_status(f"Starting local web server on port {port}...")
 
     if open_browser:
         webbrowser.open(f"http://127.0.0.1:{port}/")
-
-    print_startup_footer(url=url, open_browser=open_browser)
 
     serve(dashboard.app.server, host=host, port=port, threads=threads)
 

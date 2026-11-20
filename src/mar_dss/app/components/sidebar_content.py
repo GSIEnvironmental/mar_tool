@@ -13,9 +13,7 @@ def create_water_levels_content():
     """Create content for Water Levels sidebar tab."""
     # Generate sample data
     dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
-    water_levels = np.random.normal(100, 10, len(dates)) + 5 * np.sin(
-        np.arange(len(dates)) * 2 * np.pi / 365
-    )
+    water_levels = np.random.normal(100, 10, len(dates)) + 5 * np.sin(np.arange(len(dates)) * 2 * np.pi / 365)
 
     fig = go.Figure()
     fig.add_trace(
@@ -50,9 +48,7 @@ def create_recharge_content():
     """Create content for Recharge Rates sidebar tab."""
     # Generate sample data
     dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
-    recharge_data = np.random.exponential(2, len(dates)) * (
-        1 + 0.5 * np.sin(np.arange(len(dates)) * 2 * np.pi / 365)
-    )
+    recharge_data = np.random.exponential(2, len(dates)) * (1 + 0.5 * np.sin(np.arange(len(dates)) * 2 * np.pi / 365))
 
     fig = go.Figure()
     fig.add_trace(
@@ -267,9 +263,7 @@ def create_scenarios_content():
     return html.Div(
         [
             html.H3("Scenarios Comparison"),
-            html.P(
-                "Compare different MAR project scenarios and their outcomes"
-            ),
+            html.P("Compare different MAR project scenarios and their outcomes"),
             dcc.Graph(figure=fig),
             html.Hr(),
             html.H5("Scenario Analysis", className="mt-3"),
@@ -279,12 +273,8 @@ def create_scenarios_content():
                         [
                             dbc.Col(
                                 [
-                                    html.H6(
-                                        "Baseline Scenario", className="fw-bold"
-                                    ),
-                                    html.P(
-                                        "Standard conditions with moderate growth"
-                                    ),
+                                    html.H6("Baseline Scenario", className="fw-bold"),
+                                    html.P("Standard conditions with moderate growth"),
                                     html.Ul(
                                         [
                                             html.Li("Water Supply: 75%"),
@@ -301,9 +291,7 @@ def create_scenarios_content():
                                         "Optimistic Scenario",
                                         className="fw-bold",
                                     ),
-                                    html.P(
-                                        "Best-case conditions with high efficiency"
-                                    ),
+                                    html.P("Best-case conditions with high efficiency"),
                                     html.Ul(
                                         [
                                             html.Li("Water Supply: 90%"),
@@ -376,9 +364,7 @@ def create_ai_decision_content():
     return html.Div(
         [
             html.H3("AI Generated Decision"),
-            html.P(
-                "Artificial Intelligence powered decision recommendations and analysis"
-            ),
+            html.P("Artificial Intelligence powered decision recommendations and analysis"),
             dcc.Graph(figure=fig),
             html.Hr(),
             html.H5("AI Recommendation", className="mt-3"),
@@ -399,24 +385,12 @@ def create_ai_decision_content():
             html.H5("Key AI Insights", className="mt-3"),
             html.Ul(
                 [
-                    html.Li(
-                        "Water Availability: Excellent (92% score, 95% confidence)"
-                    ),
-                    html.Li(
-                        "Economic Viability: Strong (88% score, 92% confidence)"
-                    ),
-                    html.Li(
-                        "Regulatory Compliance: High (90% score, 94% confidence)"
-                    ),
-                    html.Li(
-                        "Environmental Impact: Moderate (76% score, 78% confidence)"
-                    ),
-                    html.Li(
-                        "Technical Feasibility: Good (85% score, 88% confidence)"
-                    ),
-                    html.Li(
-                        "Social Acceptance: Fair (82% score, 85% confidence)"
-                    ),
+                    html.Li("Water Availability: Excellent (92% score, 95% confidence)"),
+                    html.Li("Economic Viability: Strong (88% score, 92% confidence)"),
+                    html.Li("Regulatory Compliance: High (90% score, 94% confidence)"),
+                    html.Li("Environmental Impact: Moderate (76% score, 78% confidence)"),
+                    html.Li("Technical Feasibility: Good (85% score, 88% confidence)"),
+                    html.Li("Social Acceptance: Fair (82% score, 85% confidence)"),
                 ]
             ),
             html.Hr(),
@@ -426,5 +400,3 @@ def create_ai_decision_content():
             ),
         ]
     )
-
-

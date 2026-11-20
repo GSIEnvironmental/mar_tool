@@ -8,7 +8,7 @@ You can contribute in many ways:
 
 ### Report Bugs
 
-Report bugs at https://github.com/aymanalz/mar_dss/issues.
+Report bugs at <https://github.com/GSIEnvironmental/mar_tool/issues>.
 
 If you are reporting a bug, please include:
 
@@ -30,7 +30,7 @@ mar_dss could always use more documentation, whether as part of the official doc
 
 ### Submit Feedback
 
-The best way to send feedback is to file an issue at https://github.com/aymanalz/mar_dss/issues.
+The best way to send feedback is to file an issue at <https://github.com/GSIEnvironmental/mar_tool/issues>.
 
 If you are proposing a feature:
 
@@ -38,7 +38,7 @@ If you are proposing a feature:
 - Keep the scope as narrow as possible, to make it easier to implement.
 - Remember that this is a volunteer-driven project, and that contributions are welcome :)
 
-## Get Started!
+## Get Started
 
 Ready to contribute? Here's how to set up `mar_dss` for local development.
 
@@ -104,15 +104,14 @@ pytest tests.test_mar_dss
 
 ## Deploying
 
-A reminder for the maintainers on how to deploy. Make sure all your changes are committed (including an entry in HISTORY.md). Then run:
+A reminder for the maintainers on how to release. Commit all your changes first, including notes under "Unreleased" in CHANGELOG.md. Then run:
 
 ```sh
-bump2version patch # possible: major / minor / patch
-git push
-git push --tags
+just bump-patch   # or bump-minor / bump-major
+just tag          # pushes main, then the new tag
 ```
 
-You can set up a [GitHub Actions workflow](https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing/building-and-testing-python#publishing-to-pypi) to automatically deploy your package to PyPI when you push a new tag.
+The bump updates the version, dates the changelog section, commits and tags. Pushing the tag deploys to https://apps.gsienv.com/MAR-Tool/ (see .github/workflows/ci-cd.yaml).
 
 ## Code of Conduct
 

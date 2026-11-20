@@ -1,18 +1,36 @@
-# mar_dss
+# MAR-Tool
 
-![PyPI version](https://img.shields.io/pypi/v/mar_dss.svg)
-[![Documentation Status](https://readthedocs.org/projects/mar_dss/badge/?version=latest)](https://mar_dss.readthedocs.io/en/latest/?version=latest)
+Managed Aquifer Recharge Decision Support System: a web app for checking whether a managed aquifer recharge project is feasible.
 
-Managed Aquifer Recharge Decision Support System
+It runs at <https://apps.gsienv.com/MAR-Tool/>.
 
-* PyPI package: https://pypi.org/project/mar_dss/
-* Free software: MIT License
-* Documentation: https://mar_dss.readthedocs.io.
+## Run it locally
 
-## Features
+You need [uv](https://docs.astral.sh/uv/).
 
-* TODO
+```sh
+uv run mar_dss --dev
+```
 
-## Credits
+Then open <http://127.0.0.1:8050/>. The app reloads when you save a file.
 
-This package was created with [Cookiecutter](https://github.com/audreyfeldroy/cookiecutter) and the [audreyfeldroy/cookiecutter-pypackage](https://github.com/audreyfeldroy/cookiecutter-pypackage) project template.
+### With Docker
+
+This runs the app the same way as the server, behind Caddy at `/MAR-Tool/`.
+
+```sh
+docker compose up --build
+```
+
+Then open <http://localhost:8085/MAR-Tool/>. Edits under `src/` reload too.
+
+## Tests
+
+```sh
+just test
+```
+
+## Releases
+
+`just bump-patch` (or `bump-minor` / `bump-major`), then `just tag`. Pushing
+the tag deploys to the server. See [CONTRIBUTING.md](CONTRIBUTING.md).

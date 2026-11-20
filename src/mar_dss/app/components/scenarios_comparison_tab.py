@@ -65,9 +65,7 @@ def create_scenarios_comparison_content():
     return html.Div(
         [
             html.H3("Scenarios Comparison"),
-            html.P(
-                "Compare different MAR project scenarios and their outcomes"
-            ),
+            html.P("Compare different MAR project scenarios and their outcomes"),
             dcc.Graph(id="scenarios-comparison-chart", figure=fig),
             dbc.Tooltip(
                 "Illustrative scenario scores for supply, cost, and environment",
@@ -82,12 +80,8 @@ def create_scenarios_comparison_content():
                         [
                             dbc.Col(
                                 [
-                                    html.H6(
-                                        "Baseline Scenario", className="fw-bold"
-                                    ),
-                                    html.P(
-                                        "Standard conditions with moderate growth"
-                                    ),
+                                    html.H6("Baseline Scenario", className="fw-bold"),
+                                    html.P("Standard conditions with moderate growth"),
                                     html.Ul(
                                         [
                                             html.Li("Water Supply: 75%"),
@@ -104,9 +98,7 @@ def create_scenarios_comparison_content():
                                         "Optimistic Scenario",
                                         className="fw-bold",
                                     ),
-                                    html.P(
-                                        "Best-case conditions with high efficiency"
-                                    ),
+                                    html.P("Best-case conditions with high efficiency"),
                                     html.Ul(
                                         [
                                             html.Li("Water Supply: 90%"),
@@ -128,5 +120,3 @@ def create_scenarios_comparison_content():
             ),
         ]
     )
-
-

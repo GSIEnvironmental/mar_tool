@@ -2,33 +2,32 @@
 Callbacks for Cost calculations and display in the Engineering tab.
 """
 
-import dash
-from dash import Input, Output, State, html, dash_table, dcc, MATCH
-from dash.dash_table.Format import Format, Scheme
-import dash_bootstrap_components as dbc
 import json
+
+import dash
+import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
+from dash import MATCH, Input, Output, State, dash_table, dcc, html
+from dash.dash_table.Format import Format, Scheme
+
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.utils.excel_table import (
-    datatable_base_style_cell,
-    datatable_base_style_header,
-    datatable_column_styles,
-    datatable_computed_data_style,
-)
 from mar_dss.app.utils.cost_storage import (
     CAPITAL_COST_TOTAL_KEYS,
     MAINTENANCE_COST_TOTAL_KEYS,
     totals_series_to_storage_dict,
 )
-
+from mar_dss.app.utils.excel_table import (
+    datatable_base_style_cell,
+    datatable_base_style_header,
+    datatable_computed_data_style,
+)
 
 try:
     from mar_dss.app.callbacks.cost_calculator import CostCalculator
     from mar_dss.app.components.water_source_tab import WATER_SOURCE_LABELS
 except ImportError:
     from .cost_calculator import CostCalculator
-    from ..components.water_source_tab import WATER_SOURCE_LABELS
 
 _COST_COLUMN_TO_OPTION = {
     "Spreading Pond Cost ($)": "Surface Recharge",
@@ -85,11 +84,7 @@ def _format_total_usd_range(value):
 def _is_total_cost_row_label(label):
     """True for Subtotal / Total summary rows in capital & maintenance tables."""
     text = str(label or "").lower()
-    return (
-        "total" in text
-        or "subtotal" in text
-        or "grand maintenance" in text
-    )
+    return "total" in text or "subtotal" in text or "grand maintenance" in text
 
 
 def _ensure_label_column(df, preferred="Row Label"):
@@ -123,9 +118,7 @@ def _round_total_rows_in_cost_df(df, cost_columns, label_col="Row Label"):
         if col not in df.columns:
             continue
         df.loc[mask, col] = df.loc[mask, col].apply(
-            lambda x: _round_to_nearest_thousand(x)
-            if pd.notna(x) and str(x).strip() != ""
-            else x
+            lambda x: _round_to_nearest_thousand(x) if pd.notna(x) and str(x).strip() != "" else x
         )
     return df
 
@@ -183,10 +176,7 @@ def _get_not_feasible_option_names():
         if dash_storage.get_data("decision_graph") is None:
             return set()
         for option in mar_options():
-            if any(
-                not hc.get("pass", True)
-                for hc in hc_module.hard_constraints(option)
-            ):
+            if any(not hc.get("pass", True) for hc in hc_module.hard_constraints(option)):
                 not_feasible.add(option.name)
                 continue
             for sc in sc_module.soft_constraints(option):
@@ -285,28 +275,18 @@ def persist_calculator_costs_with_unit_overrides(cost_calculator):
         label_col=label_col,
     )
     _recompute_capital_display_df(capital_df, label_col=label_col)
-    capital_totals = _totals_from_display_df(
-        capital_df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col
-    )
+    capital_totals = _totals_from_display_df(capital_df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col)
     maint_totals = _maintenance_totals_from_capital(capital_totals)
     npv_df = _compute_npv_series(capital_totals, maint_totals)
-    net_val = {
-        col: float(npv_df[col].iloc[-1])
-        for col in _NPV_COLS
-        if col in npv_df.columns
-    }
+    net_val = {col: float(npv_df[col].iloc[-1]) for col in _NPV_COLS if col in npv_df.columns}
 
     dash_storage.set_data(
         "capital_cost_num",
-        totals_series_to_storage_dict(
-            pd.Series(capital_totals), CAPITAL_COST_TOTAL_KEYS
-        ),
+        totals_series_to_storage_dict(pd.Series(capital_totals), CAPITAL_COST_TOTAL_KEYS),
     )
     dash_storage.set_data(
         "maintenance_cost_num",
-        totals_series_to_storage_dict(
-            pd.Series(maint_totals), MAINTENANCE_COST_TOTAL_KEYS
-        ),
+        totals_series_to_storage_dict(pd.Series(maint_totals), MAINTENANCE_COST_TOTAL_KEYS),
     )
     dash_storage.set_data("net_val", net_val)
     dash_storage.set_data(
@@ -336,15 +316,12 @@ def feasibility_economics_summary_from_storage():
         )
 
     dss_results = dash_storage.get_data("dss_results")
-    if (
-        dss_results is None
-        or not hasattr(dss_results, "results")
-        or not dss_results.results
-    ):
+    if dss_results is None or not hasattr(dss_results, "results") or not dss_results.results:
         return dash.no_update
     filters = getattr(dss_results, "filters", {}) or {}
     categorized = _categorize_options(dss_results.results, filters)
     return _build_engineering_options_summary(categorized)
+
 
 # Method columns exclude technology-specific line items by Item name.
 _CAPITAL_METHOD_EXCLUDE_ITEMS = {
@@ -517,10 +494,7 @@ def _recompute_method_costs_from_units(
             if not item:
                 df.at[i, col] = 0.0
                 continue
-            line = (
-                _parse_cost_float(row.get("Unit Cost $"))
-                * _parse_cost_float(row.get("Number of Units"))
-            )
+            line = _parse_cost_float(row.get("Unit Cost $")) * _parse_cost_float(row.get("Number of Units"))
             df.at[i, col] = 0.0 if item in excl else line
 
         line_sum = 0.0
@@ -576,7 +550,7 @@ def _recompute_maintenance_display_df(df, label_col="Row Label"):
 
 def _totals_from_display_df(df, cost_columns, total_label, label_col="Row Label"):
     """Read method totals from the grand-total soft-cost row."""
-    out = {col: 0.0 for col in cost_columns}
+    out = dict.fromkeys(cost_columns, 0.0)
     if df is None or df.empty:
         return out
     for i in df.index:
@@ -597,11 +571,7 @@ def _maintenance_totals_from_capital(capital_totals):
             _parse_cost_float(
                 (capital_totals or {}).get(cap_col)
                 if isinstance(capital_totals, dict)
-                else (
-                    capital_totals.get(cap_col)
-                    if hasattr(capital_totals, "get")
-                    else 0
-                )
+                else (capital_totals.get(cap_col) if hasattr(capital_totals, "get") else 0)
             )
             * _MAINTENANCE_FRACTION_OF_CAPITAL
         )
@@ -646,12 +616,19 @@ def _compute_npv_series(capital_totals, maintenance_totals):
     npv_discount_rate = 5.01 / 100.0
     df = pd.DataFrame({"Year": list(range(1, 21))})
     methods = (
-        ("Spreading Pond", "Spreading Pond Cost ($)", "Spreading Pond Maintenance Cost ($)",
-         "Spreading Pond Net Present Value ($)"),
-        ("Injection Wells", "Injection Wells Cost ($)", "Injection Wells Maintenance Cost ($)",
-         "Injection Wells Net Present Value ($)"),
-        ("Dry Wells", "Dry Wells Cost ($)", "Dry Wells Maintenance Cost ($)",
-         "Dry Wells Net Present Value ($)"),
+        (
+            "Spreading Pond",
+            "Spreading Pond Cost ($)",
+            "Spreading Pond Maintenance Cost ($)",
+            "Spreading Pond Net Present Value ($)",
+        ),
+        (
+            "Injection Wells",
+            "Injection Wells Cost ($)",
+            "Injection Wells Maintenance Cost ($)",
+            "Injection Wells Net Present Value ($)",
+        ),
+        ("Dry Wells", "Dry Wells Cost ($)", "Dry Wells Maintenance Cost ($)", "Dry Wells Net Present Value ($)"),
     )
     for _name, cap_key, maint_key, npv_key in methods:
         capital_cost = _parse_cost_float(capital_totals.get(cap_key))
@@ -683,11 +660,7 @@ def _prepare_cost_display_df(df, cost_columns, not_feasible_options, label_col="
             continue
 
         def _num_or_none(x, *, round_to=None):
-            if (
-                x is None
-                or (isinstance(x, float) and pd.isna(x))
-                or str(x).strip() == ""
-            ):
+            if x is None or (isinstance(x, float) and pd.isna(x)) or str(x).strip() == "":
                 return None
             val = _parse_cost_float(x)
             if round_to is not None:
@@ -699,9 +672,7 @@ def _prepare_cost_display_df(df, cost_columns, not_feasible_options, label_col="
         else:
             out[col] = out[col].apply(_num_or_none)
     _round_total_rows_in_cost_df(out, cost_columns, label_col=label_col)
-    _format_cost_column_values(
-        out, cost_columns, label_col=label_col, round_all=False
-    )
+    _format_cost_column_values(out, cost_columns, label_col=label_col, round_all=False)
     _mask_infeasible_cost_columns(out, cost_columns, not_feasible_options)
     return out.fillna("")
 
@@ -802,18 +773,14 @@ def _cost_summary_option_rows(rows):
                 ],
                 style={
                     "padding": "0.5rem 0",
-                    "borderBottom": (
-                        "1px solid #e8ecef" if i < len(rows) - 1 else "none"
-                    ),
+                    "borderBottom": ("1px solid #e8ecef" if i < len(rows) - 1 else "none"),
                 },
             )
         )
     return html.Div(children, style={"width": "100%", "textAlign": "left"})
 
 
-def _format_cost_summary_display(
-    cost_data, cost_type, selected_technology, not_feasible_options
-):
+def _format_cost_summary_display(cost_data, cost_type, selected_technology, not_feasible_options):
     """Format Cost Summary cards (capital / maintenance / NPV)."""
     if cost_data is None:
         return _cost_summary_single_value("$0")
@@ -883,19 +850,13 @@ def _format_cost_summary_display(
             if option_name in not_feasible_options:
                 return _cost_summary_single_value("N/A")
             cost_value = cost_data[cost_column]
-            return _cost_summary_single_value(
-                _format_total_usd_range(cost_value)
-                if pd.notna(cost_value)
-                else "$0"
-            )
+            return _cost_summary_single_value(_format_total_usd_range(cost_value) if pd.notna(cost_value) else "$0")
         spreading = cost_data.get(spreading_col, 0) if spreading_col in cost_data.index else 0
         injection = cost_data.get(injection_col, 0) if injection_col in cost_data.index else 0
         dry_well = cost_data.get(dry_well_col, 0) if dry_well_col in cost_data.index else 0
         return _three_option_block(spreading, injection, dry_well)
 
-    return _cost_summary_single_value(
-        _format_total_usd_range(cost_data) if pd.notna(cost_data) else "$0"
-    )
+    return _cost_summary_single_value(_format_total_usd_range(cost_data) if pd.notna(cost_data) else "$0")
 
 
 def _build_npv_panel(npv_df, not_feasible_options):
@@ -905,16 +866,12 @@ def _build_npv_panel(npv_df, not_feasible_options):
     for col in npv_columns:
         if col in npv_df_plot.columns:
             npv_df_plot[col] = npv_df_plot[col].apply(
-                lambda x: _round_to_nearest_thousand(x)
-                if pd.notna(x) and str(x).strip() != ""
-                else x
+                lambda x: _round_to_nearest_thousand(x) if pd.notna(x) and str(x).strip() != "" else x
             )
     for col in npv_columns:
         if col in npv_df.columns:
             npv_df[col] = npv_df[col].apply(
-                lambda x: f"{_round_to_nearest_thousand(x):,.0f}"
-                if pd.notna(x) and str(x).strip() != ""
-                else ""
+                lambda x: f"{_round_to_nearest_thousand(x):,.0f}" if pd.notna(x) and str(x).strip() != "" else ""
             )
     _mask_infeasible_cost_columns(npv_df, npv_columns, not_feasible_options)
     npv_df = npv_df.fillna("")
@@ -930,9 +887,7 @@ def _build_npv_panel(npv_df, not_feasible_options):
         yvals = npv_df_plot[col]
         npv_plot.add_trace(
             go.Bar(
-                x=npv_df_plot["Year"]
-                if "Year" in npv_df_plot.columns
-                else list(range(1, 21)),
+                x=npv_df_plot["Year"] if "Year" in npv_df_plot.columns else list(range(1, 21)),
                 y=yvals,
                 name=col.replace(" Net Present Value ($)", ""),
                 marker_color=colors[i % len(colors)],
@@ -977,9 +932,7 @@ def _build_npv_panel(npv_df, not_feasible_options):
                     dbc.Col(
                         [
                             html.H5("Net Present Value Chart", className="mb-3"),
-                            dcc.Graph(
-                                figure=npv_plot, id="npv-chart", style={"height": "500px"}
-                            ),
+                            dcc.Graph(figure=npv_plot, id="npv-chart", style={"height": "500px"}),
                         ],
                         width=12,
                     )
@@ -1029,13 +982,13 @@ def _source_to_recharge_distance_miles():
     """Straight-line miles between Water Source tab source and recharge sites."""
     try:
         from mar_dss.app.components.water_source_tab import (
-            ensure_water_source_site_coordinates,
             _haversine_miles,
+            ensure_water_source_site_coordinates,
         )
     except ImportError:
         from ..components.water_source_tab import (
-            ensure_water_source_site_coordinates,
             _haversine_miles,
+            ensure_water_source_site_coordinates,
         )
     slat, slon, rlat, rlon = ensure_water_source_site_coordinates()
     return float(_haversine_miles(slat, slon, rlat, rlon))
@@ -1096,15 +1049,9 @@ _DEFAULT_MAX_INFILTRATION_AREA_FRACTION = 0.70
 def _sync_storage_pumped_conveyance(storage_needed_yes):
     """When storage is Yes, enable all pumped-to-storage packages at 500 ft."""
     if storage_needed_yes:
-        dash_storage.set_data(
-            "storage_pond_values", ["storage_pond_construction"]
-        )
-        dash_storage.set_data(
-            "pumped_storage_values", list(_DEFAULT_PUMPED_STORAGE_VALUES)
-        )
-        dash_storage.set_data(
-            "distance_to_storage_pond_ft", _STORAGE_CONVEYANCE_DISTANCE_FT
-        )
+        dash_storage.set_data("storage_pond_values", ["storage_pond_construction"])
+        dash_storage.set_data("pumped_storage_values", list(_DEFAULT_PUMPED_STORAGE_VALUES))
+        dash_storage.set_data("distance_to_storage_pond_ft", _STORAGE_CONVEYANCE_DISTANCE_FT)
     else:
         dash_storage.set_data("storage_pond_values", [])
         dash_storage.set_data("pumped_storage_values", [])
@@ -1112,16 +1059,12 @@ def _sync_storage_pumped_conveyance(storage_needed_yes):
 
 def _sync_pumped_infiltration_always_on():
     """Pumped conveyance to infiltration is always fully included (no UI)."""
-    dash_storage.set_data(
-        "pumped_infiltration_values", list(_DEFAULT_PUMPED_INFILTRATION_VALUES)
-    )
+    dash_storage.set_data("pumped_infiltration_values", list(_DEFAULT_PUMPED_INFILTRATION_VALUES))
 
 
 def _sync_max_infiltration_area_always_on():
     """Max recharge area is always 70% of MAR site (no UI)."""
-    dash_storage.set_data(
-        "max_infiltration_area", _DEFAULT_MAX_INFILTRATION_AREA_FRACTION
-    )
+    dash_storage.set_data("max_infiltration_area", _DEFAULT_MAX_INFILTRATION_AREA_FRACTION)
 
 
 def _sediment_removal_needed():
@@ -1273,30 +1216,23 @@ def setup_cost_callbacks(app):
         dash_storage.set_data("design_events_per_month", current_value)
         _sync_total_runoff_from_design(n_events=current_value)
         return current_value
-    
+
     # Callback to save conveyance method to data storage
     @app.callback(
         Output("conveyance-method-radio", "value"),
-        [
-            Input("conveyance-method-radio", "value"),
-            Input("conveyance-method-radio", "id")
-        ],
-        prevent_initial_call=False
+        [Input("conveyance-method-radio", "value"), Input("conveyance-method-radio", "id")],
+        prevent_initial_call=False,
     )
     def handle_conveyance_method(value, component_id):
         """Handle conveyance method selection and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
-            method = _normalize_conveyance_method(
-                dash_storage.get_data("conveyance_method") or _DEFAULT_CONVEYANCE
-            )
+            method = _normalize_conveyance_method(dash_storage.get_data("conveyance_method") or _DEFAULT_CONVEYANCE)
             dash_storage.set_data("conveyance_method", method)
             return method
 
-        current_selection = _normalize_conveyance_method(
-            value if value else _DEFAULT_CONVEYANCE
-        )
+        current_selection = _normalize_conveyance_method(value if value else _DEFAULT_CONVEYANCE)
         dash_storage.set_data("conveyance_method", current_selection)
         return current_selection
 
@@ -1310,7 +1246,7 @@ def setup_cost_callbacks(app):
         miles = _sync_conveyance_distance_storage()
         feet = miles * _MILES_TO_FEET
         return f"{miles:,.2f} miles  ({feet:,.0f} ft)"
-    
+
     # Sediment removal needed (Yes/No)
     @app.callback(
         Output("sediment-removal-needed-radio", "value"),
@@ -1363,11 +1299,7 @@ def setup_cost_callbacks(app):
             needed = dash_storage.get_data("storage_needed")
             if needed not in ("yes", "no"):
                 values = dash_storage.get_data("storage_pond_values") or []
-                needed = (
-                    "yes"
-                    if (not values) or ("storage_pond_construction" in values)
-                    else "no"
-                )
+                needed = "yes" if (not values) or ("storage_pond_construction" in values) else "no"
             dash_storage.set_data("storage_needed", needed)
             _sync_storage_pumped_conveyance(needed == "yes")
             return needed
@@ -1400,11 +1332,9 @@ def setup_cost_callbacks(app):
         _sync_max_infiltration_area_always_on()
 
         dash_storage.set_data("infiltration_method", "infiltration_basin")
-        dash_storage.set_data(
-            "infiltration_methods", list(_ALL_INFILTRATION_METHODS)
-        )
+        dash_storage.set_data("infiltration_methods", list(_ALL_INFILTRATION_METHODS))
         return list(_ALL_INFILTRATION_METHODS)
-    
+
     @app.callback(
         [
             Output("capital-cost-display", "children"),
@@ -1419,7 +1349,7 @@ def setup_cost_callbacks(app):
             Input("top-tabs", "active_tab"),
             Input("analysis-tabs", "active_tab"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def update_cost_calculations(
         top_tab,
@@ -1432,10 +1362,9 @@ def setup_cost_callbacks(app):
         Engineering component ids here — that tab is lazy-loaded and those ids
         are absent until Engineering has been opened.
         """
-        
+
         # Only calculate if we're on the Analysis tab and Cost sub-tab is selected
         if not top_tab or not analysis_tab or top_tab != "analysis" or analysis_tab != "analysis-cost":
-          
             return (
                 dash.no_update,
                 dash.no_update,
@@ -1454,10 +1383,7 @@ def setup_cost_callbacks(app):
 
             cost_calculator = create_and_run_cost_calculator()
         except Exception as exc:
-            print(
-                f"create_and_run_cost_calculator failed ({exc}); "
-                "falling back to local CostCalculator"
-            )
+            print(f"create_and_run_cost_calculator failed ({exc}); falling back to local CostCalculator")
             cost_calculator = None
 
         if cost_calculator is None:
@@ -1476,9 +1402,7 @@ def setup_cost_callbacks(app):
             distance_to_sediment_miles = _sync_conveyance_distance_storage()
             distance_to_sediment_ft = float(distance_to_sediment_miles) * _MILES_TO_FEET
             distance_to_storage_pond_ft = float(dash_storage.get_data("distance_to_storage_pond_ft")) or 1.0
-            sediment_target, sediment_target_display = (
-                _sync_sediment_target_from_turbidity()
-            )
+            sediment_target, sediment_target_display = _sync_sediment_target_from_turbidity()
             conveyance_method = _normalize_conveyance_method(
                 dash_storage.get_data("conveyance_method") or _DEFAULT_CONVEYANCE
             )
@@ -1508,9 +1432,7 @@ def setup_cost_callbacks(app):
                     try:
                         from mar_dss.rules.defaults import ft3_per_day_to_gpm
 
-                        q_inj_gpm = ft3_per_day_to_gpm(
-                            float(inj_result.get("Q_per_well", 0) or 0)
-                        )
+                        q_inj_gpm = ft3_per_day_to_gpm(float(inj_result.get("Q_per_well", 0) or 0))
                         if q_inj_gpm <= 0:
                             q_inj_gpm = 50.0
                     except (TypeError, ValueError):
@@ -1527,9 +1449,7 @@ def setup_cost_callbacks(app):
                 distance_collection_to_sediment_pond_ft=distance_to_sediment_ft,
                 distance_sediment_to_storage_pond_ft=distance_to_storage_pond_ft,
                 dry_well_infiltration_rate_in_per_hr=5,
-                dry_well_transfer_rate_gpm=float(
-                    get_default("max_dry_well_transfer_rate_gpm")
-                ),
+                dry_well_transfer_rate_gpm=float(get_default("max_dry_well_transfer_rate_gpm")),
                 injection_well_transfer_rate_gpm=q_inj_gpm,
                 number_of_injection_wells=n_inj,
                 collection_to_sediment_removal__conveyance_method=conveyance_method,
@@ -1544,9 +1464,7 @@ def setup_cost_callbacks(app):
             "Injection Wells Cost ($)",
             "Dry Wells Cost ($)",
         ]
-        capital_cost_num = cost_calculator.capital_costs_calculations.loc[
-            "Capital Total Cost", cols
-        ]
+        capital_cost_num = cost_calculator.capital_costs_calculations.loc["Capital Total Cost", cols]
         dash_storage.set_data(
             "capital_cost_num",
             totals_series_to_storage_dict(capital_cost_num, CAPITAL_COST_TOTAL_KEYS),
@@ -1557,14 +1475,10 @@ def setup_cost_callbacks(app):
             "Injection Wells Maintenance Cost ($)",
             "Dry Wells Maintenance Cost ($)",
         ]
-        maintenance_cost_num = cost_calculator.maintenance_costs_calculations.loc[
-            "Annual Grand Maintenance Cost", cols
-        ]
+        maintenance_cost_num = cost_calculator.maintenance_costs_calculations.loc["Annual Grand Maintenance Cost", cols]
         dash_storage.set_data(
             "maintenance_cost_num",
-            totals_series_to_storage_dict(
-                maintenance_cost_num, MAINTENANCE_COST_TOTAL_KEYS
-            ),
+            totals_series_to_storage_dict(maintenance_cost_num, MAINTENANCE_COST_TOTAL_KEYS),
         )
         cols = [
             "Spreading Pond Net Present Value ($)",
@@ -1589,15 +1503,13 @@ def setup_cost_callbacks(app):
             "npv_calculations_df",
             cost_calculator.net_present_value_calculations,
         )
-        
+
         # Get selected technology to determine which cost to display
         selected_technology = dash_storage.get_data("selected_mar_technology")
         not_feasible_options = _get_not_feasible_option_names()
 
         # Capital table — apply user unit/quantity overrides, then recompute
-        capital_df = _cost_table_dataframe(
-            None, cost_calculator, "capital_costs_calculations"
-        )
+        capital_df = _cost_table_dataframe(None, cost_calculator, "capital_costs_calculations")
         capital_df = capital_df.reset_index()
         capital_df, capital_label_col = _ensure_label_column(capital_df)
         _apply_unit_overrides_to_display_df(
@@ -1614,9 +1526,7 @@ def setup_cost_callbacks(app):
         )
         dash_storage.set_data(
             "capital_cost_num",
-            totals_series_to_storage_dict(
-                pd.Series(capital_totals), CAPITAL_COST_TOTAL_KEYS
-            ),
+            totals_series_to_storage_dict(pd.Series(capital_totals), CAPITAL_COST_TOTAL_KEYS),
         )
         capital_df_display = _prepare_cost_display_df(
             capital_df, _CAPITAL_COST_COLS, not_feasible_options, capital_label_col
@@ -1650,8 +1560,7 @@ def setup_cost_callbacks(app):
                             },
                         ),
                         html.Span(
-                            "Yellow Unit Cost $ cells are editable. "
-                            "Number of Units is calculated and not editable.",
+                            "Yellow Unit Cost $ cells are editable. Number of Units is calculated and not editable.",
                             className="small fw-bold",
                         ),
                     ],
@@ -1669,9 +1578,7 @@ def setup_cost_callbacks(app):
         maintenance_totals = _maintenance_totals_from_capital(capital_totals)
         dash_storage.set_data(
             "maintenance_cost_num",
-            totals_series_to_storage_dict(
-                pd.Series(maintenance_totals), MAINTENANCE_COST_TOTAL_KEYS
-            ),
+            totals_series_to_storage_dict(pd.Series(maintenance_totals), MAINTENANCE_COST_TOTAL_KEYS),
         )
         dash_storage.set_data(_MAINT_UNIT_OVERRIDES_KEY, {})
         maintenance_df_display = _prepare_cost_display_df(
@@ -1722,9 +1629,7 @@ def setup_cost_callbacks(app):
                     columns=maint_columns,
                     style_cell=datatable_base_style_cell(textAlign="left"),
                     style_header=datatable_base_style_header(),
-                    style_data=datatable_computed_data_style(
-                        whiteSpace="normal", height="auto"
-                    ),
+                    style_data=datatable_computed_data_style(whiteSpace="normal", height="auto"),
                     style_data_conditional=maintenance_summary_styles,
                     page_size=50,
                 ),
@@ -1732,11 +1637,7 @@ def setup_cost_callbacks(app):
         )
 
         npv_df = _compute_npv_series(capital_totals, maintenance_totals)
-        net_val_dict = {
-            col: float(npv_df[col].iloc[-1])
-            for col in _NPV_COLS
-            if col in npv_df.columns
-        }
+        net_val_dict = {col: float(npv_df[col].iloc[-1]) for col in _NPV_COLS if col in npv_df.columns}
         dash_storage.set_data("net_val", net_val_dict)
         dash_storage.set_data("npv_calculations_df", npv_df.copy())
 
@@ -1777,9 +1678,7 @@ def setup_cost_callbacks(app):
         maint_totals = _maintenance_totals_from_capital(capital_totals)
         dash_storage.set_data(
             "maintenance_cost_num",
-            totals_series_to_storage_dict(
-                pd.Series(maint_totals), MAINTENANCE_COST_TOTAL_KEYS
-            ),
+            totals_series_to_storage_dict(pd.Series(maint_totals), MAINTENANCE_COST_TOTAL_KEYS),
         )
         maint_display_df = _prepare_cost_display_df(
             _simple_maintenance_display_df(capital_totals),
@@ -1800,11 +1699,7 @@ def setup_cost_callbacks(app):
             not_feasible_options,
         )
         npv_df = _compute_npv_series(capital_totals, maint_totals)
-        net_val = {
-            col: float(npv_df[col].iloc[-1])
-            for col in _NPV_COLS
-            if col in npv_df.columns
-        }
+        net_val = {col: float(npv_df[col].iloc[-1]) for col in _NPV_COLS if col in npv_df.columns}
         dash_storage.set_data("net_val", net_val)
         dash_storage.set_data("npv_calculations_df", npv_df.copy())
         npv_display = _format_cost_summary_display(
@@ -1827,9 +1722,7 @@ def setup_cost_callbacks(app):
     def _rebuild_capital_display_from_defaults():
         """Rebuild capital table from calculator defaults (no unit-cost overrides)."""
         not_feasible_options = _get_not_feasible_option_names()
-        raw = _coerce_stored_dataframe(
-            dash_storage.get_data("capital_costs_calculations_df")
-        )
+        raw = _coerce_stored_dataframe(dash_storage.get_data("capital_costs_calculations_df"))
         if raw is None or raw.empty:
             try:
                 from mar_dss.app.callbacks.analysis_callbacks import (
@@ -1843,18 +1736,12 @@ def setup_cost_callbacks(app):
         df = raw.reset_index()
         df, label_col = _ensure_label_column(df)
         _recompute_capital_display_df(df, label_col=label_col)
-        totals = _totals_from_display_df(
-            df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col
-        )
+        totals = _totals_from_display_df(df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col)
         dash_storage.set_data(
             "capital_cost_num",
-            totals_series_to_storage_dict(
-                pd.Series(totals), CAPITAL_COST_TOTAL_KEYS
-            ),
+            totals_series_to_storage_dict(pd.Series(totals), CAPITAL_COST_TOTAL_KEYS),
         )
-        display_df = _prepare_cost_display_df(
-            df, _CAPITAL_COST_COLS, not_feasible_options, label_col
-        )
+        display_df = _prepare_cost_display_df(df, _CAPITAL_COST_COLS, not_feasible_options, label_col)
         return _capital_edit_outputs(totals, display_df)
 
     def _sync_costs_after_capital_unit_edit(rows):
@@ -1871,22 +1758,14 @@ def setup_cost_callbacks(app):
             if not _is_editable_cost_line_row(row, soft_labels, label_col):
                 df.at[i, "Unit Cost $"] = None
         _recompute_capital_display_df(df, label_col=label_col)
-        overrides = _extract_unit_overrides_from_display_df(
-            df, soft_labels, label_col
-        )
+        overrides = _extract_unit_overrides_from_display_df(df, soft_labels, label_col)
         dash_storage.set_data(_CAPITAL_UNIT_OVERRIDES_KEY, overrides)
-        totals = _totals_from_display_df(
-            df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col
-        )
+        totals = _totals_from_display_df(df, _CAPITAL_COST_COLS, "Capital Total Cost", label_col)
         dash_storage.set_data(
             "capital_cost_num",
-            totals_series_to_storage_dict(
-                pd.Series(totals), CAPITAL_COST_TOTAL_KEYS
-            ),
+            totals_series_to_storage_dict(pd.Series(totals), CAPITAL_COST_TOTAL_KEYS),
         )
-        display_df = _prepare_cost_display_df(
-            df, _CAPITAL_COST_COLS, not_feasible_options, label_col
-        )
+        display_df = _prepare_cost_display_df(df, _CAPITAL_COST_COLS, not_feasible_options, label_col)
         return _capital_edit_outputs(totals, display_df)
 
     @app.callback(
@@ -1923,4 +1802,3 @@ def setup_cost_callbacks(app):
         if rebuilt is None:
             return (dash.no_update,) * 7
         return rebuilt
-

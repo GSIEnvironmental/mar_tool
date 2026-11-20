@@ -63,9 +63,6 @@ mar_dss = [
 ]
 
 [project.optional-dependencies]
-exe = [
-  "pyinstaller>=6.0",
-]
 ai = [
   "google-genai>=1.0",
   "google-generativeai>=0.8",
@@ -83,7 +80,9 @@ colleague = [
   "lxml>=5.0",
 ]
 test = [
+  "bump-my-version",
   "coverage",
+  "pre-commit",
   "pytest",
   "ruff",
   "ty",
@@ -91,9 +90,9 @@ test = [
 ]
 
 [project.urls]
-bugs = "https://github.com/aymanalz/mar_dss/issues"
-changelog = "https://github.com/aymanalz/mar_dss/blob/master/changelog.md"
-homepage = "https://github.com/aymanalz/mar_dss"
+bugs = "https://github.com/GSIEnvironmental/mar_tool/issues"
+changelog = "https://github.com/GSIEnvironmental/mar_tool/blob/main/CHANGELOG.md"
+homepage = "https://github.com/GSIEnvironmental/mar_tool"
 
 [project.scripts]
 mar_dss = "mar_dss.cli:app"
@@ -104,17 +103,92 @@ mar_dss = "mar_dss.cli:app"
 # rules.TY015 = "warn"  # For invalid-argument-type, warn instead of error.
 
 [tool.ruff]
-line-length = 80
+line-length = 120
+# pfdf is copied from the USGS pfdf package, so leave it as is.
+extend-exclude = ["src/mar_dss/pfdf"]
 
 [tool.ruff.lint]
+# Same rule set as our other apps.
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # Pyflakes
-    "I",   # isort
+    "A",   # flake8-builtins
     "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "E",   # pycodestyle[error]
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "PLE", # pylint errors
+    "S",   # flake8-bandit
+    "SIM", # flake8-simplify
     "UP",  # pyupgrade
+    "W",   # pycodestyle[warning]
 ]
+ignore = [
+    # "E501",  # the formatter wraps code; long strings and comments are left as they are
+    # "C408",  # dict(...) is idiomatic for Dash style= and props
+    # "N802",  # names follow hydrogeology notation (K, Ss, Sy, Q)
+    # "N803",  # names follow hydrogeology notation (K, Ss, Sy, Q)
+    # "N806",  # names follow hydrogeology notation (K, Ss, Sy, Q)
+    # "N812",  # names follow hydrogeology notation (K, Ss, Sy, Q)
+    # # TODO: existing issues, ignored for now so pre-commit and CI pass. To fix
+    # # one, delete its line, run `uv run --extra test ruff check .` and fix what it finds.
+    # "F841",  # unused-variable (32)
+    # "B905",  # zip-without-explicit-strict (17)
+    # "F401",  # unused-import (17)
+    # "SIM108",  # if-else-block-instead-of-if-exp (17)
+    # "SIM210",  # if-expr-with-true-false (15)
+    # "SIM105",  # suppressible-exception (7)
+    # "B007",  # unused-loop-control-variable (6)
+    # "SIM103",  # needless-bool (6)
+    # "S110",  # try-except-pass (5)
+    # "SIM102",  # collapsible-if (5)
+    # "SIM118",  # in-dict-keys (5)
+    # "B904",  # raise-without-from-inside-except (4)
+    # "E722",  # bare-except (3)
+    # "E741",  # ambiguous-variable-name (3)
+    # "C416",  # unnecessary-comprehension (2)
+    # "S104",  # hardcoded-bind-all-interfaces (2)
+    # "SIM109",  # compare-with-tuple (2)
+    # "F402",  # import-shadowed-by-loop-var (1)
+    # "S112",  # try-except-continue (1)
+    # "S324",  # hashlib-insecure-hash-function (1)
+    # "S603",  # subprocess-without-shell-equals-true (1)
+    # "SIM115",  # open-file-with-context-handler (1)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is how pytest checks
 
 [tool.uv]
 package = true
+
+# Version bumps: `just bump-patch`, `just bump-minor` or `just bump-major`.
+# Each one updates the version below and in [project], re-locks uv.lock,
+# then commits and tags the result as v<version>. Pushing the tag to GitHub
+# deploys to production (see .github/workflows/ci-cd.yaml).
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+message = "Bump version to {new_version}"
+tag_message = "Version {new_version}"
+pre_commit_hooks = [
+    "uv lock",
+    "git add uv.lock",
+]
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+# Turn the "Unreleased" section into a dated one for the new version.
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [Unreleased]"
+replace = """## [Unreleased]
+
+______________________________________________________________________
+
+## [{new_version}] - {now:%Y-%m-%d}"""

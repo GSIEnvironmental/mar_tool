@@ -150,9 +150,7 @@ def demonstrate_evaluation():
 
     for i, input_values in enumerate(test_cases, 1):
         print(f"Test Case {i}:")
-        print(
-            f"Inputs: A={input_values['A']}, B={input_values['B']}, C={input_values['C']}"
-        )
+        print(f"Inputs: A={input_values['A']}, B={input_values['B']}, C={input_values['C']}")
 
         # Evaluate the graph
         results = graph.evaluate(input_values)

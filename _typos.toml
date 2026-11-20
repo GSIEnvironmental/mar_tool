@@ -1,0 +1,6 @@
+# Words typos would otherwise flag as misspellings.
+[default.extend-words]
+# Theis: the Theis well solution (rules/analytical_solutions.py).
+theis = "theis"
+# strat: short for stratigraphy.
+strat = "strat"

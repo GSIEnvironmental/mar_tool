@@ -1,0 +1,23 @@
+# Leave out everything the image build doesn't need.
+.git
+.github
+.venv
+.vscode
+.idea
+.claude
+.DS_Store
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+htmlcov
+.coverage
+build
+dist
+*.egg-info
+docs
+tests
+.env
+.env.*
+compose*.yaml
+Dockerfile

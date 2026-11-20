@@ -3,20 +3,21 @@ Callbacks for the Feasibilities tab.
 """
 
 import json
+import logging
+import math
 
 import dash
-from dash import Input, Output, State, html, dcc, ALL
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
 import pandas as pd
+import plotly.graph_objects as go
+from dash import ALL, Input, Output, State, dcc, html
+
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.cost_storage import (
     CAPITAL_COST_TOTAL_KEYS,
     MAINTENANCE_COST_TOTAL_KEYS,
     coerce_storage_cost_totals,
 )
-import logging
-import math
 
 logger = logging.getLogger(__name__)
 
@@ -230,9 +231,7 @@ def _format_well_count(n):
 
 def _collect_engineering_option_economics():
     """Collect capital, O&M, volume, well counts, and unit-cost metrics for each MAR option."""
-    capital_cost_num = coerce_storage_cost_totals(
-        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
-    )
+    capital_cost_num = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
     maintenance_cost_num = coerce_storage_cost_totals(
         dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
     )
@@ -265,17 +264,19 @@ def _collect_engineering_option_economics():
             wells_required = None
             wells_label = None
 
-        economics.append({
-            "name": option_name,
-            "capital": capital_val,
-            "maintenance": maintenance_val,
-            "acre_ft": acre_ft,
-            "recharge_pct": recharge_pct,
-            "capital_per_acre_ft": capital_val / acre_ft if acre_ft > 0 and capital_val > 0 else None,
-            "maintenance_per_acre_ft": maintenance_val / acre_ft if acre_ft > 0 and maintenance_val > 0 else None,
-            "wells_required": wells_required,
-            "wells_label": wells_label,
-        })
+        economics.append(
+            {
+                "name": option_name,
+                "capital": capital_val,
+                "maintenance": maintenance_val,
+                "acre_ft": acre_ft,
+                "recharge_pct": recharge_pct,
+                "capital_per_acre_ft": capital_val / acre_ft if acre_ft > 0 and capital_val > 0 else None,
+                "maintenance_per_acre_ft": maintenance_val / acre_ft if acre_ft > 0 and maintenance_val > 0 else None,
+                "wells_required": wells_required,
+                "wells_label": wells_label,
+            }
+        )
     return economics
 
 
@@ -326,19 +327,9 @@ def _build_engineering_options_summary(categorized_data):
         badge_label, badge_color = badges.get(name, ("Not evaluated", "secondary"))
         not_feasible = badge_label == "Not feasible"
         capital_display = "N/A" if not_feasible else _format_currency_range(econ["capital"])
-        maintenance_display = (
-            "N/A" if not_feasible else _format_currency_range(econ["maintenance"])
-        )
-        capital_unit_display = (
-            "N/A"
-            if not_feasible
-            else _format_per_acre_ft_range(econ["capital_per_acre_ft"])
-        )
-        maintenance_unit_display = (
-            "N/A"
-            if not_feasible
-            else _format_per_acre_ft_range(econ["maintenance_per_acre_ft"])
-        )
+        maintenance_display = "N/A" if not_feasible else _format_currency_range(econ["maintenance"])
+        capital_unit_display = "N/A" if not_feasible else _format_per_acre_ft_range(econ["capital_per_acre_ft"])
+        maintenance_unit_display = "N/A" if not_feasible else _format_per_acre_ft_range(econ["maintenance_per_acre_ft"])
 
         cards.append(
             dbc.Col(
@@ -390,25 +381,13 @@ def _build_engineering_options_summary(categorized_data):
                                 ),
                                 _option_metric_row(
                                     "Recharge %",
-                                    (
-                                        "N/A"
-                                        if not_feasible
-                                        else _format_recharge_percent(
-                                            econ.get("recharge_pct")
-                                        )
-                                    ),
+                                    ("N/A" if not_feasible else _format_recharge_percent(econ.get("recharge_pct"))),
                                 ),
                                 *(
                                     [
                                         _option_metric_row(
                                             econ["wells_label"],
-                                            (
-                                                "N/A"
-                                                if not_feasible
-                                                else _format_well_count(
-                                                    econ["wells_required"]
-                                                )
-                                            ),
+                                            ("N/A" if not_feasible else _format_well_count(econ["wells_required"])),
                                         )
                                     ]
                                     if econ.get("wells_label")
@@ -500,41 +479,41 @@ def _normalize_net_val_dict(raw):
 
 def _ensure_dss_results_available():
     """Ensure DSS results are available, running analysis if needed.
-    
+
     This function ensures that Analysis tab callbacks have run before
     Feasibilities tab tries to access the results.
     """
     # First check if DSS results already exist
     dss_results = dash_storage.get_data("dss_results")
-    has_dss_results = (dss_results is not None and 
-                      hasattr(dss_results, 'results') and 
-                      dss_results.results)
-    
+    has_dss_results = dss_results is not None and hasattr(dss_results, "results") and dss_results.results
+
     # Only run analysis if results don't exist
     if not has_dss_results:
         logger.debug("No DSS results found - running feasibility analysis")
         try:
             from mar_dss.app.callbacks.analysis_callbacks import run_feasibility_analysis
+
             run_feasibility_analysis()
             logger.debug("Feasibility analysis completed")
         except Exception as e:
             logger.error(f"Error running feasibility analysis: {e}", exc_info=True)
-        
+
         # Get DSS results after running analysis
         dss_results = dash_storage.get_data("dss_results")
-        
+
         # If still no results, try running integrated analysis directly
-        if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
+        if dss_results is None or not hasattr(dss_results, "results") or not dss_results.results:
             logger.info("No DSS results found after feasibility analysis. Running integrated analysis directly...")
             try:
                 from mar_dss.app.callbacks.analysis_callbacks import run_integrated_analysis
+
                 dss_results, _ = run_integrated_analysis()
                 logger.info("Integrated analysis completed successfully")
             except Exception as e:
                 logger.error(f"Error running integrated analysis: {e}", exc_info=True)
     else:
         logger.debug("DSS results already available - skipping analysis")
-    
+
     return dss_results
 
 
@@ -544,7 +523,7 @@ def _get_empty_dashboard_content(is_dark=False):
     font_color = "#f8f9fa" if is_dark else "#212529"
     template = "plotly_dark" if is_dark else "plotly_white"
     paper_bg = "rgba(0,0,0,0)" if is_dark else "white"
-    
+
     empty_hydro_heatmap_fig = go.Figure()
     empty_hydro_heatmap_fig.update_layout(
         title=dict(text="Hydrogeologic Constraints Heatmap", font=dict(color=font_color)),
@@ -553,9 +532,9 @@ def _get_empty_dashboard_content(is_dark=False):
         paper_bgcolor=paper_bg,
         font=dict(color=font_color),
     )
-    
+
     empty_hydro_heatmap_legend = html.Div()
-    
+
     empty_env_heatmap_fig = go.Figure()
     empty_env_heatmap_fig.update_layout(
         title=dict(text="Water Quality Constraints Heatmap", font=dict(color=font_color)),
@@ -564,9 +543,9 @@ def _get_empty_dashboard_content(is_dark=False):
         paper_bgcolor=paper_bg,
         font=dict(color=font_color),
     )
-    
+
     empty_env_heatmap_legend = html.Div()
-    
+
     empty_capital_fig = go.Figure()
     empty_capital_fig.update_layout(
         title=dict(text="Capital Cost", font=dict(color=font_color)),
@@ -575,7 +554,7 @@ def _get_empty_dashboard_content(is_dark=False):
         paper_bgcolor=paper_bg,
         font=dict(color=font_color),
     )
-    
+
     empty_maintenance_fig = go.Figure()
     empty_maintenance_fig.update_layout(
         title=dict(text="Maintenance Cost", font=dict(color=font_color)),
@@ -584,7 +563,7 @@ def _get_empty_dashboard_content(is_dark=False):
         paper_bgcolor=paper_bg,
         font=dict(color=font_color),
     )
-    
+
     empty_npv_fig = go.Figure()
     empty_npv_fig.update_layout(
         title=dict(text="NPV (20 years)", font=dict(color=font_color)),
@@ -593,17 +572,23 @@ def _get_empty_dashboard_content(is_dark=False):
         paper_bgcolor=paper_bg,
         font=dict(color=font_color),
     )
-    
+
     empty_spider_plots = html.Div(
         "No DSS evaluation results available. Please run the feasibility analysis first.",
-        className="text-muted text-center p-4"
+        className="text-muted text-center p-4",
     )
-    
-    return (empty_engineering_summary,
-            empty_hydro_heatmap_fig, empty_hydro_heatmap_legend,
-            empty_env_heatmap_fig, empty_env_heatmap_legend,
-            empty_capital_fig, empty_maintenance_fig, empty_npv_fig,
-            empty_spider_plots)
+
+    return (
+        empty_engineering_summary,
+        empty_hydro_heatmap_fig,
+        empty_hydro_heatmap_legend,
+        empty_env_heatmap_fig,
+        empty_env_heatmap_legend,
+        empty_capital_fig,
+        empty_maintenance_fig,
+        empty_npv_fig,
+        empty_spider_plots,
+    )
 
 
 def _categorize_options(results, filters):
@@ -611,7 +596,7 @@ def _categorize_options(results, filters):
     recommended = []
     conditional = []
     rejected = []
-    
+
     # Count statistics for funnel
     total_options = len(results)
     hard_constraint_fails = 0
@@ -619,14 +604,14 @@ def _categorize_options(results, filters):
     after_hard_constraints = 0
     after_soft_rules = 0
     recommended_count = 0
-    
+
     for option_name, result in results.items():
         status = result.get("status", "Unknown")
         cost = result.get("cost", [])
         benefit_score = result.get("benefit_score", 0.0) * 100  # Convert to percentage
         warnings = result.get("warnings", [])
         mitigations = result.get("mitigations", [])
-        
+
         # Format cost - get base cost from option if available
         cost_mapping = dash_storage.get_data("cost_mapping")
         if cost_mapping and option_name in cost_mapping:
@@ -645,46 +630,49 @@ def _categorize_options(results, filters):
                 cost_val = 0
         else:
             cost_val = float(cost) if cost else 0
-        
-        cost_str = f"${cost_val/1e6:.1f}M" if cost_val >= 1e6 else f"${cost_val/1e3:.0f}K" if cost_val > 0 else "N/A"
-        
+
+        cost_str = (
+            f"${cost_val / 1e6:.1f}M" if cost_val >= 1e6 else f"${cost_val / 1e3:.0f}K" if cost_val > 0 else "N/A"
+        )
+
         # Check filters to count hard constraint fails
         passed_hard = True
         passed_soft = True
-        
+
         if option_name in filters:
             filter_data = filters[option_name]
-            hard_constraints = filter_data.get('hard', [])
-            soft_constraints = filter_data.get('soft', [])
-            
+            hard_constraints = filter_data.get("hard", [])
+            soft_constraints = filter_data.get("soft", [])
+
             # Check hard constraint failures
             failed_hard = [hc for hc in hard_constraints if not hc.get("pass", True)]
             if failed_hard:
                 hard_constraint_fails += 1
                 passed_hard = False
-                rejected.append({
-                    "name": option_name,
-                    "reason": f"Hard constraint: {', '.join([hc.get('name', 'Unknown') for hc in failed_hard])}"
-                })
+                rejected.append(
+                    {
+                        "name": option_name,
+                        "reason": f"Hard constraint: {', '.join([hc.get('name', 'Unknown') for hc in failed_hard])}",
+                    }
+                )
             else:
                 after_hard_constraints += 1
-            
+
             # Check soft rule rejects (level 4 or hard soft constraints with level >= 2)
             rejected_soft_list = []
             for sc in soft_constraints:
                 response = sc.get("response", 0)
                 is_hard = sc.get("hard", True)
                 if response == 4 or (is_hard and response >= 2):
-                    rejected_soft_list.append(sc.get('name', 'Unknown'))
-            
+                    rejected_soft_list.append(sc.get("name", "Unknown"))
+
             if rejected_soft_list:
                 soft_rule_rejects += 1
                 passed_soft = False
                 if passed_hard:  # Only add to rejected if it passed hard constraints
-                    rejected.append({
-                        "name": option_name,
-                        "reason": f"Soft rule reject: {', '.join(rejected_soft_list)}"
-                    })
+                    rejected.append(
+                        {"name": option_name, "reason": f"Soft rule reject: {', '.join(rejected_soft_list)}"}
+                    )
             elif passed_hard:
                 after_soft_rules += 1
         else:
@@ -692,41 +680,44 @@ def _categorize_options(results, filters):
             if status != "Rejected":
                 after_hard_constraints += 1
                 after_soft_rules += 1
-        
+
         # Only categorize if it passed both hard and soft constraints
         if not passed_hard or not passed_soft:
             continue
-        
+
         # Categorize by status
         if status == "Recommended":
-            recommended.append({
-                "name": option_name,
-                "cost": cost_str,
-                "benefit": f"{benefit_score:.0f}",
-                "description": "Meets all feasibility criteria"
-            })
+            recommended.append(
+                {
+                    "name": option_name,
+                    "cost": cost_str,
+                    "benefit": f"{benefit_score:.0f}",
+                    "description": "Meets all feasibility criteria",
+                }
+            )
             recommended_count += 1
         elif status == "Conditionally Recommended":
-            conditional.append({
-                "name": option_name,
-                "cost": cost_str,
-                "benefit": f"{benefit_score:.0f}",
-                "requirements": ", ".join(mitigations) if mitigations else "Additional review required"
-            })
+            conditional.append(
+                {
+                    "name": option_name,
+                    "cost": cost_str,
+                    "benefit": f"{benefit_score:.0f}",
+                    "requirements": ", ".join(mitigations) if mitigations else "Additional review required",
+                }
+            )
         elif status == "Recommended with Warnings":
-            recommended.append({
-                "name": option_name,
-                "cost": cost_str,
-                "benefit": f"{benefit_score:.0f}",
-                "description": f"Warnings: {', '.join(warnings)}" if warnings else "Meets criteria with warnings"
-            })
+            recommended.append(
+                {
+                    "name": option_name,
+                    "cost": cost_str,
+                    "benefit": f"{benefit_score:.0f}",
+                    "description": f"Warnings: {', '.join(warnings)}" if warnings else "Meets criteria with warnings",
+                }
+            )
             recommended_count += 1
         else:  # Rejected
-            rejected.append({
-                "name": option_name,
-                "reason": f"Status: {status}"
-            })
-    
+            rejected.append({"name": option_name, "reason": f"Status: {status}"})
+
     return {
         "recommended": recommended,
         "conditional": conditional,
@@ -737,8 +728,8 @@ def _categorize_options(results, filters):
             "soft_rule_rejects": soft_rule_rejects,
             "after_hard_constraints": after_hard_constraints,
             "after_soft_rules": after_soft_rules,
-            "recommended_count": recommended_count
-        }
+            "recommended_count": recommended_count,
+        },
     }
 
 
@@ -778,45 +769,42 @@ def _prepare_constraints_data(results, filters, constraint_type=None):
         3: "Mitigation needed",
         4: "Reject",
     }
-    
+
     for option_name in results.keys():
         constraint_data[option_name] = {}
         detail_data[option_name] = {}
         if option_name in filters:
             filter_data = filters[option_name]
-            hard_constraints = filter_data.get('hard', [])
-            soft_constraints = filter_data.get('soft', [])
-            
+            hard_constraints = filter_data.get("hard", [])
+            soft_constraints = filter_data.get("soft", [])
+
             # Process hard constraints (convert pass/fail to response level)
             # Note: Hard constraints don't have a type, so we only include them when constraint_type is None
             if constraint_type is None:
                 for hc in hard_constraints:
-                    constraint_name = hc.get('name', 'Unknown')
+                    constraint_name = hc.get("name", "Unknown")
                     all_constraints.add(constraint_name)
                     # Hard constraint: 0 if pass, 4 if fail
-                    response_level = 0 if hc.get('pass', True) else 4
+                    response_level = 0 if hc.get("pass", True) else 4
                     constraint_data[option_name][constraint_name] = response_level
-                    detail_data[option_name][constraint_name] = (
-                        hc.get("why")
-                        or ("Pass" if response_level == 0 else "Fail")
+                    detail_data[option_name][constraint_name] = hc.get("why") or (
+                        "Pass" if response_level == 0 else "Fail"
                     )
-            
+
             # Process soft constraints (use response level directly)
             for sc in soft_constraints:
-                constraint_name = sc.get('name', 'Unknown')
-                constraint_type_value = sc.get('type', 'unknown')
-                
+                constraint_name = sc.get("name", "Unknown")
+                constraint_type_value = sc.get("type", "unknown")
+
                 # Filter by constraint type if specified
                 if constraint_type is None or constraint_type_value == constraint_type:
                     all_constraints.add(constraint_name)
-                    response_level = sc.get('response', 0)
+                    response_level = sc.get("response", 0)
                     penalties = sc.get("penalty") or []
                     if penalties:
                         detail = penalties[0] if isinstance(penalties[0], str) else str(penalties[0])
                     else:
-                        detail = _RESPONSE_LABELS.get(
-                            response_level, f"Response {response_level}"
-                        )
+                        detail = _RESPONSE_LABELS.get(response_level, f"Response {response_level}")
                     # If this constraint already exists (from hard), keep the higher severity
                     if constraint_name in constraint_data[option_name]:
                         if response_level >= constraint_data[option_name][constraint_name]:
@@ -825,27 +813,19 @@ def _prepare_constraints_data(results, filters, constraint_type=None):
                     else:
                         constraint_data[option_name][constraint_name] = response_level
                         detail_data[option_name][constraint_name] = detail
-    
+
     # Filter constraint_data to only include constraints that are in all_constraints
     # This ensures we only show constraints that match the type filter
-    for option_name in constraint_data.keys():
-        constraint_data[option_name] = {
-            k: v for k, v in constraint_data[option_name].items() 
-            if k in all_constraints
-        }
-        detail_data[option_name] = {
-            k: v for k, v in detail_data[option_name].items()
-            if k in all_constraints
-        }
-    
+    for option_name in constraint_data:
+        constraint_data[option_name] = {k: v for k, v in constraint_data[option_name].items() if k in all_constraints}
+        detail_data[option_name] = {k: v for k, v in detail_data[option_name].items() if k in all_constraints}
+
     return sorted(all_constraints), constraint_data, detail_data
 
 
 def _create_constraints_heatmap(results, filters, constraint_type=None, title=None, is_dark=False):
     """Create the constraints heatmap chart and legend for a specific constraint type."""
-    sorted_constraints, constraint_data, detail_data = _prepare_constraints_data(
-        results, filters, constraint_type
-    )
+    sorted_constraints, constraint_data, detail_data = _prepare_constraints_data(results, filters, constraint_type)
     option_names = list(results.keys())
     font_color = "#f8f9fa" if is_dark else "#212529"
     grid_color = "#495057" if is_dark else "lightgray"
@@ -860,10 +840,10 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
         3: "Mitigation needed",
         4: "Reject",
     }
-    
+
     if title is None:
         title = "Constraints Heatmap"
-    
+
     if not sorted_constraints or not constraint_data:
         heatmap_fig = go.Figure()
         heatmap_fig.update_layout(
@@ -878,17 +858,17 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
             font=dict(color=font_color),
         )
         return heatmap_fig, html.Div()
-    
+
     # Get all option names from results to ensure consistent y-axis across all heatmaps
     all_option_names = list(results.keys())
-    
+
     # Prepare data for measles chart (scatter plot with circles)
     x_data = []  # Constraint names
     y_data = []  # Option names
     response_levels = []  # Response levels for coloring
     marker_sizes = []  # Marker sizes (fixed or based on response level)
     status_details = []  # Penalty / why text for hover
-    
+
     for option_name in option_names:
         for constraint_name in sorted_constraints:
             response_level = constraint_data[option_name].get(constraint_name, 0)
@@ -901,104 +881,108 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                 detail_data.get(option_name, {}).get(constraint_name)
                 or _RESPONSE_LABELS.get(response_level, f"Response {response_level}")
             )
-    
+
     # Create color mapping for response levels
     color_map = {
-        -1: "#808080",   # Grey for irrelevant
-        0: "#28a745",    # Dark Green
-        1: "#90ee90",    # Light Green
-        2: "#ffc107",    # Yellow/Gold
-        3: "#fd7e14",    # Orange
-        4: "#dc3545"     # Red
+        -1: "#808080",  # Grey for irrelevant
+        0: "#28a745",  # Dark Green
+        1: "#90ee90",  # Light Green
+        2: "#ffc107",  # Yellow/Gold
+        3: "#fd7e14",  # Orange
+        4: "#dc3545",  # Red
     }
-    
+
     # Map response levels to colors
     marker_colors = [color_map.get(level, "#cccccc") for level in response_levels]
-    
+
     # Create scatter plot (measles chart) with circles
     heatmap_fig = go.Figure()
-    
+
     # Add scatter trace for circles (measles chart)
     # Create separate traces for irrelevant vs relevant constraints for better control
     relevant_indices = [i for i, level in enumerate(response_levels) if level != -1]
     irrelevant_indices = [i for i, level in enumerate(response_levels) if level == -1]
-    
+
     # Add trace for relevant constraints
     if relevant_indices:
-        heatmap_fig.add_trace(go.Scatter(
-            x=[x_data[i] for i in relevant_indices],
-            y=[y_data[i] for i in relevant_indices],
-            mode='markers+text',
-            marker=dict(
-                size=[marker_sizes[i] for i in relevant_indices],
-                color=[marker_colors[i] for i in relevant_indices],
-                line=dict(width=1.5, color='white'),
-                sizemode='diameter',
-                opacity=0.9
-            ),
-            text=[str(response_levels[i]) for i in relevant_indices],
-            textposition='middle center',
-            textfont=dict(size=9, color='white', family='Arial, sans-serif'),
-            hovertemplate=(
-                "<b>%{customdata[0]}</b><br>%{x}<br>"
-                "Response: %{customdata[1]} (%{customdata[2]})<br>"
-                "%{customdata[3]}<extra></extra>"
-            ),
-            customdata=[
-                [
-                    y_data[i],
-                    response_levels[i],
-                    _RESPONSE_LABELS.get(response_levels[i], str(response_levels[i])),
-                    status_details[i],
-                ]
-                for i in relevant_indices
-            ],
-            showlegend=False
-        ))
-    
+        heatmap_fig.add_trace(
+            go.Scatter(
+                x=[x_data[i] for i in relevant_indices],
+                y=[y_data[i] for i in relevant_indices],
+                mode="markers+text",
+                marker=dict(
+                    size=[marker_sizes[i] for i in relevant_indices],
+                    color=[marker_colors[i] for i in relevant_indices],
+                    line=dict(width=1.5, color="white"),
+                    sizemode="diameter",
+                    opacity=0.9,
+                ),
+                text=[str(response_levels[i]) for i in relevant_indices],
+                textposition="middle center",
+                textfont=dict(size=9, color="white", family="Arial, sans-serif"),
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>%{x}<br>"
+                    "Response: %{customdata[1]} (%{customdata[2]})<br>"
+                    "%{customdata[3]}<extra></extra>"
+                ),
+                customdata=[
+                    [
+                        y_data[i],
+                        response_levels[i],
+                        _RESPONSE_LABELS.get(response_levels[i], str(response_levels[i])),
+                        status_details[i],
+                    ]
+                    for i in relevant_indices
+                ],
+                showlegend=False,
+            )
+        )
+
     # Add trace for irrelevant constraints (greyed out)
     if irrelevant_indices:
-        heatmap_fig.add_trace(go.Scatter(
-            x=[x_data[i] for i in irrelevant_indices],
-            y=[y_data[i] for i in irrelevant_indices],
-            mode='markers+text',
-            marker=dict(
-                size=[marker_sizes[i] for i in irrelevant_indices],
-                color=[marker_colors[i] for i in irrelevant_indices],
-                line=dict(width=1, color='#666666'),
-                sizemode='diameter',
-                opacity=0.4
-            ),
-            text=['—' for _ in irrelevant_indices],  # Use dash for irrelevant
-            textposition='middle center',
-            textfont=dict(size=9, color='#666666', family='Arial, sans-serif'),
-            hovertemplate='<b>%{customdata[0]}</b><br>%{x}<br>Response Level: Irrelevant (excluded from analysis)<extra></extra>',
-            customdata=[[y_data[i], "Irrelevant"] for i in irrelevant_indices],
-            showlegend=False
-        ))
-    
+        heatmap_fig.add_trace(
+            go.Scatter(
+                x=[x_data[i] for i in irrelevant_indices],
+                y=[y_data[i] for i in irrelevant_indices],
+                mode="markers+text",
+                marker=dict(
+                    size=[marker_sizes[i] for i in irrelevant_indices],
+                    color=[marker_colors[i] for i in irrelevant_indices],
+                    line=dict(width=1, color="#666666"),
+                    sizemode="diameter",
+                    opacity=0.4,
+                ),
+                text=["—" for _ in irrelevant_indices],  # Use dash for irrelevant
+                textposition="middle center",
+                textfont=dict(size=9, color="#666666", family="Arial, sans-serif"),
+                hovertemplate="<b>%{customdata[0]}</b><br>%{x}<br>Response Level: Irrelevant (excluded from analysis)<extra></extra>",
+                customdata=[[y_data[i], "Irrelevant"] for i in irrelevant_indices],
+                showlegend=False,
+            )
+        )
+
     # Function to split constraint names into two lines
     def split_constraint_name(name):
         """Split constraint name into two lines intelligently."""
         # Common patterns to split on (in order of preference)
         split_patterns = [
-            (' Cost ', ' Cost'),
-            (' Efficiency', ' Efficiency'),
-            (' Volume', ' Volume'),
-            (' Rate', ' Rate'),
-            (' Depth', ' Depth'),
-            (' Area', ' Area'),
-            (' Quality', ' Quality'),
-            (' Risk', ' Risk'),
-            (' Impact', ' Impact'),
-            (' Factor', ' Factor'),
-            (' Level', ' Level'),
-            (' Ratio', ' Ratio'),
-            (' Index', ' Index'),
-            (' Constraint', ' Constraint'),
-            (' Feasibility', ' Feasibility')
+            (" Cost ", " Cost"),
+            (" Efficiency", " Efficiency"),
+            (" Volume", " Volume"),
+            (" Rate", " Rate"),
+            (" Depth", " Depth"),
+            (" Area", " Area"),
+            (" Quality", " Quality"),
+            (" Risk", " Risk"),
+            (" Impact", " Impact"),
+            (" Factor", " Factor"),
+            (" Level", " Level"),
+            (" Ratio", " Ratio"),
+            (" Index", " Index"),
+            (" Constraint", " Constraint"),
+            (" Feasibility", " Feasibility"),
         ]
-        
+
         # Try to find a split pattern
         for pattern_with_space, pattern in split_patterns:
             if pattern_with_space in name:
@@ -1010,19 +994,19 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                 idx = name.rfind(pattern)
                 if idx > 0:
                     return f"{name[:idx]}<br>{name[idx:]}"
-        
+
         # If no pattern found, try to split at middle if long
         if len(name) > 15:
             words = name.split()
             if len(words) > 1:
                 mid = len(words) // 2
                 return f"{' '.join(words[:mid])}<br>{' '.join(words[mid:])}"
-        
+
         return name
-    
+
     # Create x-axis labels with two lines
     x_labels = [split_constraint_name(name) for name in sorted_constraints]
-    
+
     # Use categorical axes to ensure consistent spacing across all heatmaps
     # Both x and y axes are categorical to prevent layout shifts
     heatmap_fig.update_layout(
@@ -1037,10 +1021,10 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
         plot_bgcolor=plot_bg,
         font=dict(color=font_color),
         xaxis=dict(
-            type='category',  # Categorical x-axis for consistent spacing
-            categoryorder='array',
+            type="category",  # Categorical x-axis for consistent spacing
+            categoryorder="array",
             categoryarray=sorted_constraints,  # Use original names for data mapping
-            tickmode='array',
+            tickmode="array",
             tickvals=sorted_constraints,
             ticktext=x_labels,  # Use two-line labels for display
             side="bottom",
@@ -1051,8 +1035,8 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
             title_font=dict(color=font_color),
         ),
         yaxis=dict(
-            type='category',  # Use categorical axis for consistent spacing
-            categoryorder='array',
+            type="category",  # Use categorical axis for consistent spacing
+            categoryorder="array",
             categoryarray=all_option_names[::-1],  # Reversed for top-to-bottom order
             showgrid=True,
             gridcolor=grid_color,
@@ -1061,7 +1045,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
             title_font=dict(color=font_color),
         ),
     )
-    
+
     # Create legend
     legend = html.Div(
         [
@@ -1077,8 +1061,8 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "marginRight": "8px",
                             "border": "1px solid white",
                             "borderRadius": "50%",  # Make it a circle
-                            "verticalAlign": "middle"
-                        }
+                            "verticalAlign": "middle",
+                        },
                     ),
                     html.Small("0: Acceptable", className="me-4"),
                     html.Span(
@@ -1091,8 +1075,8 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "marginRight": "8px",
                             "border": "1px solid white",
                             "borderRadius": "50%",  # Make it a circle
-                            "verticalAlign": "middle"
-                        }
+                            "verticalAlign": "middle",
+                        },
                     ),
                     html.Small("1: Cost Penalty", className="me-4"),
                     html.Span(
@@ -1105,8 +1089,8 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "marginRight": "8px",
                             "border": "1px solid white",
                             "borderRadius": "50%",  # Make it a circle
-                            "verticalAlign": "middle"
-                        }
+                            "verticalAlign": "middle",
+                        },
                     ),
                     html.Small("2: Warning", className="me-4"),
                     html.Span(
@@ -1119,8 +1103,8 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "marginRight": "8px",
                             "border": "1px solid white",
                             "borderRadius": "50%",  # Make it a circle
-                            "verticalAlign": "middle"
-                        }
+                            "verticalAlign": "middle",
+                        },
                     ),
                     html.Small("3: Mitigation", className="me-4"),
                     html.Span(
@@ -1133,8 +1117,8 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "marginRight": "8px",
                             "border": "1px solid white",
                             "borderRadius": "50%",  # Make it a circle
-                            "verticalAlign": "middle"
-                        }
+                            "verticalAlign": "middle",
+                        },
                     ),
                     html.Small("4: Reject", className="me-4"),
                     html.Span(
@@ -1148,90 +1132,92 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "border": "1px solid #666666",
                             "borderRadius": "50%",  # Make it a circle
                             "verticalAlign": "middle",
-                            "opacity": "0.4"
-                        }
+                            "opacity": "0.4",
+                        },
                     ),
-                    html.Small("-1: Irrelevant", className="text-muted")
+                    html.Small("-1: Irrelevant", className="text-muted"),
                 ],
-                className="d-flex align-items-center justify-content-center flex-wrap"
+                className="d-flex align-items-center justify-content-center flex-wrap",
             )
         ]
     )
-    
+
     return heatmap_fig, legend
 
 
 def _extract_cost_data():
     """Extract cost data from storage and return mapped values."""
-    capital_cost_num = coerce_storage_cost_totals(
-        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
-    )
+    capital_cost_num = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
     maintenance_cost_num = coerce_storage_cost_totals(
         dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
     )
     net_val_dict = _normalize_net_val_dict(dash_storage.get_data("net_val"))
-    
+
     if capital_cost_num is None or maintenance_cost_num is None:
         return None, None, None, None
-    
+
     # Map cost column names to option names
     cost_column_mapping = {
         "Spreading Pond Cost ($)": "Surface Recharge",
         "Injection Wells Cost ($)": "Injection Well",
-        "Dry Wells Cost ($)": "Dry Well"
+        "Dry Wells Cost ($)": "Dry Well",
     }
-    
+
     maintenance_column_mapping = {
         "Spreading Pond Maintenance Cost ($)": "Surface Recharge",
         "Injection Wells Maintenance Cost ($)": "Injection Well",
-        "Dry Wells Maintenance Cost ($)": "Dry Well"
+        "Dry Wells Maintenance Cost ($)": "Dry Well",
     }
-    
+
     npv_column_mapping = {
         "Spreading Pond Net Present Value ($)": "Surface Recharge",
         "Injection Wells Net Present Value ($)": "Injection Well",
-        "Dry Wells Net Present Value ($)": "Dry Well"
+        "Dry Wells Net Present Value ($)": "Dry Well",
     }
-    
+
     # Extract data for each option
     option_names = []
     capital_costs = []
     maintenance_costs = []
     npv_values = []
-    
+
     for col_name, option_name in cost_column_mapping.items():
         if col_name in capital_cost_num.index:
             option_names.append(option_name)
             capital_costs.append(float(capital_cost_num[col_name]) if pd.notna(capital_cost_num[col_name]) else 0)
-            
+
             # Get maintenance cost
             maint_col = col_name.replace("Cost ($)", "Maintenance Cost ($)")
             if maint_col in maintenance_cost_num.index:
-                maintenance_costs.append(float(maintenance_cost_num[maint_col]) if pd.notna(maintenance_cost_num[maint_col]) else 0)
+                maintenance_costs.append(
+                    float(maintenance_cost_num[maint_col]) if pd.notna(maintenance_cost_num[maint_col]) else 0
+                )
             else:
                 maintenance_costs.append(0)
-            
+
             # Get NPV
             npv_col = col_name.replace("Cost ($)", "Net Present Value ($)")
             if npv_col in net_val_dict:
                 npv_values.append(float(net_val_dict[npv_col]) if pd.notna(net_val_dict[npv_col]) else 0)
             else:
                 npv_values.append(0)
-    
+
     return option_names, capital_costs, maintenance_costs, npv_values
 
 
 def _create_cost_chart(option_names, values, title, color):
     """Create a single cost chart (capital, maintenance, or NPV)."""
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=option_names,
-        y=values,
-        marker_color=color,
-        text=[f"${c/1e6:.2f}M" if c >= 1e6 else f"${c/1e3:.0f}K" for c in values],
-        textposition="auto",
-        name=title
-    ))
+    fig.add_trace(
+        go.Bar(
+            x=option_names,
+            y=values,
+            marker_color=color,
+            text=[f"${c / 1e6:.2f}M" if c >= 1e6 else f"${c / 1e3:.0f}K" for c in values],
+            textposition="auto",
+            name=title,
+        )
+    )
     fig.update_layout(
         title=title,
         xaxis_title="Options",
@@ -1241,7 +1227,7 @@ def _create_cost_chart(option_names, values, title, color):
         autosize=True,
         margin=dict(l=50, r=20, t=40, b=50),
         showlegend=False,
-        yaxis=dict(tickformat="$,.0f")
+        yaxis=dict(tickformat="$,.0f"),
     )
     return fig
 
@@ -1254,41 +1240,41 @@ def _create_empty_cost_charts():
         template="plotly_white",
         height=350,
         xaxis_title="No cost data available. Please run cost analysis first.",
-        yaxis_title=""
+        yaxis_title="",
     )
-    
+
     empty_maintenance_fig = go.Figure()
     empty_maintenance_fig.update_layout(
         title="Annual Maintenance Cost",
         template="plotly_white",
         height=350,
         xaxis_title="No cost data available. Please run cost analysis first.",
-        yaxis_title=""
+        yaxis_title="",
     )
-    
+
     empty_npv_fig = go.Figure()
     empty_npv_fig.update_layout(
         title="Net Present Value (20 years)",
         template="plotly_white",
         height=350,
         xaxis_title="No cost data available. Please run cost analysis first.",
-        yaxis_title=""
+        yaxis_title="",
     )
-    
+
     return empty_capital_fig, empty_maintenance_fig, empty_npv_fig
 
 
 def _create_cost_comparison_charts():
     """Create the three cost comparison charts."""
     option_names, capital_costs, maintenance_costs, npv_values = _extract_cost_data()
-    
+
     if not option_names:
         return _create_empty_cost_charts()
-    
+
     capital_fig = _create_cost_chart(option_names, capital_costs, "Capital Cost", "#007bff")
     maintenance_fig = _create_cost_chart(option_names, maintenance_costs, "Annual Maintenance Cost", "#28a745")
     npv_fig = _create_cost_chart(option_names, npv_values, "Net Present Value (20 years)", "#ffc107")
-    
+
     return capital_fig, maintenance_fig, npv_fig
 
 
@@ -1334,10 +1320,7 @@ def setup_feasibilities_callbacks(app):
         if not ctx.triggered:
             return dash.no_update
         trigger = ctx.triggered[0]["prop_id"]
-        if (
-            "hydro-constraints-help-btn" in trigger
-            or "hydro-constraints-help-note-btn" in trigger
-        ):
+        if "hydro-constraints-help-btn" in trigger or "hydro-constraints-help-note-btn" in trigger:
             return True
         if "hydro-constraints-help-close" in trigger:
             return False
@@ -1358,10 +1341,7 @@ def setup_feasibilities_callbacks(app):
         if not ctx.triggered:
             return dash.no_update
         trigger = ctx.triggered[0]["prop_id"]
-        if (
-            "wq-constraints-help-btn" in trigger
-            or "wq-constraints-help-note-btn" in trigger
-        ):
+        if "wq-constraints-help-btn" in trigger or "wq-constraints-help-note-btn" in trigger:
             return True
         if "wq-constraints-help-close" in trigger:
             return False
@@ -1379,39 +1359,39 @@ def setup_feasibilities_callbacks(app):
         return checked
 
     @app.callback(
-        [Output("engineering-options-summary", "children"),
-         Output("hydrogeologic-constraints-heatmap-chart", "figure"),
-         Output("hydrogeologic-constraints-heatmap-legend", "children"),
-         Output("environmental-constraints-heatmap-chart", "figure"),
-         Output("environmental-constraints-heatmap-legend", "children"),
-         Output("capital-cost-chart", "figure"),
-         Output("maintenance-cost-chart", "figure"),
-         Output("npv-cost-chart", "figure"),
-         Output("spider-plots-container", "children")],
+        [
+            Output("engineering-options-summary", "children"),
+            Output("hydrogeologic-constraints-heatmap-chart", "figure"),
+            Output("hydrogeologic-constraints-heatmap-legend", "children"),
+            Output("environmental-constraints-heatmap-chart", "figure"),
+            Output("environmental-constraints-heatmap-legend", "children"),
+            Output("capital-cost-chart", "figure"),
+            Output("maintenance-cost-chart", "figure"),
+            Output("npv-cost-chart", "figure"),
+            Output("spider-plots-container", "children"),
+        ],
         [
             Input("analysis-tabs", "active_tab"),
             Input("knowledge-graph-store", "data"),
             Input("app-container", "className"),
             Input("cost-economics-revision", "data"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
-    def update_feasibilities_dashboard(
-        active_tab, _graph_store, container_class, _cost_revision
-    ):
+    def update_feasibilities_dashboard(active_tab, _graph_store, container_class, _cost_revision):
         """Update engineering options economics and feasibility charts from DSS results.
-        
+
         Listens to ``knowledge-graph-store`` so the Feasibilities view refreshes whenever
         the Analysis pipeline finishes (e.g. selecting the Analysis top tab), not only when
         switching away from and back to this sub-tab.
 
         Also listens to ``cost-economics-revision`` so Capital Cost table unit-price
         edits refresh the Feasibility Summary cards and cost charts.
-        
+
         This callback depends on Analysis tab callbacks completing first.
         When Feasibilities sub-tab is selected, it ensures analysis has run and then
         displays the results.
-        
+
         Execution order:
         1. Analysis tab callbacks run (initialize graph, run feasibility analysis)
         2. This callback runs when Feasibilities sub-tab is selected or graph store updates
@@ -1420,9 +1400,9 @@ def setup_feasibilities_callbacks(app):
         # Only refresh Feasibilities UI when this sub-tab is active
         if active_tab != "analysis-feasibilities":
             return (dash.no_update,) * 9
-        
+
         is_dark = "mar-theme-dark" in str(container_class or "")
-        
+
         # CRITICAL: Ensure Analysis tab callbacks have run first
         # This ensures the knowledge graph is initialized and feasibility analysis has completed
         # before we try to access DSS results.
@@ -1431,21 +1411,21 @@ def setup_feasibilities_callbacks(app):
         logger.debug("Feasibilities callback triggered - ensuring Analysis callbacks have completed")
         dss_results = _ensure_dss_results_available()
         dash_storage.set_data("dss_results", dss_results)
-        
+
         # Check if results are available
-        if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
+        if dss_results is None or not hasattr(dss_results, "results") or not dss_results.results:
             return _get_empty_dashboard_content(is_dark=is_dark)
-        
+
         # Extract results and filters
         results = dss_results.results
-        filters = getattr(dss_results, 'filters', {})
-        
+        filters = getattr(dss_results, "filters", {})
+
         # Categorize options
         categorized_data = _categorize_options(results, filters)
-        
+
         # Build components (costs come from capital_cost_num, including unit-price edits)
         engineering_summary = _build_engineering_options_summary(categorized_data)
-        
+
         # Create separate heatmaps for each constraint type
         hydro_heatmap_fig, hydro_heatmap_legend = _create_constraints_heatmap(
             results,
@@ -1461,12 +1441,12 @@ def setup_feasibilities_callbacks(app):
             title="Water Quality Constraints Heatmap",
             is_dark=is_dark,
         )
-        
+
         capital_fig, maintenance_fig, npv_fig = _create_cost_comparison_charts()
-        
+
         # Create spider plots
         spider_plots_content = _create_spider_plots(dss_results, categorized_data)
-        
+
         return (
             engineering_summary,
             hydro_heatmap_fig,
@@ -1476,38 +1456,37 @@ def setup_feasibilities_callbacks(app):
             capital_fig,
             maintenance_fig,
             npv_fig,
-            spider_plots_content
+            spider_plots_content,
         )
-    
+
+
 def _create_spider_plots(dss_results, categorized_data):
     """Create spider plots for each MAR option (6 axes including $/acre-ft efficiency)."""
-    if dss_results is None or not hasattr(dss_results, 'results') or not dss_results.results:
+    if dss_results is None or not hasattr(dss_results, "results") or not dss_results.results:
         return html.Div(
             "No DSS evaluation results available. Please run the feasibility analysis first.",
-            className="text-muted text-center p-4"
+            className="text-muted text-center p-4",
         )
-    
+
     # Get scores and cost data
-    scores = getattr(dss_results, 'scores', {})
-    capital_cost_num = coerce_storage_cost_totals(
-        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
-    )
+    scores = getattr(dss_results, "scores", {})
+    capital_cost_num = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
     maintenance_cost_num = coerce_storage_cost_totals(
         dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
     )
     net_val_dict = _normalize_net_val_dict(dash_storage.get_data("net_val"))
-    
+
     if not scores:
         return html.Div(
             "No scoring data available. Please run the feasibility analysis first.",
-            className="text-muted text-center p-4"
+            className="text-muted text-center p-4",
         )
-    
+
     # Map option names to cost column names (shared module constants)
     option_to_capital_col = _OPTION_TO_CAPITAL_COL
     option_to_maintenance_col = _OPTION_TO_MAINTENANCE_COL
     option_to_npv_col = _OPTION_TO_NPV_COL
-    
+
     # Get all capital, maintenance costs, and NPV values and find minimums
     capital_cost_dict = {}  # Store capital cost per option
     maintenance_cost_dict = {}  # Store maintenance cost per option
@@ -1515,7 +1494,7 @@ def _create_spider_plots(dss_results, categorized_data):
     capital_costs = []
     maintenance_costs = []
     npv_values = []
-    
+
     for option_name in scores.keys():
         option_not_feasible = _is_option_not_feasible(categorized_data, option_name)
 
@@ -1528,17 +1507,19 @@ def _create_spider_plots(dss_results, categorized_data):
                 capital_costs.append(capital_val)
         else:
             capital_cost_dict[option_name] = 0
-        
+
         # Get maintenance cost
         maintenance_col = option_to_maintenance_col.get(option_name)
         if maintenance_col and maintenance_cost_num is not None and maintenance_col in maintenance_cost_num.index:
-            maintenance_val = float(maintenance_cost_num[maintenance_col]) if pd.notna(maintenance_cost_num[maintenance_col]) else 0
+            maintenance_val = (
+                float(maintenance_cost_num[maintenance_col]) if pd.notna(maintenance_cost_num[maintenance_col]) else 0
+            )
             maintenance_cost_dict[option_name] = maintenance_val
             if maintenance_val > 0 and not option_not_feasible:
                 maintenance_costs.append(maintenance_val)
         else:
             maintenance_cost_dict[option_name] = 0
-        
+
         # Get NPV
         npv_col = option_to_npv_col.get(option_name)
         if npv_col and npv_col in net_val_dict:
@@ -1548,7 +1529,7 @@ def _create_spider_plots(dss_results, categorized_data):
                 npv_values.append(npv_val)
         else:
             npv_dict[option_name] = 0
-    
+
     # Find minimum costs, NPV, and cost/acre-ft for efficiency calculation
     min_capital_cost = min(capital_costs) if capital_costs else 1
     min_maintenance_cost = min(maintenance_costs) if maintenance_costs else 1
@@ -1569,7 +1550,7 @@ def _create_spider_plots(dss_results, categorized_data):
         else:
             cost_per_acre_ft_dict[option_name] = 0.0
     min_cost_per_acre_ft = min(cost_per_acre_ft_values) if cost_per_acre_ft_values else 1
-    
+
     # Create spider plots for each option
     spider_plots = []
     for option_name, option_scores in scores.items():
@@ -1614,31 +1595,29 @@ def _create_spider_plots(dss_results, categorized_data):
             npv_efficiency = max(0.0, min(100.0, npv_efficiency))
 
             cost_per_acre_ft_val = cost_per_acre_ft_dict.get(option_name, 0.0)
-            cost_per_acre_ft_efficiency = _efficiency_from_min_ratio(
-                cost_per_acre_ft_val, min_cost_per_acre_ft
-            )
-        
+            cost_per_acre_ft_efficiency = _efficiency_from_min_ratio(cost_per_acre_ft_val, min_cost_per_acre_ft)
+
         # Helper function to get color and style based on score
         def get_score_style(score):
             """Get color and font weight based on score value."""
             if score < 50:
-                return {'color': 'red', 'weight': 'bold'}
+                return {"color": "red", "weight": "bold"}
             elif score < 75:
-                return {'color': 'orange', 'weight': 'bold'}
+                return {"color": "orange", "weight": "bold"}
             else:
-                return {'color': 'green', 'weight': 'bold'}
-        
+                return {"color": "green", "weight": "bold"}
+
         # Create spider plot
         fig = go.Figure()
-        
+
         # Categories for radar chart - order matters for positioning
         categories = [
-            'Hydrogeologic',
-            'Water Quality',
-            'Capital Cost Efficiency',
-            'Maintenance Cost Efficiency',
-            'NPV Efficiency',
-            'Cost per Acre-Ft',
+            "Hydrogeologic",
+            "Water Quality",
+            "Capital Cost Efficiency",
+            "Maintenance Cost Efficiency",
+            "NPV Efficiency",
+            "Cost per Acre-Ft",
         ]
         values = [
             hydro_score,
@@ -1648,90 +1627,85 @@ def _create_spider_plots(dss_results, categorized_data):
             npv_efficiency,
             cost_per_acre_ft_efficiency,
         ]
-        
+
         # Calculate average score
         average_score = sum(values) / len(values)
-        
+
         # Create categories with scores (score below category name, centered)
         categories_with_scores = []
         for category, score in zip(categories, values):
             style = get_score_style(score)
-            if category == 'Cost per Acre-Ft':
+            if category == "Cost per Acre-Ft":
                 if cost_per_acre_ft_val > 0:
                     label = (
-                        f'{category}\n'
+                        f"{category}\n"
                         f'<span style="color:{style["color"]};">{score:.0f}%</span> '
                         f'<span style="color:#495057;">'
-                        f'\n(${cost_per_acre_ft_val:,.1f}/acre-ft)'
-                        f'</span>'
+                        f"\n(${cost_per_acre_ft_val:,.1f}/acre-ft)"
+                        f"</span>"
                     )
                 else:
                     label = (
-                        f'{category}\n'
+                        f"{category}\n"
                         f'<span style="color:{style["color"]};">{score:.0f}%</span> '
                         f'<span style="color:#000;">N/A</span>'
                     )
             else:
-                label = (
-                    f'{category}\n'
-                    f'<span style="color:{style["color"]};">{score:.0f}%</span>'
-                )
+                label = f'{category}\n<span style="color:{style["color"]};">{score:.0f}%</span>'
             categories_with_scores.append(label)
-        
+
         # Close the polygon by adding the first point at the end
         # Use original categories for theta (for positioning), but labels will show scores
         categories_closed = categories + [categories[0]]
         values_closed = values + [values[0]]
-        
+
         # Add trace with blue polygon
-        fig.add_trace(go.Scatterpolar(
-            r=values_closed,
-            theta=categories_closed,
-            fill='toself',
-            name=option_name,
-            line=dict(color='#1e90ff', width=3),
-            fillcolor='rgba(30, 144, 255, 0.4)',
-            mode='lines+markers',
-            marker=dict(
-                size=8,
-                color='#1e90ff',
-                line=dict(width=2, color='white')
-            ),
-            hovertemplate='<b>%{theta}</b><br>Value: %{r:.1f}<extra></extra>'
-        ))
-        
+        fig.add_trace(
+            go.Scatterpolar(
+                r=values_closed,
+                theta=categories_closed,
+                fill="toself",
+                name=option_name,
+                line=dict(color="#1e90ff", width=3),
+                fillcolor="rgba(30, 144, 255, 0.4)",
+                mode="lines+markers",
+                marker=dict(size=8, color="#1e90ff", line=dict(width=2, color="white")),
+                hovertemplate="<b>%{theta}</b><br>Value: %{r:.1f}<extra></extra>",
+            )
+        )
+
         # Update layout with clean polar plot
         fig.update_layout(
             polar=dict(
                 radialaxis=dict(
                     visible=True,
                     range=[0, 100],
-                    tickmode='linear',
+                    tickmode="linear",
                     tick0=0,
                     dtick=20,
-                    tickfont=dict(size=9, color='black'),
-                    gridcolor='lightgrey',
+                    tickfont=dict(size=9, color="black"),
+                    gridcolor="lightgrey",
                     gridwidth=1,
-                    linecolor='grey',
+                    linecolor="grey",
                     linewidth=1,
-                    showline=True
+                    showline=True,
                 ),
                 angularaxis=dict(
-                    tickmode='array',
+                    tickmode="array",
                     tickvals=categories,
                     ticktext=categories_with_scores,
-                    tickfont=dict(size=10, family='Arial, sans-serif'),
+                    tickfont=dict(size=10, family="Arial, sans-serif"),
                     rotation=0,
-                    direction='clockwise',
-                    linecolor='grey',
+                    direction="clockwise",
+                    linecolor="grey",
                     linewidth=1,
-                    gridcolor='lightgrey',
-                    gridwidth=1
+                    gridcolor="lightgrey",
+                    gridwidth=1,
                 ),
-                bgcolor='white'
+                bgcolor="white",
             ),
-            plot_bgcolor='white',
-            paper_bgcolor='white',
+            plot_bgcolor="white",
+            paper_bgcolor="white",
             showlegend=False,
             height=350,
             margin=dict(l=80, r=80, t=100, b=80),
@@ -1739,13 +1713,13 @@ def _create_spider_plots(dss_results, categorized_data):
                 text=f'{option_name}<br><span style="font-size:14px; color:red;">Average Score: {average_score:.1f}%</span>',
                 x=0.5,
                 y=0.98,
-                font=dict(size=16, color='#006400', family='Arial, sans-serif', weight='bold'),
-                xanchor='center',
-                yanchor='top',
-                pad=dict(t=10)
-            )
+                font=dict(size=16, color="#006400", family="Arial, sans-serif", weight="bold"),
+                xanchor="center",
+                yanchor="top",
+                pad=dict(t=10),
+            ),
         )
-        
+
         # Create card for this option's spider plot
         option_key = option_name.replace(" ", "-").lower()
         spider_plots.append(
@@ -1768,16 +1742,10 @@ def _create_spider_plots(dss_results, categorized_data):
                                             },
                                             type="button",
                                             className="mar-help-btn eng-help-btn",
-                                            title=(
-                                                f"Help: how {option_name} "
-                                                "spider plot scores are computed"
-                                            ),
+                                            title=(f"Help: how {option_name} spider plot scores are computed"),
                                         ),
                                     ],
-                                    className=(
-                                        "d-flex align-items-center "
-                                        "justify-content-between w-100"
-                                    ),
+                                    className=("d-flex align-items-center justify-content-between w-100"),
                                 ),
                                 className="py-2",
                                 style={
@@ -1803,15 +1771,13 @@ def _create_spider_plots(dss_results, categorized_data):
                 className="mb-3",
             )
         )
-    
+
     # Return in rows of 3
     rows = []
     for i in range(0, len(spider_plots), 3):
-        row_plots = spider_plots[i:i+3]
-        rows.append(
-            dbc.Row(row_plots, className="mb-3")
-        )
-    
+        row_plots = spider_plots[i : i + 3]
+        rows.append(dbc.Row(row_plots, className="mb-3"))
+
     return html.Div(rows)
 
 
@@ -1819,11 +1785,10 @@ def _get_response_color(level):
     """Get color for response level (0-4, or -1 for irrelevant)."""
     color_map = {
         -1: "#808080",  # Grey for irrelevant
-        0: "#28a745",   # Dark Green
-        1: "#90ee90",   # Light Green
-        2: "#ffc107",   # Yellow/Gold
-        3: "#fd7e14",   # Orange
-        4: "#dc3545"    # Red
+        0: "#28a745",  # Dark Green
+        1: "#90ee90",  # Light Green
+        2: "#ffc107",  # Yellow/Gold
+        3: "#fd7e14",  # Orange
+        4: "#dc3545",  # Red
     }
     return color_map.get(level, "#ffffff")
-

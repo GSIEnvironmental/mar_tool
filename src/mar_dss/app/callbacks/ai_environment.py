@@ -25,9 +25,7 @@ def downloadable_html_deliverable_instructions(
     context_line: str = "",
 ) -> str:
     """Shared prompt text asking the AI to return a neat downloadable HTML report."""
-    context = (
-        f"\n        - Context line in the header: {context_line}" if context_line else ""
-    )
+    context = f"\n        - Context line in the header: {context_line}" if context_line else ""
     return textwrap.dedent(
         f"""
         **FINAL DELIVERABLE — DOWNLOADABLE HTML REPORT:**

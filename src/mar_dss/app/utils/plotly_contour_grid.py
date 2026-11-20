@@ -18,9 +18,7 @@ def rectilinear_grid_for_plotly_contour(x_mesh, y_mesh, z_val, *, n_boost=96):
     ym = np.asarray(y_mesh, dtype=float)
     zv = np.asarray(z_val, dtype=float)
     if xm.shape != ym.shape or xm.shape != zv.shape:
-        raise ValueError(
-            f"x_grid, y_grid, z must match shapes; got {xm.shape}, {ym.shape}, {zv.shape}"
-        )
+        raise ValueError(f"x_grid, y_grid, z must match shapes; got {xm.shape}, {ym.shape}, {zv.shape}")
 
     pts = np.column_stack([xm.ravel(), ym.ravel()])
     vals = zv.ravel()

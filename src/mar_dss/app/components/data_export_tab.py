@@ -30,9 +30,7 @@ def create_data_export_content():
                             ),
                             html.Ul(
                                 [
-                                    html.Li(
-                                        'Title: "Summary Report for Prefeasibility Analysis at {location}"'
-                                    ),
+                                    html.Li('Title: "Summary Report for Prefeasibility Analysis at {location}"'),
                                     html.Li(
                                         "Executive summary — engineering options ranked from DSS analysis "
                                         "with capital cost, recharge volume, and cost per acre-foot recharged"
@@ -41,15 +39,11 @@ def create_data_export_content():
                                         "Feasibility Analysis Justification — decision interpretation "
                                         "for each option (status, warnings, mitigations, constraints)"
                                     ),
-                                    html.Li(
-                                        "Water Source — project map, site coordinates, and monthly flow estimates"
-                                    ),
+                                    html.Li("Water Source — project map, site coordinates, and monthly flow estimates"),
                                     html.Li(
                                         "Hydrogeology — aquifer type, stratigraphy layers, and groundwater elevations"
                                     ),
-                                    html.Li(
-                                        "Project Input Summary — key parameters from remaining MAR DSS tabs"
-                                    ),
+                                    html.Li("Project Input Summary — key parameters from remaining MAR DSS tabs"),
                                 ],
                                 className="mb-3",
                             ),

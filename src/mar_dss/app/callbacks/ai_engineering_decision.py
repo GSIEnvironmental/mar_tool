@@ -7,8 +7,9 @@ import math
 import textwrap
 from typing import Any
 
-import mar_dss.app.utils.data_storage as dash_storage
 import pandas as pd
+
+import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.callbacks.ai_environment import (
     _location_text,
     downloadable_html_deliverable_instructions,
@@ -108,13 +109,16 @@ _GRAPH_QUANTITY_NODES = (
     "basin_area",
 )
 
-_SKIP_KEYS = frozenset(
-    {
-        "decision_graph",
-        "workspace",
-        "filename",
-    }
-) | _EXCLUDED_STORAGE_KEYS
+_SKIP_KEYS = (
+    frozenset(
+        {
+            "decision_graph",
+            "workspace",
+            "filename",
+        }
+    )
+    | _EXCLUDED_STORAGE_KEYS
+)
 
 
 def _json_safe(value: Any, *, depth: int = 0) -> Any:
@@ -136,16 +140,9 @@ def _json_safe(value: Any, *, depth: int = 0) -> Any:
             return []
         return value.where(pd.notnull(value), None).to_dict(orient="records")
     if isinstance(value, pd.Series):
-        return {
-            str(k): _json_safe(v, depth=depth + 1)
-            for k, v in value.to_dict().items()
-        }
+        return {str(k): _json_safe(v, depth=depth + 1) for k, v in value.to_dict().items()}
     if isinstance(value, dict):
-        return {
-            str(k): _json_safe(v, depth=depth + 1)
-            for k, v in value.items()
-            if str(k) not in _SKIP_KEYS
-        }
+        return {str(k): _json_safe(v, depth=depth + 1) for k, v in value.items() if str(k) not in _SKIP_KEYS}
     if isinstance(value, (list, tuple)):
         return [_json_safe(v, depth=depth + 1) for v in value]
     if hasattr(value, "tolist"):

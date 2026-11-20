@@ -1,10 +1,11 @@
 import logging
-from typing import Any, Dict, Mapping, Optional, TYPE_CHECKING
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
 import mar_dss.app.utils.data_storage as data_storage
+from mar_dss.mar import benefits as benefits_module
 from mar_dss.mar import hard_constraints as hc_module
 from mar_dss.mar import soft_constraints as sc_module
-from mar_dss.mar import benefits as benefits_module
 from mar_dss.mar.dss import DecisionSupportSystem
 from mar_dss.mar.options import mar_options
 
@@ -34,7 +35,7 @@ def evaluate_and_store_decision_graph(graph: "DecisionGraph", inputs: Mapping[st
     )
 
 
-def forward_run(cost_override: Optional[Dict[str, float]] = None):
+def forward_run(cost_override: dict[str, float] | None = None):
     """
     Run DSS evaluation for all MAR options (after the knowledge graph is evaluated).
 
@@ -87,7 +88,7 @@ def forward_run(cost_override: Optional[Dict[str, float]] = None):
 def run_forward_analysis(
     graph: "DecisionGraph",
     inputs: Mapping[str, Any],
-    cost_override: Optional[Dict[str, float]] = None,
+    cost_override: dict[str, float] | None = None,
 ):
     """
     Main MAR DSS analysis entry: evaluate the knowledge graph, then score all options.

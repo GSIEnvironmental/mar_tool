@@ -39,12 +39,8 @@ def test_node_init_and_attributes():
 
 
 def test_is_input_and_is_rule():
-    input_node = Node(
-        node_id="A", input_flag=True, name="Input A", node_type="numeric"
-    )
-    rule_node = Node(
-        node_id="B", input_flag=False, name="Rule B", node_type="numeric"
-    )
+    input_node = Node(node_id="A", input_flag=True, name="Input A", node_type="numeric")
+    rule_node = Node(node_id="B", input_flag=False, name="Rule B", node_type="numeric")
     assert input_node.is_input() is True
     assert input_node.is_rule() is False
     assert rule_node.is_input() is False

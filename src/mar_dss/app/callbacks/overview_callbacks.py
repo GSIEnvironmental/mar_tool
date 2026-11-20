@@ -2,35 +2,35 @@
 Overview tab callbacks for MAR DSS dashboard.
 """
 
-import dash
-import dash_bootstrap_components as dbc
-from dash import Input, Output, State, html, dependencies
-from dash.dependencies import ClientsideFunction
-import mar_dss.app.utils.data_storage as dash_storage
-import mar_dss.app.utils.helpers as helpers
-import ast
+import base64
+import io
 import json
 import os
 
+import dash
+import dash_bootstrap_components as dbc
 import pandas as pd
+from dash import Input, Output, State
+from dash.dependencies import ClientsideFunction
+
+import mar_dss.app.utils.data_storage as dash_storage
+import mar_dss.app.utils.helpers as helpers
 
 try:
-    from mar_dss.app.utils.native_file_dialog import ask_open_project_path
     from mar_dss.app.utils.project_file_path import format_project_path, split_project_path
     from mar_dss.app.utils.project_storage import (
+        _parse_literal_if_needed,
         apply_project_storage_defaults,
         is_missing_storage_value,
         normalize_stored_string,
-        _parse_literal_if_needed,
     )
 except ImportError:
-    from ..utils.native_file_dialog import ask_open_project_path
     from ..utils.project_file_path import format_project_path, split_project_path
     from ..utils.project_storage import (
+        _parse_literal_if_needed,
         apply_project_storage_defaults,
         is_missing_storage_value,
         normalize_stored_string,
-        _parse_literal_if_needed,
     )
 
 # Import the overview content creation function
@@ -40,44 +40,44 @@ try:
         normalize_stratigraphy_list_from_raw,
         stratigraphy_store_payload_from_storage,
     )
+    from mar_dss.app.components.layout import main_tab_panel_id
     from mar_dss.app.components.overview_tab import (
-        create_overview_content,
-        get_overview_map_header_text,
-        overview_map_header_children,
-        get_overview_map_figure_params,
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
-        DEFAULT_OVERVIEW_MAP_BASEMAP,
         DEFAULT_LAND_USE,
+        DEFAULT_OVERVIEW_MAP_BASEMAP,
+        create_overview_content,
+        get_overview_map_figure_params,
+        get_overview_map_header_text,
         normalize_land_use,
+        overview_map_header_children,
     )
     from mar_dss.app.components.water_source_tab import (
-        create_location_map,
         build_water_source_location_map_figure,
+        create_location_map,
         water_source_site_coordinates_summary_children,
     )
-    from mar_dss.app.components.layout import main_tab_panel_id
 except ImportError:
     from ..components.hydro_tab import (
         normalize_groundwater_data,
         normalize_stratigraphy_list_from_raw,
         stratigraphy_store_payload_from_storage,
     )
+    from ..components.layout import main_tab_panel_id
     from ..components.overview_tab import (
-        create_overview_content,
-        get_overview_map_header_text,
-        overview_map_header_children,
-        get_overview_map_figure_params,
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
-        DEFAULT_OVERVIEW_MAP_BASEMAP,
         DEFAULT_LAND_USE,
+        DEFAULT_OVERVIEW_MAP_BASEMAP,
+        create_overview_content,
+        get_overview_map_figure_params,
+        get_overview_map_header_text,
         normalize_land_use,
+        overview_map_header_children,
     )
     from ..components.water_source_tab import (
-        create_location_map,
         build_water_source_location_map_figure,
+        create_location_map,
         water_source_site_coordinates_summary_children,
     )
-    from ..components.layout import main_tab_panel_id
 
 
 def _extract_mapbox_view_from_relayout(relayout_data):
@@ -151,12 +151,7 @@ def _persist_shared_map_view_from_relayout(relayout_data):
         try:
             ola = float(old_lat) if old_lat is not None else None
             olo = float(old_lon) if old_lon is not None else None
-            center_changed = (
-                ola is None
-                or olo is None
-                or abs(ola - lat) > 0.002
-                or abs(olo - lon) > 0.002
-            )
+            center_changed = ola is None or olo is None or abs(ola - lat) > 0.002 or abs(olo - lon) > 0.002
         except (TypeError, ValueError):
             center_changed = True
 
@@ -205,7 +200,7 @@ def setup_overview_callbacks(app):
         if trigger == "starting-info-help-close-btn":
             return False
         return bool(is_open)
-    
+
     # Combined callback for project name input - handles all triggers
     @app.callback(
         Output("project-name-input", "value"),
@@ -213,31 +208,31 @@ def setup_overview_callbacks(app):
             Input("project-name-input", "value"),
             Input("project-name-input", "n_blur"),
             Input("project-name-input", "n_submit"),
-            Input("project-name-input", "id")
+            Input("project-name-input", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_project_name(value, n_blur, n_submit, component_id):
         """Handle project name input for all triggers: value change, blur, submit, and load."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved project name or use default, and save it
             project_name = dash_storage.get_data("project_name") or ""
             dash_storage.set_data("project_name", project_name)
             return project_name
-        
+
         # Get the current value from the input
         current_value = value if value else ""
-        
+
         # Determine which trigger caused the callback
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
+
         # Save project name for all triggers except initial load
         if trigger_prop != "id" and current_value:
             dash_storage.set_data("project_name", current_value)
-        
+
         return current_value
 
     # Combined callback for analysis date input - handles all triggers
@@ -247,25 +242,31 @@ def setup_overview_callbacks(app):
             Input("analysis-date-input", "value"),
             Input("analysis-date-input", "n_blur"),
             Input("analysis-date-input", "n_submit"),
-            Input("analysis-date-input", "id")
+            Input("analysis-date-input", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_analysis_date(value, n_blur, n_submit, component_id):
         """Handle analysis date input for all triggers: value change, blur, submit, and load."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved analysis date or use default, and save it
             analysis_date = dash_storage.get_data("analysis_date")
             if analysis_date:
                 # Ensure date is in YYYY-MM-DD format
                 try:
-                    if isinstance(analysis_date, str) and len(analysis_date) == 10 and analysis_date[4] == '-' and analysis_date[7] == '-':
+                    if (
+                        isinstance(analysis_date, str)
+                        and len(analysis_date) == 10
+                        and analysis_date[4] == "-"
+                        and analysis_date[7] == "-"
+                    ):
                         formatted_date = analysis_date
                     else:
                         # Try to parse and reformat the date
                         from datetime import datetime
+
                         parsed_date = helpers.parse_unknown_date(analysis_date)
                         formatted_date = parsed_date.strftime("%Y-%m-%d")
                     dash_storage.set_data("analysis_date", formatted_date)
@@ -273,30 +274,38 @@ def setup_overview_callbacks(app):
                 except:
                     # If parsing fails, use today's date
                     from datetime import datetime
+
                     default_date = datetime.now().strftime("%Y-%m-%d")
                     dash_storage.set_data("analysis_date", default_date)
                     return default_date
             else:
                 # No data in storage, use today's date
                 from datetime import datetime
+
                 default_date = datetime.now().strftime("%Y-%m-%d")
                 dash_storage.set_data("analysis_date", default_date)
                 return default_date
-        
+
         # Get the current value from the input
         current_value = value if value else ""
-        
+
         # Determine which trigger caused the callback
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
+
         # Save analysis date for all triggers except initial load
         if trigger_prop != "id" and current_value:
             # Ensure date is in YYYY-MM-DD format before saving
             try:
                 from datetime import datetime
+
                 # If it's already in correct format, use it
-                if isinstance(current_value, str) and len(current_value) == 10 and current_value[4] == '-' and current_value[7] == '-':
+                if (
+                    isinstance(current_value, str)
+                    and len(current_value) == 10
+                    and current_value[4] == "-"
+                    and current_value[7] == "-"
+                ):
                     formatted_date = current_value
                 else:
                     # Try to parse and reformat
@@ -306,35 +315,32 @@ def setup_overview_callbacks(app):
             except:
                 # If formatting fails, save as is
                 dash_storage.set_data("analysis_date", current_value)
-        
+
         return current_value
 
     # Callback for MAR purpose checklist - saves selections to data storage
     @app.callback(
         Output("mar-purpose-checklist", "value"),
-        [
-            Input("mar-purpose-checklist", "value"),
-            Input("mar-purpose-checklist", "id")
-        ],
-        prevent_initial_call=False
+        [Input("mar-purpose-checklist", "value"), Input("mar-purpose-checklist", "id")],
+        prevent_initial_call=False,
     )
     def handle_mar_purpose_selections(value, component_id):
         """Handle MAR purpose checklist selections and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved MAR purpose selections or use default, and save it
             mar_purpose = dash_storage.get_data("mar_purpose") or ["secure_water_supply"]
             dash_storage.set_data("mar_purpose", mar_purpose)
             return mar_purpose
-        
+
         # Get the current selections
         current_selections = value if value else []
-        
+
         # Save MAR purpose selections to data storage
         if current_selections:
             dash_storage.set_data("mar_purpose", current_selections)
-        
+
         return current_selections
 
     def _overview_map_figure_with_style(
@@ -344,11 +350,7 @@ def setup_overview_callbacks(app):
         fill_container=False,
     ):
         """Shared basemap + figure build for Overview and Water Source maps."""
-        style = (
-            style_value
-            if style_value in ALLOWED_OVERVIEW_BASEMAP_STYLES
-            else DEFAULT_OVERVIEW_MAP_BASEMAP
-        )
+        style = style_value if style_value in ALLOWED_OVERVIEW_BASEMAP_STYLES else DEFAULT_OVERVIEW_MAP_BASEMAP
         dash_storage.set_data("overview_map_basemap", style)
         lat, lon, zoom, marker_name, _ = get_overview_map_figure_params()
         return create_location_map(
@@ -367,9 +369,7 @@ def setup_overview_callbacks(app):
         prevent_initial_call=True,
     )
     def apply_overview_map_basemap_overview(style_overview):
-        return _overview_map_figure_with_style(
-            style_overview, fill_container=True
-        )
+        return _overview_map_figure_with_style(style_overview, fill_container=True)
 
     @app.callback(
         Output("water-source-location-map", "figure"),
@@ -377,11 +377,7 @@ def setup_overview_callbacks(app):
         prevent_initial_call=True,
     )
     def apply_overview_map_basemap_water_source(style_ws):
-        style = (
-            style_ws
-            if style_ws in ALLOWED_OVERVIEW_BASEMAP_STYLES
-            else DEFAULT_OVERVIEW_MAP_BASEMAP
-        )
+        style = style_ws if style_ws in ALLOWED_OVERVIEW_BASEMAP_STYLES else DEFAULT_OVERVIEW_MAP_BASEMAP
         dash_storage.set_data("overview_map_basemap", style)
         return build_water_source_location_map_figure(style)
 
@@ -446,9 +442,7 @@ def setup_overview_callbacks(app):
             f"Project Location — {location_name}",
         )
 
-        fig = _overview_map_figure_with_style(
-            basemap_dropdown_value, fill_container=True
-        )
+        fig = _overview_map_figure_with_style(basemap_dropdown_value, fill_container=True)
         hdr = get_overview_map_header_text()
         return (
             fig,
@@ -649,14 +643,25 @@ def setup_overview_callbacks(app):
 
         apply_project_storage_defaults()
 
-    def _bind_project_path_to_opened_file(fn: str) -> str:
-        """Point workspace/filename at the file that was actually opened."""
-        workspace_dir, base_name = split_project_path(fn)
-        dash_storage.set_data("workspace", workspace_dir)
-        dash_storage.set_data("filename", base_name)
-        return format_project_path(workspace_dir, base_name)
+    def _error_outputs(message):
+        """Outputs for handle_open_project when a file can't be loaded: show the
+        error and leave the stores alone."""
+        return (
+            [dbc.Alert(message, color="danger", className="mb-3")],
+            create_overview_content(),
+            dash.no_update,
+            "overview",
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            None,
+        )
 
-    # Callback for Open button - load project from file (native picker when available)
+    # Open button: load the project file the user uploaded.
+    # This used to open a desktop file dialog (tkinter), which only works when the
+    # app runs on the user's own computer. On a server the dialog would open on the
+    # server, if at all. Now the Open button is a dcc.Upload (see layout.py): the
+    # browser picks the file and sends its contents here.
     @app.callback(
         Output("main-content-flash", "children", allow_duplicate=True),
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
@@ -665,70 +670,32 @@ def setup_overview_callbacks(app):
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
         Output("groundwater-data-store", "data", allow_duplicate=True),
         Output("project-location-store", "data", allow_duplicate=True),
-        [Input("btn-open", "n_clicks")],
+        # Reset after each load so the same file can be opened again.
+        Output("upload-project", "contents"),
+        Input("upload-project", "contents"),
+        State("upload-project", "filename"),
         prevent_initial_call=True,
     )
-    def handle_open_project(n_clicks):
-        """Pick a CSV/JSON project file (Tk dialog) then load into storage."""
-        noop = (dash.no_update,) * 7
-        if not n_clicks:
-            return noop
+    def handle_open_project(contents, filename):
+        """Load an uploaded CSV/JSON project file into storage.
 
-        picked = ask_open_project_path()
+        The upload arrives as base64 text, so decode it first, then parse it the
+        same way the old file-path version did.
+        """
+        if not contents:
+            return (dash.no_update,) * 8
 
-        # User dismissed the native picker without choosing a path
-        if picked == "":
-            return noop
-
-        if isinstance(picked, str) and picked:
-            fn = picked
-            path_out = _bind_project_path_to_opened_file(fn)
-        else:
-            # Tk unavailable: use combined path from storage
-            data = dash_storage.get_data_storage()
-            fn = format_project_path(data.get("workspace"), data.get("filename"))
-            path_out = dash.no_update
-            if not (fn or "").strip():
-                return (
-                    [
-                        dbc.Alert(
-                            "Native file picker is unavailable here. Enter a full project "
-                            "file path, then click Open.",
-                            color="danger",
-                            className="mb-3",
-                        ),
-                    ],
-                    create_overview_content(),
-                    dash.no_update,
-                    "overview",
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                )
-            fn = os.path.normpath(fn.strip())
-
-        if not os.path.exists(fn):
-            return (
-                [
-                    dbc.Alert(
-                        f"File does not exist: {fn}",
-                        color="danger",
-                        className="mb-3",
-                    ),
-                ],
-                create_overview_content(),
-                path_out,
-                "overview",
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-            )
+        filename = os.path.basename(filename or "project.csv")
+        try:
+            _, encoded = contents.split(",", 1)
+            text = base64.b64decode(encoded).decode("utf-8-sig")
+        except (ValueError, UnicodeDecodeError) as e:
+            return _error_outputs(f"Error loading project: could not read {filename} ({e})")
 
         try:
-            suffix = os.path.splitext(fn)[1].lower()
+            suffix = os.path.splitext(filename)[1].lower()
             if suffix == ".json":
-                with open(fn, encoding="utf-8") as f:
-                    blob = json.load(f)
+                blob = json.loads(text)
                 if isinstance(blob, dict):
                     for key, value in blob.items():
                         if key in ("workspace", "filename"):
@@ -740,16 +707,14 @@ def setup_overview_callbacks(app):
                     raise ValueError("JSON project must contain an object at the root.")
                 apply_project_storage_defaults()
             else:
-                df = pd.read_csv(fn)
+                df = pd.read_csv(io.StringIO(text))
                 if not {"key", "value"} <= set(df.columns):
-                    raise ValueError(
-                        "CSV project must contain 'key' and 'value' columns."
-                    )
-                print(f"Loaded CSV with {len(df)} rows")
+                    raise ValueError("CSV project must contain 'key' and 'value' columns.")
                 _load_project_rows_into_storage(df)
 
-            # Always bind save path to the file just opened (ignore embedded paths).
-            path_after = _bind_project_path_to_opened_file(fn)
+            # We only get the file name, not where it is on the user's computer.
+            dash_storage.set_data("workspace", "")
+            dash_storage.set_data("filename", filename)
 
             if dash_storage.get_data("overview_map_basemap") == "stamen-terrain":
                 dash_storage.set_data("overview_map_basemap", "opentopomap")
@@ -759,34 +724,21 @@ def setup_overview_callbacks(app):
             return (
                 [
                     dbc.Alert(
-                        f"Project loaded successfully from {fn}",
+                        f"Project loaded successfully from {filename}",
                         color="success",
                         className="mb-3",
                     ),
                 ],
                 create_overview_content(),
-                path_after or path_out,
+                filename,
                 "overview",
                 strat_out,
                 gw_out,
                 project_loc,
+                None,
             )
         except Exception as e:
-            return (
-                [
-                    dbc.Alert(
-                        f"Error loading project: {str(e)}",
-                        color="danger",
-                        className="mb-3",
-                    ),
-                ],
-                create_overview_content(),
-                path_out,
-                "overview",
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-            )
+            return _error_outputs(f"Error loading project: {str(e)}")
 
     # Callback for ground surface slope input - saves to data storage
     @app.callback(
@@ -795,31 +747,31 @@ def setup_overview_callbacks(app):
             Input("ground-slope-input", "value"),
             Input("ground-slope-input", "n_blur"),
             Input("ground-slope-input", "n_submit"),
-            Input("ground-slope-input", "id")
+            Input("ground-slope-input", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_ground_slope_input(value, n_blur, n_submit, component_id):
         """Handle ground surface slope input for all triggers: value change, blur, submit, and load."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved ground slope or use default, and save it
             ground_slope = dash_storage.get_data("ground_surface_slope") or 0.5
             dash_storage.set_data("ground_surface_slope", ground_slope)
             return ground_slope
-        
+
         # Get the current value from the input
         current_value = value if value is not None else 0.5
-        
+
         # Determine which trigger caused the callback
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
+
         # Save ground slope for all triggers except initial load
         if trigger_prop != "id":
             dash_storage.set_data("ground_surface_slope", current_value)
-        
+
         return current_value
 
     # Callback for maximum available area input - saves to data storage
@@ -829,57 +781,53 @@ def setup_overview_callbacks(app):
             Input("max-area-input", "value"),
             Input("max-area-input", "n_blur"),
             Input("max-area-input", "n_submit"),
-            Input("max-area-input", "id")
+            Input("max-area-input", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_max_area_input(value, n_blur, n_submit, component_id):
         """Handle maximum available area input for all triggers: value change, blur, submit, and load."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved max area or use default, and save it
             max_area = dash_storage.get_data("max_available_area") or 1.0
             dash_storage.set_data("max_available_area", max_area)
             return max_area
-        
+
         # Get the current value from the input
         current_value = value if value is not None else 1.0
-        
+
         # Determine which trigger caused the callback
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
+
         # Save max area for all triggers except initial load
         if trigger_prop != "id":
             dash_storage.set_data("max_available_area", current_value)
-        
+
         return current_value
 
     # Callback for land use dropdown - saves to data storage
     @app.callback(
         Output("land-use-dropdown", "value"),
-        [
-            Input("land-use-dropdown", "value"),
-            Input("land-use-dropdown", "id")
-        ],
-        prevent_initial_call=False
+        [Input("land-use-dropdown", "value"), Input("land-use-dropdown", "id")],
+        prevent_initial_call=False,
     )
     def handle_land_use_selection(value, component_id):
         """Handle land use dropdown selection and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved land use or use default, and save it
             land_use = normalize_land_use(dash_storage.get_data("land_use"))
             dash_storage.set_data("land_use", land_use)
             return land_use
-        
+
         # Get the current selection
         current_selection = normalize_land_use(value) if value else DEFAULT_LAND_USE
-        
+
         # Save land use selection to data storage
         dash_storage.set_data("land_use", current_selection)
-        
-        return current_selection
 
+        return current_selection

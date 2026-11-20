@@ -2,15 +2,17 @@
 # Overview map lat/lon/zoom persist via dash_storage (CSV Save/Load); see overview_callbacks.
 
 from datetime import datetime
+
 import dash_bootstrap_components as dbc
-from dash import html, dcc
+from dash import dcc, html
+
 import mar_dss.app.utils.data_storage as dash_storage
 import mar_dss.app.utils.helpers as helpers
 from mar_dss.app.utils.project_storage import normalize_stored_string
 
 try:
-    from mar_dss.app.utils.project_file_path import format_project_path
     from mar_dss.app.components.water_source_tab import create_location_map
+    from mar_dss.app.utils.project_file_path import format_project_path
 except ImportError:
     from ..utils.project_file_path import format_project_path
     from .water_source_tab import create_location_map
@@ -78,10 +80,7 @@ def get_overview_map_header_text():
     project_location = normalize_stored_string(dash_storage.get_data("project_location"))
     if project_location:
         return f"Project Location — {project_location}"
-    return (
-        "Project Location — Sacramento, California, United States "
-        "(pan/zoom map to update saved view)"
-    )
+    return "Project Location — Sacramento, California, United States (pan/zoom map to update saved view)"
 
 
 def overview_map_header_children(text=None):
@@ -135,8 +134,7 @@ def create_starting_information_help_modal():
         ),
         (
             "Analysis Date",
-            "The date of this feasibility assessment. Recorded in project data, reports, "
-            "and AI decision context.",
+            "The date of this feasibility assessment. Recorded in project data, reports, and AI decision context.",
         ),
         (
             "MAR Purpose",
@@ -230,10 +228,12 @@ def create_mar_purpose_section():
 
     if analysis_date_raw:
         try:
-            if (isinstance(analysis_date_raw, str) and
-                len(analysis_date_raw) == 10 and
-                analysis_date_raw[4] == '-' and
-                analysis_date_raw[7] == '-'):
+            if (
+                isinstance(analysis_date_raw, str)
+                and len(analysis_date_raw) == 10
+                and analysis_date_raw[4] == "-"
+                and analysis_date_raw[7] == "-"
+            ):
                 analysis_date = analysis_date_raw
             else:
                 parsed_date = helpers.parse_unknown_date(analysis_date_raw)
@@ -250,195 +250,199 @@ def create_mar_purpose_section():
     max_area = dash_storage.get_data("max_available_area") or 1.0
     land_use = normalize_land_use(dash_storage.get_data("land_use"))
 
-    return dbc.Card([
-        dbc.CardHeader(
-            html.Div(
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                html.Div(
+                    [
+                        html.Span("Project Overview", className="fw-bold"),
+                        html.Button(
+                            "?",
+                            id="starting-info-help-btn",
+                            type="button",
+                            className="mar-help-btn",
+                            title="Help: explain starting information and decision use",
+                        ),
+                    ],
+                    className="d-flex align-items-center justify-content-between w-100",
+                ),
+                className="bg-primary text-white py-2",
+            ),
+            dbc.CardBody(
                 [
-                    html.Span("Project Overview", className="fw-bold"),
-                    html.Button(
-                        "?",
-                        id="starting-info-help-btn",
-                        type="button",
-                        className="mar-help-btn",
-                        title="Help: explain starting information and decision use",
+                    create_starting_information_help_modal(),
+                    html.H6("Project Setup", className="fw-bold mb-2"),
+                    html.Label("Project Name", className="fw-bold small mb-1"),
+                    dbc.Input(
+                        id="project-name-input",
+                        type="text",
+                        placeholder="Enter your MAR project name...",
+                        value=project_name or "",
+                        debounce=True,
+                        style={"margin-bottom": "8px"},
                     ),
-                ],
-                className="d-flex align-items-center justify-content-between w-100",
+                    html.Label("Project File", className="fw-bold small mb-1"),
+                    dbc.Input(
+                        id="project-path-input",
+                        type="text",
+                        placeholder="Set by Open / Save / Save As… (display only)",
+                        value=project_file_path_initial,
+                        readonly=True,
+                        className="mb-2",
+                    ),
+                    html.Label("Analysis Date", className="fw-bold small mb-1"),
+                    dbc.Input(
+                        id="analysis-date-input",
+                        type="date",
+                        debounce=True,
+                        style={"margin-bottom": "8px"},
+                    ),
+                    html.Hr(className="my-2"),
+                    html.H6(
+                        "Project Objectives",
+                        className="fw-bold mb-2",
+                        style={"color": "#495057"},
+                    ),
+                    html.P(
+                        "Select one or more objectives for your MAR project",
+                        className="text-muted small mb-2",
+                    ),
+                    dbc.Checklist(
+                        id="mar-purpose-checklist",
+                        options=[
+                            {
+                                "label": "Secure Water Supply",
+                                "value": "secure_water_supply",
+                            },
+                            {
+                                "label": "Restore Depleted Aquifer Storage",
+                                "value": "restore_aquifer_storage",
+                            },
+                            {
+                                "label": "Reduce Flood Impact",
+                                "value": "reduce_flood_impact",
+                            },
+                            {
+                                "label": "Mitigate Seawater Intrusion",
+                                "value": "mitigate_seawater_intrusion",
+                            },
+                            {
+                                "label": "Improve Water Quality",
+                                "value": "improve_water_quality",
+                            },
+                            {
+                                "label": "Reduce Subsidence",
+                                "value": "reduce_subsidence",
+                            },
+                            {
+                                "label": "Protect Riparian Ecosystems/Maintain Minimum Streamflow",
+                                "value": "protect_riparian_ecosystems",
+                            },
+                        ],
+                        value=mar_purpose,
+                        inline=False,
+                        style={"margin-top": "4px"},
+                    ),
+                    html.Hr(className="my-2"),
+                    html.Label("Project Location", className="fw-bold small mb-1"),
+                    html.Small(
+                        "Set by clicking the map on the right",
+                        className="text-muted d-block mb-1",
+                    ),
+                    dbc.Input(
+                        id="project-location-input",
+                        type="text",
+                        placeholder="Set via map / Open project (display only)",
+                        value=project_location,
+                        readonly=True,
+                        style={"margin-bottom": "8px"},
+                    ),
+                    html.Label("Land Area Available for Recharge (acres)", className="fw-bold small mb-1"),
+                    html.Small(
+                        "Total land surface area available for the MAR recharge site",
+                        className="text-muted d-block mb-1",
+                    ),
+                    dbc.Input(
+                        id="max-area-input",
+                        type="number",
+                        placeholder="Enter maximum available area...",
+                        value=max_area,
+                        debounce=True,
+                        min=0,
+                        step=0.1,
+                        style={"margin-bottom": "8px"},
+                    ),
+                    html.Label("Land Use", className="fw-bold small mb-1"),
+                    html.P(
+                        "Primary land use type for the MAR recharge site",
+                        className="text-muted small mb-2",
+                    ),
+                    dcc.Dropdown(
+                        id="land-use-dropdown",
+                        options=LAND_USE_OPTIONS,
+                        value=land_use,
+                        style={"margin-top": "4px", "margin-bottom": "8px"},
+                    ),
+                    html.Label("Ground Surface Slope (%)", className="fw-bold small mb-1"),
+                    html.Small(
+                        "Ground surface slope of the MAR recharge site",
+                        className="text-muted d-block mb-1",
+                    ),
+                    dbc.Input(
+                        id="ground-slope-input",
+                        type="number",
+                        placeholder="Enter ground surface slope percentage...",
+                        value=ground_slope,
+                        debounce=True,
+                        min=0,
+                        step=0.1,
+                        style={"margin-bottom": "8px"},
+                    ),
+                    dbc.Tooltip(
+                        'Enter a descriptive name for your MAR project (e.g., "Sacramento Groundwater Recharge")',
+                        target="project-name-input",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Name of the project CSV/JSON. Open uploads one; Save and Save As download one.",
+                        target="project-path-input",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Select the date for the analysis (defaults to today)",
+                        target="analysis-date-input",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Geographic location of the MAR project (used for mapping and analysis)",
+                        target="project-location-input",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Select the objectives your MAR project aims to achieve",
+                        target="mar-purpose-checklist",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Enter slope as percentage (e.g., 5% = 0.05). Affects recharge calculations",
+                        target="ground-slope-input",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Total land area available for recharge activities (impacts design capacity)",
+                        target="max-area-input",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Land use type affects infiltration rates and suitability for recharge",
+                        target="land-use-dropdown",
+                        placement="top",
+                    ),
+                ]
             ),
-            className="bg-primary text-white py-2",
-        ),
-        dbc.CardBody([
-            create_starting_information_help_modal(),
-            html.H6("Project Setup", className="fw-bold mb-2"),
-            html.Label("Project Name", className="fw-bold small mb-1"),
-            dbc.Input(
-                id="project-name-input",
-                type="text",
-                placeholder="Enter your MAR project name...",
-                value=project_name or "",
-                debounce=True,
-                style={"margin-bottom": "8px"},
-            ),
-            html.Label("Project File Path", className="fw-bold small mb-1"),
-            dbc.Input(
-                id="project-path-input",
-                type="text",
-                placeholder="Set via Open / Save / Save As… (display only)",
-                value=project_file_path_initial,
-                readonly=True,
-                className="mb-2",
-            ),
-            html.Label("Analysis Date", className="fw-bold small mb-1"),
-            dbc.Input(
-                id="analysis-date-input",
-                type="date",
-                debounce=True,
-                style={"margin-bottom": "8px"},
-            ),
-            html.Hr(className="my-2"),
-            html.H6(
-                "Project Objectives",
-                className="fw-bold mb-2",
-                style={"color": "#495057"},
-            ),
-            html.P(
-                "Select one or more objectives for your MAR project",
-                className="text-muted small mb-2",
-            ),
-            dbc.Checklist(
-                id="mar-purpose-checklist",
-                options=[
-                    {
-                        "label": "Secure Water Supply",
-                        "value": "secure_water_supply",
-                    },
-                    {
-                        "label": "Restore Depleted Aquifer Storage",
-                        "value": "restore_aquifer_storage",
-                    },
-                    {
-                        "label": "Reduce Flood Impact",
-                        "value": "reduce_flood_impact",
-                    },
-                    {
-                        "label": "Mitigate Seawater Intrusion",
-                        "value": "mitigate_seawater_intrusion",
-                    },
-                    {
-                        "label": "Improve Water Quality",
-                        "value": "improve_water_quality",
-                    },
-                    {
-                        "label": "Reduce Subsidence",
-                        "value": "reduce_subsidence",
-                    },
-                    {
-                        "label": "Protect Riparian Ecosystems/Maintain Minimum Streamflow",
-                        "value": "protect_riparian_ecosystems",
-                    },
-                ],
-                value=mar_purpose,
-                inline=False,
-                style={"margin-top": "4px"},
-            ),
-            html.Hr(className="my-2"),
-            html.Label("Project Location", className="fw-bold small mb-1"),
-            html.Small(
-                "Set by clicking the map on the right",
-                className="text-muted d-block mb-1",
-            ),
-            dbc.Input(
-                id="project-location-input",
-                type="text",
-                placeholder="Set via map / Open project (display only)",
-                value=project_location,
-                readonly=True,
-                style={"margin-bottom": "8px"},
-            ),
-            html.Label("Land Area Available for Recharge (acres)", className="fw-bold small mb-1"),
-            html.Small(
-                "Total land surface area available for the MAR recharge site",
-                className="text-muted d-block mb-1",
-            ),
-            dbc.Input(
-                id="max-area-input",
-                type="number",
-                placeholder="Enter maximum available area...",
-                value=max_area,
-                debounce=True,
-                min=0,
-                step=0.1,
-                style={"margin-bottom": "8px"},
-            ),
-            html.Label("Land Use", className="fw-bold small mb-1"),
-            html.P(
-                "Primary land use type for the MAR recharge site",
-                className="text-muted small mb-2",
-            ),
-            dcc.Dropdown(
-                id="land-use-dropdown",
-                options=LAND_USE_OPTIONS,
-                value=land_use,
-                style={"margin-top": "4px", "margin-bottom": "8px"},
-            ),
-            html.Label("Ground Surface Slope (%)", className="fw-bold small mb-1"),
-            html.Small(
-                "Ground surface slope of the MAR recharge site",
-                className="text-muted d-block mb-1",
-            ),
-            dbc.Input(
-                id="ground-slope-input",
-                type="number",
-                placeholder="Enter ground surface slope percentage...",
-                value=ground_slope,
-                debounce=True,
-                min=0,
-                step=0.1,
-                style={"margin-bottom": "8px"},
-            ),
-            dbc.Tooltip(
-                'Enter a descriptive name for your MAR project '
-                '(e.g., "Sacramento Groundwater Recharge")',
-                target="project-name-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Full path to the project CSV/JSON. Use File → Open, Save, or Save As...",
-                target="project-path-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Select the date for the analysis (defaults to today)",
-                target="analysis-date-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Geographic location of the MAR project (used for mapping and analysis)",
-                target="project-location-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Select the objectives your MAR project aims to achieve",
-                target="mar-purpose-checklist",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Enter slope as percentage (e.g., 5% = 0.05). Affects recharge calculations",
-                target="ground-slope-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Total land area available for recharge activities (impacts design capacity)",
-                target="max-area-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Land use type affects infiltration rates and suitability for recharge",
-                target="land-use-dropdown",
-                placement="top",
-            ),
-        ])
-    ], className="h-100 w-100")
+        ],
+        className="h-100 w-100",
+    )
 
 
 def create_location_map_section():
@@ -531,64 +535,68 @@ def create_site_description_section():
     max_area = dash_storage.get_data("max_available_area") or 1.0
     land_use = normalize_land_use(dash_storage.get_data("land_use"))
 
-    return dbc.Card([
-        dbc.CardHeader(
-            "Site Description",
-            className="fw-bold bg-primary text-white",
-        ),
-        dbc.CardBody([
-            html.Label("Land Area Available for Recharge (acres)", className="fw-bold"),
-            html.Small(
-                "Total land surface area available for the MAR recharge site",
-                className="text-muted d-block mb-2",
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                "Site Description",
+                className="fw-bold bg-primary text-white",
             ),
-            dbc.Input(
-                id="max-area-input",
-                type="number",
-                placeholder="Enter maximum available area...",
-                value=max_area,
-                min=0,
-                step=0.1,
-                style={"margin-bottom": "15px"},
+            dbc.CardBody(
+                [
+                    html.Label("Land Area Available for Recharge (acres)", className="fw-bold"),
+                    html.Small(
+                        "Total land surface area available for the MAR recharge site",
+                        className="text-muted d-block mb-2",
+                    ),
+                    dbc.Input(
+                        id="max-area-input",
+                        type="number",
+                        placeholder="Enter maximum available area...",
+                        value=max_area,
+                        min=0,
+                        step=0.1,
+                        style={"margin-bottom": "15px"},
+                    ),
+                    html.Label("Land Use", className="fw-bold"),
+                    html.P(
+                        "Primary land use type for the MAR recharge site",
+                        className="text-muted small",
+                    ),
+                    dcc.Dropdown(
+                        id="land-use-dropdown",
+                        options=LAND_USE_OPTIONS,
+                        value=land_use,
+                        style={"margin-top": "10px", "margin-bottom": "15px"},
+                    ),
+                    html.Label("Ground Surface Slope (%)", className="fw-bold"),
+                    dbc.Input(
+                        id="ground-slope-input",
+                        type="number",
+                        placeholder="Enter ground surface slope percentage...",
+                        value=ground_slope,
+                        min=0,
+                        step=0.1,
+                        style={"margin-bottom": "15px"},
+                    ),
+                    dbc.Tooltip(
+                        "Total land area available for recharge activities (impacts design capacity)",
+                        target="max-area-input",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Land use type affects infiltration rates and suitability for recharge",
+                        target="land-use-dropdown",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Enter slope as percentage (e.g., 5% = 0.05). Affects recharge calculations",
+                        target="ground-slope-input",
+                        placement="top",
+                    ),
+                ]
             ),
-            html.Label("Land Use", className="fw-bold"),
-            html.P(
-                "Primary land use type for the MAR recharge site",
-                className="text-muted small",
-            ),
-            dcc.Dropdown(
-                id="land-use-dropdown",
-                options=LAND_USE_OPTIONS,
-                value=land_use,
-                style={"margin-top": "10px", "margin-bottom": "15px"},
-            ),
-            html.Label("Ground Surface Slope (%)", className="fw-bold"),
-            dbc.Input(
-                id="ground-slope-input",
-                type="number",
-                placeholder="Enter ground surface slope percentage...",
-                value=ground_slope,
-                min=0,
-                step=0.1,
-                style={"margin-bottom": "15px"},
-            ),
-            dbc.Tooltip(
-                "Total land area available for recharge activities (impacts design capacity)",
-                target="max-area-input",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Land use type affects infiltration rates and suitability for recharge",
-                target="land-use-dropdown",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Enter slope as percentage (e.g., 5% = 0.05). Affects recharge calculations",
-                target="ground-slope-input",
-                placement="top",
-            ),
-        ])
-    ])
+        ]
+    )
 
 
 def create_overview_content():

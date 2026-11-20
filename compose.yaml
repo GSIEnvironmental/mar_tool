@@ -1,0 +1,65 @@
+# Local dev
+#
+#   docker compose up --build
+#   then open http://localhost:8085/MAR-Tool/
+#
+# To use another port, set MAR_HTTP_PORT in .env.
+#
+# The app runs Dash's debug server against your ./src folder, so code edits
+# reload on their own. Rebuild the image (--build) only after changing
+# dependencies in pyproject.toml.
+
+configs:
+  caddyfile:
+    content: |
+      http:// {
+        redir / /MAR-Tool/ 308
+        redir /MAR-Tool /MAR-Tool/ 308
+        handle_path /MAR-Tool/* {
+          request_body {
+            max_size 12MB
+          }
+          reverse_proxy web:8050
+        }
+      }
+
+services:
+  caddy:
+    container_name: mar-tool-caddy
+    image: caddy:2.10.2-alpine
+    ports:
+      - "127.0.0.1:${MAR_HTTP_PORT:-8085}:80"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    depends_on:
+      web:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    container_name: mar-tool
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    command:
+      [
+        "mar_dss",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8050",
+        "--no-open-browser",
+        "--dev",
+      ]
+    environment:
+      # Caddy strips /MAR-Tool, so tell Dash to add it back to the page's URLs.
+      DASH_REQUESTS_PATHNAME_PREFIX: /MAR-Tool/
+      # The address to open in a browser, printed at startup.
+      MAR_PUBLIC_URL: "http://localhost:${MAR_HTTP_PORT:-8085}/MAR-Tool/"
+      # Import mar_dss from the mounted ./src instead of the copy in the image.
+      PYTHONPATH: /code/src
+    volumes:
+      - ./src:/code/src:ro
+    restart: unless-stopped

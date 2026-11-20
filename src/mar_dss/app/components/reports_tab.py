@@ -19,5 +19,3 @@ def create_reports_tab_content():
             title="Build a summary report from current analysis outputs (when wired)",
         ),
     ]
-
-

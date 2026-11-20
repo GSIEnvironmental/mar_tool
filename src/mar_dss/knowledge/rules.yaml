@@ -181,7 +181,7 @@ rules:
   - id: "op_gw_depth"
     name: "Operational GW Depth"
     #symbol: "Dgw_ok"
-    description: "Compute the actuall minimum operational/actual grounwater depth"
+    description: "Compute the actual minimum operational groundwater depth"
     type: numeric
     module: "geohydro_rules"
     function_name: "compute_min_gw_depth"
@@ -289,7 +289,7 @@ rules:
     description: "% of source water that can be recharged"
     type: numeric
     module: "geohydro_rules"
-    function_name: "compute_rechargable_percentage"
+    function_name: "compute_rechargeable_percentage"
     dependencies: [annual_surface_recharge_volume, annual_injection_volume, annual_dry_well_volume, source_water_volume ]
     certainty: 0.8
     group: "Aquifer Properties"
@@ -324,7 +324,7 @@ rules:
   - id: "leakage_significance"
     name: "Confined leakage Adequacy"
     #symbol: "StorageOK"
-    description: "a metric to assess the significance of leakage within a raduis of 1000 ft"
+    description: "a metric to assess the significance of leakage within a radius of 1000 ft"
     type: categorical
     module: "geohydro_rules"
     function_name: "compute_leakage_significance"

@@ -2,10 +2,11 @@
 Runoff Calculator tab components for MAR DSS dashboard.
 """
 
+import dash
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
-from dash import dcc, html
 import dash_leaflet as dl
+from dash import dcc, html
+
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.excel_table import INPUT_CELL_BG
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
@@ -60,32 +61,26 @@ def create_peak_runoff_calculations_help_modal():
                     html.H6("Workflow", className="fw-bold mb-2"),
                     html.Ol(
                         [
-                            html.Li(
-                                "Choose option 1A or 1B to compute the percentage of "
-                                "impervious cover."
-                            ),
+                            html.Li("Choose option 1A or 1B to compute the percentage of impervious cover."),
                             html.Li("Select the condition of the impervious area."),
-                            html.Li(
-                                "Select the condition of the pervious area (land cover)."
-                            ),
+                            html.Li("Select the condition of the pervious area (land cover)."),
                             html.Li("Select the soil type."),
-                            html.Li([
-                                "Enter latitude and longitude, then click ",
-                                html.Strong("Download Rain Statistics"),
-                                ".",
-                            ]),
                             html.Li(
-                                "Copy and paste the design storm depth of your choice into "
-                                "the rainfall table."
+                                [
+                                    "Enter latitude and longitude, then click ",
+                                    html.Strong("Download Rain Statistics"),
+                                    ".",
+                                ]
                             ),
-                            html.Li([
-                                "If watershed area is not available, use the ",
-                                html.Strong("Watershed Information"),
-                                " tab to obtain it.",
-                            ]),
+                            html.Li("Copy and paste the design storm depth of your choice into the rainfall table."),
                             html.Li(
-                                "All remaining runoff values are computed automatically."
+                                [
+                                    "If watershed area is not available, use the ",
+                                    html.Strong("Watershed Information"),
+                                    " tab to obtain it.",
+                                ]
                             ),
+                            html.Li("All remaining runoff values are computed automatically."),
                         ],
                         className="mb-4 ps-3",
                     ),
@@ -104,8 +99,7 @@ def create_peak_runoff_calculations_help_modal():
                     ),
                     html.P(
                         [
-                            "CN_imp and CN_perv are curve numbers for impervious and pervious "
-                            "areas; P_imp is ",
+                            "CN_imp and CN_perv are curve numbers for impervious and pervious areas; P_imp is ",
                             html.Strong("Connected Impervious Area %"),
                             ".",
                         ],
@@ -202,7 +196,7 @@ def _get_runoff_calculations_data():
     saved_data = dash_storage.get_data("runoff_calculations_table")
     if saved_data:
         return saved_data
-    
+
     # Return default data
     return [
         {"Parameter": "Area (acres)", "Value": 10},
@@ -212,7 +206,7 @@ def _get_runoff_calculations_data():
         {"Parameter": "Initial Abstraction", "Value": 0.05},
         {"Parameter": "Runoff Depth (inches)", "Value": 1},
         {"Parameter": "Runoff/Precipitation Ratio", "Value": 0.2},
-        {"Parameter": "Runoff Volume (ft3)", "Value": 10000}
+        {"Parameter": "Runoff Volume (ft3)", "Value": 10000},
     ]
 
 
@@ -261,25 +255,29 @@ def create_runoff_map(lat=None, lon=None, zoom=None):
             dl.LayerGroup(id="stations-layer"),
             dl.LayerGroup(id="watershed-layer"),
         ],
-        style={'width': '100%', 'height': '500px', 'borderRadius': '8px', 'boxShadow': '0 4px 6px rgba(0, 0, 0, 0.1)'},
-        id="runoff-map"
+        style={"width": "100%", "height": "500px", "borderRadius": "8px", "boxShadow": "0 4px 6px rgba(0, 0, 0, 0.1)"},
+        id="runoff-map",
     )
 
 
 def create_map_card():
     """Create the map card component (centered on Project Location)."""
-    return dbc.Card([
-        dbc.CardHeader("Runoff Analysis Map", className="fw-bold bg-primary text-white"),
-        dbc.CardBody([
-            create_runoff_map(),
-            dbc.Tooltip(
-                "Centered on Project Location. Click the map to set watershed "
-                "coordinates; use layers for markers, stations, and watershed",
-                target="runoff-map",
-                placement="top",
+    return dbc.Card(
+        [
+            dbc.CardHeader("Runoff Analysis Map", className="fw-bold bg-primary text-white"),
+            dbc.CardBody(
+                [
+                    create_runoff_map(),
+                    dbc.Tooltip(
+                        "Centered on Project Location. Click the map to set watershed "
+                        "coordinates; use layers for markers, stations, and watershed",
+                        target="runoff-map",
+                        placement="top",
+                    ),
+                ]
             ),
-        ])
-    ])
+        ]
+    )
 
 
 def create_coordinate_inputs():
@@ -294,7 +292,7 @@ def create_coordinate_inputs():
             placeholder="Click map to set latitude",
             debounce=True,
             step=0.000001,
-            style={"margin-bottom": "10px"}
+            style={"margin-bottom": "10px"},
         ),
         html.Label("Selected Longitude", className="fw-bold"),
         dbc.Input(
@@ -304,7 +302,7 @@ def create_coordinate_inputs():
             placeholder="Click map to set longitude",
             debounce=True,
             step=0.000001,
-            style={"margin-bottom": "15px"}
+            style={"margin-bottom": "15px"},
         ),
     ]
 
@@ -342,42 +340,45 @@ def create_action_buttons():
 
 def create_controls_card():
     """Create the analysis controls card component."""
-    return dbc.Card([
-        dbc.CardHeader("Analysis Controls", className="fw-bold bg-primary text-white"),
-        dbc.CardBody([
-            *create_action_buttons(),
-            dcc.Loading(
-                id="watershed-action-loading",
-                type="circle",
-                color="#0d6efd",
-                parent_style={"minHeight": "48px"},
-                children=html.Div(id="status-message", className="mt-3 mb-3"),
+    return dbc.Card(
+        [
+            dbc.CardHeader("Analysis Controls", className="fw-bold bg-primary text-white"),
+            dbc.CardBody(
+                [
+                    *create_action_buttons(),
+                    dcc.Loading(
+                        id="watershed-action-loading",
+                        type="circle",
+                        color="#0d6efd",
+                        parent_style={"minHeight": "48px"},
+                        children=html.Div(id="status-message", className="mt-3 mb-3"),
+                    ),
+                    html.Hr(),
+                    *create_coordinate_inputs(),
+                    html.Hr(),
+                    html.Div(id="runoff-results", className="mt-3"),
+                    html.Small(
+                        "Click on the map to add monitoring points or draw watershed boundaries", className="text-muted"
+                    ),
+                    dbc.Tooltip(
+                        "Latitude from map click or manual entry (decimal degrees)",
+                        target="selected-latitude",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Longitude from map click or manual entry (decimal degrees)",
+                        target="selected-longitude",
+                        placement="top",
+                    ),
+                    dbc.Tooltip(
+                        "Clear marker, streams, and watershed so you can pick a new drainage point",
+                        target="reset-watershed-map-btn",
+                        placement="top",
+                    ),
+                ]
             ),
-            html.Hr(),
-            *create_coordinate_inputs(),
-            html.Hr(),
-            html.Div(id="runoff-results", className="mt-3"),
-            html.Small(
-                "Click on the map to add monitoring points or draw watershed boundaries",
-                className="text-muted"
-            ),
-            dbc.Tooltip(
-                "Latitude from map click or manual entry (decimal degrees)",
-                target="selected-latitude",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Longitude from map click or manual entry (decimal degrees)",
-                target="selected-longitude",
-                placement="top",
-            ),
-            dbc.Tooltip(
-                "Clear marker, streams, and watershed so you can pick a new drainage point",
-                target="reset-watershed-map-btn",
-                placement="top",
-            ),
-        ])
-    ])
+        ]
+    )
 
 
 def create_impervious_curve_number_content():
@@ -389,25 +390,29 @@ def create_impervious_curve_number_content():
         {"label": "Asphalt - Fresh/Uncracked (CN: 99)", "value": "asphalt_fresh"},
         {"label": "Asphalt - Weathered/Cracked (CN: 97)", "value": "asphalt_weathered"},
     ]
-    
-    return dbc.Card([
-        dbc.CardHeader("Estimated Impervious Curve Number Values", className="fw-bold bg-primary text-white"),
-        dbc.CardBody([
-            html.Label("Select Surface Condition", className="fw-bold mb-2"),
-            dbc.Select(
-                id="impervious-curve-number-select",
-                options=curve_number_options,
-                placeholder="Select a surface condition...",
-                className="mb-3"
+
+    return dbc.Card(
+        [
+            dbc.CardHeader("Estimated Impervious Curve Number Values", className="fw-bold bg-primary text-white"),
+            dbc.CardBody(
+                [
+                    html.Label("Select Surface Condition", className="fw-bold mb-2"),
+                    dbc.Select(
+                        id="impervious-curve-number-select",
+                        options=curve_number_options,
+                        placeholder="Select a surface condition...",
+                        className="mb-3",
+                    ),
+                    html.Div(id="selected-impervious-curve-number-display", className="mt-3"),
+                    dbc.Tooltip(
+                        "Curve number for fully impervious surfaces (SCS CN tables)",
+                        target="impervious-curve-number-select",
+                        placement="top",
+                    ),
+                ]
             ),
-            html.Div(id="selected-impervious-curve-number-display", className="mt-3"),
-            dbc.Tooltip(
-                "Curve number for fully impervious surfaces (SCS CN tables)",
-                target="impervious-curve-number-select",
-                placement="top",
-            ),
-        ])
-    ])
+        ]
+    )
 
 
 def create_cover_soil_curve_number_content():
@@ -420,7 +425,7 @@ def create_cover_soil_curve_number_content():
         {"label": "Natural Desert Landscaping (pervious areas only)", "value": "natural_desert"},
         {"label": "Developing Urban Areas - Newly Graded Areas", "value": "developing_urban"},
     ]
-    
+
     # Hydrologic Soil Type options (columns)
     soil_type_options = [
         {"label": "Hydrologic Soil Type A", "value": "type_a"},
@@ -428,43 +433,55 @@ def create_cover_soil_curve_number_content():
         {"label": "Hydrologic Soil Type C", "value": "type_c"},
         {"label": "Hydrologic Soil Type D", "value": "type_d"},
     ]
-    
-    return dbc.Card([
-        dbc.CardHeader("Estimated Pervious Curve Number Values", className="fw-bold bg-primary text-white"),
-        dbc.CardBody([
-            dbc.Row([
-                dbc.Col([
-                    html.Label("Cover Description", className="fw-bold mb-2"),
-                    dbc.Select(
-                        id="cover-description-select",
-                        options=cover_description_options,
-                        placeholder="Select cover description...",
-                        className="mb-3"
+
+    return dbc.Card(
+        [
+            dbc.CardHeader("Estimated Pervious Curve Number Values", className="fw-bold bg-primary text-white"),
+            dbc.CardBody(
+                [
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
+                                    html.Label("Cover Description", className="fw-bold mb-2"),
+                                    dbc.Select(
+                                        id="cover-description-select",
+                                        options=cover_description_options,
+                                        placeholder="Select cover description...",
+                                        className="mb-3",
+                                    ),
+                                ],
+                                width=6,
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Label("Hydrologic Soil Type", className="fw-bold mb-2"),
+                                    dbc.Select(
+                                        id="soil-type-select",
+                                        options=soil_type_options,
+                                        placeholder="Select soil type...",
+                                        className="mb-3",
+                                    ),
+                                ],
+                                width=6,
+                            ),
+                        ]
                     ),
-                ], width=6),
-                dbc.Col([
-                    html.Label("Hydrologic Soil Type", className="fw-bold mb-2"),
-                    dbc.Select(
-                        id="soil-type-select",
-                        options=soil_type_options,
-                        placeholder="Select soil type...",
-                        className="mb-3"
+                    html.Div(id="selected-curve-number-display", className="mt-3"),
+                    dbc.Tooltip(
+                        "Land cover condition for pervious portion of the watershed",
+                        target="cover-description-select",
+                        placement="top",
                     ),
-                ], width=6)
-            ]),
-            html.Div(id="selected-curve-number-display", className="mt-3"),
-            dbc.Tooltip(
-                "Land cover condition for pervious portion of the watershed",
-                target="cover-description-select",
-                placement="top",
+                    dbc.Tooltip(
+                        "NRCS hydrologic soil group for pervious CN lookup",
+                        target="soil-type-select",
+                        placement="top",
+                    ),
+                ]
             ),
-            dbc.Tooltip(
-                "NRCS hydrologic soil group for pervious CN lookup",
-                target="soil-type-select",
-                placement="top",
-            ),
-        ])
-    ])
+        ]
+    )
 
 
 def create_single_storm_runoff_help_modal():
@@ -495,8 +512,7 @@ def create_single_storm_runoff_help_modal():
                             html.Strong("Use site coordinates"),
                             "), then click ",
                             html.Strong("Download Rain Statistics"),
-                            " to load NOAA Atlas 14 precipitation frequency estimates for "
-                            "that location.",
+                            " to load NOAA Atlas 14 precipitation frequency estimates for that location.",
                         ],
                         className="mb-3",
                     ),
@@ -513,23 +529,18 @@ def create_single_storm_runoff_help_modal():
                     html.H6("Runoff Calculations table", className="fw-bold mb-2"),
                     html.Ul(
                         [
+                            html.Li("Enter watershed area (acres), or obtain area from the Watershed Information tab."),
+                            html.Li("Composite Curve Number carries forward from Step 1."),
                             html.Li(
-                                "Enter watershed area (acres), or obtain area from the "
-                                "Watershed Information tab."
+                                "Runoff depth, ratio, and volume update automatically from the SCS curve number method."
                             ),
                             html.Li(
-                                "Composite Curve Number carries forward from Step 1."
+                                [
+                                    "Use the ",
+                                    html.Strong("?"),
+                                    " beside Runoff Calculations for parameter definitions and equations.",
+                                ]
                             ),
-                            html.Li(
-                                "Runoff depth, ratio, and volume update automatically from "
-                                "the SCS curve number method."
-                            ),
-                            html.Li([
-                                "Use the ",
-                                html.Strong("?"),
-                                " beside Runoff Calculations for parameter definitions and "
-                                "equations.",
-                            ]),
                             html.Li(
                                 "Runoff Volume (ft³) can be synced to the Engineering tab "
                                 "via the checkbox below the table."
@@ -576,58 +587,69 @@ def create_monthly_runoff_recharge_help_modal():
                     html.H6("Workflow", className="fw-bold mb-2"),
                     html.Ol(
                         [
-                            html.Li([
-                                "Complete ",
-                                html.Strong("Step 1"),
-                                " (composite curve number) and ",
-                                html.Strong("Step 2"),
-                                " (runoff calculations table) in section (A) above—especially ",
-                                html.Strong("Composite Curve Number"),
-                                ", ",
-                                html.Strong("Area (acres)"),
-                                ", and site latitude/longitude.",
-                            ]),
-                            html.Li([
-                                "Enter ",
-                                html.Strong("Average number of rain events per month"),
-                                " (typical runoff-producing storms used to annualize monthly "
-                                "precipitation).",
-                            ]),
-                            html.Li([
-                                "Click ",
-                                html.Strong("Get Monthly Rainfall and Runoff"),
-                                " to download NASA POWER monthly precipitation for the site and "
-                                "compute monthly runoff depth and volume using the composite CN "
-                                "from section (A).",
-                            ]),
+                            html.Li(
+                                [
+                                    "Complete ",
+                                    html.Strong("Step 1"),
+                                    " (composite curve number) and ",
+                                    html.Strong("Step 2"),
+                                    " (runoff calculations table) in section (A) above—especially ",
+                                    html.Strong("Composite Curve Number"),
+                                    ", ",
+                                    html.Strong("Area (acres)"),
+                                    ", and site latitude/longitude.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "Enter ",
+                                    html.Strong("Average number of rain events per month"),
+                                    " (typical runoff-producing storms used to annualize monthly precipitation).",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "Click ",
+                                    html.Strong("Get Monthly Rainfall and Runoff"),
+                                    " to download NASA POWER monthly precipitation for the site and "
+                                    "compute monthly runoff depth and volume using the composite CN "
+                                    "from section (A).",
+                                ]
+                            ),
                             html.Li(
                                 "Review the monthly table and chart. Runoff Volume (ft³/month) "
                                 "is the primary output for recharge planning."
                             ),
-                            html.Li([
-                                "To use these values as your MAR source water, check ",
-                                html.Strong("Use Runoff For Recharge"),
-                                "—monthly flows copy into ",
-                                html.Strong("Flow Estimates"),
-                                " (Step 3 on the Water Source tab).",
-                            ]),
+                            html.Li(
+                                [
+                                    "To use these values as your MAR source water, check ",
+                                    html.Strong("Use Runoff For Recharge"),
+                                    "—monthly flows copy into ",
+                                    html.Strong("Flow Estimates"),
+                                    " (Step 3 on the Water Source tab).",
+                                ]
+                            ),
                         ],
                         className="mb-4 ps-3",
                     ),
                     html.H6("Inputs and data sources", className="fw-bold mb-2"),
                     html.Ul(
                         [
-                            html.Li([
-                                html.Strong("Composite CN"),
-                                " and ",
-                                html.Strong("Area (acres)"),
-                                " come from the Runoff Calculations table in section (A).",
-                            ]),
-                            html.Li([
-                                "Monthly precipitation is downloaded from ",
-                                html.Strong("NASA POWER"),
-                                " for the latitude/longitude entered in Step 2.",
-                            ]),
+                            html.Li(
+                                [
+                                    html.Strong("Composite CN"),
+                                    " and ",
+                                    html.Strong("Area (acres)"),
+                                    " come from the Runoff Calculations table in section (A).",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "Monthly precipitation is downloaded from ",
+                                    html.Strong("NASA POWER"),
+                                    " for the latitude/longitude entered in Step 2.",
+                                ]
+                            ),
                             html.Li(
                                 "Monthly rain depth is divided by the number of rain events per "
                                 "month; each event is routed through the SCS curve-number "
@@ -960,8 +982,7 @@ def create_runoff_calculations_help_modal():
     help_items = [
         (
             "Area (acres)",
-            "Watershed or project drainage area. Enter manually or obtain from the "
-            "Watershed Information tab.",
+            "Watershed or project drainage area. Enter manually or obtain from the Watershed Information tab.",
         ),
         (
             "Composite Curve Number",
@@ -1061,8 +1082,7 @@ def _optional_runoff_help_body():
                 ", for sizing and design of engineering elements (e.g., spreading ponds, "
                 "diversions, and site storage); and ",
                 html.Strong("(b) average monthly runoff for recharge"),
-                ", which estimates available volumes by month—you can choose to recharge "
-                "a fraction of these rates. ",
+                ", which estimates available volumes by month—you can choose to recharge a fraction of these rates. ",
                 html.Em("Details are provided throughout the runoff calculation below."),
                 " On the ",
                 html.Strong("Runoff Calculator"),
@@ -1154,87 +1174,103 @@ def create_watershed_information_help_modal():
                     html.H6("Workflow", className="fw-bold mb-2"),
                     html.Ol(
                         [
-                            html.Li([
-                                "Click the ",
-                                html.Strong("Runoff Analysis Map"),
-                                " near your site of interest—the coordinates appear in ",
-                                html.Strong("Analysis Controls"),
-                                " and can be edited manually.",
-                            ]),
-                            html.Li([
-                                "Click ",
-                                html.Strong("Obtain nearby streams"),
-                                " to download and display stream features near the selected "
-                                "point (within approximately 10 miles) as blue lines on the map.",
-                            ]),
-                            html.Li([
-                                "Select a ",
-                                html.Strong("point of drainage"),
-                                " by clicking on the stream where you want the watershed "
-                                "outlet. Place the marker ",
-                                html.Strong("directly on the stream"),
-                                "—if there is space between the marker and the stream, the "
-                                "watershed may not be calculated correctly.",
-                            ]),
-                            html.Li([
-                                "Click ",
-                                html.Strong("Get Watershed Info"),
-                                " to delineate the watershed for that drainage point. The "
-                                "watershed boundary appears in red on the map; basin characteristics "
-                                "(area, land use, and other parameters) load in the ",
-                                html.Strong("Watershed Information"),
-                                " results table below the map.",
-                            ]),
-                            html.Li([
-                                "To choose a different drainage point after streams or a "
-                                "watershed are shown, click ",
-                                html.Strong("Reset drainage point"),
-                                " to clear the marker and map overlays, then click the map "
-                                "(or a stream) again and re-run ",
-                                html.Strong("Obtain nearby streams"),
-                                " and/or ",
-                                html.Strong("Get Watershed Info"),
-                                ".",
-                            ]),
-                            html.Li([
-                                "Review the results table and transfer values to the Runoff "
-                                "Calculator tab: copy ",
-                                html.Strong("Area (acres)"),
-                                " into the Runoff Calculations table, and use land-use / "
-                                "cover information to select appropriate impervious and pervious "
-                                "curve numbers in ",
-                                html.Strong("Step 1"),
-                                ".",
-                            ]),
+                            html.Li(
+                                [
+                                    "Click the ",
+                                    html.Strong("Runoff Analysis Map"),
+                                    " near your site of interest—the coordinates appear in ",
+                                    html.Strong("Analysis Controls"),
+                                    " and can be edited manually.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "Click ",
+                                    html.Strong("Obtain nearby streams"),
+                                    " to download and display stream features near the selected "
+                                    "point (within approximately 10 miles) as blue lines on the map.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "Select a ",
+                                    html.Strong("point of drainage"),
+                                    " by clicking on the stream where you want the watershed outlet. Place the marker ",
+                                    html.Strong("directly on the stream"),
+                                    "—if there is space between the marker and the stream, the "
+                                    "watershed may not be calculated correctly.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "Click ",
+                                    html.Strong("Get Watershed Info"),
+                                    " to delineate the watershed for that drainage point. The "
+                                    "watershed boundary appears in red on the map; basin characteristics "
+                                    "(area, land use, and other parameters) load in the ",
+                                    html.Strong("Watershed Information"),
+                                    " results table below the map.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "To choose a different drainage point after streams or a "
+                                    "watershed are shown, click ",
+                                    html.Strong("Reset drainage point"),
+                                    " to clear the marker and map overlays, then click the map "
+                                    "(or a stream) again and re-run ",
+                                    html.Strong("Obtain nearby streams"),
+                                    " and/or ",
+                                    html.Strong("Get Watershed Info"),
+                                    ".",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    "Review the results table and transfer values to the Runoff Calculator tab: copy ",
+                                    html.Strong("Area (acres)"),
+                                    " into the Runoff Calculations table, and use land-use / "
+                                    "cover information to select appropriate impervious and pervious "
+                                    "curve numbers in ",
+                                    html.Strong("Step 1"),
+                                    ".",
+                                ]
+                            ),
                         ],
                         className="mb-4 ps-3",
                     ),
                     html.H6("Map symbols", className="fw-bold mb-2"),
                     html.Ul(
                         [
-                            html.Li([
-                                html.Strong("Red marker"),
-                                " — selected ",
-                                html.Strong("point of drainage"),
-                                " (the latitude/longitude used by ",
-                                html.Strong("Get Watershed Info"),
-                                "). Place it ",
-                                html.Strong("directly on a stream"),
-                                "; a gap between the red marker and the stream can cause "
-                                "incorrect watershed results.",
-                            ]),
-                            html.Li([
-                                html.Strong("Blue lines"),
-                                " — nearby streams loaded by ",
-                                html.Strong("Obtain nearby streams"),
-                                ". Use these to choose where to put the red drainage marker.",
-                            ]),
-                            html.Li([
-                                html.Strong("Red outline / shaded area"),
-                                " — delineated watershed boundary after ",
-                                html.Strong("Get Watershed Info"),
-                                ".",
-                            ]),
+                            html.Li(
+                                [
+                                    html.Strong("Red marker"),
+                                    " — selected ",
+                                    html.Strong("point of drainage"),
+                                    " (the latitude/longitude used by ",
+                                    html.Strong("Get Watershed Info"),
+                                    "). Place it ",
+                                    html.Strong("directly on a stream"),
+                                    "; a gap between the red marker and the stream can cause "
+                                    "incorrect watershed results.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    html.Strong("Blue lines"),
+                                    " — nearby streams loaded by ",
+                                    html.Strong("Obtain nearby streams"),
+                                    ". Use these to choose where to put the red drainage marker.",
+                                ]
+                            ),
+                            html.Li(
+                                [
+                                    html.Strong("Red outline / shaded area"),
+                                    " — delineated watershed boundary after ",
+                                    html.Strong("Get Watershed Info"),
+                                    ".",
+                                ]
+                            ),
                         ],
                         className="mb-3",
                     ),
@@ -1283,20 +1319,25 @@ def _watershed_info_tab_header_with_help():
 
 def create_results_card():
     """Create the watershed information results card."""
-    return dbc.Card([
-        dbc.CardHeader("Watershed Information", className="fw-bold bg-primary text-white"),
-        dbc.CardBody([
-            dcc.Loading(
-                id="watershed-info-loading",
-                type="circle",
-                color="#0d6efd",
-                children=html.Div(
-                    id="watershed-info-content",
-                    style={"minHeight": "400px", "overflow": "auto"},
-                ),
-            )
-        ])
-    ], style={'minHeight': '500px'})
+    return dbc.Card(
+        [
+            dbc.CardHeader("Watershed Information", className="fw-bold bg-primary text-white"),
+            dbc.CardBody(
+                [
+                    dcc.Loading(
+                        id="watershed-info-loading",
+                        type="circle",
+                        color="#0d6efd",
+                        children=html.Div(
+                            id="watershed-info-content",
+                            style={"minHeight": "400px", "overflow": "auto"},
+                        ),
+                    )
+                ]
+            ),
+        ],
+        style={"minHeight": "500px"},
+    )
 
 
 def create_curve_number_tab():
@@ -1309,79 +1350,97 @@ def create_curve_number_tab():
         ),
         _peak_runoff_section_header_with_help(),
         create_peak_runoff_calculations_help_modal(),
-        dbc.Card([
-            dbc.CardBody([
-                html.H5("Step 1 Composite Curve Number Based on % Impervious Cover Calculator (Pick 1A or 1B)", 
-                        className="fw-bold mb-3"),
-                            dbc.Row([
-                                dbc.Col([
-                                    html.Div(
-                                        dbc.RadioItems(
-                                            id="impervious-outlet-option",
-                                            options=[
-                                                {
-                                                    "label": (
-                                                        "1A: Pick this one if all of your impervious areas "
-                                                        "outlet directly to the drainage system "
-                                                        "(see figure for description)."
-                                                    ),
-                                                    "value": "1A",
-                                                },
-                                                {
-                                                    "label": (
-                                                        "1B: Pick this one if all/some of impervious area "
-                                                        "flow spreads over pervious areas before entering "
-                                                        "the drainage system."
-                                                    ),
-                                                    "value": "1B",
-                                                },
-                                            ],
-                                            value="1A",
-                                            className="runoff-outlet-radio-group",
-                                            input_class_name="runoff-outlet-radio-input",
-                                            label_class_name="runoff-outlet-radio-label",
-                                            label_checked_class_name="runoff-outlet-radio-label-checked",
+        dbc.Card(
+            [
+                dbc.CardBody(
+                    [
+                        html.H5(
+                            "Step 1 Composite Curve Number Based on % Impervious Cover Calculator (Pick 1A or 1B)",
+                            className="fw-bold mb-3",
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.Div(
+                                            dbc.RadioItems(
+                                                id="impervious-outlet-option",
+                                                options=[
+                                                    {
+                                                        "label": (
+                                                            "1A: Pick this one if all of your impervious areas "
+                                                            "outlet directly to the drainage system "
+                                                            "(see figure for description)."
+                                                        ),
+                                                        "value": "1A",
+                                                    },
+                                                    {
+                                                        "label": (
+                                                            "1B: Pick this one if all/some of impervious area "
+                                                            "flow spreads over pervious areas before entering "
+                                                            "the drainage system."
+                                                        ),
+                                                        "value": "1B",
+                                                    },
+                                                ],
+                                                value="1A",
+                                                className="runoff-outlet-radio-group",
+                                                input_class_name="runoff-outlet-radio-input",
+                                                label_class_name="runoff-outlet-radio-label",
+                                                label_checked_class_name="runoff-outlet-radio-label-checked",
+                                            ),
+                                            className="runoff-outlet-radio-group-wrapper mb-3",
                                         ),
-                                        className="runoff-outlet-radio-group-wrapper mb-3",
-                                    ),
-                                    html.Div(
-                                        [
-                                            dbc.Button(
-                                                "Select Curve Numbers",
-                                                id="open-curve-number-modal-btn",
-                                                color="primary",
-                                                className="mb-3 me-2",
-                                                title="Choose typical impervious and pervious curve number values",
-                                            ),
-                                            html.Button(
-                                                "?",
-                                                id="composite-cn-help-btn",
-                                                type="button",
-                                                className="mar-help-btn mb-3",
-                                                title="Help: composite curve number table",
-                                            ),
-                                        ],
-                                        className="d-flex align-items-center flex-wrap",
-                                    ),
-                                    create_composite_cn_help_modal(),
-                                    html.Div(id="composite-cn-table", className="mt-0"),
-                                    html.Div(id="composite-cn-input-error", className="mt-2"),
-                                    dcc.Store(id="composite-cn-table-store", data=None),
-                                    *create_curve_number_selection_modal(),
-                                ], width=6),
-                                dbc.Col([
-                                    html.Img(
-                                        src="/assets/curve_number.jpg",
-                                        alt="Curve Number Diagram",
-                                        style={"maxWidth": "70%", "height": "auto"}
-                                    )
-                                ], width=6)
-                            ])
-                        ])
-                    ], className="mt-4 mb-4"),
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.Card([
+                                        html.Div(
+                                            [
+                                                dbc.Button(
+                                                    "Select Curve Numbers",
+                                                    id="open-curve-number-modal-btn",
+                                                    color="primary",
+                                                    className="mb-3 me-2",
+                                                    title="Choose typical impervious and pervious curve number values",
+                                                ),
+                                                html.Button(
+                                                    "?",
+                                                    id="composite-cn-help-btn",
+                                                    type="button",
+                                                    className="mar-help-btn mb-3",
+                                                    title="Help: composite curve number table",
+                                                ),
+                                            ],
+                                            className="d-flex align-items-center flex-wrap",
+                                        ),
+                                        create_composite_cn_help_modal(),
+                                        html.Div(id="composite-cn-table", className="mt-0"),
+                                        html.Div(id="composite-cn-input-error", className="mt-2"),
+                                        dcc.Store(id="composite-cn-table-store", data=None),
+                                        *create_curve_number_selection_modal(),
+                                    ],
+                                    width=6,
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.Img(
+                                            src=dash.get_asset_url("curve_number.jpg"),
+                                            alt="Curve Number Diagram",
+                                            style={"maxWidth": "70%", "height": "auto"},
+                                        )
+                                    ],
+                                    width=6,
+                                ),
+                            ]
+                        ),
+                    ]
+                )
+            ],
+            className="mt-4 mb-4",
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
                                 dbc.CardHeader(
                                     html.Div(
                                         [
@@ -1401,178 +1460,216 @@ def create_curve_number_tab():
                                     ),
                                     className="bg-primary text-white py-2",
                                 ),
-                                dbc.CardBody([
-                                    create_single_storm_runoff_help_modal(),
-                                    html.H5("Step 2 Provide watershed area upstream of the diversion point of interest, and compute runoff", 
-                                            className="fw-bold mb-3"),
-                                    dbc.Row([
-                                        dbc.Col([
-                                            html.Label("Latitude", className="fw-bold mb-2"),
-                                            dbc.Input(
-                                                id="runoff-single-storm-latitude",
-                                                type="number",
-                                                value=38.5816,
-                                                debounce=True,
-                                                placeholder="Enter latitude",
-                                                className="mb-2",
-                                            ),
-                                        ], width=6),
-                                        dbc.Col([
-                                            html.Label("Longitude", className="fw-bold mb-2"),
-                                            dbc.Input(
-                                                id="runoff-single-storm-longitude",
-                                                type="number",
-                                                value=-121.4944,
-                                                debounce=True,
-                                                placeholder="Enter longitude",
-                                                className="mb-2",
-                                            ),
-                                        ], width=6),
-                                    ]),
-                                    html.Div(
-                                        dbc.Checkbox(
-                                            id="use-site-coordinates-for-runoff-check",
-                                            label="Use site coordinates (Source Site from Water Source map)",
-                                            value=bool(
-                                                dash_storage.get_data(
-                                                    "use_site_coords_for_runoff"
-                                                )
-                                            ),
-                                            className="runoff-engineering-sync-check mb-0",
-                                            input_class_name="runoff-engineering-sync-input",
-                                            label_class_name="runoff-engineering-sync-label",
+                                dbc.CardBody(
+                                    [
+                                        create_single_storm_runoff_help_modal(),
+                                        html.H5(
+                                            "Step 2 Provide watershed area upstream of the diversion point of interest, and compute runoff",
+                                            className="fw-bold mb-3",
                                         ),
-                                        className="runoff-engineering-sync-card mb-3",
-                                    ),
-                                    dbc.Button(
-                                        "Download Rain Statistics",
-                                        id="download-rain-statistics-btn",
-                                        color="secondary",
-                                        className="mb-3",
-                                        title="Fetch NOAA precipitation statistics for the coordinates entered",
-                                    ),
-                                    html.Div(id="rain-statistics-download-message", className="mb-2"),
-                                    html.Div(id="runoff-calculations-content", className="mt-3"),
-                                    dbc.Row([
-                                        dbc.Col([
-                                            html.Div(
-                                                [
-                                                    html.H6(
-                                                        "Runoff Calculations",
-                                                        className="fw-bold mb-0",
-                                                    ),
-                                                    html.Button(
-                                                        "?",
-                                                        id="runoff-calculations-help-btn",
-                                                        type="button",
-                                                        className="mar-help-btn ms-2",
-                                                        title="Help: explain runoff calculation parameters",
-                                                    ),
-                                                ],
-                                                className="d-flex align-items-center mb-2",
-                                            ),
-                                            html.Div(
-                                                id="runoff-calculations-input-error",
-                                                className="mb-2",
-                                            ),
-                                            create_runoff_calculations_help_modal(),
-                                            dcc.Store(
-                                                id="runoff-calculations-table",
-                                                data=_get_runoff_calculations_data(),
-                                            ),
-                                            html.Div(id="runoff-calculations-table-view"),
-                                            html.P(
-                                                [
-                                                    html.Strong("Note: "),
-                                                    "The ",
-                                                    html.Strong("Runoff Volume (ft³)"),
-                                                    " value is an estimate of available "
-                                                    "storm runoff for planning.",
-                                                ],
-                                                className="mt-3 mb-0 small text-muted",
-                                            ),
-                                        ], width=6),
-                                        dbc.Col([
-                                            html.Div(id="rain-statistics-table-placeholder")
-                                        ], width=6)
-                                    ])
-                                ])
-                            ])
-                        ], width=12)
-                    ], className="mt-4"),
-                    _monthly_runoff_section_header_with_help(),
-                    create_monthly_runoff_recharge_help_modal(),
-                    html.Div(
-                        id="monthly-runoff-calc-summary",
-                        className="text-muted small mb-4",
-                    ),
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.Card([
-                                dbc.CardHeader("Monthly Runoff Estimation", className="fw-bold bg-primary text-white"),
-                                dbc.CardBody([
-                                    html.H5("Step 3 Estimate Annual Runoff", 
-                                            className="fw-bold mb-3"),
-                                    dbc.Row([
-                                        dbc.Col([
-                                            html.Label(
-                                                "Average number of rain events per month",
-                                                className="form-label mb-2",
-                                            ),
-                                            html.Div(
-                                                [
-                                                    dbc.Input(
-                                                        id="rain-events-per-month",
-                                                        type="number",
-                                                        value=3.0,
-                                                        step=0.1,
-                                                        className="text-center table-cell-input-borderless excel-cell-input",
-                                                        style={"maxWidth": "100px"},
-                                                    ),
-                                                    dbc.FormFeedback(
-                                                        id="rain-events-per-month-feedback",
-                                                        type="invalid",
-                                                    ),
-                                                ],
-                                                className="excel-rain-events-cell d-inline-block mb-3",
-                                                style={
-                                                    "backgroundColor": INPUT_CELL_BG,
-                                                    "border": "1px solid #dee2e6",
-                                                    "borderRadius": "2px",
-                                                    "padding": "2px 4px",
-                                                },
-                                            ),
-                                        ], width="auto"),
-                                    ]),
-                                    dbc.Row([
-                                        dbc.Col([
-                                            dbc.Button(
-                                                "Get Monthly Rainfall and Runoff",
-                                                id="get-monthly-rain-btn",
-                                                color="primary",
-                                                className="mb-3",
-                                                title="Compute monthly rainfall depth and runoff using storm statistics",
-                                            )
-                                        ], width="auto"),
-                                        dbc.Col([
-                                            html.Div(
-                                                dbc.Checkbox(
-                                                    id="use-runoff-for-recharge-check",
-                                                    label="Use Runoff For Recharge",
-                                                    value=False,
-                                                    className="runoff-engineering-sync-check mb-0",
-                                                    input_class_name="runoff-engineering-sync-input",
-                                                    label_class_name="runoff-engineering-sync-label",
+                                        dbc.Row(
+                                            [
+                                                dbc.Col(
+                                                    [
+                                                        html.Label("Latitude", className="fw-bold mb-2"),
+                                                        dbc.Input(
+                                                            id="runoff-single-storm-latitude",
+                                                            type="number",
+                                                            value=38.5816,
+                                                            debounce=True,
+                                                            placeholder="Enter latitude",
+                                                            className="mb-2",
+                                                        ),
+                                                    ],
+                                                    width=6,
                                                 ),
-                                                className="runoff-engineering-sync-card mb-3 ms-3",
-                                            )
-                                        ], width="auto")
-                                    ]),
-                                    html.Div(id="monthly-runoff-estimation-content")
-                                ])
-                            ])
-                        ], width=12)
-                    ], className="mt-4"),
+                                                dbc.Col(
+                                                    [
+                                                        html.Label("Longitude", className="fw-bold mb-2"),
+                                                        dbc.Input(
+                                                            id="runoff-single-storm-longitude",
+                                                            type="number",
+                                                            value=-121.4944,
+                                                            debounce=True,
+                                                            placeholder="Enter longitude",
+                                                            className="mb-2",
+                                                        ),
+                                                    ],
+                                                    width=6,
+                                                ),
+                                            ]
+                                        ),
+                                        html.Div(
+                                            dbc.Checkbox(
+                                                id="use-site-coordinates-for-runoff-check",
+                                                label="Use site coordinates (Source Site from Water Source map)",
+                                                value=bool(dash_storage.get_data("use_site_coords_for_runoff")),
+                                                className="runoff-engineering-sync-check mb-0",
+                                                input_class_name="runoff-engineering-sync-input",
+                                                label_class_name="runoff-engineering-sync-label",
+                                            ),
+                                            className="runoff-engineering-sync-card mb-3",
+                                        ),
+                                        dbc.Button(
+                                            "Download Rain Statistics",
+                                            id="download-rain-statistics-btn",
+                                            color="secondary",
+                                            className="mb-3",
+                                            title="Fetch NOAA precipitation statistics for the coordinates entered",
+                                        ),
+                                        html.Div(id="rain-statistics-download-message", className="mb-2"),
+                                        html.Div(id="runoff-calculations-content", className="mt-3"),
+                                        dbc.Row(
+                                            [
+                                                dbc.Col(
+                                                    [
+                                                        html.Div(
+                                                            [
+                                                                html.H6(
+                                                                    "Runoff Calculations",
+                                                                    className="fw-bold mb-0",
+                                                                ),
+                                                                html.Button(
+                                                                    "?",
+                                                                    id="runoff-calculations-help-btn",
+                                                                    type="button",
+                                                                    className="mar-help-btn ms-2",
+                                                                    title="Help: explain runoff calculation parameters",
+                                                                ),
+                                                            ],
+                                                            className="d-flex align-items-center mb-2",
+                                                        ),
+                                                        html.Div(
+                                                            id="runoff-calculations-input-error",
+                                                            className="mb-2",
+                                                        ),
+                                                        create_runoff_calculations_help_modal(),
+                                                        dcc.Store(
+                                                            id="runoff-calculations-table",
+                                                            data=_get_runoff_calculations_data(),
+                                                        ),
+                                                        html.Div(id="runoff-calculations-table-view"),
+                                                        html.P(
+                                                            [
+                                                                html.Strong("Note: "),
+                                                                "The ",
+                                                                html.Strong("Runoff Volume (ft³)"),
+                                                                " value is an estimate of available "
+                                                                "storm runoff for planning.",
+                                                            ],
+                                                            className="mt-3 mb-0 small text-muted",
+                                                        ),
+                                                    ],
+                                                    width=6,
+                                                ),
+                                                dbc.Col([html.Div(id="rain-statistics-table-placeholder")], width=6),
+                                            ]
+                                        ),
+                                    ]
+                                ),
+                            ]
+                        )
+                    ],
+                    width=12,
+                )
+            ],
+            className="mt-4",
+        ),
+        _monthly_runoff_section_header_with_help(),
+        create_monthly_runoff_recharge_help_modal(),
+        html.Div(
+            id="monthly-runoff-calc-summary",
+            className="text-muted small mb-4",
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardHeader("Monthly Runoff Estimation", className="fw-bold bg-primary text-white"),
+                                dbc.CardBody(
+                                    [
+                                        html.H5("Step 3 Estimate Annual Runoff", className="fw-bold mb-3"),
+                                        dbc.Row(
+                                            [
+                                                dbc.Col(
+                                                    [
+                                                        html.Label(
+                                                            "Average number of rain events per month",
+                                                            className="form-label mb-2",
+                                                        ),
+                                                        html.Div(
+                                                            [
+                                                                dbc.Input(
+                                                                    id="rain-events-per-month",
+                                                                    type="number",
+                                                                    value=3.0,
+                                                                    step=0.1,
+                                                                    className="text-center table-cell-input-borderless excel-cell-input",
+                                                                    style={"maxWidth": "100px"},
+                                                                ),
+                                                                dbc.FormFeedback(
+                                                                    id="rain-events-per-month-feedback",
+                                                                    type="invalid",
+                                                                ),
+                                                            ],
+                                                            className="excel-rain-events-cell d-inline-block mb-3",
+                                                            style={
+                                                                "backgroundColor": INPUT_CELL_BG,
+                                                                "border": "1px solid #dee2e6",
+                                                                "borderRadius": "2px",
+                                                                "padding": "2px 4px",
+                                                            },
+                                                        ),
+                                                    ],
+                                                    width="auto",
+                                                ),
+                                            ]
+                                        ),
+                                        dbc.Row(
+                                            [
+                                                dbc.Col(
+                                                    [
+                                                        dbc.Button(
+                                                            "Get Monthly Rainfall and Runoff",
+                                                            id="get-monthly-rain-btn",
+                                                            color="primary",
+                                                            className="mb-3",
+                                                            title="Compute monthly rainfall depth and runoff using storm statistics",
+                                                        )
+                                                    ],
+                                                    width="auto",
+                                                ),
+                                                dbc.Col(
+                                                    [
+                                                        html.Div(
+                                                            dbc.Checkbox(
+                                                                id="use-runoff-for-recharge-check",
+                                                                label="Use Runoff For Recharge",
+                                                                value=False,
+                                                                className="runoff-engineering-sync-check mb-0",
+                                                                input_class_name="runoff-engineering-sync-input",
+                                                                label_class_name="runoff-engineering-sync-label",
+                                                            ),
+                                                            className="runoff-engineering-sync-card mb-3 ms-3",
+                                                        )
+                                                    ],
+                                                    width="auto",
+                                                ),
+                                            ]
+                                        ),
+                                        html.Div(id="monthly-runoff-estimation-content"),
+                                    ]
+                                ),
+                            ]
+                        )
+                    ],
+                    width=12,
+                )
+            ],
+            className="mt-4",
+        ),
         dbc.Tooltip(
             "Open typical impervious and pervious curve number selectors",
             target="open-curve-number-modal-btn",
@@ -1627,24 +1724,15 @@ def create_runoff_calculator_tab():
                     [
                         dbc.Tab(
                             label="Rainfall and Watershed Information",
-                    id=tab_nav_id("rainfall-watershed-tab"),
+                            id=tab_nav_id("rainfall-watershed-tab"),
                             tab_id="rainfall-watershed-tab",
                             children=[
-                                dbc.Row([
-                                    dbc.Col([
-                                        create_map_card()
-                                    ], width=8),
-                                    dbc.Col([
-                                        create_controls_card()
-                                    ], width=4)
-                                ], className="mb-4"),
-
-                                dbc.Row([
-                                    dbc.Col([
-                                        create_results_card()
-                                    ])
-                                ])
-                            ]
+                                dbc.Row(
+                                    [dbc.Col([create_map_card()], width=8), dbc.Col([create_controls_card()], width=4)],
+                                    className="mb-4",
+                                ),
+                                dbc.Row([dbc.Col([create_results_card()])]),
+                            ],
                         )
                     ],
                     id="runoff-calculator-tabs",
@@ -1655,5 +1743,5 @@ def create_runoff_calculator_tab():
                     "Interactive watershed map, rainfall controls, and runoff results",
                 ),
             ]
-        )
+        ),
     ]

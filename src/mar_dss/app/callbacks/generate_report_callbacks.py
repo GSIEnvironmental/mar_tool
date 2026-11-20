@@ -1,10 +1,12 @@
 """Callbacks for the Generate Report sub-tab."""
 
+import os
+import tempfile
+
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, html
+from dash import Input, Output, State, dcc, html
 
-from mar_dss.app.utils.native_file_dialog import ask_save_report_path
 from mar_dss.app.utils.report_generator import (
     _default_report_filename,
     save_prefeasibility_report,
@@ -16,63 +18,55 @@ def setup_generate_report_callbacks(app):
 
     @app.callback(
         Output("generate-report-feedback", "children"),
+        Output("download-report", "data"),
         Input("generate-report-btn", "n_clicks"),
         State("generate-report-format", "value"),
         prevent_initial_call=True,
     )
     def generate_prefeasibility_report(n_clicks, report_format):
         if not n_clicks:
-            return dash.no_update
+            return dash.no_update, dash.no_update
 
         fmt = "pdf" if str(report_format or "").lower() == "pdf" else "html"
-        default_name = _default_report_filename(fmt)
-        save_path = ask_save_report_path(default_name, report_format=fmt)
-
-        if save_path is None:
-            return dbc.Alert(
-                "Could not open the save dialog on this system. "
-                "Run the dashboard locally on Windows with Tk available.",
-                color="warning",
-                className="mb-0 py-2",
-            )
-
-        if save_path == "":
-            return dbc.Alert(
-                "Report generation cancelled — no file was saved.",
-                color="secondary",
-                className="mb-0 py-2",
-            )
+        filename = _default_report_filename(fmt)
 
         try:
-            written = save_prefeasibility_report(save_path, report_format=fmt)
+            # Build the report in a temp folder and send it to the browser as a
+            # download, so nothing is left on the server.
+            with tempfile.TemporaryDirectory() as tmp:
+                written = save_prefeasibility_report(os.path.join(tmp, filename), report_format=fmt)
+                with open(written, "rb") as handle:
+                    payload = handle.read()
             label = "PDF" if fmt == "pdf" else "HTML"
-            return dbc.Alert(
-                [
-                    html.I(className="fas fa-check-circle me-2"),
-                    html.Strong(f"{label} report saved successfully. "),
-                    html.Span(written),
-                ],
-                color="success",
-                className="mb-0 py-2",
+            return (
+                dbc.Alert(
+                    [
+                        html.I(className="fas fa-check-circle me-2"),
+                        html.Strong(f"{label} report downloaded. "),
+                        html.Span(os.path.basename(written)),
+                    ],
+                    color="success",
+                    className="mb-0 py-2",
+                ),
+                dcc.send_bytes(payload, os.path.basename(written)),
             )
         except ImportError:
             return dbc.Alert(
-                "PDF generation requires the reportlab package. "
-                "Install it with: pip install reportlab",
+                "PDF generation requires the reportlab package. Install it with: pip install reportlab",
                 color="warning",
                 className="mb-0 py-2",
-            )
+            ), dash.no_update
         except ValueError as exc:
-            return dbc.Alert(str(exc), color="warning", className="mb-0 py-2")
+            return dbc.Alert(str(exc), color="warning", className="mb-0 py-2"), dash.no_update
         except OSError as exc:
             return dbc.Alert(
                 f"Could not write the report file: {exc}",
                 color="danger",
                 className="mb-0 py-2",
-            )
+            ), dash.no_update
         except Exception as exc:
             return dbc.Alert(
                 f"Unexpected error generating report: {exc}",
                 color="danger",
                 className="mb-0 py-2",
-            )
+            ), dash.no_update

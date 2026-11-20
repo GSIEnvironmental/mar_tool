@@ -1,0 +1,38 @@
+# Production. The server's Caddy serves this app at
+# https://apps.gsienv.com/MAR-Tool/ and reaches it over a shared Docker network.
+#
+# Name that network in a .env file next to this one on the server:
+#   PROXY_NETWORK=<network name>
+# The deploy copies files with rsync but leaves .env alone.
+
+services:
+  web:
+    container_name: mar-tool
+    mem_limit: 3g
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DASH_REQUESTS_PATHNAME_PREFIX: /MAR-Tool/
+      # The address users open, printed at startup.
+      MAR_PUBLIC_URL: https://apps.gsienv.com/MAR-Tool/
+      # Only send the session cookie over HTTPS.
+      MAR_COOKIE_SECURE: "1"
+      # Drop a session after this many idle hours, and keep at most this many.
+      MAR_SESSION_TTL_HOURS: "12"
+      MAR_MAX_SESSIONS: "500"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    # Give running requests up to a minute to finish during a redeploy.
+    stop_grace_period: 60s
+    networks:
+      - proxy
+    restart: unless-stopped
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:?Set PROXY_NETWORK in .env to the Docker network the server's Caddy uses}
+    external: true

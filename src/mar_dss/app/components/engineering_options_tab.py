@@ -3,7 +3,8 @@ Engineering Options tab component.
 """
 
 import dash_bootstrap_components as dbc
-from dash import html, dcc
+from dash import html
+
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
@@ -311,17 +312,16 @@ def create_engineering_help_modals():
                 html.H6("Removal target (automatic)", className="fw-bold mb-2"),
                 html.P(
                     [
-                        "The silt removal target is set from Environmental Impact → "
-                        "Water Quality ",
+                        "The silt removal target is set from Environmental Impact → Water Quality ",
                         html.Strong("question 2 (source-water turbidity)"),
                         ", not from a separate Engineering input:",
                     ],
                     className="mb-2",
                 ),
                 html.Pre(
-                    "If turbidity < 20 NTU  (answers \"<5 NTU\" or \"5-20 NTU\")\n"
+                    'If turbidity < 20 NTU  (answers "<5 NTU" or "5-20 NTU")\n'
                     "    → Medium Silt\n"
-                    "Else (\">20 NTU\" or Unknown)\n"
+                    'Else (">20 NTU" or Unknown)\n'
                     "    → Fine Silt  (more conservative / longer settling)",
                     className="bg-light border rounded p-2 small mb-3",
                 ),
@@ -415,8 +415,7 @@ def create_engineering_help_modals():
                         html.Li(
                             [
                                 html.Strong("No: "),
-                                "storage pond and its 500 ft conveyance package are "
-                                "omitted → ",
+                                "storage pond and its 500 ft conveyance package are omitted → ",
                                 html.Strong("lower total cost"),
                                 ".",
                             ]
@@ -467,15 +466,13 @@ def create_engineering_help_modals():
                         html.Li(
                             [
                                 html.Strong("Dry well(s): "),
-                                "vadose-zone wells; count and rate from hydrogeology "
-                                "/ Default Parameters.",
+                                "vadose-zone wells; count and rate from hydrogeology / Default Parameters.",
                             ]
                         ),
                         html.Li(
                             [
                                 html.Strong("Injection well(s): "),
-                                "direct aquifer injection; count and rate from "
-                                "hydrogeology / Default Parameters.",
+                                "direct aquifer injection; count and rate from hydrogeology / Default Parameters.",
                             ]
                         ),
                     ],
@@ -568,9 +565,7 @@ def create_engineering_elements_content():
                                             [
                                                 dbc.Col(
                                                     [
-                                                        _eng_question(
-                                                            "Maximum Monthly Flow (ft³/month)"
-                                                        ),
+                                                        _eng_question("Maximum Monthly Flow (ft³/month)"),
                                                         _eng_metric(
                                                             "max-monthly-flow-display",
                                                             "0.0",
@@ -581,16 +576,11 @@ def create_engineering_elements_content():
                                                 ),
                                                 dbc.Col(
                                                     [
-                                                        _eng_question(
-                                                            "Number of Events per Month"
-                                                        ),
+                                                        _eng_question("Number of Events per Month"),
                                                         dbc.Input(
                                                             type="number",
                                                             value=float(
-                                                                dash_storage.get_data(
-                                                                    "design_events_per_month"
-                                                                )
-                                                                or 4.0
+                                                                dash_storage.get_data("design_events_per_month") or 4.0
                                                             ),
                                                             id="design-events-per-month-input",
                                                             debounce=True,
@@ -608,9 +598,7 @@ def create_engineering_elements_content():
                                                 ),
                                                 dbc.Col(
                                                     [
-                                                        _eng_question(
-                                                            "Design Event Flow (ft³/day)"
-                                                        ),
+                                                        _eng_question("Design Event Flow (ft³/day)"),
                                                         _eng_metric(
                                                             "design-event-flow-display",
                                                             "0.0",
@@ -634,9 +622,7 @@ def create_engineering_elements_content():
                                             "conveyance-sediment",
                                             "Help: conveyance methods and distance",
                                         ),
-                                        _eng_question(
-                                            "How will source water be conveyed to the recharge site?"
-                                        ),
+                                        _eng_question("How will source water be conveyed to the recharge site?"),
                                         dbc.RadioItems(
                                             options=[
                                                 {
@@ -660,9 +646,7 @@ def create_engineering_elements_content():
                                             id="conveyance-method-radio",
                                             className="eng-radio-stack",
                                         ),
-                                        _eng_question(
-                                            "Conveyance length (source → recharge)"
-                                        ),
+                                        _eng_question("Conveyance length (source → recharge)"),
                                         _eng_metric(
                                             "conveyance-distance-display",
                                             "Not available — set source and recharge "
@@ -687,9 +671,7 @@ def create_engineering_elements_content():
                                                             "sediment-pond",
                                                             "Help: sediment removal need and target",
                                                         ),
-                                                        _eng_question(
-                                                            "Is sediment removal needed prior to recharge?"
-                                                        ),
+                                                        _eng_question("Is sediment removal needed prior to recharge?"),
                                                         dbc.RadioItems(
                                                             options=[
                                                                 {
@@ -706,9 +688,7 @@ def create_engineering_elements_content():
                                                             inline=True,
                                                             className="eng-radio-inline",
                                                         ),
-                                                        _eng_question(
-                                                            "Sediment removal target"
-                                                        ),
+                                                        _eng_question("Sediment removal target"),
                                                         _eng_metric(
                                                             "sediment-removal-target-display",
                                                             "Medium Silt",
@@ -732,9 +712,7 @@ def create_engineering_elements_content():
                                                             "storage-pond",
                                                             "Help: storage pond need",
                                                         ),
-                                                        _eng_question(
-                                                            "Is a storage pond needed prior to recharge?"
-                                                        ),
+                                                        _eng_question("Is a storage pond needed prior to recharge?"),
                                                         dbc.RadioItems(
                                                             options=[
                                                                 {
@@ -769,8 +747,7 @@ def create_engineering_elements_content():
                                             "Help: surface, dry wells, injection wells",
                                         ),
                                         _eng_question(
-                                            "Cost for the following recharge engineering "
-                                            "options will be estimated"
+                                            "Cost for the following recharge engineering options will be estimated"
                                         ),
                                         dbc.Checklist(
                                             options=[
@@ -898,8 +875,7 @@ def create_cost_content():
                         html.Li(
                             [
                                 html.Strong("Capital Cost: "),
-                                "sum of included structures, conveyance, ponds, "
-                                "pumps, and infiltration works.",
+                                "sum of included structures, conveyance, ponds, pumps, and infiltration works.",
                             ]
                         ),
                         html.Li(
@@ -911,8 +887,7 @@ def create_cost_content():
                         html.Li(
                             [
                                 html.Strong("NPV (20 years): "),
-                                "present worth of capital plus discounted maintenance "
-                                "over the analysis horizon.",
+                                "present worth of capital plus discounted maintenance over the analysis horizon.",
                             ]
                         ),
                     ],
@@ -938,8 +913,7 @@ def create_cost_content():
                         html.Li(
                             [
                                 html.Strong("Sediment removal Yes/No: "),
-                                "Yes adds pond + O&M (size from Q_peak and Fine/"
-                                "Medium Silt); No removes those costs.",
+                                "Yes adds pond + O&M (size from Q_peak and Fine/Medium Silt); No removes those costs.",
                             ]
                         ),
                         html.Li(
@@ -1018,7 +992,8 @@ def create_cost_content():
         dbc.Tabs(
             [
                 dbc.Tab(
-                    label="Capital Cost Table", id=tab_nav_id("capital-cost-table-tab"),
+                    label="Capital Cost Table",
+                    id=tab_nav_id("capital-cost-table-tab"),
                     tab_id="capital-cost-table-tab",
                     children=[
                         dbc.Card(
@@ -1026,16 +1001,15 @@ def create_cost_content():
                                 dbc.CardBody(
                                     [
                                         html.P(
-                                            "Capital Cost Table will be displayed "
-                                            "here.",
-                                            id="capital-cost-table-content"
+                                            "Capital Cost Table will be displayed here.",
+                                            id="capital-cost-table-content",
                                         ),
                                     ]
                                 ),
                             ],
                             className="mb-4",
                         )
-                    ]
+                    ],
                 ),
                 dbc.Tab(
                     label="Maintenance Cost Table",
@@ -1047,19 +1021,19 @@ def create_cost_content():
                                 dbc.CardBody(
                                     [
                                         html.P(
-                                            "Maintenance Cost Table will be "
-                                            "displayed here.",
-                                            id="maintenance-cost-table-content"
+                                            "Maintenance Cost Table will be displayed here.",
+                                            id="maintenance-cost-table-content",
                                         ),
                                     ]
                                 ),
                             ],
                             className="mb-4",
                         )
-                    ]
+                    ],
                 ),
                 dbc.Tab(
-                    label="Net Present Value Table", id=tab_nav_id("npv-table-tab"),
+                    label="Net Present Value Table",
+                    id=tab_nav_id("npv-table-tab"),
                     tab_id="npv-table-tab",
                     children=[
                         dbc.Card(
@@ -1067,16 +1041,14 @@ def create_cost_content():
                                 dbc.CardBody(
                                     [
                                         html.P(
-                                            "Net Present Value Table will be "
-                                            "displayed here.",
-                                            id="npv-table-content"
+                                            "Net Present Value Table will be displayed here.", id="npv-table-content"
                                         ),
                                     ]
                                 ),
                             ],
                             className="mb-4",
                         )
-                    ]
+                    ],
                 ),
             ],
             id="cost-tables-tabs",
@@ -1115,4 +1087,3 @@ def create_cost_content():
 def create_engineering_options_content():
     """Create the Engineering Options tab content."""
     return create_engineering_elements_content()
-

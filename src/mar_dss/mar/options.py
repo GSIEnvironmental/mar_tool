@@ -1,6 +1,4 @@
-from typing import Any, Dict, List
-
-import mar_dss.app.utils.data_storage as data_storage
+from typing import Any
 
 # Consider 6 MAR options:
 # 1. Surface Recharge
@@ -12,20 +10,18 @@ import mar_dss.app.utils.data_storage as data_storage
 
 
 class MAROption:
-    def __init__(self, name: str, base_cost: float, data: Dict[str, Any]):
+    def __init__(self, name: str, base_cost: float, data: dict[str, Any]):
         self.name = name
         self.base_cost = base_cost
         self.data = data
 
 
-def mar_options() -> List[MAROption]:
+def mar_options() -> list[MAROption]:
     """Create and return a list of MAR technology options."""
     options = []
 
     # Surface recharge
-    surface_recharge = MAROption(
-        name="Surface Recharge", base_cost=1000000, data={}
-    )
+    surface_recharge = MAROption(name="Surface Recharge", base_cost=1000000, data={})
     options.append(surface_recharge)
 
     # Dry well
@@ -33,9 +29,7 @@ def mar_options() -> List[MAROption]:
     options.append(dry_well)
 
     # Injection well
-    injection_well = MAROption(
-        name="Injection Well", base_cost=1000000, data={}
-    )
+    injection_well = MAROption(name="Injection Well", base_cost=1000000, data={})
     options.append(injection_well)
 
     # # Surface recharge with treatment

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional, Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 import dash_bootstrap_components as dbc
 from dash import html
@@ -24,9 +25,7 @@ def label_cell_style(row_index: int = 0) -> dict[str, str]:
     return {"backgroundColor": "#f8f9fa" if row_index % 2 else "white"}
 
 
-def build_table_legend(
-    *, compact: bool = False, include_calculated: bool = True
-) -> html.Div:
+def build_table_legend(*, compact: bool = False, include_calculated: bool = True) -> html.Div:
     """Legend for amber = enter value, and optionally blue = calculated."""
     gap = "gap-1" if compact else "gap-1"
     items: list = [
@@ -85,16 +84,14 @@ def datatable_computed_data_style(**overrides: Any) -> dict[str, Any]:
 
 def datatable_column_styles(
     *,
-    computed_columns: Optional[Iterable[str]] = None,
-    input_columns: Optional[Iterable[str]] = None,
-    label_columns: Optional[Iterable[str]] = None,
+    computed_columns: Iterable[str] | None = None,
+    input_columns: Iterable[str] | None = None,
+    label_columns: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Conditional column backgrounds for dash_table.DataTable."""
     styles: list[dict[str, Any]] = []
     for col in computed_columns or ():
-        styles.append(
-            {"if": {"column_id": col}, "backgroundColor": COMPUTED_CELL_BG, "color": "#0d47a1"}
-        )
+        styles.append({"if": {"column_id": col}, "backgroundColor": COMPUTED_CELL_BG, "color": "#0d47a1"})
     for col in input_columns or ():
         styles.append({"if": {"column_id": col}, "backgroundColor": INPUT_CELL_BG})
     for col in label_columns or ():
@@ -146,12 +143,12 @@ def build_param_value_table(
     rows: Sequence[dict],
     *,
     input_type: str,
-    readonly_params: Optional[Iterable[str]] = None,
-    highlight_params: Optional[Iterable[str]] = None,
-    input_highlight_params: Optional[Iterable[str]] = None,
-    computed_highlight_params: Optional[Iterable[str]] = None,
+    readonly_params: Iterable[str] | None = None,
+    highlight_params: Iterable[str] | None = None,
+    input_highlight_params: Iterable[str] | None = None,
+    computed_highlight_params: Iterable[str] | None = None,
     table_class: str = "table table-sm table-bordered mb-0 excel-cell-table",
-    min_value: Optional[float] = None,
+    min_value: float | None = None,
 ) -> html.Table:
     """Build a two-column Parameter / Value table with borderless number inputs.
 
@@ -187,17 +184,14 @@ def build_param_value_table(
             computed_highlight=computed_highlight,
             legacy_highlight=legacy_highlight,
         )
-        is_computed = param in computed_highlight or (
-            is_ro and param not in input_highlight
-        )
+        is_computed = param in computed_highlight or (is_ro and param not in input_highlight)
 
         if is_ro:
             value_cell = html.Td(
                 html.Span(
                     f"{_as_float(value):g}",
                     className=(
-                        "d-block text-center fw-semibold py-1 "
-                        + ("excel-cell-computed" if is_computed else "")
+                        "d-block text-center fw-semibold py-1 " + ("excel-cell-computed" if is_computed else "")
                     ),
                 ),
                 className="align-middle py-0 px-1",

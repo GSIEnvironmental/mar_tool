@@ -97,7 +97,7 @@ RECOMMENDATION LIST: (R-Series)
      LOGIC: 
      
      OUTPUT:
-     ├─ NO: (INJECTION_WELLS) (Small area -remove surfae recharge
+     ├─ NO: (INJECTION_WELLS) (Small area -remove surface recharge
      methods)
      │  → Continue to 2.1
      └─ YES: (SURFACE_RECHARGE) (Adequate area for surface recharge)
@@ -208,7 +208,7 @@ AND < 3 ft thick?
          └─ NO: (NOT_FEASIBLE) (Trench Spreading NOT FEASIBLE)
               (Low-K layer is too thick or too deep for economic removal)
               (Deep injection likely required)            
-            → Continue to 14 (follwo up on CONF_ACCESS)
+            → Continue to 14 (follow up on CONF_ACCESS)
 
 9. [SPREAD_AREA] Calculate recharge area, infiltration rate, 
        available storage, gw_depth, 

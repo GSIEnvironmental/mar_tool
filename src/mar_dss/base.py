@@ -1,14 +1,17 @@
-from typing import Any, Callable, Dict, List, Optional
-from collections import deque
 import importlib
 import importlib.util
 import sys
+from collections import deque
+from collections.abc import Callable
 from pathlib import Path
-import yaml
+from typing import Any
+
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import yaml
+
 
 class Node:
     def __init__(
@@ -17,36 +20,35 @@ class Node:
         input_flag: bool,
         name: str,
         node_type: str,
-        leaf_flag: bool = False, # temination node!
-        description: Optional[str] = None,
-        value: Optional[Any] = None,
-        default: Optional[Any] = None,
-        range_: Optional[List[Any]] = None,
-        allowed_values: Optional[List[Any]] = None,
+        leaf_flag: bool = False,  # termination node!
+        description: str | None = None,
+        value: Any | None = None,
+        default: Any | None = None,
+        range_: list[Any] | None = None,
+        allowed_values: list[Any] | None = None,
         certainty: float = 1.0,
-        group: Optional[str] = None,
-        dependencies: Optional[List[str]] = None,
-        module: Optional[str] = None,
-        function_name: Optional[str] = None,
-        function: Optional[Callable] = None,
+        group: str | None = None,
+        dependencies: list[str] | None = None,
+        module: str | None = None,
+        function_name: str | None = None,
+        function: Callable | None = None,
     ):
-        self.node_id = node_id                  # symbolic ID, e.g., "Ks", "Vs"
-        self.input_flag = input_flag       
-        self.name = name                        # human-readable name
-        self.node_type = node_type              # "numeric", "boolean", etc.
-        self.leaf_flag = leaf_flag              # True if no dependencies
+        self.node_id = node_id  # symbolic ID, e.g., "Ks", "Vs"
+        self.input_flag = input_flag
+        self.name = name  # human-readable name
+        self.node_type = node_type  # "numeric", "boolean", etc.
+        self.leaf_flag = leaf_flag  # True if no dependencies
         self.description = description
-        self.value = value                      # current value (for input nodes)
-        self.default = default                  # default value
-        self.range = range_                     # numeric range
-        self.allowed_values = allowed_values    # categorical/boolean allowed values
+        self.value = value  # current value (for input nodes)
+        self.default = default  # default value
+        self.range = range_  # numeric range
+        self.allowed_values = allowed_values  # categorical/boolean allowed values
         self.certainty = certainty
         self.group = group
         self.dependencies = dependencies or []  # list of node_ids this depends on
-        self.module = module                    # Python module path or file
-        self.function_name = function_name      # function name inside module
-        self.function = function                # optional: Python callable
-     
+        self.module = module  # Python module path or file
+        self.function_name = function_name  # function name inside module
+        self.function = function  # optional: Python callable
 
     def is_input(self) -> bool:
         return self.input_flag
@@ -69,14 +71,15 @@ class Node:
             # For input nodes, just return the value
             return self.value
 
+
 class DecisionGraph:
     def __init__(self):
         self.nodes = {}  # key: node_id, value: Node instance
         # Filled when evaluate(..., trace=True); list of step dicts for UI / export
-        self._computation_log: Optional[List[Dict[str, Any]]] = None
+        self._computation_log: list[dict[str, Any]] | None = None
 
     @property
-    def computation_log(self) -> List[Dict[str, Any]]:
+    def computation_log(self) -> list[dict[str, Any]]:
         """Step-by-step trace from the last ``evaluate(..., trace=True)`` call."""
         if self._computation_log is None:
             return []
@@ -85,17 +88,17 @@ class DecisionGraph:
     def add_node(self, node: Node):
         self.nodes[node.node_id] = node
 
-    def get_node(self, node_id: str) -> Optional[Node]:
+    def get_node(self, node_id: str) -> Node | None:
         return self.nodes.get(node_id)
-    
-    def from_yamls(self, filepaths: List[str]):
+
+    def from_yamls(self, filepaths: list[str]):
         """Load nodes from multiple YAML files."""
-        
+
         for filepath in filepaths:
             input_flag = True
-            if not "input" in filepath:
+            if "input" not in filepath:
                 input_flag = False
-            with open(filepath, 'r') as file:
+            with open(filepath) as file:
                 data = yaml.safe_load(file)
                 for key, items in data.items():
                     if not isinstance(items, list):
@@ -104,22 +107,22 @@ class DecisionGraph:
                         if not isinstance(item, dict):
                             continue  # skip items that are not dicts
                         node = Node(
-                            node_id=item['id'],
+                            node_id=item["id"],
                             input_flag=input_flag,
-                            name=item['name'],
-                            node_type=item['type'],
-                            leaf_flag=item.get('leaf', False),
-                            description=item.get('description'),
-                            value=item.get('value'),
-                            default=item.get('default'),
-                            range_=item.get('range'),
-                            allowed_values=item.get('allowed_values'),
-                            certainty=item.get('certainty', 1.0),
-                            group=item.get('group'),
-                            dependencies=item.get('dependencies'),
-                            module=item.get('module'),
-                            function_name=item.get('function_name'),
-                            function=None  # Function can be set later if needed (todo)
+                            name=item["name"],
+                            node_type=item["type"],
+                            leaf_flag=item.get("leaf", False),
+                            description=item.get("description"),
+                            value=item.get("value"),
+                            default=item.get("default"),
+                            range_=item.get("range"),
+                            allowed_values=item.get("allowed_values"),
+                            certainty=item.get("certainty", 1.0),
+                            group=item.get("group"),
+                            dependencies=item.get("dependencies"),
+                            module=item.get("module"),
+                            function_name=item.get("function_name"),
+                            function=None,  # Function can be set later if needed (todo)
                         )
                         self.add_node(node)
 
@@ -152,47 +155,47 @@ class DecisionGraph:
                     dep_values[dep] = dep_val
                 except Exception as e:
                     import traceback
+
                     print(f"ERROR: Failed to evaluate dependency '{dep}' for node '{node_id}': {e}")
                     traceback.print_exc()
                     raise
-            
+
             # Debug print for design_sizing specifically
             # if node_id == "design_sizing":
             #     print(f"\nDEBUG design_sizing - Dependencies evaluated:")
             #     for dep, val in dep_values.items():
             #         print(f"  {dep}: {val} (type: {type(val)})")
-            
+
             if node.function is None and node.module and node.function_name:
-                node.function = self._load_function(
-                    node.module, node.function_name
-                )
-                
+                node.function = self._load_function(node.module, node.function_name)
+
                 # Debug print for design_sizing specifically
                 # if node_id == "design_sizing":
                 #     print(f"DEBUG design_sizing - Function loaded: {node.function is not None}")
                 #     if node.function is None:
                 #         print(f"  Failed to load function from module '{node.module}', function '{node.function_name}'")
-            
+
             if node.function:
                 # Pass arguments in the order of dependencies (not dict.values() order)
                 args = [dep_values[dep] for dep in node.dependencies]
-                
+
                 # Debug print for design_sizing specifically
                 # if node_id == "design_sizing":
                 #     print(f"DEBUG design_sizing - Calling function with args:")
                 #     for i, (dep, arg) in enumerate(zip(node.dependencies, args)):
                 #         print(f"  arg[{i}] ({dep}): {arg} (type: {type(arg)})")
                 #     print(f"  Function: {node.function}")
-                
+
                 try:
                     value = node.function(*args)
-                    
+
                     # # Debug print for design_sizing specifically
                     # if node_id == "design_sizing":
                     #     print(f"DEBUG design_sizing - Function returned: {value}")
                 except Exception as e:
                     # If function raises an exception, store None and re-raise
                     import traceback
+
                     print(f"Error evaluating node '{node_id}': {e}")
                     print(f"Dependencies: {list(dep_values.keys())}")
                     print(f"Dependency values: {dep_values}")
@@ -257,7 +260,7 @@ class DecisionGraph:
             self._computation_log = None
         cache = {}  # Cache for all computed values
         rule_nodes = [nid for nid, n in self.nodes.items() if n.is_rule()]
-        
+
         # # Debug: Check if design_sizing is in rule_nodes
         # if "design_sizing" in self.nodes:
         #     print(f"\nDEBUG evaluate() - design_sizing in nodes: True")
@@ -265,7 +268,7 @@ class DecisionGraph:
         #     print(f"  in rule_nodes list: {'design_sizing' in rule_nodes}")
         #     print(f"  Total rule nodes: {len(rule_nodes)}")
         #     print(f"  Rule nodes: {rule_nodes}")
-        
+
         results = {}  # All rule node results
 
         for nid in rule_nodes:
@@ -276,35 +279,33 @@ class DecisionGraph:
             except Exception as e:
                 print(f"Error evaluating node '{nid}': {e}")
                 raise ValueError(f"Error evaluating node '{nid}': {e}")
-                
+
             # if nid == "design_sizing":
             #     print(f"DEBUG evaluate() - Finished evaluating design_sizing, result: {results[nid]}")
 
         return results
-    
+
     def get_node_values(self) -> dict:
         """Get current values of all nodes in the graph."""
         return {node_id: node.value for node_id, node in self.nodes.items()}
-    
+
     def get_node_value(self, node_id: str) -> Any:
         """Get the current value of a specific node."""
         node = self.nodes.get(node_id)
         return node.value if node else None
-    
+
     def get_all_computed_values(self, input_values: dict) -> dict:
         """Get all computed values including intermediate nodes."""
         # Just evaluate leaf nodes (which computes everything) and return cache
         cache = {}
         leaf_nodes = [nid for nid, n in self.nodes.items() if n.leaf_flag]
-        
+
         for nid in leaf_nodes:
             self.evaluate_node(nid, input_values, cache)
-        
+
         return cache
 
-    def _load_function(
-        self, module_ref: str, function_name: str
-    ) -> Optional[Callable]:
+    def _load_function(self, module_ref: str, function_name: str) -> Callable | None:
         """Load a function from a module reference.
 
         The module reference can be a module name (e.g.,
@@ -353,9 +354,7 @@ class DecisionGraph:
 
         if path.suffix == ".py" and path.exists():
             try:
-                spec = importlib.util.spec_from_file_location(
-                    f"_dyn_{path.stem}", path
-                )
+                spec = importlib.util.spec_from_file_location(f"_dyn_{path.stem}", path)
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)
                     sys.modules[spec.name] = module
@@ -367,7 +366,7 @@ class DecisionGraph:
                 return None
 
         return None
-    
+
     # using networkx, plot the graph
     def plot(self):
         G = nx.DiGraph()
@@ -381,17 +380,17 @@ class DecisionGraph:
         for node_id in G.nodes():
             node = self.nodes[node_id]
             if node.is_input():
-                node_colors.append('skyblue')
+                node_colors.append("skyblue")
             else:
-                node_colors.append('orange')
+                node_colors.append("orange")
 
         pos = nx.spring_layout(G)
         nx.draw(G, pos, with_labels=True, arrows=True, node_color=node_colors)
 
         # Draw labels on the right side of each node
-        labels = nx.get_node_attributes(G, 'label')
+        labels = nx.get_node_attributes(G, "label")
         label_pos = {k: (v[0] + 0.08, v[1]) for k, v in pos.items()}
-        nx.draw_networkx_labels(G, label_pos, labels, horizontalalignment='left')
+        nx.draw_networkx_labels(G, label_pos, labels, horizontalalignment="left")
         plt.show()
 
     def calculate_hierarchy_positions(self, G, flip_y=False, vert_gap=0.25):
@@ -399,7 +398,7 @@ class DecisionGraph:
         Calculate hierarchical positions for a directed graph.
         Groups nodes by depth: all nodes at the same depth level get the same y-coordinate.
         Node level equals the maximum number of edges from root to that node (longest path).
-        
+
         Parameters:
         -----------
         G : networkx.DiGraph
@@ -408,7 +407,7 @@ class DecisionGraph:
             If True, flips y-coordinates to make children appear above parents (bottom-up)
         vert_gap : float, default=0.25
             Vertical spacing between levels
-        
+
         Returns:
         --------
         dict
@@ -416,25 +415,25 @@ class DecisionGraph:
         """
         if len(G.nodes()) == 0:
             return {}
-        
+
         # Find all root nodes (nodes with no incoming edges)
         roots = [n for n in G.nodes() if G.in_degree(n) == 0]
         if len(roots) == 0:
             # If no roots, pick an arbitrary starting point (pick node with minimum in-degree)
             roots = [min(G.nodes(), key=lambda n: G.in_degree(n))]
-        
+
         # Calculate depth level for each node using BFS
         # Level = maximum number of edges from root (longest path)
         levels = {}
         queue = deque([(root, 0) for root in roots])
-        
+
         # Initialize root nodes to level 0
         for root in roots:
             levels[root] = 0
-        
+
         while queue:
             node, level = queue.popleft()
-            
+
             # Process all children
             for child in G.successors(node):
                 child_level = level + 1
@@ -447,23 +446,23 @@ class DecisionGraph:
                     if child_level > levels[child]:
                         levels[child] = child_level
                         queue.append((child, child_level))
-        
+
         # Handle any unvisited nodes (disconnected components)
         for node in G.nodes():
             if node not in levels:
                 levels[node] = max(levels.values()) + 1 if levels else 0
-        
+
         # Group nodes by level
         nodes_by_level = {}
         for node, level in levels.items():
             if level not in nodes_by_level:
                 nodes_by_level[level] = []
             nodes_by_level[level].append(node)
-        
+
         # Calculate positions
         pos = {}
         max_level = max(levels.values()) if levels else 0
-        
+
         for level, nodes in sorted(nodes_by_level.items()):
             # Same y-coordinate for all nodes at this level
             if flip_y:
@@ -472,61 +471,67 @@ class DecisionGraph:
             else:
                 # Top-down: level 0 (roots) at top, higher levels go down
                 y = (max_level - level) * vert_gap
-            
+
             # Distribute x-coordinates evenly within the level
             num_nodes = len(nodes)
             if num_nodes == 1:
                 x_positions = [0.5]
             else:
                 x_positions = [i / (num_nodes - 1) for i in range(num_nodes)]
-            
+
             # Assign positions
             for node, x in zip(sorted(nodes), x_positions):
                 pos[node] = (x, y)
-        
+
         # Adjust positions to avoid nodes on connecting lines
         node_radius = 0.015  # Approximate node radius for clearance
         min_spacing = node_radius * 4  # Minimum spacing between nodes
         adjusted = True
         max_iterations = 50  # Increased iterations
         iteration = 0
-        
+
         # Create a list of all edges for checking
         all_edges = list(G.edges())
-        
+
         while adjusted and iteration < max_iterations:
             adjusted = False
             iteration += 1
-            
+
             # Check all edges and all nodes
             for edge in all_edges:
                 src, dst = edge
                 x0, y0 = pos[src]
                 x1, y1 = pos[dst]
-                
+
                 # Skip if edge is too short (same level nodes)
                 if abs(y1 - y0) < node_radius:
                     continue
-                
+
                 # Check all other nodes to see if they lie on the line segment
                 for node_id, (nx, ny) in list(pos.items()):
                     if node_id == src or node_id == dst:
                         continue
-                    
+
                     # Check if this node lies on or near the line segment between src and dst
                     if self._point_on_line_segment(nx, ny, x0, y0, x1, y1, tolerance=node_radius * 3):
                         # Try progressively larger offsets
-                        offset_amounts = [node_radius * 3, node_radius * 5, node_radius * 8, node_radius * 12, node_radius * 20]
-                        
+                        offset_amounts = [
+                            node_radius * 3,
+                            node_radius * 5,
+                            node_radius * 8,
+                            node_radius * 12,
+                            node_radius * 20,
+                        ]
+
                         moved = False
                         for offset_amount in offset_amounts:
                             # Try both directions
                             for direction in [-1, 1]:
                                 new_x = nx + direction * offset_amount
-                                
+
                                 # Ensure x stays within bounds [0, 1]
                                 new_x = max(0.0, min(1.0, new_x))
-                                
+
                                 # Check if new position conflicts with ANY other node (not just same level)
                                 conflict = False
                                 for other_node_id, (ox, oy) in pos.items():
@@ -536,11 +541,11 @@ class DecisionGraph:
                                     node_level = levels.get(node_id, 0)
                                     other_level = levels.get(other_node_id, 0)
                                     required_spacing = min_spacing if node_level == other_level else node_radius * 2
-                                    
+
                                     if abs(new_x - ox) < required_spacing:
                                         conflict = True
                                         break
-                                
+
                                 # Check if new position still lies on any edge
                                 still_on_edge = False
                                 for other_edge in all_edges:
@@ -550,25 +555,27 @@ class DecisionGraph:
                                     ox0, oy0 = pos[osrc]
                                     ox1, oy1 = pos[odst]
                                     if abs(oy1 - oy0) > node_radius:  # Only check non-horizontal edges
-                                        if self._point_on_line_segment(new_x, ny, ox0, oy0, ox1, oy1, tolerance=node_radius * 3):
+                                        if self._point_on_line_segment(
+                                            new_x, ny, ox0, oy0, ox1, oy1, tolerance=node_radius * 3
+                                        ):
                                             still_on_edge = True
                                             break
-                                
+
                                 if not conflict and not still_on_edge:
                                     pos[node_id] = (new_x, ny)
                                     adjusted = True
                                     moved = True
                                     break
-                            
+
                             if moved:
                                 break
-        
+
         return pos
-    
+
     def _point_on_line_segment(self, px, py, x1, y1, x2, y2, tolerance=0.01):
         """
         Check if point (px, py) lies on the line segment from (x1, y1) to (x2, y2).
-        
+
         Parameters:
         -----------
         px, py : float
@@ -579,7 +586,7 @@ class DecisionGraph:
             End of line segment
         tolerance : float
             Tolerance for distance from line (default: 0.01)
-        
+
         Returns:
         --------
         bool
@@ -589,37 +596,40 @@ class DecisionGraph:
         dx = x2 - x1
         dy = y2 - y1
         segment_length_sq = dx * dx + dy * dy
-        
+
         if segment_length_sq < 1e-10:  # Degenerate segment
             # Check if point is near the single point
             dist_sq = (px - x1) ** 2 + (py - y1) ** 2
-            return dist_sq < tolerance ** 2
-        
+            return dist_sq < tolerance**2
+
         # Vector from start to point
         t = ((px - x1) * dx + (py - y1) * dy) / segment_length_sq
-        
+
         # Check if point is within the segment (t between 0 and 1)
         if t < 0 or t > 1:
             return False
-        
+
         # Find closest point on line segment
         closest_x = x1 + t * dx
         closest_y = y1 + t * dy
-        
+
         # Calculate distance from point to closest point on segment
         dist_sq = (px - closest_x) ** 2 + (py - closest_y) ** 2
-        
-        return dist_sq < tolerance ** 2
-    
 
-    def plotly(self, layout: str = "hierarchy"):
+        return dist_sq < tolerance**2
+
+    def plotly(self, layout: str = "hierarchy", show: bool = True):
+        """Plot the graph with plotly and return the figure.
+
+        Pass show=False to skip opening it in a browser, for example in tests.
+        """
 
         G = nx.DiGraph()
         # Build graph
         for node_id, node in self.nodes.items():
             G.add_node(node_id, label=node.name, type="input" if node.is_input() else "rule")
             for dep in node.dependencies:
-                G.add_edge(dep, node_id)        
+                G.add_edge(dep, node_id)
 
         if layout == "shell":
             pos = nx.shell_layout(G)
@@ -646,12 +656,7 @@ class DecisionGraph:
             edge_y.extend([y0, y1, None])
 
         edge_trace = go.Scatter(
-            x=edge_x,
-            y=edge_y,
-            line=dict(width=1, color='gray'),
-            hoverinfo='none',
-            mode='lines',
-            showlegend=False
+            x=edge_x, y=edge_y, line=dict(width=1, color="gray"), hoverinfo="none", mode="lines", showlegend=False
         )
 
         # Nodes
@@ -674,11 +679,11 @@ class DecisionGraph:
             n = self.nodes[node_id]
             # Color logic: leaf node -> red, else input -> skyblue, else orange
             if n.leaf_flag:
-                node_color.append('red')
+                node_color.append("red")
             elif n.is_input():
-                node_color.append('skyblue')
+                node_color.append("skyblue")
             else:
-                node_color.append('orange')
+                node_color.append("orange")
             hover = (
                 f"id: {n.node_id}<br>"
                 f"name: {n.name}<br>"
@@ -702,16 +707,11 @@ class DecisionGraph:
         node_trace = go.Scatter(
             x=node_x,
             y=node_y,
-            mode='markers',
-            hoverinfo='text',
+            mode="markers",
+            hoverinfo="text",
             hovertext=node_hover,
-            marker=dict(
-                showscale=False,
-                color=node_color,
-                size=30,
-                line=dict(width=2, color='black')
-            ),
-            showlegend=False
+            marker=dict(showscale=False, color=node_color, size=30, line=dict(width=2, color="black")),
+            showlegend=False,
         )
 
         # Add a separate trace for labels with offset positions
@@ -719,11 +719,11 @@ class DecisionGraph:
             x=[label_offsets[nid][0] for nid in G.nodes()],
             y=[label_offsets[nid][1] for nid in G.nodes()],
             text=[self.nodes[nid].name for nid in G.nodes()],
-            mode='text',
-            textposition='middle right',
-            hoverinfo='none',
-            textfont=dict(size=12, color='black'),
-            showlegend=False
+            mode="text",
+            textposition="middle right",
+            hoverinfo="none",
+            textfont=dict(size=12, color="black"),
+            showlegend=False,
         )
 
         # Add arrows to show direction (parent -> child)
@@ -732,26 +732,26 @@ class DecisionGraph:
         for src, dst in G.edges():
             x0, y0 = pos[src]
             x1, y1 = pos[dst]
-            
+
             # Calculate direction vector
             dx = x1 - x0
             dy = y1 - y0
             length = np.sqrt(dx**2 + dy**2)
-            
+
             if length > 0:
                 # Normalize direction vector
                 dx_norm = dx / length
                 dy_norm = dy / length
-                
+
                 # Calculate arrow endpoint (just before the child node)
                 # Offset by node radius so arrow doesn't overlap the node
                 arrow_end_x = x1 - dx_norm * node_radius
                 arrow_end_y = y1 - dy_norm * node_radius
-                
+
                 # Calculate arrow start point (from parent node edge)
                 arrow_start_x = x0 + dx_norm * node_radius
                 arrow_start_y = y0 + dy_norm * node_radius
-                
+
                 # Add arrow annotation
                 arrows.append(
                     go.layout.Annotation(
@@ -767,44 +767,47 @@ class DecisionGraph:
                         arrowhead=2,
                         arrowsize=1.5,
                         arrowwidth=1.5,
-                        arrowcolor='gray',
+                        arrowcolor="gray",
                     )
                 )
 
         # Legend traces (dummy invisible points for legend)
         legend_traces = [
             go.Scatter(
-                x=[None], y=[None],
-                mode='markers',
+                x=[None],
+                y=[None],
+                mode="markers",
                 marker=dict(
-                    color='skyblue',
+                    color="skyblue",
                     size=20,
-                    line=dict(width=2, color='black'),
+                    line=dict(width=2, color="black"),
                 ),
-                name='Input Node',
-                showlegend=True
+                name="Input Node",
+                showlegend=True,
             ),
             go.Scatter(
-                x=[None], y=[None],
-                mode='markers',
+                x=[None],
+                y=[None],
+                mode="markers",
                 marker=dict(
-                    color='orange',
+                    color="orange",
                     size=20,
-                    line=dict(width=2, color='black'),
+                    line=dict(width=2, color="black"),
                 ),
-                name='Rule Node',
-                showlegend=True
+                name="Rule Node",
+                showlegend=True,
             ),
             go.Scatter(
-                x=[None], y=[None],
-                mode='markers',
+                x=[None],
+                y=[None],
+                mode="markers",
                 marker=dict(
-                    color='red',
+                    color="red",
                     size=20,
-                    line=dict(width=2, color='black'),
+                    line=dict(width=2, color="black"),
                 ),
-                name='Decision Node',
-                showlegend=True
+                name="Decision Node",
+                showlegend=True,
             ),
         ]
 
@@ -812,15 +815,14 @@ class DecisionGraph:
             data=[edge_trace, node_trace, label_trace] + legend_traces,
             layout=go.Layout(
                 showlegend=True,
-                hovermode='closest',
+                hovermode="closest",
                 margin=dict(b=20, l=5, r=5, t=40),
                 xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                annotations=arrows
-            )
+                annotations=arrows,
+            ),
         )
 
-        fig.show()
-
-        
-        
+        if show:
+            fig.show()
+        return fig

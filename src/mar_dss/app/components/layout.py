@@ -5,10 +5,12 @@ This module provides a function to build and assign the Dash layout using
 the provided application context (the main DashboardApp instance).
 """
 
+import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from mar_dss.app.utils.defaults import defaults
+
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss import __version__
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 
@@ -19,7 +21,9 @@ def setup_layout(app_ctx):
     stacked panels under ``#main-content`` (see :data:`MAIN_TAB_IDS`); each panel
     is filled once when first selected and kept mounted for faster switching.
     """
-    app_ctx.app.layout = _build_root_layout()
+    # Pass the function itself, so Dash rebuilds the layout on every page load
+    # from that browser's data.
+    app_ctx.app.layout = _build_root_layout
 
 
 # Top-level tab ids — keep in sync with ``_build_tabs`` tab_id values.
@@ -44,26 +48,11 @@ def main_tab_panel_id(tab_id: str) -> str:
 # ------------------------------
 
 _THEME_URLS = {
-    "CERULEAN": (
-        "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/"
-        "cerulean/bootstrap.min.css"
-    ),
-    "DARKLY": (
-        "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/"
-        "darkly/bootstrap.min.css"
-    ),
-    "FLATLY": (
-        "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/"
-        "flatly/bootstrap.min.css"
-    ),
-    "CYBORG": (
-        "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/"
-        "cyborg/bootstrap.min.css"
-    ),
-    "SLATE": (
-        "https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/"
-        "slate/bootstrap.min.css"
-    ),
+    "CERULEAN": ("https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/cerulean/bootstrap.min.css"),
+    "DARKLY": ("https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/darkly/bootstrap.min.css"),
+    "FLATLY": ("https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/flatly/bootstrap.min.css"),
+    "CYBORG": ("https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/cyborg/bootstrap.min.css"),
+    "SLATE": ("https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/slate/bootstrap.min.css"),
 }
 
 
@@ -84,13 +73,16 @@ def _create_black_text_override_link() -> html.Link:
     return html.Link(
         id="black-text-override-css",
         rel="stylesheet",
-        href="/assets/force_black_text.css?v=11",
+        # get_asset_url adds the /MAR-Tool/ prefix on the server. A hard-coded
+        # "/assets/..." path would skip it and the CSS wouldn't load.
+        href=dash.get_asset_url("force_black_text.css") + "?v=11",
     )
 
 
 # ------------------------------
 # Header builders
 # ------------------------------
+
 
 def _build_title_block() -> html.Div:
     return html.Div(
@@ -110,7 +102,7 @@ def _build_title_block() -> html.Div:
                             )
                         ],
                         width=3,
-                        className="d-flex align-items-center justify-content-start"
+                        className="d-flex align-items-center justify-content-start",
                     ),
                     dbc.Col(
                         [
@@ -132,27 +124,30 @@ def _build_title_block() -> html.Div:
                             )
                         ],
                         width=6,
-                        className="d-flex align-items-center justify-content-center"
+                        className="d-flex align-items-center justify-content-center",
                     ),
                     dbc.Col(
                         [
-                            html.Div([
-                                html.Img(
-                                    src="assets/logos.jpg",
-                                    alt="Partner Logos",
-                                    style={
-                                        "height": "70px",
-                                        "width": "auto",
-                                        "vertical-align": "middle",
-                                    },
-                                )
-                            ], className="d-flex align-items-center justify-content-center")
+                            html.Div(
+                                [
+                                    html.Img(
+                                        src="assets/logos.jpg",
+                                        alt="Partner Logos",
+                                        style={
+                                            "height": "70px",
+                                            "width": "auto",
+                                            "vertical-align": "middle",
+                                        },
+                                    )
+                                ],
+                                className="d-flex align-items-center justify-content-center",
+                            )
                         ],
                         width=3,
-                        className="d-flex align-items-center justify-content-center"
-                    )
+                        className="d-flex align-items-center justify-content-center",
+                    ),
                 ],
-                className="align-items-center"
+                className="align-items-center",
             )
         ],
         style={
@@ -164,7 +159,7 @@ def _build_title_block() -> html.Div:
 
 
 def _build_file_toolbar() -> html.Div:
-    """Desktop-style file commands in one row (Open/Save As use native file dialogs)."""
+    """Open, Save and Save As buttons in one row."""
     return html.Div(
         dbc.ButtonGroup(
             [
@@ -175,12 +170,20 @@ def _build_file_toolbar() -> html.Div:
                     size="sm",
                     title="Start a new project with default values",
                 ),
-                dbc.Button(
-                    [html.I(className="fas fa-folder-open me-1"), "Open"],
-                    id="btn-open",
-                    color="outline-secondary",
-                    size="sm",
-                    title="Browse for a CSV/JSON project file to open",
+                # The browser picks the file and uploads it, so this works on a
+                # server too.
+                dcc.Upload(
+                    dbc.Button(
+                        [html.I(className="fas fa-folder-open me-1"), "Open"],
+                        id="btn-open",
+                        color="outline-secondary",
+                        size="sm",
+                        title="Browse for a CSV/JSON project file to open",
+                    ),
+                    id="upload-project",
+                    accept=".csv,.json",
+                    max_size=10 * 1024 * 1024,
+                    className="btn-group",
                 ),
                 dbc.Button(
                     [html.I(className="fas fa-times me-1"), "Close"],
@@ -194,14 +197,14 @@ def _build_file_toolbar() -> html.Div:
                     id="btn-save",
                     color="outline-secondary",
                     size="sm",
-                    title="Save to the project file path (or browse if path is empty)",
+                    title="Download the project file (CSV)",
                 ),
                 dbc.Button(
                     [html.I(className="fas fa-file-export me-1"), "Save As..."],
                     id="btn-save-as",
                     color="outline-secondary",
                     size="sm",
-                    title="Browse for a location and file name to save the project",
+                    title="Download the project under a new file name",
                 ),
                 dbc.Button(
                     [html.I(className="fas fa-info-circle me-1"), "About"],
@@ -267,13 +270,9 @@ def _build_about_modal() -> dbc.Modal:
                     html.P(
                         [
                             "MAR-Tool was developed in cooperation between the ",
-                            html.Strong(
-                                "Environmental Security Technology Certification Program (ESTCP)"
-                            ),
+                            html.Strong("Environmental Security Technology Certification Program (ESTCP)"),
                             ", ",
-                            html.Strong(
-                                "Naval Facilities Engineering Systems Command (NAVFAC)"
-                            ),
+                            html.Strong("Naval Facilities Engineering Systems Command (NAVFAC)"),
                             ", and ",
                             html.Strong("GSI Environmental Inc."),
                         ],
@@ -282,12 +281,26 @@ def _build_about_modal() -> dbc.Modal:
                 ]
             ),
             dbc.ModalFooter(
-                dbc.Button(
-                    "Close",
-                    id="btn-about-close",
-                    color="secondary",
-                    n_clicks=0,
-                )
+                [
+                    html.Small(
+                        [
+                            f"Version {__version__} | ",
+                            html.A(
+                                "License",
+                                href="https://github.com/GSIEnvironmental/mar_tool/blob/main/LICENSE",
+                                target="_blank",
+                                rel="noopener noreferrer",
+                            ),
+                        ],
+                        className="text-muted me-auto",
+                    ),
+                    dbc.Button(
+                        "Close",
+                        id="btn-about-close",
+                        color="secondary",
+                        n_clicks=0,
+                    ),
+                ]
             ),
         ],
         id="about-modal",
@@ -356,28 +369,16 @@ def _build_header() -> dbc.Row:
 # ------------------------------
 
 _TOP_TAB_TOOLTIPS = {
-    "overview": (
-        "Project setup: name, location, MAR purpose, and site characteristics"
-    ),
-    "water-source": (
-        "Water source availability, quality, flow data, and runoff calculations"
-    ),
-    "hydrogeology": (
-        "Subsurface conditions: stratigraphy, aquifer type, groundwater, and storage"
-    ),
-    "environmental": (
-        "Five screening questions on source water, vadose zone, and target aquifer quality"
-    ),
+    "overview": ("Project setup: name, location, MAR purpose, and site characteristics"),
+    "water-source": ("Water source availability, quality, flow data, and runoff calculations"),
+    "hydrogeology": ("Subsurface conditions: stratigraphy, aquifer type, groundwater, and storage"),
+    "environmental": ("Five screening questions on source water, vadose zone, and target aquifer quality"),
     "legal": (
         "Informational regulatory considerations, AI permits matrix, and "
         "AI environmental factors (not scored in DSS decisions)"
     ),
-    "engineering-options": (
-        "Engineering design parameters and cost estimation (capital, O&M, NPV)"
-    ),
-    "analysis": (
-        "Feasibility assessment, decision support, sensitivity, and data export"
-    ),
+    "engineering-options": ("Engineering design parameters and cost estimation (capital, O&M, NPV)"),
+    "analysis": ("Feasibility assessment, decision support, sensitivity, and data export"),
 }
 
 
@@ -389,112 +390,84 @@ def _build_tabs():
                 id=tab_nav_id("overview"),
                 tab_id="overview",
                 label_style={
-                    "color": "#ffffff", 
+                    "color": "#ffffff",
                     "fontWeight": "bold",
                     "backgroundColor": "#6f42c1",
-                    "border": "1px solid #6f42c1"
+                    "border": "1px solid #6f42c1",
                 },
-                active_label_style={
-                    "color": "#ffffff", 
-                    "backgroundColor": "#5a32a3",
-                    "border": "1px solid #5a32a3"
-                }
+                active_label_style={"color": "#ffffff", "backgroundColor": "#5a32a3", "border": "1px solid #5a32a3"},
             ),
             dbc.Tab(
                 label="(2) Water Source",
                 id=tab_nav_id("water-source"),
                 tab_id="water-source",
                 label_style={
-                    "color": "#ffffff", 
+                    "color": "#ffffff",
                     "fontWeight": "bold",
                     "backgroundColor": "#8e44ad",
-                    "border": "1px solid #8e44ad"
+                    "border": "1px solid #8e44ad",
                 },
-                active_label_style={
-                    "color": "#ffffff", 
-                    "backgroundColor": "#7d3c98",
-                    "border": "1px solid #7d3c98"
-                }
+                active_label_style={"color": "#ffffff", "backgroundColor": "#7d3c98", "border": "1px solid #7d3c98"},
             ),
             dbc.Tab(
                 label="(3) Hydrogeology",
                 id=tab_nav_id("hydrogeology"),
                 tab_id="hydrogeology",
                 label_style={
-                    "color": "#ffffff", 
+                    "color": "#ffffff",
                     "fontWeight": "bold",
                     "backgroundColor": "#a569bd",
-                    "border": "1px solid #a569bd"
+                    "border": "1px solid #a569bd",
                 },
-                active_label_style={
-                    "color": "#ffffff", 
-                    "backgroundColor": "#9b59b6",
-                    "border": "1px solid #9b59b6"
-                }
+                active_label_style={"color": "#ffffff", "backgroundColor": "#9b59b6", "border": "1px solid #9b59b6"},
             ),
             dbc.Tab(
                 label="(4) Water Quality",
                 id=tab_nav_id("environmental"),
                 tab_id="environmental",
                 label_style={
-                    "color": "#ffffff", 
+                    "color": "#ffffff",
                     "fontWeight": "bold",
                     "backgroundColor": "#3498db",
-                    "border": "1px solid #3498db"
+                    "border": "1px solid #3498db",
                 },
-                active_label_style={
-                    "color": "#ffffff", 
-                    "backgroundColor": "#2980b9",
-                    "border": "1px solid #2980b9"
-                }
+                active_label_style={"color": "#ffffff", "backgroundColor": "#2980b9", "border": "1px solid #2980b9"},
             ),
             dbc.Tab(
                 label="(5) Regulatory and Environmental",
                 id=tab_nav_id("legal"),
                 tab_id="legal",
                 label_style={
-                    "color": "#ffffff", 
+                    "color": "#ffffff",
                     "fontWeight": "bold",
                     "backgroundColor": "#5dade2",
-                    "border": "1px solid #5dade2"
+                    "border": "1px solid #5dade2",
                 },
-                active_label_style={
-                    "color": "#ffffff", 
-                    "backgroundColor": "#4a9fd1",
-                    "border": "1px solid #4a9fd1"
-                }
+                active_label_style={"color": "#ffffff", "backgroundColor": "#4a9fd1", "border": "1px solid #4a9fd1"},
             ),
             dbc.Tab(
                 label="(6) Engineering",
                 id=tab_nav_id("engineering-options"),
                 tab_id="engineering-options",
                 label_style={
-                    "color": "#ffffff", 
+                    "color": "#ffffff",
                     "fontWeight": "bold",
                     "backgroundColor": "#85c1e9",
-                    "border": "1px solid #85c1e9"
+                    "border": "1px solid #85c1e9",
                 },
-                active_label_style={
-                    "color": "#ffffff", 
-                    "backgroundColor": "#73b3e0",
-                    "border": "1px solid #73b3e0"
-                }
+                active_label_style={"color": "#ffffff", "backgroundColor": "#73b3e0", "border": "1px solid #73b3e0"},
             ),
             dbc.Tab(
                 label="(7) Analysis",
                 id=tab_nav_id("analysis"),
                 tab_id="analysis",
                 label_style={
-                    "color": "#ffffff", 
+                    "color": "#ffffff",
                     "fontWeight": "bold",
                     "backgroundColor": "#85c1e9",
-                    "border": "1px solid #85c1e9"
+                    "border": "1px solid #85c1e9",
                 },
-                active_label_style={
-                    "color": "#ffffff", 
-                    "backgroundColor": "#73b3e0",
-                    "border": "1px solid #73b3e0"
-                }
+                active_label_style={"color": "#ffffff", "backgroundColor": "#73b3e0", "border": "1px solid #73b3e0"},
             ),
         ],
         id="top-tabs",
@@ -503,10 +476,7 @@ def _build_tabs():
     return html.Div(
         [
             tabs,
-            *[
-                tab_tooltip(tab_id, text, placement="bottom")
-                for tab_id, text in _TOP_TAB_TOOLTIPS.items()
-            ],
+            *[tab_tooltip(tab_id, text, placement="bottom") for tab_id, text in _TOP_TAB_TOOLTIPS.items()],
         ]
     )
 
@@ -538,73 +508,66 @@ def _build_main_card_body() -> list:
 
 
 def _build_main_card() -> dbc.Card:
-    return dbc.Card([
-        dbc.CardHeader([
-            dbc.Row([
-                dbc.Col([_build_tabs()], width=9),
-                dbc.Col([
-                    html.Div([
-                        html.Label("Theme", className="me-2 mb-0"),
-                        dbc.Select(
-                            id="theme-selector",
-                            options=[
-                                {"label": "Cerulean", "value": "CERULEAN"},
-                                {"label": "Darkly", "value": "DARKLY"},
-                                {"label": "Flatly", "value": "FLATLY"},
-                                {"label": "Cyborg", "value": "CYBORG"},
-                                {"label": "Slate", "value": "SLATE"},
-                            ],
-                            value="CERULEAN",
-                            size="sm",
-                            style={"width": "150px"},
-                        ),
-                        dbc.Tooltip(
-                            "Bootstrap/Bootswatch color theme for the dashboard",
-                            target="theme-selector",
-                            placement="bottom",
-                        ),
-                    ], className="d-flex align-items-center justify-content-end")
-                ], width=3)
-            ])
-        ]),
-        dbc.CardBody(_build_main_card_body()),
-    ])
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                [
+                    dbc.Row(
+                        [
+                            dbc.Col([_build_tabs()], width=9),
+                            dbc.Col(
+                                [
+                                    html.Div(
+                                        [
+                                            html.Label("Theme", className="me-2 mb-0"),
+                                            dbc.Select(
+                                                id="theme-selector",
+                                                options=[
+                                                    {"label": "Cerulean", "value": "CERULEAN"},
+                                                    {"label": "Darkly", "value": "DARKLY"},
+                                                    {"label": "Flatly", "value": "FLATLY"},
+                                                    {"label": "Cyborg", "value": "CYBORG"},
+                                                    {"label": "Slate", "value": "SLATE"},
+                                                ],
+                                                value="CERULEAN",
+                                                size="sm",
+                                                style={"width": "150px"},
+                                            ),
+                                            dbc.Tooltip(
+                                                "Bootstrap/Bootswatch color theme for the dashboard",
+                                                target="theme-selector",
+                                                placement="bottom",
+                                            ),
+                                        ],
+                                        className="d-flex align-items-center justify-content-end",
+                                    )
+                                ],
+                                width=3,
+                            ),
+                        ]
+                    )
+                ]
+            ),
+            dbc.CardBody(_build_main_card_body()),
+        ]
+    )
 
 
 # ------------------------------
 # Sidebar builders
 # ------------------------------
 
+
 def _build_sidebar_nav() -> dbc.Nav:
     return dbc.Nav(
         [
-            dbc.NavItem([
-                dbc.NavLink("Dashboard", id=("nav-dashboard"), href="#",
-                            active=True)
-            ]),
-            dbc.NavItem([
-                dbc.NavLink("DSS Algorithm", id=("nav-water-levels"),
-                            href="#")
-            ]),
-            dbc.NavItem([
-                dbc.NavLink("Decision Sensitivity", id=("nav-recharge"),
-                            href="#")
-            ]),
-            dbc.NavItem([
-                dbc.NavLink("Decision Interpretation", id=("nav-quality"),
-                            href="#")
-            ]),
-            dbc.NavItem([
-                dbc.NavLink("Scenarios Comparison", id=("nav-scenarios"),
-                            href="#")
-            ]),
-            dbc.NavItem([
-                dbc.NavLink("AI Generated Decision", id=("nav-ai-decision"),
-                            href="#")
-            ]),
-            dbc.NavItem([
-                dbc.NavLink("Data Export", id=("nav-export"), href="#")
-            ]),
+            dbc.NavItem([dbc.NavLink("Dashboard", id=("nav-dashboard"), href="#", active=True)]),
+            dbc.NavItem([dbc.NavLink("DSS Algorithm", id=("nav-water-levels"), href="#")]),
+            dbc.NavItem([dbc.NavLink("Decision Sensitivity", id=("nav-recharge"), href="#")]),
+            dbc.NavItem([dbc.NavLink("Decision Interpretation", id=("nav-quality"), href="#")]),
+            dbc.NavItem([dbc.NavLink("Scenarios Comparison", id=("nav-scenarios"), href="#")]),
+            dbc.NavItem([dbc.NavLink("AI Generated Decision", id=("nav-ai-decision"), href="#")]),
+            dbc.NavItem([dbc.NavLink("Data Export", id=("nav-export"), href="#")]),
         ],
         vertical=True,
         pills=True,
@@ -629,6 +592,7 @@ def _build_sidebar() -> dbc.Col:
 # ------------------------------
 # Page layout builders
 # ------------------------------
+
 
 def _build_content_area() -> dbc.Row:
     return dbc.Row(
@@ -671,6 +635,11 @@ def _build_root_layout() -> html.Div:
                 data=groundwater_store_initial,
                 storage_type="memory",
             ),
+            # Save, Save As and Generate Report send their files here, and the browser
+            # downloads them. This replaced the old desktop save dialogs, which only
+            # worked when the app ran on a local machine.
+            dcc.Download(id="download-project"),
+            dcc.Download(id="download-report"),
             # Bumped when stratigraphy / groundwater is copied into dash_storage (avoid
             # circular callbacks that write the same dcc.Store they listen to).
             dcc.Store(id="stratigraphy-dash-sync-ping", data=0),
@@ -690,5 +659,3 @@ def _build_root_layout() -> html.Div:
             _build_about_modal(),
         ]
     )
-
-

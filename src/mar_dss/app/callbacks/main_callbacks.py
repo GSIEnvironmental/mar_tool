@@ -1,26 +1,20 @@
 """
 Main dashboard callbacks for MAR DSS.
 """
-import copy
+
 import json
 import os
 from datetime import datetime
-import pandas as pd
-
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, html, dependencies, ALL
+import pandas as pd
+from dash import ALL, Input, Output, State, html
 from dash.dependencies import ClientsideFunction
+
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.utils.native_file_dialog import ask_save_project_path
-from mar_dss.app.utils.project_file_path import format_project_path, split_project_path
 from mar_dss.app.utils.project_storage import (
-    apply_project_storage_defaults,
-    is_missing_storage_value,
-    normalize_stored_string,
     prepare_project_storage_for_export,
-    _parse_literal_if_needed,
 )
 
 # Import content creation functions
@@ -42,29 +36,22 @@ try:
         normalize_stratigraphy_recharge_target,
         stratigraphy_store_payload_from_storage,
     )
+    from mar_dss.app.components.layout import MAIN_TAB_IDS, main_tab_panel_id
+    from mar_dss.app.components.overview_tab import (
+        DEFAULT_OVERVIEW_MAP_BASEMAP,
+        DEFAULT_OVERVIEW_MAP_LAT,
+        DEFAULT_OVERVIEW_MAP_LON,
+        DEFAULT_OVERVIEW_MAP_ZOOM,
+        create_overview_content,
+    )
     from mar_dss.app.components.scenarios_comparison_tab import (
         create_scenarios_comparison_content,
     )
     from mar_dss.app.components.water_source_tab import (
         create_general_tab_content,
     )
-    from mar_dss.app.components.overview_tab import (
-        create_overview_content,
-        DEFAULT_OVERVIEW_MAP_LAT,
-        DEFAULT_OVERVIEW_MAP_LON,
-        DEFAULT_OVERVIEW_MAP_ZOOM,
-        DEFAULT_OVERVIEW_MAP_BASEMAP,
-    )
-    from mar_dss.app.components.layout import MAIN_TAB_IDS, main_tab_panel_id
 except ImportError:
-    from .components.ai_generated_decision_tab import (
-        create_ai_generated_decision_content,
-    )
-    from .components.dashboard_tab import create_dashboard_content
-    from .components.data_export_tab import create_data_export_content
-    from .components.decision_interpretation_tab import (
-        create_decision_interpretation_content,
-    )
+    from ..components.layout import MAIN_TAB_IDS, main_tab_panel_id
     from .components.hydro_tab import (
         create_hydro_tab_content,
         default_stratigraphy_layers,
@@ -72,26 +59,24 @@ except ImportError:
         normalize_stratigraphy_recharge_target,
         stratigraphy_store_payload_from_storage,
     )
-    from .components.scenarios_comparison_tab import (
-        create_scenarios_comparison_content,
-    )
-    from .components.water_source_tab import create_general_tab_content
     from .components.overview_tab import (
-        create_overview_content,
+        DEFAULT_OVERVIEW_MAP_BASEMAP,
         DEFAULT_OVERVIEW_MAP_LAT,
         DEFAULT_OVERVIEW_MAP_LON,
         DEFAULT_OVERVIEW_MAP_ZOOM,
-        DEFAULT_OVERVIEW_MAP_BASEMAP,
+        create_overview_content,
     )
-    from ..components.layout import MAIN_TAB_IDS, main_tab_panel_id
+    from .components.water_source_tab import create_general_tab_content
 
 
-_SKIP_PROJECT_EXPORT_KEYS = frozenset({
-    "decision_graph",
-    "feasibility_analysis_hash",
-    "graph_computation_log",
-    "graph_computation_log_text",
-})
+_SKIP_PROJECT_EXPORT_KEYS = frozenset(
+    {
+        "decision_graph",
+        "feasibility_analysis_hash",
+        "graph_computation_log",
+        "graph_computation_log_text",
+    }
+)
 
 
 def _project_export_rows():
@@ -126,21 +111,19 @@ def _project_export_dict():
     return clean_data
 
 
-def _save_project_to_path(fn: str) -> None:
-    """Write the current project to ``fn`` as CSV or JSON based on extension."""
+def _project_file_content(fn: str) -> str:
+    """Return the project as CSV or JSON text, based on the file extension."""
     suffix = os.path.splitext(fn)[1].lower()
     if suffix == ".json":
-        with open(fn, "w", encoding="utf-8") as f:
-            json.dump(_project_export_dict(), f, indent=2)
-        return
+        return json.dumps(_project_export_dict(), indent=2)
 
     df = pd.DataFrame(_project_export_rows(), columns=["key", "value"])
-    df.to_csv(fn, index=False)
+    return df.to_csv(index=False)
 
 
 def setup_main_callbacks(app, dashboard_instance):
     """Set up all main dashboard callbacks."""
-    
+
     # Import and set up overview callbacks
     try:
         from mar_dss.app.callbacks.overview_callbacks import setup_overview_callbacks
@@ -284,11 +267,7 @@ def setup_main_callbacks(app, dashboard_instance):
         dashboard_instance.current_theme = theme
         theme_url = theme_urls.get(theme, theme_urls["CERULEAN"])
         # Dark themes need light text; light themes force muted greys → black
-        body_theme_class = (
-            "mar-theme-dark"
-            if theme in ("DARKLY", "CYBORG", "SLATE")
-            else "mar-theme-light"
-        )
+        body_theme_class = "mar-theme-dark" if theme in ("DARKLY", "CYBORG", "SLATE") else "mar-theme-light"
         return theme, theme_url, body_theme_class
 
     @app.callback(
@@ -338,7 +317,6 @@ def setup_main_callbacks(app, dashboard_instance):
             button_id == "nav-export",
         )
 
-
     # Sync flow-data-store from dash_storage when Water Source tab is shown
     @app.callback(
         Output("flow-data-store", "data"),
@@ -377,14 +355,10 @@ def setup_main_callbacks(app, dashboard_instance):
     def toggle_constant_monthly_flow_inputs(use_constant, input_ids):
         if not input_ids:
             return []
-        return [
-            bool(use_constant) and id_dict.get("month") != "Jan"
-            for id_dict in input_ids
-        ]
+        return [bool(use_constant) and id_dict.get("month") != "Jan" for id_dict in input_ids]
 
     _WATER_SOURCE_NEGATIVE_INPUT_ALERT = dbc.Alert(
-        "Water Source: negative values are not allowed. "
-        "All table input values must be zero or greater.",
+        "Water Source: negative values are not allowed. All table input values must be zero or greater.",
         color="danger",
         className="py-2 small mb-0",
     )
@@ -420,9 +394,7 @@ def setup_main_callbacks(app, dashboard_instance):
             )
 
         try:
-            if jan_value is None or (
-                isinstance(jan_value, str) and str(jan_value).strip() == ""
-            ):
+            if jan_value is None or (isinstance(jan_value, str) and str(jan_value).strip() == ""):
                 stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
                 jan_val = float(stored.get("Jan", 0) or 0)
             else:
@@ -439,12 +411,7 @@ def setup_main_callbacks(app, dashboard_instance):
                 continue
             raw = values[i] if values and i < len(values) else None
             try:
-                cur = (
-                    float(raw)
-                    if raw is not None
-                    and not (isinstance(raw, str) and str(raw).strip() == "")
-                    else None
-                )
+                cur = float(raw) if raw is not None and not (isinstance(raw, str) and str(raw).strip() == "") else None
             except (TypeError, ValueError):
                 cur = None
             if cur is None or abs(cur - jan_val) > 1e-9:
@@ -453,15 +420,11 @@ def setup_main_callbacks(app, dashboard_instance):
             else:
                 out.append(dash.no_update)
 
-        error = (
-            _WATER_SOURCE_NEGATIVE_INPUT_ALERT if jan_val < 0 else None
-        )
-        flow_data = {month: jan_val for month in FLOW_MONTHS}
+        error = _WATER_SOURCE_NEGATIVE_INPUT_ALERT if jan_val < 0 else None
+        flow_data = dict.fromkeys(FLOW_MONTHS, jan_val)
         stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
         if needs_update or not flow_dicts_equal(flow_data, stored):
-            dash_storage.set_data(
-                "monthly_flow", [flow_data[month] for month in FLOW_MONTHS]
-            )
+            dash_storage.set_data("monthly_flow", [flow_data[month] for month in FLOW_MONTHS])
             return out, flow_data, error
         if not needs_update:
             return [dash.no_update] * len(input_ids), dash.no_update, error
@@ -587,11 +550,7 @@ def setup_main_callbacks(app, dashboard_instance):
             )
 
         stored = flow_dict_from_list(dash_storage.get_data("monthly_flow"))
-        store_data = (
-            flow_store
-            if isinstance(flow_store, dict) and flow_store
-            else stored
-        )
+        store_data = flow_store if isinstance(flow_store, dict) and flow_store else stored
 
         ctx = dash.callback_context
         trigger = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
@@ -601,15 +560,11 @@ def setup_main_callbacks(app, dashboard_instance):
             return create_monthly_flow_chart(store_data)
 
         # Merge table into stored values; blank/None cells keep stored month values
-        flow_data = flow_dict_from_input_values(
-            values, input_ids, fallback=stored
-        )
+        flow_data = flow_dict_from_input_values(values, input_ids, fallback=stored)
 
         # Persist only when the user actually changed a numeric value
         if not flow_dicts_equal(flow_data, stored):
-            dash_storage.set_data(
-                "monthly_flow", [flow_data[month] for month in FLOW_MONTHS]
-            )
+            dash_storage.set_data("monthly_flow", [flow_data[month] for month in FLOW_MONTHS])
 
         return create_monthly_flow_chart(flow_data)
 
@@ -619,7 +574,7 @@ def setup_main_callbacks(app, dashboard_instance):
         [
             Input("top-tabs", "active_tab"),
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def sync_stratigraphy_data_store(active_tab):
         """When hydrogeology tab opens, seed the stratigraphy store from dash_storage."""
@@ -633,7 +588,7 @@ def setup_main_callbacks(app, dashboard_instance):
         [
             Input("top-tabs", "active_tab"),
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def sync_groundwater_data_store(active_tab):
         """Sync groundwater-data-store with dash_storage when hydrogeology tab is accessed."""
@@ -706,11 +661,7 @@ def setup_main_callbacks(app, dashboard_instance):
                 delete_index = component_id["index"]
 
                 if 0 <= delete_index < len(layers_data):
-                    layers_data = [
-                        layer
-                        for i, layer in enumerate(layers_data)
-                        if i != delete_index
-                    ]
+                    layers_data = [layer for i, layer in enumerate(layers_data) if i != delete_index]
             except (ValueError, KeyError, IndexError):
                 pass
 
@@ -766,9 +717,7 @@ def setup_main_callbacks(app, dashboard_instance):
             layer_type = layer_data.get("layer_type", "aquifer")
             thickness = layer_data.get("thickness", 0)
             color = layer_type_colors.get(layer_type, "#6c757d")
-            display_name = layer_display_names.get(
-                layer_type, layer_type.title()
-            )
+            display_name = layer_display_names.get(layer_type, layer_type.title())
 
             # Create layer card
             layer_card = dbc.Card(
@@ -782,23 +731,17 @@ def setup_main_callbacks(app, dashboard_instance):
                                             html.H6(
                                                 display_name,
                                                 className="mb-0 fw-bold",
-                                                style={
-                                                    "font-size": "0.9rem"
-                                                },
+                                                style={"font-size": "0.9rem"},
                                             ),
                                             html.P(
                                                 f"Thickness: {thickness} m",
                                                 className="mb-0 small",
-                                                style={
-                                                    "font-size": "0.75rem"
-                                                },
+                                                style={"font-size": "0.75rem"},
                                             ),
                                             html.P(
                                                 f"Type: {layer_type.title()}",
                                                 className="mb-0 small text-muted",
-                                                style={
-                                                    "font-size": "0.7rem"
-                                                },
+                                                style={"font-size": "0.7rem"},
                                             ),
                                         ],
                                         width=8,
@@ -806,9 +749,7 @@ def setup_main_callbacks(app, dashboard_instance):
                                     dbc.Col(
                                         [
                                             dbc.Button(
-                                                html.I(
-                                                    className="fas fa-trash"
-                                                ),
+                                                html.I(className="fas fa-trash"),
                                                 id={
                                                     "type": "delete-layer",
                                                     "index": i,
@@ -855,112 +796,65 @@ def setup_main_callbacks(app, dashboard_instance):
 
         return layer_cards, summary, layers_data, layers_data
 
-
     def _default_project_filename():
         data = dash_storage.get_data_storage() or {}
-        return data.get("filename") or (
-            f"mar_dss_project_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        return data.get("filename") or (f"mar_dss_project_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+
+    def _download_project(filename):
+        """Send the project to the browser as a download.
+
+        The file is saved on the user's computer, not on the server.
+        """
+        content = _project_file_content(filename)
+        dash_storage.set_data("workspace", "")
+        dash_storage.set_data("filename", filename)
+        return (
+            [
+                dbc.Alert(
+                    f"Project downloaded as {filename}",
+                    color="success",
+                    className="mb-3",
+                ),
+            ],
+            create_overview_content(),
+            filename,
+            "overview",
+            dict(content=content, filename=filename),
         )
 
-    def _current_project_path():
-        data = dash_storage.get_data_storage() or {}
-        return format_project_path(data.get("workspace"), data.get("filename"))
+    def _download_project_error(e):
+        return (
+            [
+                dbc.Alert(
+                    f"Error saving project: {str(e)}",
+                    color="danger",
+                    className="mb-3",
+                ),
+            ],
+            create_overview_content(),
+            dash.no_update,
+            "overview",
+            dash.no_update,
+        )
 
-    def _save_project_via_picker(default_name=None):
-        """Native save dialog; returns (picked_path, path_out) or raises/returns cancel sentinels."""
-        default_name = default_name or _default_project_filename()
-        picked = ask_save_project_path(default_name)
-
-        if picked == "":
-            return None, dash.no_update
-
-        if picked is None:
-            manual_path = _current_project_path()
-            if not (manual_path or "").strip():
-                raise ValueError(
-                    "Native save dialog is unavailable here. Enter a full project "
-                    "file path above, then use Save."
-                )
-            picked = os.path.normpath(manual_path.strip())
-
-        parent = os.path.dirname(os.path.abspath(picked))
-        if parent and not os.path.isdir(parent):
-            os.makedirs(parent, exist_ok=True)
-
-        _save_project_to_path(picked)
-        workspace_dir, base_name = split_project_path(picked)
-        dash_storage.set_data("workspace", workspace_dir)
-        dash_storage.set_data("filename", base_name)
-        path_out = format_project_path(workspace_dir, base_name)
-        return picked, path_out
-
-    # Callback for Save button - save current project
+    # Save button: download the project under its current file name
     @app.callback(
         Output("main-content-flash", "children"),
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
         Output("project-path-input", "value", allow_duplicate=True),
         Output("top-tabs", "active_tab", allow_duplicate=True),
+        Output("download-project", "data"),
         [Input("btn-save", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_save_project(n_clicks):
         """Handle saving the current project."""
-        noop = (dash.no_update, dash.no_update, dash.no_update, dash.no_update)
         if not n_clicks:
-            return noop
-
+            return (dash.no_update,) * 5
         try:
-            current_path = _current_project_path()
-            if not (current_path or "").strip():
-                result = _save_project_via_picker()
-                if result[0] is None:
-                    return noop
-                picked, path_out = result
-                return (
-                    [
-                        dbc.Alert(
-                            f"Project saved successfully at {picked}",
-                            color="success",
-                            className="mb-3",
-                        )
-                    ],
-                    create_overview_content(),
-                    path_out,
-                    "overview",
-                )
-
-            fn = os.path.normpath(current_path.strip())
-            _save_project_to_path(fn)
-            workspace_dir, base_name = split_project_path(fn)
-            dash_storage.set_data("workspace", workspace_dir)
-            dash_storage.set_data("filename", base_name)
-            path_out = format_project_path(workspace_dir, base_name)
-
-            return (
-                [
-                    dbc.Alert(
-                        f"Project saved successfully at {fn}",
-                        color="success",
-                        className="mb-3",
-                    )
-                ],
-                create_overview_content(),
-                path_out,
-                "overview",
-            )
+            return _download_project(_default_project_filename())
         except Exception as e:
-            return (
-                [
-                    dbc.Alert(
-                        f"Error saving project: {str(e)}",
-                        color="danger",
-                        className="mb-3",
-                    )
-                ],
-                create_overview_content(),
-                dash.no_update,
-                "overview",
-            )
+            return _download_project_error(e)
 
     # Callback for New button - create new project (clear lazy-mounted tabs so they reload)
     @app.callback(
@@ -982,7 +876,7 @@ def setup_main_callbacks(app, dashboard_instance):
         if n_clicks:
             # Clear all data storage (includes rule_defaults_overrides from rules.defaults).
             dash_storage.clear_data()
-            
+
             # Reset to default values
             dash_storage.set_data("project_name", "")
             dash_storage.set_data("workspace", "")
@@ -1018,15 +912,11 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("max_dry_well_depth_ft", 120.0)
             from mar_dss.rules.geohydro_rules import DEFAULT_AQUITARD_K_MAX_FT_DAY
 
-            dash_storage.set_data(
-                "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
-            )
+            dash_storage.set_data("aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY)
             _strat_new = default_stratigraphy_layers()
             normalize_stratigraphy_recharge_target(_strat_new)
             dash_storage.set_data("stratigraphy_data", _strat_new)
-            dash_storage.set_data(
-                "groundwater_data", normalize_groundwater_data([])
-            )
+            dash_storage.set_data("groundwater_data", normalize_groundwater_data([]))
             dash_storage.set_data("ground_surface_elevation", 120.0)
             dash_storage.set_data("max_mar_storage_depth", 20.0)
             dash_storage.set_data("extension_length", 100.0)
@@ -1041,6 +931,7 @@ def setup_main_callbacks(app, dashboard_instance):
             dash_storage.set_data("overview_map_basemap", DEFAULT_OVERVIEW_MAP_BASEMAP)
 
             import dash_bootstrap_components as dbc
+
             empty_rest = [[] for _ in range(len(MAIN_TAB_IDS) - 1)]
             return (
                 [
@@ -1139,51 +1030,25 @@ def setup_main_callbacks(app, dashboard_instance):
         prevent_initial_call=True,
     )
 
-    # Callback for Save As button - native browse dialog (same pattern as Open)
+    # Save As button: download the project under a new, timestamped name
     @app.callback(
         Output("main-content-flash", "children", allow_duplicate=True),
         Output(main_tab_panel_id("overview"), "children", allow_duplicate=True),
         Output("project-path-input", "value", allow_duplicate=True),
         Output("top-tabs", "active_tab", allow_duplicate=True),
+        Output("download-project", "data", allow_duplicate=True),
         [Input("btn-save-as", "n_clicks")],
         prevent_initial_call=True,
     )
     def handle_save_as_project(n_clicks):
-        """Pick a save location (Tk dialog) and write the current project there."""
-        noop_as = (dash.no_update, dash.no_update, dash.no_update, dash.no_update)
+        """Download the project under a new file name."""
         if not n_clicks:
-            return noop_as
-
+            return (dash.no_update,) * 5
         try:
-            result = _save_project_via_picker(_default_project_filename())
-            if result[0] is None:
-                return noop_as
-            picked, path_out = result
-            return (
-                [
-                    dbc.Alert(
-                        f"Project saved successfully at {picked}",
-                        color="success",
-                        className="mb-3",
-                    ),
-                ],
-                create_overview_content(),
-                path_out,
-                "overview",
-            )
+            filename = f"mar_dss_project_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            return _download_project(filename)
         except Exception as e:
-            return (
-                [
-                    dbc.Alert(
-                        f"Error saving project: {str(e)}",
-                        color="danger",
-                        className="mb-3",
-                    ),
-                ],
-                create_overview_content(),
-                dash.no_update,
-                "overview",
-            )
+            return _download_project_error(e)
 
     setup_overview_callbacks(app)
     # Client-side resize to force Leaflet/Mapbox to re-render when tab becomes visible
@@ -1274,28 +1139,25 @@ def setup_main_callbacks(app, dashboard_instance):
     # Callback for water source dropdown - saves to data storage
     @app.callback(
         Output("water-source-dropdown", "value"),
-        [
-            Input("water-source-dropdown", "value"),
-            Input("water-source-dropdown", "id")
-        ],
-        prevent_initial_call=False
+        [Input("water-source-dropdown", "value"), Input("water-source-dropdown", "id")],
+        prevent_initial_call=False,
     )
     def handle_water_source_selection(value, component_id):
         """Handle water source selection and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved water source or use default, and save it
             water_source = dash_storage.get_data("water_source") or "surface_water_sources"
             dash_storage.set_data("water_source", water_source)
             return water_source
-        
+
         # Get the current selection
         current_selection = value if value else "surface_water_sources"
-        
+
         # Save water source selection to data storage
         dash_storage.set_data("water_source", current_selection)
-        
+
         return current_selection
 
     @app.callback(
@@ -1370,4 +1232,3 @@ def setup_main_callbacks(app, dashboard_instance):
     # checklist callbacks for those controls were removed as well. The underlying
     # storage keys (physical_parameters, chemical_parameters, etc.) are still
     # initialized elsewhere for backward compatibility.
-

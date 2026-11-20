@@ -1,6 +1,5 @@
-import pytest
 
-from mar_dss.base import Node, DecisionGraph
+from mar_dss.base import DecisionGraph, Node
 
 
 def b_func(a_value):
@@ -87,10 +86,10 @@ def build_graph():
 def test_branching_A_true():
     g = build_graph()
     inputs = {"A": True}
-    
+
     # Evaluate all rule nodes (includes both leaf and intermediate rule nodes)
     results = g.evaluate(inputs)
-    
+
     # B should run; C should return None
     assert results["B"] == "B_RAN"
     assert results["C"] is None
@@ -102,15 +101,13 @@ def test_branching_A_true():
 def test_branching_A_false():
     g = build_graph()
     inputs = {"A": False}
-    
+
     # Evaluate all rule nodes (includes both leaf and intermediate rule nodes)
     results = g.evaluate(inputs)
-    
+
     # C should run; B should return None
     assert results["B"] is None
     assert results["C"] == "C_RAN"
     # E should be 3 (since C ran); D should be None
     assert results["D"] is None
     assert results["E"] == 3
-
-

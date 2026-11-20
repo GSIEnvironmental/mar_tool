@@ -1,8 +1,7 @@
-
 defaults = {}
 defaults["k_min_vadose_threshold"] = 0.3
-defaults['leakage_radius'] = 1000
-defaults['excessive_deep_aquifer'] = [1500.0, 3000.0]
+defaults["leakage_radius"] = 1000
+defaults["excessive_deep_aquifer"] = [1500.0, 3000.0]
 # [moderate_deep_threshold_ft, too_deep_threshold_ft]:
 # depth <= [0] → Low Depth; ( [0], [1] ] → Moderate Deep; > [1] → Too Deep
 
@@ -23,11 +22,11 @@ defaults["max_drywell_depth_ft"] = 10
 defaults["d_gw_min"] = 5.0
 
 
-defaults["average_moisture_content"] = 0.1 # dimensionless
+defaults["average_moisture_content"] = 0.1  # dimensionless
 
 # minimum residence time for natural attenuation (days)
 defaults["pathogenic_bacteria_residence_time"] = 30  # days - minimum for biodegradation
-defaults["organic_matter_residence_time"] = 7 
+defaults["organic_matter_residence_time"] = 7
 defaults["trace_organic_matter_residence_time"] = 30
 defaults["Nutrients_residence_time"] = 30
 

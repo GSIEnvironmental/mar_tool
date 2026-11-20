@@ -6,17 +6,19 @@ import math
 
 import dash_bootstrap_components as dbc
 import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 import requests
 from dash import dcc, html
+
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.excel_table import INPUT_CELL_BG, build_table_legend, label_cell_style
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
+from mar_dss.app.utils.web_services import USER_AGENT, nominatim_get
+
 from .runoff_calculator_tab import (
-    create_runoff_calculator_tab,
     create_curve_number_tab,
     create_optional_runoff_calculations_help_modal,
+    create_runoff_calculator_tab,
 )
 
 WATER_SOURCE_OPTIONS = [
@@ -30,10 +32,7 @@ WATER_SOURCE_OPTIONS = [
     {"label": "(5) Treated Wastewater", "value": "reclaimed_water"},
     {"label": "(6) Other Groundwater Basin", "value": "other_groundwater_basin"},
     {
-        "label": (
-            "(7) Other Non-Conventional Sources (e.g. Industrial, Produced, "
-            "Desalinated Water)"
-        ),
+        "label": ("(7) Other Non-Conventional Sources (e.g. Industrial, Produced, Desalinated Water)"),
         "value": "other_non_conventional_sources",
     },
 ]
@@ -78,7 +77,7 @@ out center 30;
             r = requests.post(
                 overpass_url,
                 data=query,
-                headers={"User-Agent": "MAR-DSS-Dashboard/1.0"},
+                headers={"User-Agent": USER_AGENT},
                 timeout=6,
             )
             if r.status_code != 200:
@@ -127,8 +126,7 @@ def get_location_details(lat, lon):
             "https://nominatim.openstreetmap.org/reverse?format=json&lat="
             f"{lat}&lon={lon}&zoom=10&addressdetails=1&namedetails=1"
         )
-        headers = {"User-Agent": "MAR-DSS-Dashboard/1.0"}
-        response = requests.get(url, headers=headers, timeout=5)
+        response = nominatim_get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
             address = data.get("address", {})
@@ -188,12 +186,9 @@ _LOCATION_MAP_HEIGHT_PX = 720
 _WATER_SOURCE_MAP_MIN_HEIGHT_PX = 360
 
 # Satellite + roads/labels via Esri World Imagery and Reference overlays (no Mapbox token; Esri terms apply).
-_ESRI_WORLD_IMAGERY = (
-    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-)
+_ESRI_WORLD_IMAGERY = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
 _ESRI_WORLD_TRANSPORTATION = (
-    "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/"
-    "MapServer/tile/{z}/{y}/{x}"
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
 )
 _ESRI_WORLD_BOUNDARIES_PLACES = (
     "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/"
@@ -215,9 +210,7 @@ def offset_latlon_miles_east(lat_deg: float, lon_deg: float, miles: float) -> tu
 
 
 def _normalize_map_style(map_style):
-    style = (
-        map_style if map_style in _ALLOWED_MAP_STYLES else _DEFAULT_MAP_STYLE
-    )
+    style = map_style if map_style in _ALLOWED_MAP_STYLES else _DEFAULT_MAP_STYLE
     return style
 
 
@@ -311,10 +304,7 @@ def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlamb = math.radians(lon2 - lon1)
-    h = (
-        math.sin(dphi / 2) ** 2
-        + math.cos(p1) * math.cos(p2) * math.sin(dlamb / 2) ** 2
-    )
+    h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlamb / 2) ** 2
     c = 2 * math.atan2(math.sqrt(h), math.sqrt(max(0.0, 1.0 - h)))
     return r_earth_mi * c
 
@@ -432,11 +422,7 @@ def build_water_source_location_map_figure(map_style):
             get_overview_map_figure_params,
         )
 
-    style = (
-        map_style
-        if map_style in ALLOWED_OVERVIEW_BASEMAP_STYLES
-        else DEFAULT_OVERVIEW_MAP_BASEMAP
-    )
+    style = map_style if map_style in ALLOWED_OVERVIEW_BASEMAP_STYLES else DEFAULT_OVERVIEW_MAP_BASEMAP
     slat, slon, rlat, rlon = ensure_water_source_site_coordinates()
     cam_lat, cam_lon, cam_zoom, _, _ = get_overview_map_figure_params()
     return create_water_source_sites_map(
@@ -541,9 +527,7 @@ def create_monthly_flow_chart(flow_data=None):
         height=480,
         width=800,
         margin=dict(l=0, r=50, t=50, b=50),
-        legend=dict(
-            yanchor="top", y=0.95, xanchor="center", x=0.5, orientation="v"
-        ),
+        legend=dict(yanchor="top", y=0.95, xanchor="center", x=0.5, orientation="v"),
         autosize=False,
     )
     return fig
@@ -599,20 +583,15 @@ def flow_dict_from_list(monthly_flows):
 def flow_records_from_dict(flow_data=None):
     """DataTable records from a month→flow dict (or storage defaults)."""
     if flow_data:
-        monthly_flows = [
-            float(flow_data.get(month, 0) or 0) for month in FLOW_MONTHS
-        ]
+        monthly_flows = [float(flow_data.get(month, 0) or 0) for month in FLOW_MONTHS]
     else:
         monthly_flows = _normalize_monthly_flows(dash_storage.get_data("monthly_flow"))
-    return [
-        {"Month": month, FLOW_VALUE_COL: flow}
-        for month, flow in zip(FLOW_MONTHS, monthly_flows)
-    ]
+    return [{"Month": month, FLOW_VALUE_COL: flow} for month, flow in zip(FLOW_MONTHS, monthly_flows)]
 
 
 def flow_dict_from_records(table_data):
     """Month→flow dict from DataTable records."""
-    flow_data = {month: 0.0 for month in FLOW_MONTHS}
+    flow_data = dict.fromkeys(FLOW_MONTHS, 0.0)
     if not table_data:
         return flow_data
     for row in table_data:
@@ -646,7 +625,7 @@ def flow_dict_from_input_values(values, ids, fallback=None):
     Blank / None cells keep the fallback (stored) value so a click/focus/blur
     without an edit cannot wipe populated months to zero.
     """
-    flow_data = {month: 0.0 for month in FLOW_MONTHS}
+    flow_data = dict.fromkeys(FLOW_MONTHS, 0.0)
     if isinstance(fallback, dict):
         for month in FLOW_MONTHS:
             try:
@@ -683,9 +662,7 @@ def _get_flow_store_data():
 def create_editable_flow_table(flow_data=None):
     """Excel-like monthly flow editor: values commit on blur (no Enter required)."""
     if flow_data:
-        monthly_flows = [
-            float(flow_data.get(month, 0) or 0) for month in FLOW_MONTHS
-        ]
+        monthly_flows = [float(flow_data.get(month, 0) or 0) for month in FLOW_MONTHS]
     else:
         monthly_flows = _normalize_monthly_flows(dash_storage.get_data("monthly_flow"))
 
@@ -861,12 +838,7 @@ def create_water_source_location_map_card(water_source=None):
                                         "value": "recharge_site",
                                     },
                                 ],
-                                value=(
-                                    dash_storage.get_data(
-                                        "water_source_map_site"
-                                    )
-                                    or "source_site"
-                                ),
+                                value=(dash_storage.get_data("water_source_map_site") or "source_site"),
                                 className="mb-0 small",
                                 inline=True,
                                 labelStyle={
@@ -916,10 +888,7 @@ def create_water_source_location_map_card(water_source=None):
                                         className="d-flex align-items-center",
                                     ),
                                 ],
-                                className=(
-                                    "d-flex flex-wrap align-items-center "
-                                    "justify-content-end gap-2 mb-1"
-                                ),
+                                className=("d-flex flex-wrap align-items-center justify-content-end gap-2 mb-1"),
                             ),
                             dbc.Tooltip(
                                 "Switch background tiles; center and zoom stay as "
@@ -942,9 +911,7 @@ def create_water_source_location_map_card(water_source=None):
                                         children=[],
                                     ),
                                     dcc.Graph(
-                                        figure=build_water_source_location_map_figure(
-                                            basemap
-                                        ),
+                                        figure=build_water_source_location_map_figure(basemap),
                                         config={
                                             "displayModeBar": True,
                                             "scrollZoom": True,
@@ -1038,7 +1005,7 @@ def _create_optional_runoff_calculations_card():
                                 [
                                     dbc.Tab(
                                         label="Runoff Calculator",
-                    id=tab_nav_id("curve-number"),
+                                        id=tab_nav_id("curve-number"),
                                         tab_id="curve-number",
                                         children=create_curve_number_tab(),
                                         label_style={
@@ -1055,7 +1022,7 @@ def _create_optional_runoff_calculations_card():
                                     ),
                                     dbc.Tab(
                                         label="Watershed Information",
-                    id=tab_nav_id("runoff-calculator"),
+                                        id=tab_nav_id("runoff-calculator"),
                                         tab_id="runoff-calculator",
                                         children=create_runoff_calculator_tab(),
                                         label_style={
@@ -1083,7 +1050,7 @@ def _create_optional_runoff_calculations_card():
                                 "Watershed map, rainfall data, and runoff results for the site",
                             ),
                         ]
-                    )
+                    ),
                 ],
                 className="p-2",
             ),
@@ -1094,9 +1061,7 @@ def _create_optional_runoff_calculations_card():
         [
             dbc.Checkbox(
                 id="view-runoff-calculator-check",
-                label=html.Strong(
-                    "View Runoff Calculator (only if runoff calculator is to be used)"
-                ),
+                label=html.Strong("View Runoff Calculator (only if runoff calculator is to be used)"),
                 value=view_runoff,
                 className="mb-2 collapse-toggle-check label-dark-grey",
             ),
@@ -1286,7 +1251,7 @@ def create_water_source_info_tab():
     chemical_parameters = dash_storage.get_data("chemical_parameters") or []
     biological_indicators = dash_storage.get_data("biological_indicators") or []
     emerging_contaminants = dash_storage.get_data("emerging_contaminants") or []
-    
+
     return [
         dbc.Row(
             [
@@ -1360,9 +1325,7 @@ def create_water_source_info_tab():
                                                             id="monthly-flow-input-error",
                                                             className="mb-2",
                                                         ),
-                                                        create_editable_flow_table(
-                                                            _get_flow_store_data()
-                                                        ),
+                                                        create_editable_flow_table(_get_flow_store_data()),
                                                     ],
                                                     width=4,
                                                 ),
@@ -1374,9 +1337,7 @@ def create_water_source_info_tab():
                                                         ),
                                                         dcc.Graph(
                                                             id="monthly-flow-chart",
-                                                            figure=create_monthly_flow_chart(
-                                                                _get_flow_store_data()
-                                                            ),
+                                                            figure=create_monthly_flow_chart(_get_flow_store_data()),
                                                             config={"displayModeBar": True},
                                                         ),
                                                     ],
@@ -1416,5 +1377,3 @@ def create_water_source_info_tab():
 def create_general_tab_content():
     """Water Source main tab body (cards only; no nested tab bar)."""
     return create_water_source_info_tab()
-
-

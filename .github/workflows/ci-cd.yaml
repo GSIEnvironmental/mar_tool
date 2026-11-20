@@ -1,0 +1,203 @@
+---
+# Every push to main, every pull request and every version tag runs the
+# `test` and `docker` jobs. Two things deploy, and only if those jobs pass in
+# the same run:
+#   - pushing a version tag (v1.2.3), which `just bump-patch` creates
+#   - a manual run on `main`: Actions tab > CI/CD > Run workflow
+# ----------------------------------------------------------------------------
+# Required repository secrets (Settings > Secrets and variables > Actions)
+# ----------------------------------------------------------------------------
+# The `deploy` job copies the repo to the server over SSH and runs
+# `docker compose up`. It needs five secrets:
+#
+#   SSH_KEY          Private key for the deploy user. Make a key just for this:
+#                        ssh-keygen -t ed25519 -C "mar_tool deploy" -f ~/.ssh/gh_actions_mar
+#                    Add `~/.ssh/gh_actions_mar.pub` to the deploy user's
+#                    `~/.ssh/authorized_keys` on the server, then paste all of
+#                    `~/.ssh/gh_actions_mar` (BEGIN/END lines too) into this secret.
+#
+#   SSH_KNOWN_HOSTS  The server's SSH host key line. Get it from whoever runs
+#                    the server rather than scanning for it.
+#
+#   HOST             The server's hostname or IP.
+#
+#   USERNAME         The user the deploy logs in as. It needs to be able to
+#                    run `docker` and write to TARGET_DIRECTORY.
+#
+#   TARGET_DIRECTORY Full path on the server for the project, e.g.
+#                    `/srv/apps/mar_tool`. Create it first, with a .env file
+#                    that sets PROXY_NETWORK (see compose.prod.yaml).
+#
+# The deploy job runs on a self-hosted runner. The
+# runner has to be registered to this repo (or the org) and online. See
+# Settings > Actions > Runners.
+# ----------------------------------------------------------------------------
+
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  pull_request:
+  workflow_dispatch:
+
+# Actions are pinned to commit SHAs (the comment gives the version), so nobody
+# can change what runs here by moving a tag. A new commit on a PR cancels its
+# older checks. Runs on main and deploys are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Keep this the same as the uv version in the Dockerfile.
+  UV_VERSION: "0.11.0"
+
+jobs:
+  test:
+    name: test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      # Fails here if uv.lock is out of date with pyproject.toml.
+      - name: Install the project and test tools
+        run: uv sync --locked --extra test
+      - name: Lint (ruff)
+        run: uv run --no-sync ruff check .
+      - name: Format check (ruff)
+        run: uv run --no-sync ruff format --check .
+      - name: Tests
+        run: uv run --no-sync pytest
+
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # Build the image directly. compose.prod.yaml needs the server's
+      # shared Docker network, which only exists there.
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: mar-tool:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Start the image with the production prefix and wait for /health. Then
+      # check that the page loads its scripts from /MAR-Tool/ and the layout builds.
+      - name: Smoke test
+        run: |
+          docker run -d --name mar-smoke -p 8050:8050 \
+            -e DASH_REQUESTS_PATHNAME_PREFIX=/MAR-Tool/ mar-tool:ci
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8050/health > /dev/null; then
+              echo "Ready after ${i}s"
+              break
+            fi
+            sleep 1
+            if [ "$i" -eq 60 ]; then
+              echo "Container failed to become ready within 60s"
+              docker logs mar-smoke
+              exit 1
+            fi
+          done
+          curl -fsS http://localhost:8050/ | grep -q '/MAR-Tool/_dash-component-suites/'
+          curl -fsS http://localhost:8050/_dash-layout > /dev/null
+          docker exec mar-smoke python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8050/health', timeout=5)"
+      - name: Cleanup
+        if: always()
+        run: docker rm -f mar-smoke || true
+
+  deploy:
+    name: deploy
+    runs-on: self-hosted
+    timeout-minutes: 30
+    needs: [test, docker]
+    # Deploy on a version tag push, or a manual run on main (for changes that
+    # don't need a version bump). A manual run from any other branch skips
+    # this job. That only stops mistakes: anyone who can push could still
+    # change this file.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    environment:
+      name: production
+      url: https://apps.gsienv.com/MAR-Tool/
+    # One deploy at a time, so two runs never copy into the same folder.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@87a8f067114a8ce263df83e9ed5c849953548bc3 # v2.8.1
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: Deploy with rsync
+        # Copy only what the image build needs. `--delete-after` keeps the old
+        # files until the new copy finishes.
+        run: |
+          rsync -avz --delete-after -e 'ssh -o StrictHostKeyChecking=yes -o BatchMode=yes' \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.venv/' \
+            --exclude='.vscode/' \
+            --exclude='.DS_Store' \
+            --exclude='.claude/' \
+            --exclude='docs/' \
+            --exclude='tests/' \
+            --exclude='compose.yaml' \
+            --exclude='.env' \
+            ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:${{ secrets.TARGET_DIRECTORY }}/
+      - name: Build, start, and verify on the server
+        # The container is still starting after `up -d`. Wait until its
+        # healthcheck passes, then check the app answers through Caddy at its
+        # public address. These commands run on the server over SSH, so
+        # --resolve points apps.gsienv.com at the server itself.
+        # Either failing fails the deploy.
+        run: |
+          ssh -o StrictHostKeyChecking=yes -o BatchMode=yes ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+            set -euo pipefail
+            cd ${{ secrets.TARGET_DIRECTORY }}
+            docker compose -f compose.prod.yaml build web
+            docker compose -f compose.prod.yaml up -d --no-build
+
+            status=missing
+            for i in $(seq 1 60); do
+              status=$(docker inspect -f '{{.State.Health.Status}}' mar-tool 2>/dev/null || echo missing)
+              if [ "$status" = "healthy" ]; then
+                echo "Healthy after ${i} polls (~$((i * 2))s)"
+                break
+              fi
+              sleep 2
+            done
+            if [ "$status" != "healthy" ]; then
+              echo "mar-tool is ${status} after 120s; deploy failed"
+              docker compose -f compose.prod.yaml logs --tail=200 web || true
+              exit 1
+            fi
+
+            if ! curl -fsS --max-time 10 --resolve apps.gsienv.com:443:127.0.0.1 \
+                https://apps.gsienv.com/MAR-Tool/health; then
+              echo "The container is healthy but /MAR-Tool/ through Caddy did not answer; check the Caddyfile route"
+              exit 1
+            fi
+            echo
+            echo "Deployed: https://apps.gsienv.com/MAR-Tool/"
+          EOF

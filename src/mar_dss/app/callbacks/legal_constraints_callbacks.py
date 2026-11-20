@@ -7,8 +7,9 @@ for an external AI model. Location comes from Overview (project_location).
 """
 
 import dash
-from dash import Input, Output, State, MATCH, html
 import dash_bootstrap_components as dbc
+from dash import MATCH, Input, Output, State, html
+
 import mar_dss.app.utils.data_storage as data_storage
 from mar_dss.app.callbacks.ai_environment import _location_text
 from mar_dss.app.callbacks.ai_regulations import build_mar_regulations_prompt
@@ -30,11 +31,7 @@ def setup_legal_constraints_callbacks(app):
             return dash.no_update, dash.no_update
         new_open = not bool(is_open)
         label = [
-            html.I(
-                className=(
-                    "fas fa-chevron-up me-1" if new_open else "fas fa-chevron-down me-1"
-                )
-            ),
+            html.I(className=("fas fa-chevron-up me-1" if new_open else "fas fa-chevron-down me-1")),
             "View less" if new_open else "View more",
         ]
         return new_open, label
@@ -53,9 +50,7 @@ def setup_legal_constraints_callbacks(app):
         if not n_clicks:
             return dash.no_update, dash.no_update
 
-        location = _location_text(store_location) or _location_text(
-            data_storage.get_data("project_location")
-        )
+        location = _location_text(store_location) or _location_text(data_storage.get_data("project_location"))
         if not location:
             return "", dbc.Alert(
                 "Set Project Location on the (1) Overview tab before building the prompt.",
@@ -65,8 +60,7 @@ def setup_legal_constraints_callbacks(app):
 
         prompt = build_mar_regulations_prompt(location)
         feedback = html.Small(
-            f"Prompt ready for {location}. Click Copy Prompt, then paste it into "
-            "your preferred AI model.",
+            f"Prompt ready for {location}. Click Copy Prompt, then paste it into your preferred AI model.",
             className="text-success",
         )
         return prompt, feedback
