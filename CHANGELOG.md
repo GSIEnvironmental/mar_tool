@@ -10,22 +10,18 @@ ______________________________________________________________________
 
 ### Added
 
-- The app runs as a website at https://apps.gsienv.com/MAR-Tool/.
+- The app runs as a website at <https://apps.gsienv.com/MAR-Tool/>.
 - Each browser gets its own project, so several people can use the app at once.
 - The About dialog shows the app version and links to the license.
 
 ### Changed
 
-- Open uploads a project file from your computer. Save, Save As and the report download files through the browser. They used to open desktop file dialogs.
+- Open uploads a project file from your computer. Save, Save As and the report download files through the browser.
 
 ### Fixed
 
 - Idle browser sessions expire when you return after the session timeout.
 - The web app accepts project uploads up to 10 MiB.
-
-### Removed
-
-- The Windows .exe build. Use the website instead.
 
 ______________________________________________________________________
 
