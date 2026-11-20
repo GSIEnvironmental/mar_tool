@@ -250,7 +250,10 @@ def create_runoff_map(lat=None, lon=None, zoom=None):
         center=[lat, lon],
         zoom=zoom,
         children=[
-            dl.TileLayer(url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"),
+            dl.TileLayer(
+                url="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            ),
             dl.LayerGroup(id="marker-layer"),
             dl.LayerGroup(id="stations-layer"),
             dl.LayerGroup(id="watershed-layer"),

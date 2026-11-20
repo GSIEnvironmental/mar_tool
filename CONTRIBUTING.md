@@ -122,6 +122,8 @@ just test tests/test_base.py
 
 Set the Caddy request body limit to `16MB` on the server's MAR-Tool route. This allows a 10 MiB project file to fit in the encoded upload request.
 
+Set `Referrer-Policy` to `strict-origin-when-cross-origin` on the MAR-Tool route. This lets browsers send the site origin to OpenStreetMap when loading map tiles. [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/)
+
 Commit all changes first, including notes under "Unreleased" in [CHANGELOG.md](CHANGELOG.md). Then run:
 
 ```sh
