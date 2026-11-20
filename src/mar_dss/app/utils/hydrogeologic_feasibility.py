@@ -293,7 +293,7 @@ def create_feasibility_gauge(score):
                 ],
                 "threshold": {"line": {"color": "red", "width": 4}, "thickness": 0.75, "value": 50},
             },
-        )
+        ),
     )
 
     fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
@@ -325,7 +325,7 @@ def create_monthly_gw_depth_chart(monthly_gw_depth, op_gw_depth=None):
             marker=dict(size=8),
             fill="tozeroy",
             fillcolor="rgba(0, 100, 255, 0.1)",
-        )
+        ),
     )
 
     # Average line
@@ -336,7 +336,7 @@ def create_monthly_gw_depth_chart(monthly_gw_depth, op_gw_depth=None):
             mode="lines",
             name="Average Depth",
             line=dict(color="green", width=2, dash="dash"),
-        )
+        ),
     )
 
     # Operational depth line
@@ -348,7 +348,7 @@ def create_monthly_gw_depth_chart(monthly_gw_depth, op_gw_depth=None):
                 mode="lines",
                 name="Operational Depth",
                 line=dict(color="red", width=2, dash="dot"),
-            )
+            ),
         )
 
     fig.update_layout(
@@ -406,7 +406,7 @@ def create_component_scores_chart(breakdown):
             textposition="outside",
             hovertemplate="<b>%{y}</b><br>Score: %{x:.1f}%<br>Type: %{customdata}<extra></extra>",
             customdata=node_types,
-        )
+        ),
     )
 
     fig.update_layout(
@@ -426,7 +426,12 @@ def create_stratigraphy_profile(stratigraphy_data):
     if not stratigraphy_data or len(stratigraphy_data) == 0:
         fig = go.Figure()
         fig.add_annotation(
-            text="No stratigraphy data available", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+            text="No stratigraphy data available",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
         )
         fig.update_layout(height=300)
         return fig
@@ -472,7 +477,7 @@ def create_stratigraphy_profile(stratigraphy_data):
                 text=f"{name}<br>K: {k:.2f} ft/day<br>Thickness: {bottom - top:.1f} ft",
                 textposition="inside",
                 hovertemplate=f"<b>{name}</b><br>Thickness: {bottom - top:.1f} ft<br>K: {k:.2f} ft/day<extra></extra>",
-            )
+            ),
         )
 
     fig.update_layout(

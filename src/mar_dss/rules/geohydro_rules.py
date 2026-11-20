@@ -94,7 +94,7 @@ def _strat_df_to_dashboard_rows(strat_df):
                     "thickness": float(row["thickness"]),
                     "conductivity": float(row["K"]),
                     "recharge_target": bool(rt),
-                }
+                },
             )
         return rows
     if isinstance(strat_df, list) and strat_df:
@@ -863,7 +863,10 @@ def check_vadose_residence_time_reasonable(vadose_residence_time):
 
 
 def compute_rechargeable_percentage(
-    annual_surface_recharge_volume, annual_injection_volume, annual_dry_well_volume, source_water_volume
+    annual_surface_recharge_volume,
+    annual_injection_volume,
+    annual_dry_well_volume,
+    source_water_volume,
 ):
     #
     if annual_surface_recharge_volume is None:
@@ -900,18 +903,33 @@ def compute_confined_storage_volume(confined, strat_df, Hmax, injection_wells_re
 
         if injection_wells_result["number_of_wells"] == 1:
             max_injection_rate = injection_wells_result["number_of_wells"] * theis_drawdown_or_Q(
-                Q_or_dh=Hmax, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True
+                Q_or_dh=Hmax,
+                T=transmissivity,
+                S=Ss,
+                r=1,
+                t=50,
+                compute_Q=True,
             )
         else:
             Q_per_well = np.max(source_water_volume) / 30.25 / injection_wells_result["number_of_wells"]
             dh_from_well_at_300ft = theis_drawdown_or_Q(
-                Q_or_dh=Q_per_well, T=transmissivity, S=Ss, r=300, t=50, compute_Q=False
+                Q_or_dh=Q_per_well,
+                T=transmissivity,
+                S=Ss,
+                r=300,
+                t=50,
+                compute_Q=False,
             )
             dh_superimposed = (Hmax / injection_wells_result["number_of_wells"]) + (
                 dh_from_well_at_300ft * (injection_wells_result["number_of_wells"] - 1)
             )
             max_injection_rate = theis_drawdown_or_Q(
-                Q_or_dh=dh_superimposed, T=transmissivity, S=Ss, r=1, t=50, compute_Q=True
+                Q_or_dh=dh_superimposed,
+                T=transmissivity,
+                S=Ss,
+                r=1,
+                t=50,
+                compute_Q=True,
             )
 
         # Same month-by-month accounting as unconfined injection / dry wells.
@@ -1049,7 +1067,7 @@ def get_stratigraphy_table(stratigraphy_table):
     ncols = len(stratigraphy_table[0])
     if ncols not in (3, 4):
         raise ValueError(
-            "Each row must have 3 columns (thickness, K, sy/ss) or 4 when including recharge target (boolean)."
+            "Each row must have 3 columns (thickness, K, sy/ss) or 4 when including recharge target (boolean).",
         )
     if not all(len(row) == ncols for row in stratigraphy_table):
         raise ValueError("All stratigraphy rows must have the same number of columns.")
@@ -1131,7 +1149,7 @@ def dashboard_stratigraphy_to_dataframe(stratigraphy_data, aquifer_type=None):
                 "K": float(r.get("conductivity", r.get("K")) or 0.0),
                 "sy/ss": max(_storage_term_scalar(r), 1e-12),
                 "Recharge Target Layer": bool(r.get("recharge_target", False)),
-            }
+            },
         )
     if not rows:
         return None
@@ -1203,7 +1221,7 @@ def build_confined_theis_xy_plot_dict(
                     r=float(rr),
                     t=t_days,
                     compute_Q=False,
-                )
+                ),
             )
 
         drawdown = np.vectorize(_dh)(R)
@@ -1222,7 +1240,7 @@ def build_confined_theis_xy_plot_dict(
                 "reference_radius_ft": float(well_r_ft),
                 "confined_unit_thickness_above_target_ft": float(depth_of_confined_unit),
                 "recharge_target_row_index": int(ti),
-            }
+            },
         )
         return out
     except Exception as ex:
@@ -1382,7 +1400,7 @@ def build_unconfined_mounding_xy_plot_dict(
                 "half_length_ft": l_h,
                 "half_width_ft": a_h,
                 "avg_gw_depth_bgs_ft": float(avg_gw),
-            }
+            },
         )
         return out
     except Exception as ex:

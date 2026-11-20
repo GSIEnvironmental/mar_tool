@@ -364,7 +364,7 @@ def _collect_stratigraphy_table_rows() -> list[list[str]]:
                 _format_input_value(layer.get("storage")),
                 _format_input_value(layer.get("yield")),
                 recharge,
-            ]
+            ],
         )
     return rows
 
@@ -479,8 +479,8 @@ def _pdf_report_header_section(
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                 ("TOPPADDING", (0, 0), (-1, -1), 0),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ]
-        )
+            ],
+        ),
     )
 
     map_width = 3.1 * inch
@@ -499,8 +499,8 @@ def _pdf_report_header_section(
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                 ("TOPPADDING", (0, 0), (-1, -1), 0),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]
-        )
+            ],
+        ),
     )
     story.append(header_row)
     story.append(Spacer(1, 0.2 * inch))
@@ -559,7 +559,7 @@ def _gather_report_data() -> dict[str, Any]:
                 _format_currency(row["capital"]) if row["capital"] else "—",
                 _format_volume_acre_ft(row["acre_ft"]),
                 _format_per_acre_ft(row["capital_per_acre_ft"]),
-            ]
+            ],
         )
 
     justification_blocks: list[tuple[str, str]] = []
@@ -617,7 +617,7 @@ def build_prefeasibility_report_html() -> str:
     for option_name, text in justification_blocks:
         html_justifications.append(
             f'<div class="justification-block"><h3>{_esc(option_name)}</h3>'
-            f'<pre class="justification-text">{_esc(text)}</pre></div>'
+            f'<pre class="justification-text">{_esc(text)}</pre></div>',
         )
 
     parts = [

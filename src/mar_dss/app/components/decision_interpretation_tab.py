@@ -488,7 +488,7 @@ def _constraint_name_cell(constraint_name):
                 _constraint_help_btn(constraint_name),
             ],
             className="d-flex align-items-center justify-content-between gap-2",
-        )
+        ),
     )
 
 
@@ -500,7 +500,7 @@ def constraint_help_body(constraint_name):
             html.P(
                 f"No detailed help is defined yet for “{constraint_name}”",
                 className="mb-0",
-            )
+            ),
         ]
     return [
         html.P(
@@ -532,7 +532,7 @@ def _constraint_help_modal():
                     id="di-constraint-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="di-constraint-help-modal",
@@ -622,7 +622,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                 ),
             ],
             className="di-option-header",
-        )
+        ),
     ]
 
     sections.append(
@@ -633,7 +633,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                 cost,
                 not_feasible=(display_status == "Not Feasible"),
             ),
-        )
+        ),
     )
 
     if warnings:
@@ -645,7 +645,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                     className="mb-0 di-list di-list-warning",
                 ),
                 accent="warning",
-            )
+            ),
         )
 
     if mitigations:
@@ -657,7 +657,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                     className="mb-0 di-list di-list-info",
                 ),
                 accent="info",
-            )
+            ),
         )
 
     if hard_constraints:
@@ -672,11 +672,11 @@ def _create_option_interpretation(option_name, result, filters=None):
                             dbc.Badge(
                                 "Pass" if passed else "Fail",
                                 color="success" if passed else "danger",
-                            )
+                            ),
                         ),
                         html.Td(hc.get("why", "No explanation available")),
-                    ]
-                )
+                    ],
+                ),
             )
         sections.append(
             _section(
@@ -689,8 +689,8 @@ def _create_option_interpretation(option_name, result, filters=None):
                                     html.Th("Constraint"),
                                     html.Th("Status"),
                                     html.Th("Explanation"),
-                                ]
-                            )
+                                ],
+                            ),
                         ),
                         html.Tbody(hard_rows),
                     ],
@@ -699,7 +699,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                     responsive=True,
                     className="mb-0 table-sm di-table",
                 ),
-            )
+            ),
         )
 
     if soft_constraints:
@@ -718,7 +718,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                                 _RESPONSE_LABELS.get(response, "Unknown"),
                                 color=_RESPONSE_COLORS.get(response, "secondary"),
                                 className="text-wrap",
-                            )
+                            ),
                         ),
                         html.Td(
                             html.Ul(
@@ -726,10 +726,10 @@ def _create_option_interpretation(option_name, result, filters=None):
                                 className="mb-0 di-list-compact",
                             )
                             if isinstance(penalty, list) and penalty
-                            else html.Span("None", className="text-muted")
+                            else html.Span("None", className="text-muted"),
                         ),
-                    ]
-                )
+                    ],
+                ),
             )
         if soft_rows:
             sections.append(
@@ -743,8 +743,8 @@ def _create_option_interpretation(option_name, result, filters=None):
                                         html.Th("Constraint"),
                                         html.Th("Response"),
                                         html.Th("Notes"),
-                                    ]
-                                )
+                                    ],
+                                ),
                             ),
                             html.Tbody(soft_rows),
                         ],
@@ -753,7 +753,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                         responsive=True,
                         className="mb-0 table-sm di-table",
                     ),
-                )
+                ),
             )
 
     return html.Div(sections, className="di-details")

@@ -1,5 +1,5 @@
 # Logo Placeholder
-# 
+#
 # To add your logo:
 # 1. Place your logo image file in this assets folder
 # 2. Name it "logo.png" (or update the src path in main.py)

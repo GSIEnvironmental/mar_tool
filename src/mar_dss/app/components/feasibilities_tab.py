@@ -21,7 +21,7 @@ def _detail_card_header(title, help_btn=None):
                     help_btn,
                 ],
                 className="d-flex align-items-center justify-content-between w-100",
-            )
+            ),
         ]
     return dbc.CardHeader(
         children if help_btn is not None else title,
@@ -62,18 +62,18 @@ def _spider_performance_help_modal():
                         [
                             html.Li(
                                 "Each spoke is one criterion. The plotted point on that "
-                                "spoke is the score for this option."
+                                "spoke is the score for this option.",
                             ),
                             html.Li(
                                 "The blue filled shape connects all six scores. "
                                 "Compare shapes across options: farther from the center "
-                                "is better on that axis."
+                                "is better on that axis.",
                             ),
                             html.Li("Score colors under each axis label: green ≥ 75%, orange 50–75%, red < 50%."),
                             html.Li("Average Score (title) is the simple mean of the six axis scores for this option."),
                             html.Li(
                                 "If an option is not feasible, all six scores are set "
-                                "to 0% so the polygon collapses to the center."
+                                "to 0% so the polygon collapses to the center.",
                             ),
                         ],
                         className="mb-3",
@@ -89,7 +89,7 @@ def _spider_performance_help_modal():
                                     "Constraint response levels map to points "
                                     "(acceptable = 10 … reject = 0). Hard hydrogeologic "
                                     "failure forces this score to 0%.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -97,7 +97,7 @@ def _spider_performance_help_modal():
                                     "Same scoring approach using water-quality "
                                     "(environmental) soft constraints and benefits "
                                     "(0–100%).",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -106,7 +106,7 @@ def _spider_performance_help_modal():
                                     "The lowest-cost feasible option scores 100%; others "
                                     "score 100 × (minimum cost ÷ this option’s cost). "
                                     "Lower cost → higher efficiency.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -115,7 +115,7 @@ def _spider_performance_help_modal():
                                     "divided by annual recharge volume (acre-ft/yr). "
                                     "The lowest $/acre-ft among feasible options is 100%. "
                                     "The label may also show the absolute $/acre-ft.",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-3",
@@ -133,7 +133,7 @@ def _spider_performance_help_modal():
                         "Average Score = mean of the six axis scores",
                         className="bg-light border rounded p-2 small mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -141,7 +141,7 @@ def _spider_performance_help_modal():
                     id="spider-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="spider-performance-help-modal",
@@ -171,7 +171,7 @@ def _performance_comparison_panel():
                 ],
                 className="shadow-sm",
             ),
-        ]
+        ],
     )
 
 
@@ -190,7 +190,7 @@ def _executive_summary_card():
                         html.Div(
                             "Loading option economics...",
                             className="text-center text-muted p-3 small",
-                        )
+                        ),
                     ],
                 ),
                 style={"padding": "0.5rem 0.75rem"},
@@ -274,22 +274,22 @@ def _response_level_help_block():
                             " Mitigation needed; ",
                             html.Strong("4"),
                             " Reject.",
-                        ]
+                        ],
                     ),
                     html.Li(
                         "Higher levels reduce the hydrogeologic / water-quality "
                         "score on the Performance Comparison spiders "
-                        "(points drop from 10 at level 0 toward 0 at level 4)."
+                        "(points drop from 10 at level 0 toward 0 at level 4).",
                     ),
                     html.Li(
                         "For Water Quality answers of Unknown, level 2 (yellow) is a "
                         "data-gap warning — collect information; it does not mean "
-                        "remediation is already required."
+                        "remediation is already required.",
                     ),
                 ],
                 className="mb-3",
             ),
-        ]
+        ],
     )
 
 
@@ -413,7 +413,7 @@ def _hydrogeologic_constraints_help_modal():
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -421,7 +421,7 @@ def _hydrogeologic_constraints_help_modal():
                     id="hydro-constraints-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="hydro-constraints-help-modal",
@@ -504,7 +504,7 @@ def _water_quality_constraints_help_modal():
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -512,7 +512,7 @@ def _water_quality_constraints_help_modal():
                     id="wq-constraints-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="wq-constraints-help-modal",
@@ -558,7 +558,7 @@ def _hydrogeologic_constraints_panel():
                 ],
                 className="shadow-sm w-100",
             ),
-        ]
+        ],
     )
 
 
@@ -598,7 +598,7 @@ def _water_quality_constraints_panel():
                 ],
                 className="shadow-sm w-100",
             ),
-        ]
+        ],
     )
 
 
@@ -630,7 +630,7 @@ def _cost_comparison_panel():
                             ),
                         ],
                         className="d-flex flex-column align-items-center w-100",
-                    )
+                    ),
                 ],
                 style={"padding": "0.75rem"},
                 className="w-100",
@@ -703,7 +703,7 @@ def create_feasibilities_content():
                 id="feasibility-details-collapse",
                 is_open=view_details,
             ),
-        ]
+        ],
     )
 
     return html.Div(

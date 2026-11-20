@@ -25,7 +25,8 @@ def create_dashboard_content():
                                     className="alert-heading mb-0",
                                 ),
                                 html.Small(
-                                    "Based on selected technologies and site conditions", className="text-muted"
+                                    "Based on selected technologies and site conditions",
+                                    className="text-muted",
                                 ),
                             ],
                             color="info",
@@ -50,7 +51,7 @@ def create_dashboard_content():
                         width=6,
                         className="mb-4",
                     ),
-                ]
+                ],
             ),
             # Technology Selection Section - Three Cards Side by Side
             dbc.Row(
@@ -64,7 +65,8 @@ def create_dashboard_content():
                                     [
                                         html.Div(id="feasible-technologies-container"),
                                         html.Small(
-                                            "Select one feasible technology for your project", className="text-muted"
+                                            "Select one feasible technology for your project",
+                                            className="text-muted",
                                         ),
                                         html.Div(id="technology-selection-feedback", className="mt-3"),
                                     ],
@@ -81,7 +83,7 @@ def create_dashboard_content():
                         dbc.Card(
                             [
                                 dbc.CardHeader(
-                                    html.H5("⚠️ Conditionally Feasible MAR Technologies", className="mb-0 text-warning")
+                                    html.H5("⚠️ Conditionally Feasible MAR Technologies", className="mb-0 text-warning"),
                                 ),
                                 dbc.CardBody(
                                     [
@@ -120,7 +122,7 @@ def create_dashboard_content():
                         width=4,
                         className="mb-4",
                     ),
-                ]
+                ],
             ),
             # Technology Analysis Tabs
             html.Div(
@@ -136,7 +138,7 @@ def create_dashboard_content():
                                     dbc.Card(
                                         [
                                             dbc.CardHeader(
-                                                html.H5("📊 Feasibility Metrics", className="mb-0 text-primary")
+                                                html.H5("📊 Feasibility Metrics", className="mb-0 text-primary"),
                                             ),
                                             dbc.CardBody(
                                                 [
@@ -145,7 +147,8 @@ def create_dashboard_content():
                                                             dbc.Col(
                                                                 [
                                                                     html.H6(
-                                                                        "Physical Feasibility", className="text-muted"
+                                                                        "Physical Feasibility",
+                                                                        className="text-muted",
                                                                     ),
                                                                     dbc.Progress(
                                                                         id="feasibility-metric-physical",
@@ -164,7 +167,8 @@ def create_dashboard_content():
                                                             dbc.Col(
                                                                 [
                                                                     html.H6(
-                                                                        "Environmental Impact", className="text-muted"
+                                                                        "Environmental Impact",
+                                                                        className="text-muted",
                                                                     ),
                                                                     dbc.Progress(
                                                                         id="feasibility-metric-environmental",
@@ -180,7 +184,7 @@ def create_dashboard_content():
                                                                 width=6,
                                                                 className="mb-3",
                                                             ),
-                                                        ]
+                                                        ],
                                                     ),
                                                     dbc.Row(
                                                         [
@@ -204,7 +208,8 @@ def create_dashboard_content():
                                                             dbc.Col(
                                                                 [
                                                                     html.H6(
-                                                                        "Technical Complexity", className="text-muted"
+                                                                        "Technical Complexity",
+                                                                        className="text-muted",
                                                                     ),
                                                                     dbc.Progress(
                                                                         id="feasibility-metric-technical",
@@ -220,14 +225,15 @@ def create_dashboard_content():
                                                                 width=6,
                                                                 className="mb-3",
                                                             ),
-                                                        ]
+                                                        ],
                                                     ),
                                                     dbc.Row(
                                                         [
                                                             dbc.Col(
                                                                 [
                                                                     html.H6(
-                                                                        "Social Acceptance", className="text-muted"
+                                                                        "Social Acceptance",
+                                                                        className="text-muted",
                                                                     ),
                                                                     dbc.Progress(
                                                                         id="feasibility-metric-social",
@@ -242,8 +248,8 @@ def create_dashboard_content():
                                                                 ],
                                                                 width=6,
                                                                 className="mb-3",
-                                                            )
-                                                        ]
+                                                            ),
+                                                        ],
                                                     ),
                                                     # Summary Section
                                                     dbc.Alert(
@@ -262,11 +268,11 @@ def create_dashboard_content():
                                                         color="info",
                                                         className="mt-3",
                                                     ),
-                                                ]
+                                                ],
                                             ),
                                         ],
                                         className="mb-4",
-                                    )
+                                    ),
                                 ],
                                 label_style={
                                     "color": "#ffffff",
@@ -289,7 +295,10 @@ def create_dashboard_content():
                                     dbc.Card(
                                         [
                                             dbc.CardHeader(
-                                                html.H5("🌊 Hydrogeological Feasibility", className="mb-0 text-warning")
+                                                html.H5(
+                                                    "🌊 Hydrogeological Feasibility",
+                                                    className="mb-0 text-warning",
+                                                ),
                                             ),
                                             dbc.CardBody(
                                                 [
@@ -298,17 +307,21 @@ def create_dashboard_content():
                                                             dbc.Col(
                                                                 [
                                                                     html.H6(
-                                                                        "Initial Investment", className="text-muted"
+                                                                        "Initial Investment",
+                                                                        className="text-muted",
                                                                     ),
                                                                     dbc.Progress(
-                                                                        value=65, color="danger", className="mb-2"
+                                                                        value=65,
+                                                                        color="danger",
+                                                                        className="mb-2",
                                                                     ),
                                                                     html.Small(
                                                                         "Capital costs for infrastructure",
                                                                         className="text-muted",
                                                                     ),
                                                                     html.P(
-                                                                        "$2.5M - $4.2M", className="fw-bold text-danger"
+                                                                        "$2.5M - $4.2M",
+                                                                        className="fw-bold text-danger",
                                                                     ),
                                                                 ],
                                                                 width=6,
@@ -318,7 +331,9 @@ def create_dashboard_content():
                                                                 [
                                                                     html.H6("Operating Costs", className="text-muted"),
                                                                     dbc.Progress(
-                                                                        value=40, color="warning", className="mb-2"
+                                                                        value=40,
+                                                                        color="warning",
+                                                                        className="mb-2",
                                                                     ),
                                                                     html.Small(
                                                                         "Annual maintenance and operations",
@@ -332,7 +347,7 @@ def create_dashboard_content():
                                                                 width=6,
                                                                 className="mb-3",
                                                             ),
-                                                        ]
+                                                        ],
                                                     ),
                                                     dbc.Row(
                                                         [
@@ -340,7 +355,9 @@ def create_dashboard_content():
                                                                 [
                                                                     html.H6("ROI Timeline", className="text-muted"),
                                                                     dbc.Progress(
-                                                                        value=55, color="info", className="mb-2"
+                                                                        value=55,
+                                                                        color="info",
+                                                                        className="mb-2",
                                                                     ),
                                                                     html.Small(
                                                                         "Time to break-even point",
@@ -355,7 +372,9 @@ def create_dashboard_content():
                                                                 [
                                                                     html.H6("Cost per Unit", className="text-muted"),
                                                                     dbc.Progress(
-                                                                        value=70, color="success", className="mb-2"
+                                                                        value=70,
+                                                                        color="success",
+                                                                        className="mb-2",
                                                                     ),
                                                                     html.Small(
                                                                         "Cost per acre-foot of water",
@@ -369,7 +388,7 @@ def create_dashboard_content():
                                                                 width=6,
                                                                 className="mb-3",
                                                             ),
-                                                        ]
+                                                        ],
                                                     ),
                                                     # Cost Breakdown Table
                                                     dbc.Card(
@@ -387,9 +406,9 @@ def create_dashboard_content():
                                                                                             html.Th("Low Estimate"),
                                                                                             html.Th("High Estimate"),
                                                                                             html.Th("Percentage"),
-                                                                                        ]
-                                                                                    )
-                                                                                ]
+                                                                                        ],
+                                                                                    ),
+                                                                                ],
                                                                             ),
                                                                             html.Tbody(
                                                                                 [
@@ -399,7 +418,7 @@ def create_dashboard_content():
                                                                                             html.Td("$1.8M"),
                                                                                             html.Td("$3.2M"),
                                                                                             html.Td("65%"),
-                                                                                        ]
+                                                                                        ],
                                                                                     ),
                                                                                     html.Tr(
                                                                                         [
@@ -407,7 +426,7 @@ def create_dashboard_content():
                                                                                             html.Td("$500K"),
                                                                                             html.Td("$800K"),
                                                                                             html.Td("20%"),
-                                                                                        ]
+                                                                                        ],
                                                                                     ),
                                                                                     html.Tr(
                                                                                         [
@@ -415,7 +434,7 @@ def create_dashboard_content():
                                                                                             html.Td("$200K"),
                                                                                             html.Td("$400K"),
                                                                                             html.Td("10%"),
-                                                                                        ]
+                                                                                        ],
                                                                                     ),
                                                                                     html.Tr(
                                                                                         [
@@ -423,14 +442,14 @@ def create_dashboard_content():
                                                                                             html.Td("$100K"),
                                                                                             html.Td("$200K"),
                                                                                             html.Td("5%"),
-                                                                                        ]
+                                                                                        ],
                                                                                     ),
-                                                                                ]
+                                                                                ],
                                                                             ),
                                                                         ],
                                                                         className="table table-striped excel-computed-table",
-                                                                    )
-                                                                ]
+                                                                    ),
+                                                                ],
                                                             ),
                                                         ],
                                                         className="mt-3",
@@ -450,11 +469,11 @@ def create_dashboard_content():
                                                         color="warning",
                                                         className="mt-3",
                                                     ),
-                                                ]
+                                                ],
                                             ),
                                         ],
                                         className="mb-4",
-                                    )
+                                    ),
                                 ],
                                 label_style={
                                     "color": "#ffffff",
@@ -485,7 +504,8 @@ def create_dashboard_content():
                                                             dbc.Col(
                                                                 [
                                                                     html.H6(
-                                                                        "Criteria Weights", className="text-muted mb-3"
+                                                                        "Criteria Weights",
+                                                                        className="text-muted mb-3",
                                                                     ),
                                                                     html.Div(
                                                                         [
@@ -498,7 +518,7 @@ def create_dashboard_content():
                                                                                 color="success",
                                                                                 className="mb-2",
                                                                             ),
-                                                                        ]
+                                                                        ],
                                                                     ),
                                                                     html.Div(
                                                                         [
@@ -511,7 +531,7 @@ def create_dashboard_content():
                                                                                 color="warning",
                                                                                 className="mb-2",
                                                                             ),
-                                                                        ]
+                                                                        ],
                                                                     ),
                                                                     html.Div(
                                                                         [
@@ -520,9 +540,11 @@ def create_dashboard_content():
                                                                                 className="d-block mb-1",
                                                                             ),
                                                                             dbc.Progress(
-                                                                                value=20, color="info", className="mb-2"
+                                                                                value=20,
+                                                                                color="info",
+                                                                                className="mb-2",
                                                                             ),
-                                                                        ]
+                                                                        ],
                                                                     ),
                                                                     html.Div(
                                                                         [
@@ -535,7 +557,7 @@ def create_dashboard_content():
                                                                                 color="secondary",
                                                                                 className="mb-2",
                                                                             ),
-                                                                        ]
+                                                                        ],
                                                                     ),
                                                                     html.Div(
                                                                         [
@@ -548,7 +570,7 @@ def create_dashboard_content():
                                                                                 color="primary",
                                                                                 className="mb-2",
                                                                             ),
-                                                                        ]
+                                                                        ],
                                                                     ),
                                                                 ],
                                                                 width=6,
@@ -607,7 +629,8 @@ def create_dashboard_content():
                                                                     html.Div(
                                                                         [
                                                                             html.Small(
-                                                                                "Sand Dams", className="fw-bold"
+                                                                                "Sand Dams",
+                                                                                className="fw-bold",
                                                                             ),
                                                                             html.Div(
                                                                                 [
@@ -629,15 +652,16 @@ def create_dashboard_content():
                                                                 width=6,
                                                                 className="mb-3",
                                                             ),
-                                                        ]
+                                                        ],
                                                     ),
                                                     # Decision Matrix Table
                                                     dbc.Card(
                                                         [
                                                             dbc.CardHeader(
                                                                 html.H6(
-                                                                    "Multi-Criteria Decision Matrix", className="mb-0"
-                                                                )
+                                                                    "Multi-Criteria Decision Matrix",
+                                                                    className="mb-0",
+                                                                ),
                                                             ),
                                                             dbc.CardBody(
                                                                 [
@@ -672,9 +696,9 @@ def create_dashboard_content():
                                                                                                 "Total Score",
                                                                                                 style={"width": "15%"},
                                                                                             ),
-                                                                                        ]
-                                                                                    )
-                                                                                ]
+                                                                                        ],
+                                                                                    ),
+                                                                                ],
                                                                             ),
                                                                             html.Tbody(
                                                                                 [
@@ -708,7 +732,7 @@ def create_dashboard_content():
                                                                                                 "8.2",
                                                                                                 className="fw-bold text-success",
                                                                                             ),
-                                                                                        ]
+                                                                                        ],
                                                                                     ),
                                                                                     html.Tr(
                                                                                         [
@@ -740,7 +764,7 @@ def create_dashboard_content():
                                                                                                 "7.5",
                                                                                                 className="fw-bold text-warning",
                                                                                             ),
-                                                                                        ]
+                                                                                        ],
                                                                                     ),
                                                                                     html.Tr(
                                                                                         [
@@ -772,14 +796,14 @@ def create_dashboard_content():
                                                                                                 "6.8",
                                                                                                 className="fw-bold text-info",
                                                                                             ),
-                                                                                        ]
+                                                                                        ],
                                                                                     ),
-                                                                                ]
+                                                                                ],
                                                                             ),
                                                                         ],
                                                                         className="table table-striped table-hover excel-computed-table",
-                                                                    )
-                                                                ]
+                                                                    ),
+                                                                ],
                                                             ),
                                                         ],
                                                         className="mt-3",
@@ -799,11 +823,11 @@ def create_dashboard_content():
                                                         color="success",
                                                         className="mt-3",
                                                     ),
-                                                ]
+                                                ],
                                             ),
                                         ],
                                         className="mb-4",
-                                    )
+                                    ),
                                 ],
                                 label_style={
                                     "color": "#ffffff",
@@ -851,5 +875,5 @@ def create_dashboard_content():
                 target="feasible-technologies-card-body",
                 placement="top",
             ),
-        ]
+        ],
     )

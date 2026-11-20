@@ -138,7 +138,7 @@ class DecisionGraph:
                         "name": node.name if node else node_id,
                         "cached": True,
                         "result": cache[node_id],
-                    }
+                    },
                 )
             return cache[node_id]
 
@@ -218,7 +218,7 @@ class DecisionGraph:
                         "inputs": {node_id: value},
                         "calculation": "value from site / project inputs",
                         "result": value,
-                    }
+                    },
                 )
             else:
                 if node.module and node.function_name:
@@ -236,7 +236,7 @@ class DecisionGraph:
                         "inputs": dep_values,
                         "calculation": calc,
                         "result": value,
-                    }
+                    },
                 )
 
         # Update the node's value with the computed result
@@ -556,7 +556,13 @@ class DecisionGraph:
                                     ox1, oy1 = pos[odst]
                                     if abs(oy1 - oy0) > node_radius:  # Only check non-horizontal edges
                                         if self._point_on_line_segment(
-                                            new_x, ny, ox0, oy0, ox1, oy1, tolerance=node_radius * 3
+                                            new_x,
+                                            ny,
+                                            ox0,
+                                            oy0,
+                                            ox1,
+                                            oy1,
+                                            tolerance=node_radius * 3,
                                         ):
                                             still_on_edge = True
                                             break
@@ -656,7 +662,12 @@ class DecisionGraph:
             edge_y.extend([y0, y1, None])
 
         edge_trace = go.Scatter(
-            x=edge_x, y=edge_y, line=dict(width=1, color="gray"), hoverinfo="none", mode="lines", showlegend=False
+            x=edge_x,
+            y=edge_y,
+            line=dict(width=1, color="gray"),
+            hoverinfo="none",
+            mode="lines",
+            showlegend=False,
         )
 
         # Nodes
@@ -768,7 +779,7 @@ class DecisionGraph:
                         arrowsize=1.5,
                         arrowwidth=1.5,
                         arrowcolor="gray",
-                    )
+                    ),
                 )
 
         # Legend traces (dummy invisible points for legend)

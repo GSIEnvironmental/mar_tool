@@ -289,7 +289,7 @@ def create_default_parameters_help_modal():
                             "data are interpreted. ",
                             html.Strong(
                                 "Leave built-in values unchanged unless site-specific "
-                                "measurements or regulatory guidance justify an override."
+                                "measurements or regulatory guidance justify an override.",
                             ),
                         ],
                         className="mb-3",
@@ -596,21 +596,21 @@ def create_default_parameters_help_modal():
                                     ", and the mound iteration, open ",
                                     html.Strong("Initial Hydrogeologic Feasibility Help"),
                                     ", Stage 2b.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 "After changing defaults, re-run Check Initial Feasibility "
-                                "so the knowledge graph and traffic lights refresh."
+                                "so the knowledge graph and traffic lights refresh.",
                             ),
                             html.Li(
                                 "Document overrides when they change rankings on the "
                                 "Analysis or Decision tabs, because the same defaults "
-                                "propagate into full DSS scoring."
+                                "propagate into full DSS scoring.",
                             ),
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -618,7 +618,7 @@ def create_default_parameters_help_modal():
                     id="default-parameters-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="default-parameters-help-modal",
@@ -697,7 +697,7 @@ def create_hydro_tab_content():
                     "default-hydrologic-parameters-tab",
                     "Default geometry and hydrogeologic parameters (change only with field data)",
                 ),
-            ]
+            ],
         ),
     ]
 
@@ -754,7 +754,7 @@ def _build_initial_feasibility_traffic_placeholder():
                 sm=6,
                 md=4,
                 className=col_border,
-            )
+            ),
         )
     return html.Div(
         dbc.Row(
@@ -795,7 +795,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                             html.Li(
                                 "Enter or review Stratigraphy and Groundwater Level inputs, "
                                 "and confirm Default Parameters if site-specific overrides "
-                                "are needed."
+                                "are needed.",
                             ),
                             html.Li(
                                 [
@@ -806,12 +806,12 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     "constraints for each option (excluding water quality "
                                     "and environmental screens), and maps the results to "
                                     "a traffic light.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 "If required inputs are missing or inconsistent, an error "
                                 "message is shown instead of traffic lights, together with "
-                                "diagnostic detail."
+                                "diagnostic detail.",
                             ),
                         ],
                         className="mb-4 ps-3",
@@ -1056,7 +1056,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     ", and ",
                                     _help_eq("S̄_y"),
                                     ".",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1067,7 +1067,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     ", stop. The pair ",
                                     _help_eq("(A, i)"),
                                     " is accepted.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1077,7 +1077,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     _help_eq("i ← i · 0.99 · (Δh_allow / Δh_pred)²"),
                                     ", with a small positive floor so the rate never "
                                     "collapses to zero numerically. Return to step 1.",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-2 ps-3",
@@ -1329,23 +1329,23 @@ def create_initial_hydrologic_feasibility_help_modal():
                             html.Li(
                                 "If any hard constraint failed, the result is red (Fail). "
                                 "The displayed detail is taken from the first failed hard "
-                                "constraint."
+                                "constraint.",
                             ),
                             html.Li(
                                 "Otherwise, if any soft constraint returned reject "
                                 "(response 4), the result is red (Fail), using that soft "
-                                "constraint’s penalty text when available."
+                                "constraint’s penalty text when available.",
                             ),
                             html.Li(
                                 "Otherwise, if any soft constraint returned a response of "
                                 "1, 2, or 3, the result is orange (Pass with Warnings). "
                                 "The status line reports the soft constraint with the "
-                                "largest of those response values."
+                                "largest of those response values.",
                             ),
                             html.Li(
                                 "Otherwise the result is green (Pass): every hard "
                                 "constraint passed, and every relevant soft response is "
-                                "acceptable (response 0) or irrelevant."
+                                "acceptable (response 0) or irrelevant.",
                             ),
                         ],
                         className="mb-3 ps-3",
@@ -1379,7 +1379,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     ),
                                     html.Strong("Green — Pass. "),
                                     "All hard constraints pass, and soft constraints are acceptable or not applicable.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1396,7 +1396,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     "No hard failure and no soft reject, but at least one "
                                     "soft constraint indicates added cost, a warning, or "
                                     "required mitigation.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1411,7 +1411,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                                     ),
                                     html.Strong("Red — Fail. "),
                                     "A hard constraint fails, or a soft constraint rejects the option.",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-3",
@@ -1427,7 +1427,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                         "change both constraint outcomes and traffic colors.",
                         className="mb-0 text-muted",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -1435,7 +1435,7 @@ def create_initial_hydrologic_feasibility_help_modal():
                     id="initial-feasibility-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="initial-feasibility-help-modal",
@@ -1534,13 +1534,13 @@ def _build_hydro_tab_header():
                                 ),
                             ],
                             className="h-100",
-                        )
+                        ),
                     ],
                     xs=12,
                 ),
             ],
             className="g-3 align-items-stretch mb-3",
-        )
+        ),
     ]
 
 
@@ -1552,11 +1552,13 @@ def _build_stratigraphy_table_header():
                 html.Th("Parameter", className="fw-bold text-white", style={"background-color": "#2c3e50"}),
                 html.Th("Depth/Thickness (ft)", className="fw-bold text-white", style={"background-color": "#2c3e50"}),
                 html.Th(
-                    "Hydraulic Conductivity", className="fw-bold text-white", style={"background-color": "#2c3e50"}
+                    "Hydraulic Conductivity",
+                    className="fw-bold text-white",
+                    style={"background-color": "#2c3e50"},
                 ),
                 html.Th("Storage Term", className="fw-bold text-white", style={"background-color": "#2c3e50"}),
-            ]
-        )
+            ],
+        ),
     )
 
 
@@ -1626,7 +1628,11 @@ def _build_stratigraphy_table_body():
                 "#d5dbdb",
             ),
             _build_stratigraphy_table_row(
-                "Max. Groundwater Table Elevation", "max-gw-depth", "max-gw-conductivity", "max-gw-storage", "#ecf0f1"
+                "Max. Groundwater Table Elevation",
+                "max-gw-depth",
+                "max-gw-conductivity",
+                "max-gw-storage",
+                "#ecf0f1",
             ),
             _build_stratigraphy_table_row(
                 "Average Groundwater Table Elevation",
@@ -1636,12 +1642,21 @@ def _build_stratigraphy_table_body():
                 "#d5dbdb",
             ),
             _build_stratigraphy_table_row(
-                "Min Groundwater Table Elevation", "min-gw-depth", "min-gw-conductivity", "min-gw-storage", "#ecf0f1"
+                "Min Groundwater Table Elevation",
+                "min-gw-depth",
+                "min-gw-conductivity",
+                "min-gw-storage",
+                "#ecf0f1",
             ),
             _build_stratigraphy_table_row(
-                "Bedrock Depth", "bedrock-depth", "bedrock-conductivity", "bedrock-storage", "#a9a9a9", "white"
+                "Bedrock Depth",
+                "bedrock-depth",
+                "bedrock-conductivity",
+                "bedrock-storage",
+                "#a9a9a9",
+                "white",
             ),
-        ]
+        ],
     )
 
 
@@ -1761,9 +1776,9 @@ def _build_stratigraphy_tab():
                                                 className="fw-bold text-white",
                                                 style={"width": "16%", "backgroundColor": "#2c3e50"},
                                             ),
-                                        ]
-                                    )
-                                ]
+                                        ],
+                                    ),
+                                ],
                             ),
                             html.Tbody(id="stratigraphy-table-body"),
                         ],
@@ -1775,7 +1790,7 @@ def _build_stratigraphy_tab():
                     ),
                 ],
                 id="stratigraphy-content",
-            )
+            ),
         ],
     )
 
@@ -1828,7 +1843,7 @@ def create_groundwater_level_help_modal():
                                 "used in feasibility and design.",
                                 className="mb-3",
                             ),
-                        ]
+                        ],
                     ),
                     html.H6("How these affect decisions", className="fw-bold mb-2"),
                     html.Ul(
@@ -1839,7 +1854,7 @@ def create_groundwater_level_help_modal():
                                     "Monthly depths drive vadose-zone thickness, unsaturated "
                                     "travel path, and whether spreading (surface) recharge is "
                                     "hydrologically realistic.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1847,7 +1862,7 @@ def create_groundwater_level_help_modal():
                                     "Inferred with stratigraphy from where the water table sits "
                                     "relative to layers. That choice switches mounding methods "
                                     "(e.g., Plan View contours) and which hard/soft constraints apply.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1856,7 +1871,7 @@ def create_groundwater_level_help_modal():
                                     "(highest elevation / least depth) limit how much vertical "
                                     "storage and mound rise can be used without violating "
                                     "constraints.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1864,7 +1879,7 @@ def create_groundwater_level_help_modal():
                                     "Hard fails (red) or warnings (orange) for each engineering "
                                     "option often depend on insufficient unsaturated thickness, "
                                     "storage limits, or water-table interference.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1873,12 +1888,12 @@ def create_groundwater_level_help_modal():
                                     "cost, and multi-criteria ranking on the Analysis and Decision "
                                     "tabs all use these hydrologic inputs. Incorrect ground "
                                     "surface or water-table values can falsely pass or fail an option.",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -1886,7 +1901,7 @@ def create_groundwater_level_help_modal():
                     id="groundwater-level-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="groundwater-level-help-modal",
@@ -1933,7 +1948,9 @@ def _build_groundwater_level_tab():
                             dbc.Col(
                                 [
                                     html.Label(
-                                        "Ground Surface Elevation (ft)", className="fw-bold", style={"fontSize": "12px"}
+                                        "Ground Surface Elevation (ft)",
+                                        className="fw-bold",
+                                        style={"fontSize": "12px"},
                                     ),
                                     dbc.Input(
                                         id="ground-surface-elevation",
@@ -1988,9 +2005,9 @@ def _build_groundwater_level_tab():
                                                         [
                                                             html.Th("Month", style={"width": "45%"}),
                                                             html.Th("Elevation (ft)", style={"width": "55%"}),
-                                                        ]
-                                                    )
-                                                ]
+                                                        ],
+                                                    ),
+                                                ],
                                             ),
                                             html.Tbody(id="groundwater-table-body"),
                                         ],
@@ -2020,7 +2037,7 @@ def _build_groundwater_level_tab():
                     ),
                 ],
                 id="groundwater-level-content",
-            )
+            ),
         ],
     )
 
@@ -2062,7 +2079,7 @@ def create_horizontal_extension_help_modal():
                                 "site orientation.",
                                 className="mb-3",
                             ),
-                        ]
+                        ],
                     ),
                     html.H6("Where it is used", className="fw-bold mb-2"),
                     html.Ul(
@@ -2072,16 +2089,16 @@ def create_horizontal_extension_help_modal():
                                     html.Strong("Plan View"),
                                     " — draws the rectangular footprint and (optionally) mound "
                                     "contours for confined or unconfined aquifers.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 "Feasibility and engineering calculations that need a "
-                                "horizontal project area or aspect ratio."
+                                "horizontal project area or aspect ratio.",
                             ),
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -2089,7 +2106,7 @@ def create_horizontal_extension_help_modal():
                     id="horizontal-extension-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="horizontal-extension-help-modal",
@@ -2268,7 +2285,7 @@ def create_recharge_mound_outputs_help_modal():
                                 "whether the site is classified as confined or unconfined.",
                                 className="mb-3",
                             ),
-                        ]
+                        ],
                     ),
                     html.H6("How mound contours are computed", className="fw-bold mb-2"),
                     html.P(
@@ -2368,7 +2385,7 @@ def create_recharge_mound_outputs_help_modal():
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -2376,7 +2393,7 @@ def create_recharge_mound_outputs_help_modal():
                     id="recharge-mound-outputs-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="recharge-mound-outputs-help-modal",
@@ -2468,7 +2485,7 @@ def _build_geometry_tabs():
                 "groundwater-level-tab",
                 "Monthly groundwater elevation data and seasonal variation",
             ),
-        ]
+        ],
     )
 
 
@@ -2522,7 +2539,7 @@ def _build_view_card():
                                             dcc.Graph(id="stratigraphy-cross-section-plot", style={"height": "500px"}),
                                         ],
                                         id="stratigraphy-cross-section-content",
-                                    )
+                                    ),
                                 ],
                                 label_style={
                                     "color": "#ffffff",
@@ -2552,7 +2569,7 @@ def _build_view_card():
                                             dcc.Graph(id="groundwater-plot", style={"height": "600px"}),
                                         ],
                                         id="available-mar-storage-content",
-                                    )
+                                    ),
                                 ],
                                 label_style={
                                     "color": "#ffffff",
@@ -2750,7 +2767,7 @@ def _build_rule_defaults_fields_children():
                 md=4,
                 lg=3,
                 className="mb-1",
-            )
+            ),
         )
     lo_id = "rule-def-excessive-deep-aquifer-0-input"
     hi_id = "rule-def-excessive-deep-aquifer-1-input"
@@ -2776,7 +2793,7 @@ def _build_rule_defaults_fields_children():
                 ),
                 _input_field_note(
                     "Depths deeper than this (up to the too-deep threshold) are Moderate Deep. "
-                    "Default 1500 ft. Must be less than the too-deep threshold."
+                    "Default 1500 ft. Must be less than the too-deep threshold.",
                 ),
             ],
             xs=12,
@@ -2804,7 +2821,7 @@ def _build_rule_defaults_fields_children():
                 ),
                 _input_field_note(
                     "Depths deeper than this are Too Deep (rejected for confined options). "
-                    "Default 3000 ft. Must be greater than the moderate-depth threshold."
+                    "Default 3000 ft. Must be greater than the moderate-depth threshold.",
                 ),
             ],
             xs=12,
@@ -2925,7 +2942,7 @@ def _build_geometry_hydrogeologic_parameters_card():
                                     ),
                                     _input_field_note(
                                         "Layers with hydraulic conductivity at or below this value are treated "
-                                        "as aquitards when inferring confined versus unconfined aquifer geometry."
+                                        "as aquitards when inferring confined versus unconfined aquifer geometry.",
                                     ),
                                     dbc.Tooltip(
                                         "Maximum hydraulic conductivity (ft/day) for classifying a stratigraphy "
@@ -2962,7 +2979,7 @@ def _build_geometry_hydrogeologic_parameters_card():
                                         style={"color": "#000"},
                                     ),
                                     _input_field_note(
-                                        "Dry-well feasibility: head must allow a downward gradient to inject."
+                                        "Dry-well feasibility: head must allow a downward gradient to inject.",
                                     ),
                                 ],
                                 xs=12,

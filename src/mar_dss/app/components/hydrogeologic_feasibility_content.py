@@ -93,7 +93,7 @@ def create_leaf_node_card(node_id, node_data, score_data):
     return dbc.Card(
         [
             dbc.CardHeader(
-                [html.H6(name, className="mb-0"), dbc.Badge("DECISION NODE", color="primary", className="ms-2")]
+                [html.H6(name, className="mb-0"), dbc.Badge("DECISION NODE", color="primary", className="ms-2")],
             ),
             dbc.CardBody(
                 [
@@ -101,7 +101,7 @@ def create_leaf_node_card(node_id, node_data, score_data):
                     html.P(status_text, className="text-center mb-2"),
                     dbc.Progress(value=score_display, color=color, className="mb-2"),
                     html.Small(f"Score: {score_text}", className="text-muted d-block text-center"),
-                ]
+                ],
             ),
         ],
         color=color,
@@ -187,7 +187,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
                             ),
                         ],
                         width=12,
-                    )
+                    ),
                 ],
                 className="mb-4",
             ),
@@ -210,21 +210,22 @@ def create_hydrogeologic_feasibility_content_dynamic():
                                                 [
                                                     html.H6(f"Status {status}", className="mb-0"),
                                                     html.Small(
-                                                        f"Final Score: {final_score:.1f}%", className="text-muted"
+                                                        f"Final Score: {final_score:.1f}%",
+                                                        className="text-muted",
                                                     ),
                                                 ],
                                                 color=status_color,
                                                 className="mt-2",
                                             ),
-                                        ]
+                                        ],
                                     ),
-                                ]
-                            )
+                                ],
+                            ),
                         ],
                         width=12,
                         className="mb-4",
-                    )
-                ]
+                    ),
+                ],
             ),
             # Section 2: Key Decision Nodes (Leaf Nodes)
             dbc.Row(
@@ -235,8 +236,8 @@ def create_hydrogeologic_feasibility_content_dynamic():
                             html.P("Final assessment metrics that determine feasibility", className="text-muted mb-3"),
                         ],
                         width=12,
-                    )
-                ]
+                    ),
+                ],
             ),
         ]
 
@@ -265,7 +266,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
                     "No decision nodes available. Please configure aquifer settings first.",
                     color="warning",
                     className="mb-4",
-                )
+                ),
             )
 
         # Continue with remaining sections
@@ -285,18 +286,18 @@ def create_hydrogeologic_feasibility_content_dynamic():
                                                     id="hydro-feasibility-component-scores-chart",
                                                     figure=create_component_scores_chart(breakdown),
                                                     config={"displayModeBar": True},
-                                                )
-                                            ]
+                                                ),
+                                            ],
                                         ),
-                                    ]
-                                )
+                                    ],
+                                ),
                             ],
                             width=12,
                             className="mb-4",
-                        )
-                    ]
+                        ),
+                    ],
                 ),
-            ]
+            ],
         )
 
         # Section 6: Supporting Metrics (Collapsible)
@@ -338,17 +339,17 @@ def create_hydrogeologic_feasibility_content_dynamic():
                                         computational_content,
                                         title=f"Supporting Computational Metrics ({len(computational_nodes)} nodes)",
                                         item_id="computational-metrics",
-                                    )
+                                    ),
                                 ],
                                 start_collapsed=True,
                                 always_open=False,
-                            )
+                            ),
                         ],
                         width=12,
                         className="mb-4",
-                    )
-                ]
-            )
+                    ),
+                ],
+            ),
         )
         content.extend(
             [
@@ -362,7 +363,7 @@ def create_hydrogeologic_feasibility_content_dynamic():
                     target="hydro-feasibility-component-scores-chart",
                     placement="top",
                 ),
-            ]
+            ],
         )
 
         return content

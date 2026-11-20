@@ -1,6 +1,6 @@
-* mar_dss version:
-* Python version:
-* Operating System:
+- mar_dss version:
+- Python version:
+- Operating System:
 
 ### Description
 

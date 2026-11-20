@@ -154,7 +154,7 @@ def _xy_view_empty_figure():
                 font=dict(size=14, color="#000"),
                 xanchor="center",
                 yanchor="middle",
-            )
+            ),
         ],
     )
     return fig
@@ -292,7 +292,7 @@ def _add_footprint_outline(fig, half_length, half_width, rotation_deg):
             line=dict(color="#212529", width=2),
             name="MAR footprint",
             hoverinfo="skip",
-        )
+        ),
     )
 
 
@@ -446,7 +446,7 @@ def _add_confined_theis_contour_to_figure(
                 "<b>Theis + regional gradient</b><br>%{z:.2f} ft<br>x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
             ),
             uirevision=str(n_clicks or 0),
-        )
+        ),
     )
     return fig, True, None
 
@@ -1094,8 +1094,8 @@ def setup_hydro_callbacks(app):
                         html.Td(conductivity_input, style=input_cell_style()),
                         html.Td(storage_input, style=input_cell_style()),
                         html.Td(yield_input, style=input_cell_style()),
-                    ]
-                )
+                    ],
+                ),
             )
 
         return rows
@@ -1415,8 +1415,8 @@ def setup_hydro_callbacks(app):
                             style=label_cell_style(i),
                         ),
                         html.Td(elevation_input, style=input_cell_style()),
-                    ]
-                )
+                    ],
+                ),
             )
         return rows_out
 
@@ -1523,7 +1523,7 @@ def setup_hydro_callbacks(app):
                 line=dict(color="#1f77b4", width=3),
                 marker=dict(size=8, color="#1f77b4"),
                 hovertemplate="<b>%{x}</b><br>Elevation: %{y:.1f} ft<extra></extra>",
-            )
+            ),
         )
 
         # Add filled area between MAR storage and groundwater if both values are provided
@@ -1547,7 +1547,7 @@ def setup_hydro_callbacks(app):
                     name="Available MAR Storage",
                     hovertemplate="<b>Available MAR Storage Area</b><extra></extra>",
                     showlegend=True,
-                )
+                ),
             )
 
             # Add the MAR storage line as a reference
@@ -1560,7 +1560,7 @@ def setup_hydro_callbacks(app):
                     name="MAR Storage Limit",
                     hovertemplate="<b>%{x}</b><br>MAR Storage Limit: %{y:.1f} ft<extra></extra>",
                     showlegend=True,
-                )
+                ),
             )
 
         # Add horizontal lines if values are provided
@@ -1727,7 +1727,7 @@ def setup_hydro_callbacks(app):
                         f"Depth: {top_d:.1f} - {bot_d:.1f} ft bgs{elev_hover}<extra></extra>"
                     ),
                     showlegend=True,
-                )
+                ),
             )
 
             # Add layer label in the middle of the layer
@@ -1770,7 +1770,7 @@ def setup_hydro_callbacks(app):
                     + (f"<br>Elevation: {_elev_at_depth(wt_depth_plot):.1f} ft" if gs_f is not None else "")
                     + "<extra></extra>"
                 ),
-            )
+            ),
         )
 
         if recharge_target_mid_depth is not None:
@@ -1796,7 +1796,7 @@ def setup_hydro_callbacks(app):
                         "<extra></extra>"
                     ),
                     showlegend=True,
-                )
+                ),
             )
 
         # Depth increases downward (0 at top). Elevation = GS − depth (GS at top).
@@ -1848,7 +1848,7 @@ def setup_hydro_callbacks(app):
                     marker=dict(opacity=0),
                     showlegend=False,
                     hoverinfo="skip",
-                )
+                ),
             )
             layout_kwargs["yaxis2"] = dict(
                 title="Elevation (ft)",
@@ -2011,14 +2011,14 @@ def setup_hydro_callbacks(app):
                                     "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
                                 ),
                                 uirevision=str(n_clicks or 0),
-                            )
+                            ),
                         )
                     else:
                         message = _xy_view_contour_error_alert(
                             mound_pack.get(
                                 "error",
                                 "Could not build unconfined mound contours.",
-                            )
+                            ),
                         )
                 else:
                     # Surface recharge not possible — fall back to confined Theis contours.
@@ -2035,12 +2035,12 @@ def setup_hydro_callbacks(app):
                         message = _xy_view_contour_warning_alert(
                             "Unconfined design sizing is not available "
                             "(surface recharge may not be feasible). "
-                            "Showing confined Theis contours instead."
+                            "Showing confined Theis contours instead.",
                         )
                     else:
                         message = _xy_view_contour_error_alert(
                             contour_err
-                            or ("Unconfined design sizing is not available, and confined Theis contours also failed.")
+                            or ("Unconfined design sizing is not available, and confined Theis contours also failed."),
                         )
 
             _add_footprint_outline(fig, half_length, half_width, rotation)
@@ -2209,7 +2209,7 @@ def setup_hydro_callbacks(app):
                         sm=6,
                         md=4,
                         className=col_border,
-                    )
+                    ),
                 )
 
             return html.Div(

@@ -20,7 +20,7 @@ def create_dss_algorithm_content():
                         className="text-muted mb-3 small",
                     ),
                     width=12,
-                )
+                ),
             ),
             # Weights in compact grid
             dbc.Row(
@@ -127,13 +127,13 @@ def create_dss_algorithm_content():
                                             html.Div(
                                                 "Loading decision matrix...",
                                                 className="text-center text-muted p-2 small",
-                                            )
+                                            ),
                                         ],
                                         style={"maxHeight": "400px", "overflowY": "auto", "padding": "0.5rem"},
                                     ),
                                 ],
                                 className="h-100",
-                            )
+                            ),
                         ],
                         width=7,
                     ),
@@ -167,7 +167,7 @@ def create_dss_algorithm_content():
                                         id="dss-weighted-scores",
                                         style={"padding": "0.5rem", "maxHeight": "180px", "overflowY": "auto"},
                                     ),
-                                ]
+                                ],
                             ),
                         ],
                         width=5,
@@ -190,11 +190,11 @@ def create_dss_algorithm_content():
                                     [dcc.Graph(id="dss-sensitivity-chart", config={"displayModeBar": False})],
                                     style={"padding": "0.5rem"},
                                 ),
-                            ]
-                        )
+                            ],
+                        ),
                     ],
                     width=12,
-                )
+                ),
             ),
             dbc.Tooltip(
                 "Relative weight for hydrogeologic feasibility scores in the MCDA (0–10)",

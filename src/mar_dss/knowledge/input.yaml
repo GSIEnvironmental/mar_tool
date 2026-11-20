@@ -26,7 +26,7 @@ inputs:
     type: list of  numeric
     units: "ft"
     value: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20]
-    default: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20]    
+    default: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20]
     range: [0, 2000]
     certainty: 1.0
     group: "Aquifer Properties"
@@ -52,7 +52,7 @@ inputs:
     range: [0.0, 500.0]
     certainty: 0.8
     group: "Design Sizing"
-  
+
   - id: "max_available_area"
     name: "Maximum Available Area"
     description: "Maximum available area for the site"
@@ -73,8 +73,8 @@ inputs:
     range: [0, 1e7]
     certainty: 0.85
     group: "Water Balance"
-  
-  
+
+
   - id: "Hmax"
     name: "Maximum Allowable pressure"
     description: "Maximum allowable hydraulic head change in confined aquifers to prevent too much land uplift, fracturing, ord environmental impacts"
@@ -85,7 +85,7 @@ inputs:
     range: [0.1, 1000.0]
     certainty: 0.85
     group: "Aquifer Properties"
-  
+
   - id: "ground_surface_slope"
     name: "Ground Surface Slope"
     description: "Ground surface slope (rise/run ratio, e.g., 0.01 = 1% slope, 0.02 = 2% slope). Typical values: 0.0-0.1 for gentle slopes, 0.1-0.3 for moderate, >0.3 for steep."
@@ -105,7 +105,7 @@ inputs:
     default: false
     certainty: 0.8
     group: "Environmental Quality"
-  
+
   - id: "vadose_pollution_high_toxicity"
     name: "Vadose Zone High Toxicity Flag"
     description: "Indicates presence of highly toxic contaminants in the vadose zone (e.g., heavy metals, volatile organic compounds, radioactive materials)"
@@ -146,7 +146,7 @@ inputs:
   #   default: false
   #   certainty: 0.9
   #   group: "Vadose Zone"
-  
+
   # - id: "UnSatClayDepth"
   #   name: "Clay Layer Depth"
   #   description: "Depth of the clay layer in the vadose zone"

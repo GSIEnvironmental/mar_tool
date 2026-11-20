@@ -679,7 +679,7 @@ def create_and_run_cost_calculator():
         q_def_ft3_day = float(get_max_injection_Q_per_well_ft3_day())
         logger.warning(
             "number_of_injection_wells not available from graph (confined/unconfined may be unset); "
-            "using placeholder values for cost calculator"
+            "using placeholder values for cost calculator",
         )
         number_of_injection_wells_results = {
             "number_of_wells": 5,
@@ -688,7 +688,7 @@ def create_and_run_cost_calculator():
 
     number_of_injection_wells = int(float(number_of_injection_wells_results.get("number_of_wells", 5)))
     injection_Q_ft3_per_day = float(
-        number_of_injection_wells_results.get("Q_per_well", get_max_injection_Q_per_well_ft3_day())
+        number_of_injection_wells_results.get("Q_per_well", get_max_injection_Q_per_well_ft3_day()),
     )
 
     dry_well_results = graph.get_node_value("number_of_dry_wells")
@@ -1151,7 +1151,7 @@ def setup_analysis_callbacks(app):
                 dbc.Alert(
                     "Please select an option from the dropdown above to view detailed interpretation.",
                     color="info",
-                )
+                ),
             )
 
         # Get DSS results from storage
@@ -1162,7 +1162,7 @@ def setup_analysis_callbacks(app):
                 dbc.Alert(
                     "No evaluation results available. Please run the feasibility analysis first.",
                     color="warning",
-                )
+                ),
             )
 
         results = dss_results.results
@@ -1173,7 +1173,7 @@ def setup_analysis_callbacks(app):
                 dbc.Alert(
                     f"Option '{selected_option}' not found in results.",
                     color="danger",
-                )
+                ),
             )
 
         result = results[selected_option]

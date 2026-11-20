@@ -1,4 +1,3 @@
-
 from mar_dss.base import DecisionGraph, Node
 
 

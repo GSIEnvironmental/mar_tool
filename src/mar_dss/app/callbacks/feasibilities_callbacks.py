@@ -233,7 +233,8 @@ def _collect_engineering_option_economics():
     """Collect capital, O&M, volume, well counts, and unit-cost metrics for each MAR option."""
     capital_cost_num = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
     maintenance_cost_num = coerce_storage_cost_totals(
-        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+        dash_storage.get_data("maintenance_cost_num"),
+        MAINTENANCE_COST_TOTAL_KEYS,
     )
     n_injection, n_dry = _well_counts_from_graph()
 
@@ -275,7 +276,7 @@ def _collect_engineering_option_economics():
                 "maintenance_per_acre_ft": maintenance_val / acre_ft if acre_ft > 0 and maintenance_val > 0 else None,
                 "wells_required": wells_required,
                 "wells_label": wells_label,
-            }
+            },
         )
     return economics
 
@@ -388,7 +389,7 @@ def _build_engineering_options_summary(categorized_data):
                                         _option_metric_row(
                                             econ["wells_label"],
                                             ("N/A" if not_feasible else _format_well_count(econ["wells_required"])),
-                                        )
+                                        ),
                                     ]
                                     if econ.get("wells_label")
                                     else []
@@ -418,7 +419,7 @@ def _build_engineering_options_summary(categorized_data):
                 lg=4,
                 md=4,
                 sm=12,
-            )
+            ),
         )
 
     return html.Div(
@@ -653,7 +654,7 @@ def _categorize_options(results, filters):
                     {
                         "name": option_name,
                         "reason": f"Hard constraint: {', '.join([hc.get('name', 'Unknown') for hc in failed_hard])}",
-                    }
+                    },
                 )
             else:
                 after_hard_constraints += 1
@@ -671,7 +672,7 @@ def _categorize_options(results, filters):
                 passed_soft = False
                 if passed_hard:  # Only add to rejected if it passed hard constraints
                     rejected.append(
-                        {"name": option_name, "reason": f"Soft rule reject: {', '.join(rejected_soft_list)}"}
+                        {"name": option_name, "reason": f"Soft rule reject: {', '.join(rejected_soft_list)}"},
                     )
             elif passed_hard:
                 after_soft_rules += 1
@@ -693,7 +694,7 @@ def _categorize_options(results, filters):
                     "cost": cost_str,
                     "benefit": f"{benefit_score:.0f}",
                     "description": "Meets all feasibility criteria",
-                }
+                },
             )
             recommended_count += 1
         elif status == "Conditionally Recommended":
@@ -703,7 +704,7 @@ def _categorize_options(results, filters):
                     "cost": cost_str,
                     "benefit": f"{benefit_score:.0f}",
                     "requirements": ", ".join(mitigations) if mitigations else "Additional review required",
-                }
+                },
             )
         elif status == "Recommended with Warnings":
             recommended.append(
@@ -712,7 +713,7 @@ def _categorize_options(results, filters):
                     "cost": cost_str,
                     "benefit": f"{benefit_score:.0f}",
                     "description": f"Warnings: {', '.join(warnings)}" if warnings else "Meets criteria with warnings",
-                }
+                },
             )
             recommended_count += 1
         else:  # Rejected
@@ -739,7 +740,7 @@ def _build_empty_engineering_options_summary():
         html.P(
             "No DSS evaluation results available. Please run the feasibility analysis first",
             className="text-muted text-center p-4 mb-0",
-        )
+        ),
     )
 
 
@@ -879,7 +880,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
             marker_sizes.append(34)  # Circle diameter for measles/heatmap markers
             status_details.append(
                 detail_data.get(option_name, {}).get(constraint_name)
-                or _RESPONSE_LABELS.get(response_level, f"Response {response_level}")
+                or _RESPONSE_LABELS.get(response_level, f"Response {response_level}"),
             )
 
     # Create color mapping for response levels
@@ -935,7 +936,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                     for i in relevant_indices
                 ],
                 showlegend=False,
-            )
+            ),
         )
 
     # Add trace for irrelevant constraints (greyed out)
@@ -958,7 +959,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                 hovertemplate="<b>%{customdata[0]}</b><br>%{x}<br>Response Level: Irrelevant (excluded from analysis)<extra></extra>",
                 customdata=[[y_data[i], "Irrelevant"] for i in irrelevant_indices],
                 showlegend=False,
-            )
+            ),
         )
 
     # Function to split constraint names into two lines
@@ -1138,8 +1139,8 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                     html.Small("-1: Irrelevant", className="text-muted"),
                 ],
                 className="d-flex align-items-center justify-content-center flex-wrap",
-            )
-        ]
+            ),
+        ],
     )
 
     return heatmap_fig, legend
@@ -1149,7 +1150,8 @@ def _extract_cost_data():
     """Extract cost data from storage and return mapped values."""
     capital_cost_num = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
     maintenance_cost_num = coerce_storage_cost_totals(
-        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+        dash_storage.get_data("maintenance_cost_num"),
+        MAINTENANCE_COST_TOTAL_KEYS,
     )
     net_val_dict = _normalize_net_val_dict(dash_storage.get_data("net_val"))
 
@@ -1190,7 +1192,7 @@ def _extract_cost_data():
             maint_col = col_name.replace("Cost ($)", "Maintenance Cost ($)")
             if maint_col in maintenance_cost_num.index:
                 maintenance_costs.append(
-                    float(maintenance_cost_num[maint_col]) if pd.notna(maintenance_cost_num[maint_col]) else 0
+                    float(maintenance_cost_num[maint_col]) if pd.notna(maintenance_cost_num[maint_col]) else 0,
                 )
             else:
                 maintenance_costs.append(0)
@@ -1216,7 +1218,7 @@ def _create_cost_chart(option_names, values, title, color):
             text=[f"${c / 1e6:.2f}M" if c >= 1e6 else f"${c / 1e3:.0f}K" for c in values],
             textposition="auto",
             name=title,
-        )
+        ),
     )
     fig.update_layout(
         title=title,
@@ -1472,7 +1474,8 @@ def _create_spider_plots(dss_results, categorized_data):
     scores = getattr(dss_results, "scores", {})
     capital_cost_num = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
     maintenance_cost_num = coerce_storage_cost_totals(
-        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+        dash_storage.get_data("maintenance_cost_num"),
+        MAINTENANCE_COST_TOTAL_KEYS,
     )
     net_val_dict = _normalize_net_val_dict(dash_storage.get_data("net_val"))
 
@@ -1671,7 +1674,7 @@ def _create_spider_plots(dss_results, categorized_data):
                 mode="lines+markers",
                 marker=dict(size=8, color="#1e90ff", line=dict(width=2, color="white")),
                 hovertemplate="<b>%{theta}</b><br>Value: %{r:.1f}<extra></extra>",
-            )
+            ),
         )
 
         # Update layout with clean polar plot
@@ -1765,11 +1768,11 @@ def _create_spider_plots(dss_results, categorized_data):
                         ],
                         className="h-100",
                         style={"minHeight": "400px"},
-                    )
+                    ),
                 ],
                 width=4,
                 className="mb-3",
-            )
+            ),
         )
 
     # Return in rows of 3

@@ -43,7 +43,10 @@ if __name__ == "__main__":
     # for an area of 50m by 50 and inf 0.2 m/day.
     max_source_water_volume = 200 * 200 * 0.2 * 30 * 3 * 3
     source_water_volume = create_monthly_bell(
-        0.2 * max_source_water_volume, max_source_water_volume, peak_month=6, spread=2.5
+        0.2 * max_source_water_volume,
+        max_source_water_volume,
+        peak_month=6,
+        spread=2.5,
     )
 
     inputs["source_water_volume"] = source_water_volume

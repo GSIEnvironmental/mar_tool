@@ -104,7 +104,7 @@ def _composite_cn_excel_table(table_data):
             readonly_params=computed,
             input_highlight_params=editable,
             computed_highlight_params=computed,
-        )
+        ),
     )
 
 
@@ -131,7 +131,7 @@ def _runoff_calc_excel_table(table_data):
             readonly_params=RUNOFF_CALC_COMPUTED_PARAMS,
             input_highlight_params=RUNOFF_CALC_EDITABLE_PARAMS,
             computed_highlight_params=RUNOFF_CALC_COMPUTED_PARAMS,
-        )
+        ),
     )
 
 
@@ -282,7 +282,7 @@ def get_monthly_rain(latitude, longitude):
         print(f"Error fetching data: {e}")
     except KeyError:
         print(
-            "Error: Could not find the expected data structure in the API response. The parameter or time frame might be incorrect."
+            "Error: Could not find the expected data structure in the API response. The parameter or time frame might be incorrect.",
         )
 
 
@@ -388,7 +388,7 @@ _STATE_NAME_TO_ABBR = {
     "New Mexico": "NM",
     "New York": "NY",
     "North Carolina": "NC",
-    "North Dakota": "ND",
+    "North Dakota": "AND",
     "Ohio": "OH",
     "Oklahoma": "OK",
     "Oregon": "OR",
@@ -975,7 +975,8 @@ def setup_runoff_callbacks(app):
 
                 # Create watershed layer for the map
                 watershed_layer = dl.GeoJSON(
-                    data=watershed_geojson, style={"color": "red", "weight": 3, "opacity": 0.8, "fillOpacity": 0.2}
+                    data=watershed_geojson,
+                    style={"color": "red", "weight": 3, "opacity": 0.8, "fillOpacity": 0.2},
                 )
 
                 # Generate watershed table with error handling
@@ -1141,7 +1142,8 @@ def setup_runoff_callbacks(app):
 
     # Callback for impervious curve number selection
     @app.callback(
-        Output("selected-impervious-curve-number-display", "children"), Input("impervious-curve-number-select", "value")
+        Output("selected-impervious-curve-number-display", "children"),
+        Input("impervious-curve-number-select", "value"),
     )
     def update_impervious_curve_number_display(selected_value):
         """Display the selected impervious curve number information."""
@@ -1689,7 +1691,7 @@ def setup_runoff_callbacks(app):
                 ),
                 rain_statistics_table,
                 build_table_legend(),
-            ]
+            ],
         )
 
     # Callback to load rain statistics table from storage on initial load
@@ -1805,7 +1807,7 @@ def setup_runoff_callbacks(app):
                     text=monthly_rain["Runoff depth (inches)"].round(2),
                     textposition="outside",
                 ),
-            ]
+            ],
         )
 
         fig.update_layout(
@@ -1827,10 +1829,10 @@ def setup_runoff_callbacks(app):
                     [
                         dbc.Col([monthly_rain_table], width=6),
                         dbc.Col([monthly_rain_chart], width=6),
-                    ]
+                    ],
                 ),
                 build_table_legend(),
-            ]
+            ],
         )
 
     # Callback to load monthly runoff data from storage on initial load
@@ -1882,7 +1884,12 @@ def setup_runoff_callbacks(app):
         prevent_initial_call=True,
     )
     def get_monthly_rain_for_runoff(
-        n_clicks, lat, lon, runoff_table_data, rain_events_per_month, use_runoff_for_recharge
+        n_clicks,
+        lat,
+        lon,
+        runoff_table_data,
+        rain_events_per_month,
+        use_runoff_for_recharge,
     ):
         """Get monthly rain data and display as table and chart side by side."""
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:

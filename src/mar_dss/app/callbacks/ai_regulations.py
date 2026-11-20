@@ -164,5 +164,5 @@ def build_mar_regulations_prompt(location):
         4. Highlight high-risk items that could delay, prevent, or significantly increase project cost using **High** priority within the table rows.
 
         {html_instructions}
-        """
+        """,
     ).strip()

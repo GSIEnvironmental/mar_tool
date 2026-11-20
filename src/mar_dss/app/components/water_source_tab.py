@@ -45,7 +45,7 @@ RUNOFF_RELEVANT_WATER_SOURCES = frozenset(
         "surface_water_sources",
         "urban_stormwater_runoff",
         "rural_agricultural_runoff",
-    }
+    },
 )
 
 RUNOFF_CALCULATOR_SOURCE_WARNING = (
@@ -173,7 +173,7 @@ _ALLOWED_MAP_STYLES = frozenset(
         "opentopomap",
         "satellite-streets",
         "white-bg",
-    }
+    },
 )
 
 # Plotly's preset `stamen-terrain` often breaks (Stamen→Stadia; pan/zoom can freeze). Terrain via raster tiles.
@@ -233,7 +233,7 @@ def _mapbox_dict_for_style(style, center_lat, center_lon, zoom):
                 sourcetype="raster",
                 source=list(_OPENTOPOMAP_TILES),
                 below="traces",
-            )
+            ),
         ]
     elif style == "satellite-streets":
         map_layout["style"] = "white-bg"
@@ -378,7 +378,7 @@ def create_water_source_sites_map(
             text=["Source Site"],
             textposition="top center",
             name="Source Site",
-        )
+        ),
     )
     fig.add_trace(
         _SCATTER_MAP_TRACE(
@@ -389,7 +389,7 @@ def create_water_source_sites_map(
             text=["Recharge Site"],
             textposition="top center",
             name="Recharge Site",
-        )
+        ),
     )
     map_layout = _mapbox_dict_for_style(style, center_lat, center_lon, zoom)
     layout = {
@@ -460,7 +460,7 @@ def create_location_map(
             text=[location_name],
             textposition="top center",
             name=location_name,
-        )
+        ),
     )
     map_layout = _mapbox_dict_for_style(style, lat, lon, zoom)
     layout = {
@@ -506,7 +506,7 @@ def create_monthly_flow_chart(flow_data=None):
             name="Monthly Flow",
             marker_color="lightblue",
             yaxis="y",
-        )
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -517,7 +517,7 @@ def create_monthly_flow_chart(flow_data=None):
             line=dict(color="red", width=3),
             marker=dict(size=8),
             yaxis="y2",
-        )
+        ),
     )
     fig.update_layout(
         title="Monthly Flow and Cumulative Annual Flow",
@@ -673,7 +673,7 @@ def create_editable_flow_table(flow_data=None):
                 html.Th("Flow (ft³/month)", className="text-center text-white py-2 px-2"),
             ],
             style={"backgroundColor": "#28a745"},
-        )
+        ),
     ]
     for i, (month, flow) in enumerate(zip(FLOW_MONTHS, monthly_flows)):
         rows.append(
@@ -698,7 +698,7 @@ def create_editable_flow_table(flow_data=None):
                         style={"backgroundColor": INPUT_CELL_BG},
                     ),
                 ],
-            )
+            ),
         )
 
     return html.Div(
@@ -1049,7 +1049,7 @@ def _create_optional_runoff_calculations_card():
                                 "runoff-calculator",
                                 "Watershed map, rainfall data, and runoff results for the site",
                             ),
-                        ]
+                        ],
                     ),
                 ],
                 className="p-2",
@@ -1138,9 +1138,9 @@ def create_water_source_configuration_help_modal():
                                 html.Dt(title, className="fw-bold"),
                                 html.Dd(description, className="mb-3"),
                             )
-                        ]
+                        ],
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -1148,7 +1148,7 @@ def create_water_source_configuration_help_modal():
                     id="water-source-config-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="water-source-config-help-modal",
@@ -1218,9 +1218,9 @@ def create_volume_estimates_help_modal():
                                 html.Dt(title, className="fw-bold"),
                                 html.Dd(description, className="mb-3"),
                             )
-                        ]
+                        ],
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -1228,7 +1228,7 @@ def create_volume_estimates_help_modal():
                     id="volume-estimates-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="volume-estimates-help-modal",
@@ -1343,7 +1343,7 @@ def create_water_source_info_tab():
                                                     ],
                                                     width=8,
                                                 ),
-                                            ]
+                                            ],
                                         ),
                                         dbc.Tooltip(
                                             "Edit a cell and click away (or Tab); value saves without pressing Enter",
@@ -1360,10 +1360,10 @@ def create_water_source_info_tab():
                                 ),
                             ],
                             className="mb-3",
-                        )
+                        ),
                     ],
                     width=12,
-                )
+                ),
             ],
         ),
         dbc.Row(

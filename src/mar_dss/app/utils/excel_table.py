@@ -40,7 +40,7 @@ def build_table_legend(*, compact: bool = False, include_calculated: bool = True
             [
                 html.Span(className="excel-legend-swatch excel-legend-computed me-1"),
                 html.Span("Calculated", className="small"),
-            ]
+            ],
         )
     return html.Div(
         items,
@@ -100,7 +100,7 @@ def datatable_column_styles(
                 "if": {"column_id": col},
                 "backgroundColor": "#ffffff",
                 "fontWeight": "600",
-            }
+            },
         )
     return styles
 
@@ -169,7 +169,7 @@ def build_param_value_table(
                 html.Th("Value", className="text-center text-white py-2 px-2"),
             ],
             style={"backgroundColor": "#2c5aa0"},
-        )
+        ),
     ]
 
     for i, row in enumerate(rows):
@@ -223,7 +223,7 @@ def build_param_value_table(
                     value_cell,
                 ],
                 style={"backgroundColor": bg},
-            )
+            ),
         )
 
     return html.Table(body_rows, className=table_class, style={"width": "100%"})

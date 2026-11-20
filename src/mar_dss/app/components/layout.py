@@ -99,7 +99,7 @@ def _build_title_block() -> html.Div:
                                     "width": "auto",
                                     "vertical-align": "middle",
                                 },
-                            )
+                            ),
                         ],
                         width=3,
                         className="d-flex align-items-center justify-content-start",
@@ -121,7 +121,7 @@ def _build_title_block() -> html.Div:
                                     "border": "none",
                                     "vertical-align": "middle",
                                 },
-                            )
+                            ),
                         ],
                         width=6,
                         className="d-flex align-items-center justify-content-center",
@@ -138,17 +138,17 @@ def _build_title_block() -> html.Div:
                                             "width": "auto",
                                             "vertical-align": "middle",
                                         },
-                                    )
+                                    ),
                                 ],
                                 className="d-flex align-items-center justify-content-center",
-                            )
+                            ),
                         ],
                         width=3,
                         className="d-flex align-items-center justify-content-center",
                     ),
                 ],
                 className="align-items-center",
-            )
+            ),
         ],
         style={
             "min-height": "0px",
@@ -227,7 +227,7 @@ def _build_close_project_modal() -> dbc.Modal:
             dbc.ModalBody(
                 "Close MAR DSS? This will try to close this browser tab. "
                 "If your browser blocks that, the page will show a closed message "
-                "and you can close the tab manually."
+                "and you can close the tab manually.",
             ),
             dbc.ModalFooter(
                 [
@@ -243,7 +243,7 @@ def _build_close_project_modal() -> dbc.Modal:
                         color="primary",
                         n_clicks=0,
                     ),
-                ]
+                ],
             ),
         ],
         id="close-project-modal",
@@ -278,7 +278,7 @@ def _build_about_modal() -> dbc.Modal:
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 [
@@ -300,7 +300,7 @@ def _build_about_modal() -> dbc.Modal:
                         color="secondary",
                         n_clicks=0,
                     ),
-                ]
+                ],
             ),
         ],
         id="about-modal",
@@ -358,9 +358,9 @@ def _build_header() -> dbc.Row:
                         className="position-relative",
                     ),
                     html.Hr(className="my-2"),
-                ]
-            )
-        ]
+                ],
+            ),
+        ],
     )
 
 
@@ -477,7 +477,7 @@ def _build_tabs():
         [
             tabs,
             *[tab_tooltip(tab_id, text, placement="bottom") for tab_id, text in _TOP_TAB_TOOLTIPS.items()],
-        ]
+        ],
     )
 
 
@@ -503,7 +503,7 @@ def _build_main_card_body() -> list:
                 ),
                 html.Div(id="main-tab-panels-wrapper", children=tab_panels),
             ],
-        )
+        ),
     ]
 
 
@@ -540,16 +540,16 @@ def _build_main_card() -> dbc.Card:
                                             ),
                                         ],
                                         className="d-flex align-items-center justify-content-end",
-                                    )
+                                    ),
                                 ],
                                 width=3,
                             ),
-                        ]
-                    )
-                ]
+                        ],
+                    ),
+                ],
             ),
             dbc.CardBody(_build_main_card_body()),
-        ]
+        ],
     )
 
 
@@ -581,8 +581,8 @@ def _build_sidebar() -> dbc.Col:
                 [
                     dbc.CardHeader("Analysis", className="fw-bold"),
                     dbc.CardBody([_build_sidebar_nav()]),
-                ]
-            )
+                ],
+            ),
         ],
         width=3,
         style={"flex": "0 0 20%", "maxWidth": "20%"},
@@ -601,7 +601,7 @@ def _build_content_area() -> dbc.Row:
                 [_build_main_card()],
                 width=12,  # Full width since sidebar is removed
             ),
-        ]
+        ],
     )
 
 
@@ -657,5 +657,5 @@ def _build_root_layout() -> html.Div:
             html.Div(id="close-browser-hook", style={"display": "none"}),
             _build_close_project_modal(),
             _build_about_modal(),
-        ]
+        ],
     )

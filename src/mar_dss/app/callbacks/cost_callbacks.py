@@ -118,7 +118,7 @@ def _round_total_rows_in_cost_df(df, cost_columns, label_col="Row Label"):
         if col not in df.columns:
             continue
         df.loc[mask, col] = df.loc[mask, col].apply(
-            lambda x: _round_to_nearest_thousand(x) if pd.notna(x) and str(x).strip() != "" else x
+            lambda x: _round_to_nearest_thousand(x) if pd.notna(x) and str(x).strip() != "" else x,
         )
     return df
 
@@ -377,7 +377,7 @@ _CAPITAL_SOFT_LABELS = frozenset(
         "subtotal_with_fees",
         "Capital Total Cost",
         *(label for label, _ in _CAPITAL_SOFT_FEE_ROWS),
-    }
+    },
 )
 _MAINT_SOFT_LABELS = frozenset(
     {
@@ -385,7 +385,7 @@ _MAINT_SOFT_LABELS = frozenset(
         "Subtotal with Admin Fees",
         "Annual Grand Maintenance Cost",
         *(label for label, _ in _MAINT_SOFT_FEE_ROWS),
-    }
+    },
 )
 
 
@@ -571,7 +571,7 @@ def _maintenance_totals_from_capital(capital_totals):
             _parse_cost_float(
                 (capital_totals or {}).get(cap_col)
                 if isinstance(capital_totals, dict)
-                else (capital_totals.get(cap_col) if hasattr(capital_totals, "get") else 0)
+                else (capital_totals.get(cap_col) if hasattr(capital_totals, "get") else 0),
             )
             * _MAINTENANCE_FRACTION_OF_CAPITAL
         )
@@ -689,7 +689,7 @@ def _editable_cost_datatable(df, table_id, summary_styles):
                     "type": "numeric",
                     "editable": False,
                     "format": Format(precision=2, scheme=Scheme.fixed),
-                }
+                },
             )
         elif col == "Unit Cost $":
             columns.append(
@@ -698,7 +698,7 @@ def _editable_cost_datatable(df, table_id, summary_styles):
                     "id": col,
                     "type": "numeric",
                     "editable": True,
-                }
+                },
             )
         else:
             columns.append({"name": col, "id": col, "editable": False})
@@ -775,7 +775,7 @@ def _cost_summary_option_rows(rows):
                     "padding": "0.5rem 0",
                     "borderBottom": ("1px solid #e8ecef" if i < len(rows) - 1 else "none"),
                 },
-            )
+            ),
         )
     return html.Div(children, style={"width": "100%", "textAlign": "left"})
 
@@ -801,7 +801,7 @@ def _format_cost_summary_display(cost_data, cost_type, selected_technology, not_
                 ("Spreading", _cost_str_for_option("Surface Recharge", spreading)),
                 ("Injection", _cost_str_for_option("Injection Well", injection)),
                 ("Dry Well", _cost_str_for_option("Dry Well", dry_well)),
-            ]
+            ],
         )
 
     if isinstance(cost_data, pd.Series):
@@ -866,12 +866,12 @@ def _build_npv_panel(npv_df, not_feasible_options):
     for col in npv_columns:
         if col in npv_df_plot.columns:
             npv_df_plot[col] = npv_df_plot[col].apply(
-                lambda x: _round_to_nearest_thousand(x) if pd.notna(x) and str(x).strip() != "" else x
+                lambda x: _round_to_nearest_thousand(x) if pd.notna(x) and str(x).strip() != "" else x,
             )
     for col in npv_columns:
         if col in npv_df.columns:
             npv_df[col] = npv_df[col].apply(
-                lambda x: f"{_round_to_nearest_thousand(x):,.0f}" if pd.notna(x) and str(x).strip() != "" else ""
+                lambda x: f"{_round_to_nearest_thousand(x):,.0f}" if pd.notna(x) and str(x).strip() != "" else "",
             )
     _mask_infeasible_cost_columns(npv_df, npv_columns, not_feasible_options)
     npv_df = npv_df.fillna("")
@@ -894,7 +894,7 @@ def _build_npv_panel(npv_df, not_feasible_options):
                 text=[f"${_parse_cost_float(v):,.0f}" for v in yvals],
                 textposition="outside",
                 hovertemplate="Year: %{x}<br>" + col + ": $%{y:,.0f}<extra></extra>",
-            )
+            ),
         )
     npv_plot.update_layout(
         title="Net Present Value Over 20 Years",
@@ -921,7 +921,7 @@ def _build_npv_panel(npv_df, not_feasible_options):
                 "backgroundColor": "#bbdefb",
                 "fontWeight": "bold",
                 "color": "#0d47a1",
-            }
+            },
         ],
         page_size=25,
     )
@@ -935,8 +935,8 @@ def _build_npv_panel(npv_df, not_feasible_options):
                             dcc.Graph(figure=npv_plot, id="npv-chart", style={"height": "500px"}),
                         ],
                         width=12,
-                    )
-                ]
+                    ),
+                ],
             ),
             dbc.Row(
                 [
@@ -946,8 +946,8 @@ def _build_npv_panel(npv_df, not_feasible_options):
                             table,
                         ],
                         width=12,
-                    )
-                ]
+                    ),
+                ],
             ),
         ],
         fluid=True,
@@ -1404,7 +1404,7 @@ def setup_cost_callbacks(app):
             distance_to_storage_pond_ft = float(dash_storage.get_data("distance_to_storage_pond_ft")) or 1.0
             sediment_target, sediment_target_display = _sync_sediment_target_from_turbidity()
             conveyance_method = _normalize_conveyance_method(
-                dash_storage.get_data("conveyance_method") or _DEFAULT_CONVEYANCE
+                dash_storage.get_data("conveyance_method") or _DEFAULT_CONVEYANCE,
             )
             dash_storage.set_data("conveyance_method", conveyance_method)
 
@@ -1529,7 +1529,10 @@ def setup_cost_callbacks(app):
             totals_series_to_storage_dict(pd.Series(capital_totals), CAPITAL_COST_TOTAL_KEYS),
         )
         capital_df_display = _prepare_cost_display_df(
-            capital_df, _CAPITAL_COST_COLS, not_feasible_options, capital_label_col
+            capital_df,
+            _CAPITAL_COST_COLS,
+            not_feasible_options,
+            capital_label_col,
         )
         capital_summary_styles = [
             {
@@ -1537,12 +1540,12 @@ def setup_cost_callbacks(app):
                     "filter_query": (
                         '{Row Label} contains "Total" || {Row Label} contains "Subtotal" '
                         '|| {Row Label} contains "Capital" || {Item} = null'
-                    )
+                    ),
                 },
                 "backgroundColor": "#bbdefb",
                 "fontWeight": "bold",
                 "color": "#0d47a1",
-            }
+            },
         ]
         capital_cost_table = html.Div(
             [
@@ -1571,7 +1574,7 @@ def setup_cost_callbacks(app):
                     "capital-cost-datatable",
                     capital_summary_styles,
                 ),
-            ]
+            ],
         )
 
         # Maintenance = 5% of capital (no line-item O&M model)
@@ -1593,12 +1596,12 @@ def setup_cost_callbacks(app):
                     "filter_query": (
                         '{Row Label} contains "Total" || {Row Label} contains "Subtotal" '
                         '|| {Row Label} contains "Maintenance" || {Item} = null'
-                    )
+                    ),
                 },
                 "backgroundColor": "#bbdefb",
                 "fontWeight": "bold",
                 "color": "#0d47a1",
-            }
+            },
         ]
         # Read-only table (O&M is derived from capital, not edited here)
         maint_columns = [
@@ -1633,7 +1636,7 @@ def setup_cost_callbacks(app):
                     style_data_conditional=maintenance_summary_styles,
                     page_size=50,
                 ),
-            ]
+            ],
         )
 
         npv_df = _compute_npv_series(capital_totals, maintenance_totals)

@@ -184,7 +184,12 @@ def get_parameter_baseline(parameter_name):
 
 
 def create_parameter_variations(
-    parameter_name, baseline_value, variation_type="percentage", num_points=10, min_val=None, max_val=None
+    parameter_name,
+    baseline_value,
+    variation_type="percentage",
+    num_points=10,
+    min_val=None,
+    max_val=None,
 ):
     """Create a list of parameter values to test.
 
@@ -288,7 +293,7 @@ def create_parameter_variations(
         # This is complex - for now, return baseline only with a note
         logger.info(
             f"Table type parameter {parameter_name} - returning baseline only. "
-            f"Full table variation not yet implemented."
+            f"Full table variation not yet implemented.",
         )
         return [baseline_value]
 
@@ -366,7 +371,11 @@ def run_sensitivity_analysis(parameter_name, variation_range=None, num_points=10
     max_val = variation_range[1] if variation_range and len(variation_range) >= 2 else None
 
     variations = create_parameter_variations(
-        parameter_name, baseline_value, num_points=num_points, min_val=min_val, max_val=max_val
+        parameter_name,
+        baseline_value,
+        num_points=num_points,
+        min_val=min_val,
+        max_val=max_val,
     )
 
     if not variations:
@@ -420,7 +429,7 @@ def run_sensitivity_analysis(parameter_name, variation_range=None, num_points=10
                     {
                         "parameter_value": variation_value,
                         "outputs": outputs,
-                    }
+                    },
                 )
 
         except Exception as e:
@@ -439,7 +448,7 @@ def run_sensitivity_analysis(parameter_name, variation_range=None, num_points=10
         logger.warning(f"Error restoring baseline state: {e}")
 
     logger.info(
-        f"Sensitivity analysis completed for {parameter_name}: {len(sensitivity_results['variations'])} variations tested"
+        f"Sensitivity analysis completed for {parameter_name}: {len(sensitivity_results['variations'])} variations tested",
     )
 
     return sensitivity_results
@@ -510,7 +519,8 @@ def calculate_sensitivity_metrics(sensitivity_results):
             variation_score = variation_benefit_scores.get(option_name, 0.0)
             score_delta = abs(variation_score - baseline_score)
             metrics["max_benefit_score_delta"][option_name] = max(
-                metrics["max_benefit_score_delta"][option_name], score_delta
+                metrics["max_benefit_score_delta"][option_name],
+                score_delta,
             )
 
     # Calculate overall sensitivity score (0-100)
@@ -522,7 +532,8 @@ def calculate_sensitivity_metrics(sensitivity_results):
 
         # Normalize to 0-100 scale
         sensitivity_score = min(
-            100, (status_change_rate * 50 + ranking_change_rate * 30 + avg_max_score_delta * 20) * 100
+            100,
+            (status_change_rate * 50 + ranking_change_rate * 30 + avg_max_score_delta * 20) * 100,
         )
         metrics["sensitivity_score"] = sensitivity_score
     else:
@@ -550,7 +561,8 @@ def create_sensitivity_summary_table(sensitivity_results_list):
             table_data.append(
                 {
                     "Parameter": sens_result.get(
-                        "parameter_display_name", sens_result.get("parameter_name", "Unknown")
+                        "parameter_display_name",
+                        sens_result.get("parameter_name", "Unknown"),
                     ),
                     "Status Changes": metrics.get("total_status_changes", 0),
                     "Ranking Changes": metrics.get("total_ranking_changes", 0),
@@ -558,7 +570,7 @@ def create_sensitivity_summary_table(sensitivity_results_list):
                     if metrics.get("max_benefit_score_delta")
                     else "0.00",
                     "Sensitivity": f"{metrics.get('sensitivity_score', 0):.1f}",
-                }
+                },
             )
 
     if not table_data:
@@ -658,7 +670,7 @@ def create_tornado_plot(sensitivity_results, selected_option=None):
             name="Increase",
             marker_color="green",
             base=baseline_score,
-        )
+        ),
     )
 
     fig.add_trace(
@@ -669,11 +681,12 @@ def create_tornado_plot(sensitivity_results, selected_option=None):
             name="Decrease",
             marker_color="red",
             base=baseline_score,
-        )
+        ),
     )
 
     param_name = sensitivity_results.get(
-        "parameter_display_name", sensitivity_results.get("parameter_name", "Parameter")
+        "parameter_display_name",
+        sensitivity_results.get("parameter_name", "Parameter"),
     )
     fig.update_layout(
         title=f"Parameter Impact on {selected_option} Benefit Score",
@@ -735,11 +748,12 @@ def create_status_transition_heatmap(sensitivity_results):
             texttemplate="%{text}",
             textfont={"size": 10},
             colorbar=dict(title="Change Rate"),
-        )
+        ),
     )
 
     param_name = sensitivity_results.get(
-        "parameter_display_name", sensitivity_results.get("parameter_name", "Parameter")
+        "parameter_display_name",
+        sensitivity_results.get("parameter_name", "Parameter"),
     )
     fig.update_layout(
         title=f"Status Change Frequency by Option ({param_name})",
@@ -778,7 +792,7 @@ def setup_decision_sensitivity_callbacks(app):
                 {
                     "label": f"{group}: {param_def.get('name', param_id)}",
                     "value": param_id,
-                }
+                },
             )
 
         # Get current selection (if any)
@@ -801,14 +815,14 @@ def setup_decision_sensitivity_callbacks(app):
             return html.Div(
                 [
                     html.P("Select a parameter above to configure sensitivity analysis", className="text-muted small"),
-                ]
+                ],
             )
 
         if not selected_parameter:
             return html.Div(
                 [
                     html.P("Select a parameter to configure sensitivity analysis", className="text-muted small"),
-                ]
+                ],
             )
 
         # Store selection
@@ -826,7 +840,7 @@ def setup_decision_sensitivity_callbacks(app):
                     html.H6("Parameter Type Categorical", className="mb-2"),
                     html.P(f"Current Value: {baseline_value}", className="small"),
                     html.P(f"All {len(allowed_values)} possible values will be tested", className="text-muted small"),
-                ]
+                ],
             )
 
         elif param_type == "list":
@@ -887,7 +901,7 @@ def setup_decision_sensitivity_callbacks(app):
                         ],
                         className="mb-2",
                     ),
-                ]
+                ],
             )
 
         elif param_type == "table":
@@ -896,7 +910,7 @@ def setup_decision_sensitivity_callbacks(app):
                     html.H6("Parameter Type Table", className="mb-2"),
                     html.P("Table variation is complex and not yet fully implemented", className="text-muted small"),
                     html.P("Only baseline value will be tested", className="text-warning small"),
-                ]
+                ],
             )
 
         elif param_type == "boolean":
@@ -905,7 +919,7 @@ def setup_decision_sensitivity_callbacks(app):
                     html.H6("Parameter Type Boolean", className="mb-2"),
                     html.P(f"Current Value: {baseline_value}", className="small"),
                     html.P("Both True and False will be tested", className="text-muted small"),
-                ]
+                ],
             )
 
         else:  # numeric
@@ -966,7 +980,7 @@ def setup_decision_sensitivity_callbacks(app):
                         ],
                         className="mb-2",
                     ),
-                ]
+                ],
             )
 
     @app.callback(
@@ -1007,14 +1021,16 @@ def setup_decision_sensitivity_callbacks(app):
         try:
             # Run analysis
             sensitivity_results = run_sensitivity_analysis(
-                selected_parameter, variation_range=variation_range, num_points=num_points
+                selected_parameter,
+                variation_range=variation_range,
+                num_points=num_points,
             )
 
             if not sensitivity_results:
                 return html.Div(
                     [
                         dbc.Alert("Sensitivity analysis failed. Please check the logs.", color="danger"),
-                    ]
+                    ],
                 ), html.Div()
 
             # Calculate metrics
@@ -1042,7 +1058,7 @@ def setup_decision_sensitivity_callbacks(app):
                                                         f"{metrics.get('total_status_changes', 0)}",
                                                         className="text-primary",
                                                     ),
-                                                ]
+                                                ],
                                             ),
                                         ],
                                         className="mb-2",
@@ -1061,7 +1077,7 @@ def setup_decision_sensitivity_callbacks(app):
                                                         f"{metrics.get('total_ranking_changes', 0)}",
                                                         className="text-warning",
                                                     ),
-                                                ]
+                                                ],
                                             ),
                                         ],
                                         className="mb-2",
@@ -1080,7 +1096,7 @@ def setup_decision_sensitivity_callbacks(app):
                                                         f"{metrics.get('sensitivity_score', 0):.1f}",
                                                         className="text-danger",
                                                     ),
-                                                ]
+                                                ],
                                             ),
                                         ],
                                         className="mb-2",
@@ -1099,7 +1115,7 @@ def setup_decision_sensitivity_callbacks(app):
                                                         f"{len(sensitivity_results.get('variations', []))}",
                                                         className="text-info",
                                                     ),
-                                                ]
+                                                ],
                                             ),
                                         ],
                                         className="mb-2",
@@ -1120,7 +1136,7 @@ def setup_decision_sensitivity_callbacks(app):
                                 width=12,
                                 className="mb-3",
                             ),
-                        ]
+                        ],
                     ),
                     dbc.Row(
                         [
@@ -1131,9 +1147,9 @@ def setup_decision_sensitivity_callbacks(app):
                                 width=12,
                                 className="mb-3",
                             ),
-                        ]
+                        ],
                     ),
-                ]
+                ],
             )
 
             # Store results for later use
@@ -1146,5 +1162,5 @@ def setup_decision_sensitivity_callbacks(app):
             return html.Div(
                 [
                     dbc.Alert(f"Error running sensitivity analysis: {str(e)}", color="danger"),
-                ]
+                ],
             ), html.Div()

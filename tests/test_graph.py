@@ -1,4 +1,3 @@
-
 from mar_dss.base import DecisionGraph, Node
 
 # FIXME: this test fails on main, so it's commented out for now.

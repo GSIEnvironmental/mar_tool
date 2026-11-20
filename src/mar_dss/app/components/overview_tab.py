@@ -195,9 +195,9 @@ def create_starting_information_help_modal():
                                 html.Dt(title, className="fw-bold"),
                                 html.Dd(description, className="mb-3"),
                             )
-                        ]
+                        ],
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -205,7 +205,7 @@ def create_starting_information_help_modal():
                     id="starting-info-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="starting-info-help-modal",
@@ -438,7 +438,7 @@ def create_mar_purpose_section():
                         target="land-use-dropdown",
                         placement="top",
                     ),
-                ]
+                ],
             ),
         ],
         className="h-100 w-100",
@@ -593,9 +593,9 @@ def create_site_description_section():
                         target="ground-slope-input",
                         placement="top",
                     ),
-                ]
+                ],
             ),
-        ]
+        ],
     )
 
 
@@ -616,5 +616,5 @@ def create_overview_content():
                 ),
             ],
             className="mb-4 g-0 align-items-stretch",
-        )
+        ),
     ]

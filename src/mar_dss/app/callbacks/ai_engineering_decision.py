@@ -72,7 +72,7 @@ _EXCLUDED_STORAGE_KEYS = frozenset(
         "capital_costs_calculations_df",
         "maintenance_costs_calculations_df",
         "npv_calculations_df",
-    }
+    },
 )
 
 _QUANTITY_BILL_COLUMNS = ("Category", "Item", "Unit", "Number of Units")
@@ -98,7 +98,7 @@ _QUANTITY_BILL_SKIP_ITEMS = frozenset(
         "Permitting (15%)",
         "Reporting",
         "Reporting (2%)",
-    }
+    },
 )
 
 _GRAPH_QUANTITY_NODES = (
@@ -115,7 +115,7 @@ _SKIP_KEYS = (
             "decision_graph",
             "workspace",
             "filename",
-        }
+        },
     )
     | _EXCLUDED_STORAGE_KEYS
 )
@@ -178,7 +178,7 @@ def _extract_quantity_bill(df: pd.DataFrame, *, bill_type: str) -> list[dict]:
                 "item": item,
                 "unit": str(row.get("Unit", "")).strip(),
                 "number_of_units": qty,
-            }
+            },
         )
     return rows
 
@@ -360,5 +360,5 @@ def build_engineering_decision_prompt(context: dict | None = None) -> str:
         authoritative ranking; explanations must not contradict the scores or ranks.
 
         {html_instructions}
-        """
+        """,
     ).strip()

@@ -34,7 +34,7 @@ _STRING_KEYS = frozenset(
         "wq_vadose_impacted",
         "wq_aquifer_anthropogenic",
         "wq_aquifer_natural",
-    }
+    },
 )
 
 

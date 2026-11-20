@@ -14,7 +14,7 @@ def test_dynamic_import_from_file(tmp_path):
             name="X",
             node_type="numeric",
             leaf_flag=False,
-        )
+        ),
     )
     graph.add_node(
         Node(
@@ -23,7 +23,7 @@ def test_dynamic_import_from_file(tmp_path):
             name="Y",
             node_type="numeric",
             leaf_flag=False,
-        )
+        ),
     )
     graph.add_node(
         Node(
@@ -35,7 +35,7 @@ def test_dynamic_import_from_file(tmp_path):
             dependencies=["x", "y"],
             module=str(module_path),
             function_name="multiply",
-        )
+        ),
     )
 
     results = graph.evaluate({"x": 3, "y": 4})

@@ -508,7 +508,7 @@ def create_basic_regulation_feasibility_content():
                     dbc.CardBody(item_nodes, className="p-3"),
                 ],
                 className="mb-3",
-            )
+            ),
         )
 
     return [
@@ -727,6 +727,6 @@ def create_legal_constraints_content():
                     "environmental-considerations-tab",
                     "AI-assisted environmental, ecological, and cultural factors",
                 ),
-            ]
-        )
+            ],
+        ),
     ]

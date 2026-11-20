@@ -131,5 +131,5 @@ def create_ai_generated_decision_content():
                 target="copy-ai-decision-prompt-btn",
                 placement="top",
             ),
-        ]
+        ],
     )

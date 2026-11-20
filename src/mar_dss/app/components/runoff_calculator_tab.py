@@ -70,7 +70,7 @@ def create_peak_runoff_calculations_help_modal():
                                     "Enter latitude and longitude, then click ",
                                     html.Strong("Download Rain Statistics"),
                                     ".",
-                                ]
+                                ],
                             ),
                             html.Li("Copy and paste the design storm depth of your choice into the rainfall table."),
                             html.Li(
@@ -78,7 +78,7 @@ def create_peak_runoff_calculations_help_modal():
                                     "If watershed area is not available, use the ",
                                     html.Strong("Watershed Information"),
                                     " tab to obtain it.",
-                                ]
+                                ],
                             ),
                             html.Li("All remaining runoff values are computed automatically."),
                         ],
@@ -143,7 +143,7 @@ def create_peak_runoff_calculations_help_modal():
                         ],
                         className="small text-muted mt-3 mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -151,7 +151,7 @@ def create_peak_runoff_calculations_help_modal():
                     id="peak-runoff-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="peak-runoff-help-modal",
@@ -274,9 +274,9 @@ def create_map_card():
                         target="runoff-map",
                         placement="top",
                     ),
-                ]
+                ],
             ),
-        ]
+        ],
     )
 
 
@@ -358,7 +358,8 @@ def create_controls_card():
                     html.Hr(),
                     html.Div(id="runoff-results", className="mt-3"),
                     html.Small(
-                        "Click on the map to add monitoring points or draw watershed boundaries", className="text-muted"
+                        "Click on the map to add monitoring points or draw watershed boundaries",
+                        className="text-muted",
                     ),
                     dbc.Tooltip(
                         "Latitude from map click or manual entry (decimal degrees)",
@@ -375,9 +376,9 @@ def create_controls_card():
                         target="reset-watershed-map-btn",
                         placement="top",
                     ),
-                ]
+                ],
             ),
-        ]
+        ],
     )
 
 
@@ -409,9 +410,9 @@ def create_impervious_curve_number_content():
                         target="impervious-curve-number-select",
                         placement="top",
                     ),
-                ]
+                ],
             ),
-        ]
+        ],
     )
 
 
@@ -465,7 +466,7 @@ def create_cover_soil_curve_number_content():
                                 ],
                                 width=6,
                             ),
-                        ]
+                        ],
                     ),
                     html.Div(id="selected-curve-number-display", className="mt-3"),
                     dbc.Tooltip(
@@ -478,9 +479,9 @@ def create_cover_soil_curve_number_content():
                         target="soil-type-select",
                         placement="top",
                     ),
-                ]
+                ],
             ),
-        ]
+        ],
     )
 
 
@@ -532,23 +533,23 @@ def create_single_storm_runoff_help_modal():
                             html.Li("Enter watershed area (acres), or obtain area from the Watershed Information tab."),
                             html.Li("Composite Curve Number carries forward from Step 1."),
                             html.Li(
-                                "Runoff depth, ratio, and volume update automatically from the SCS curve number method."
+                                "Runoff depth, ratio, and volume update automatically from the SCS curve number method.",
                             ),
                             html.Li(
                                 [
                                     "Use the ",
                                     html.Strong("?"),
                                     " beside Runoff Calculations for parameter definitions and equations.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 "Runoff Volume (ft³) can be synced to the Engineering tab "
-                                "via the checkbox below the table."
+                                "via the checkbox below the table.",
                             ),
                         ],
                         className="mb-0 ps-3",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -556,7 +557,7 @@ def create_single_storm_runoff_help_modal():
                     id="single-storm-runoff-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="single-storm-runoff-help-modal",
@@ -598,14 +599,14 @@ def create_monthly_runoff_recharge_help_modal():
                                     ", ",
                                     html.Strong("Area (acres)"),
                                     ", and site latitude/longitude.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
                                     "Enter ",
                                     html.Strong("Average number of rain events per month"),
                                     " (typical runoff-producing storms used to annualize monthly precipitation).",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -614,11 +615,11 @@ def create_monthly_runoff_recharge_help_modal():
                                     " to download NASA POWER monthly precipitation for the site and "
                                     "compute monthly runoff depth and volume using the composite CN "
                                     "from section (A).",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 "Review the monthly table and chart. Runoff Volume (ft³/month) "
-                                "is the primary output for recharge planning."
+                                "is the primary output for recharge planning.",
                             ),
                             html.Li(
                                 [
@@ -627,7 +628,7 @@ def create_monthly_runoff_recharge_help_modal():
                                     "—monthly flows copy into ",
                                     html.Strong("Flow Estimates"),
                                     " (Step 3 on the Water Source tab).",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-4 ps-3",
@@ -641,19 +642,19 @@ def create_monthly_runoff_recharge_help_modal():
                                     " and ",
                                     html.Strong("Area (acres)"),
                                     " come from the Runoff Calculations table in section (A).",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
                                     "Monthly precipitation is downloaded from ",
                                     html.Strong("NASA POWER"),
                                     " for the latitude/longitude entered in Step 2.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 "Monthly rain depth is divided by the number of rain events per "
                                 "month; each event is routed through the SCS curve-number "
-                                "method, then summed to give monthly runoff depth and volume."
+                                "method, then summed to give monthly runoff depth and volume.",
                             ),
                         ],
                         className="mb-3",
@@ -666,7 +667,7 @@ def create_monthly_runoff_recharge_help_modal():
                         ],
                         className="small text-muted mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -674,7 +675,7 @@ def create_monthly_runoff_recharge_help_modal():
                     id="monthly-runoff-recharge-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="monthly-runoff-recharge-help-modal",
@@ -757,9 +758,9 @@ def create_composite_cn_help_modal():
                                 html.Dt(title, className="fw-bold"),
                                 html.Dd(description, className="mb-3"),
                             )
-                        ]
+                        ],
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -767,7 +768,7 @@ def create_composite_cn_help_modal():
                     id="composite-cn-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="composite-cn-help-modal",
@@ -882,8 +883,8 @@ def create_curve_number_selection_help_modal():
                                         html.Th("B", className="small text-center"),
                                         html.Th("C", className="small text-center"),
                                         html.Th("D", className="small text-center"),
-                                    ]
-                                )
+                                    ],
+                                ),
                             ),
                             html.Tbody(
                                 [
@@ -894,7 +895,7 @@ def create_curve_number_selection_help_modal():
                                             html.Td(str(row["type_b"]), className="small text-center"),
                                             html.Td(str(row["type_c"]), className="small text-center"),
                                             html.Td(str(row["type_d"]), className="small text-center"),
-                                        ]
+                                        ],
                                     )
                                     for label, row in [
                                         ("Open Space — Poor", {"type_a": 56, "type_b": 70, "type_c": 79, "type_d": 84}),
@@ -903,12 +904,12 @@ def create_curve_number_selection_help_modal():
                                         ("Natural Desert", {"type_a": 50, "type_b": 67, "type_c": 78, "type_d": 82}),
                                         ("Developing Urban", {"type_a": 67, "type_b": 79, "type_c": 87, "type_d": 91}),
                                     ]
-                                ]
+                                ],
                             ),
                         ],
                         className="table table-sm table-bordered mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -916,7 +917,7 @@ def create_curve_number_selection_help_modal():
                     id="curve-number-selection-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="curve-number-selection-help-modal",
@@ -954,8 +955,8 @@ def create_curve_number_selection_modal():
                         [
                             dbc.Col(create_impervious_curve_number_content(), md=6, className="mb-3 mb-md-0"),
                             dbc.Col(create_cover_soil_curve_number_content(), md=6),
-                        ]
-                    )
+                        ],
+                    ),
                 ),
                 dbc.ModalFooter(
                     dbc.Button(
@@ -963,7 +964,7 @@ def create_curve_number_selection_modal():
                         id="curve-number-modal-done-btn",
                         color="primary",
                         className="ms-auto",
-                    )
+                    ),
                 ),
             ],
             id="curve-number-selection-modal",
@@ -1048,9 +1049,9 @@ def create_runoff_calculations_help_modal():
                                 html.Dt(title, className="fw-bold"),
                                 html.Dd(description, className="mb-3"),
                             )
-                        ]
+                        ],
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -1058,7 +1059,7 @@ def create_runoff_calculations_help_modal():
                     id="runoff-calculations-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="runoff-calculations-help-modal",
@@ -1122,7 +1123,7 @@ def create_optional_runoff_calculations_help_modal():
                     id="optional-runoff-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="optional-runoff-help-modal",
@@ -1181,7 +1182,7 @@ def create_watershed_information_help_modal():
                                     " near your site of interest—the coordinates appear in ",
                                     html.Strong("Analysis Controls"),
                                     " and can be edited manually.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1189,7 +1190,7 @@ def create_watershed_information_help_modal():
                                     html.Strong("Obtain nearby streams"),
                                     " to download and display stream features near the selected "
                                     "point (within approximately 10 miles) as blue lines on the map.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1199,7 +1200,7 @@ def create_watershed_information_help_modal():
                                     html.Strong("directly on the stream"),
                                     "—if there is space between the marker and the stream, the "
                                     "watershed may not be calculated correctly.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1210,7 +1211,7 @@ def create_watershed_information_help_modal():
                                     "(area, land use, and other parameters) load in the ",
                                     html.Strong("Watershed Information"),
                                     " results table below the map.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1223,7 +1224,7 @@ def create_watershed_information_help_modal():
                                     " and/or ",
                                     html.Strong("Get Watershed Info"),
                                     ".",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1234,7 +1235,7 @@ def create_watershed_information_help_modal():
                                     "curve numbers in ",
                                     html.Strong("Step 1"),
                                     ".",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-4 ps-3",
@@ -1253,7 +1254,7 @@ def create_watershed_information_help_modal():
                                     html.Strong("directly on a stream"),
                                     "; a gap between the red marker and the stream can cause "
                                     "incorrect watershed results.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1261,7 +1262,7 @@ def create_watershed_information_help_modal():
                                     " — nearby streams loaded by ",
                                     html.Strong("Obtain nearby streams"),
                                     ". Use these to choose where to put the red drainage marker.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -1269,7 +1270,7 @@ def create_watershed_information_help_modal():
                                     " — delineated watershed boundary after ",
                                     html.Strong("Get Watershed Info"),
                                     ".",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-3",
@@ -1283,7 +1284,7 @@ def create_watershed_information_help_modal():
                         ],
                         className="small text-muted mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -1291,7 +1292,7 @@ def create_watershed_information_help_modal():
                     id="watershed-info-help-close-btn",
                     color="secondary",
                     className="ms-auto",
-                )
+                ),
             ),
         ],
         id="watershed-info-help-modal",
@@ -1332,8 +1333,8 @@ def create_results_card():
                             id="watershed-info-content",
                             style={"minHeight": "400px", "overflow": "auto"},
                         ),
-                    )
-                ]
+                    ),
+                ],
             ),
         ],
         style={"minHeight": "500px"},
@@ -1424,14 +1425,14 @@ def create_curve_number_tab():
                                             src=dash.get_asset_url("curve_number.jpg"),
                                             alt="Curve Number Diagram",
                                             style={"maxWidth": "70%", "height": "auto"},
-                                        )
+                                        ),
                                     ],
                                     width=6,
                                 ),
-                            ]
+                            ],
                         ),
-                    ]
-                )
+                    ],
+                ),
             ],
             className="mt-4 mb-4",
         ),
@@ -1497,7 +1498,7 @@ def create_curve_number_tab():
                                                     ],
                                                     width=6,
                                                 ),
-                                            ]
+                                            ],
                                         ),
                                         html.Div(
                                             dbc.Checkbox(
@@ -1563,15 +1564,15 @@ def create_curve_number_tab():
                                                     width=6,
                                                 ),
                                                 dbc.Col([html.Div(id="rain-statistics-table-placeholder")], width=6),
-                                            ]
+                                            ],
                                         ),
-                                    ]
+                                    ],
                                 ),
-                            ]
-                        )
+                            ],
+                        ),
                     ],
                     width=12,
-                )
+                ),
             ],
             className="mt-4",
         ),
@@ -1625,7 +1626,7 @@ def create_curve_number_tab():
                                                     ],
                                                     width="auto",
                                                 ),
-                                            ]
+                                            ],
                                         ),
                                         dbc.Row(
                                             [
@@ -1637,7 +1638,7 @@ def create_curve_number_tab():
                                                             color="primary",
                                                             className="mb-3",
                                                             title="Compute monthly rainfall depth and runoff using storm statistics",
-                                                        )
+                                                        ),
                                                     ],
                                                     width="auto",
                                                 ),
@@ -1653,20 +1654,20 @@ def create_curve_number_tab():
                                                                 label_class_name="runoff-engineering-sync-label",
                                                             ),
                                                             className="runoff-engineering-sync-card mb-3 ms-3",
-                                                        )
+                                                        ),
                                                     ],
                                                     width="auto",
                                                 ),
-                                            ]
+                                            ],
                                         ),
                                         html.Div(id="monthly-runoff-estimation-content"),
-                                    ]
+                                    ],
                                 ),
-                            ]
-                        )
+                            ],
+                        ),
                     ],
                     width=12,
-                )
+                ),
             ],
             className="mt-4",
         ),
@@ -1733,7 +1734,7 @@ def create_runoff_calculator_tab():
                                 ),
                                 dbc.Row([dbc.Col([create_results_card()])]),
                             ],
-                        )
+                        ),
                     ],
                     id="runoff-calculator-tabs",
                     active_tab="rainfall-watershed-tab",
@@ -1742,6 +1743,6 @@ def create_runoff_calculator_tab():
                     "rainfall-watershed-tab",
                     "Interactive watershed map, rainfall controls, and runoff results",
                 ),
-            ]
+            ],
         ),
     ]

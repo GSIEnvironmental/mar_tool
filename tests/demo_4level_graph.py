@@ -56,7 +56,7 @@ def create_4level_graph():
                 dependencies=["B", "C"],
                 function=multiply_func,
             ),
-        ]
+        ],
     )
 
     # Level 3: Intermediate nodes
@@ -86,7 +86,7 @@ def create_4level_graph():
                 dependencies=["D", "E"],
                 function=divide_func,
             ),
-        ]
+        ],
     )
 
     # Level 4: Leaf/Decision nodes
@@ -116,7 +116,7 @@ def create_4level_graph():
                 dependencies=["F", "G"],
                 function=sum_func,
             ),
-        ]
+        ],
     )
 
     # Add all nodes to the graph

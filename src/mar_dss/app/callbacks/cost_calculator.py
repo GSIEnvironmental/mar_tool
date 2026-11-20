@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 
@@ -73,7 +72,7 @@ class CostCalculator:
                 raise ValueError(
                     f"Invalid water source: {water_source}. "
                     f"Valid options: 'stormwater', "
-                    f"'treated_wastewater', 'brackish_water'"
+                    f"'treated_wastewater', 'brackish_water'",
                 )
 
         self.water_source = water_source
@@ -110,7 +109,7 @@ class CostCalculator:
                 f"collection_to_sediment_removal__conveyance_method: "
                 f"{collection_to_sediment_removal__conveyance_method}. "
                 f"Valid options: 'gravity_ditch', 'gravity_pipeline', "
-                f"'pumped_pipeline', 'pumped_ditch'"
+                f"'pumped_pipeline', 'pumped_ditch'",
             )
 
         self.sediment_pond_area_available_acres = sediment_pond_area_available_acres
@@ -122,7 +121,7 @@ class CostCalculator:
                     f"Invalid fine_sediment_removal_goal: "
                     f"{fine_sediment_removal_goal}. "
                     f"Feasible options are: "
-                    f"{', '.join(feasible_options)}"
+                    f"{', '.join(feasible_options)}",
                 )
         self.fine_sediment_removal_goal = fine_sediment_removal_goal
 
@@ -140,7 +139,7 @@ class CostCalculator:
             raise ValueError(
                 f"Invalid recharge_method: {recharge_method}. "
                 f"Valid options: 'dry_well', 'injection_well', "
-                f"'infiltration_basin'"
+                f"'infiltration_basin'",
             )
 
     def calculate_cost(self):
@@ -316,7 +315,7 @@ class CostCalculator:
             {
                 "Design gpm": [500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000],
                 "Diameter": [6, 10, 14, 16, 20, 20, 24, 24, 24, 30, 30, 30],
-            }
+            },
         )
 
         pipe_diameter_df["$ per foot"] = pipe_diameter_df["Diameter"] * 3.6
@@ -377,7 +376,7 @@ class CostCalculator:
                 "Number of Injection Wells",
                 "Total Transfer Rate (gpm)",
                 "Time to Drain (days)",
-            ]
+            ],
         )
 
         df.loc["Transfer Rate (gpm)"] = self.injection_well_transfer_rate_gpm

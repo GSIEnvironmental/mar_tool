@@ -125,7 +125,7 @@ def calculate_cost_score(risks_and_treatments):
                         "technology": best_tech,
                         "cost_per_acreft": max_cost_for_risk,
                         "cost_scale": best_scale,
-                    }
+                    },
                 )
             else:
                 water_treatment_cost_per_m3 += max_cost_for_risk
@@ -135,7 +135,7 @@ def calculate_cost_score(risks_and_treatments):
                         "technology": best_tech,
                         "cost_per_m3": max_cost_for_risk,
                         "cost_scale": best_scale,
-                    }
+                    },
                 )
 
     # Convert water treatment cost from $/m³ to $/ft³
@@ -179,12 +179,11 @@ def generate_required_treatment_summary(risks_and_treatments, *, recovered_water
                     "Question": risk,
                     "Treatment Technology": tech,
                     "Cost Scale": cost,
-                }
+                },
             )
 
     if not df_data:
         return html.P("No specific treatment required based on inputs", className="text-muted")
-
 
     df = pd.DataFrame(df_data).drop_duplicates()
 
@@ -211,7 +210,7 @@ def generate_required_treatment_summary(risks_and_treatments, *, recovered_water
                 "pumped (recovered) water, not for the recharge water.",
                 className="text-muted small mb-2",
                 style={"fontSize": "0.75rem"},
-            )
+            ),
         )
     children.append(
         dash_table.DataTable(
@@ -227,7 +226,7 @@ def generate_required_treatment_summary(risks_and_treatments, *, recovered_water
                 whiteSpace="normal",
             ),
             style_data=datatable_computed_data_style(whiteSpace="normal"),
-        )
+        ),
     )
     return html.Div(children, className="treatment-table")
 
@@ -298,14 +297,14 @@ def setup_environmental_impact_callbacks(app):
                     html.Li(
                         f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}",
                         className="list-group-item list-group-item-action list-group-item-warning",
-                    )
+                    ),
                 )
             elif value not in WQ_BENIGN_ANSWERS and recommendation:
                 recommendations_list.append(
                     html.Li(
                         f"**{ASSESSMENT_QUESTION_LABELS.get(key, key)}: {value}** - {recommendation}",
                         className="list-group-item list-group-item-action list-group-item-" + score_data["color"],
-                    )
+                    ),
                 )
 
         # 2. Color scale indicator
@@ -333,12 +332,12 @@ def setup_environmental_impact_callbacks(app):
                     ],
                     className="small text-muted mt-2 mb-0 ps-3",
                 ),
-            ]
+            ],
         )
 
         # 3. Calculate Costs
         water_treatment_cost_per_ft3, vadose_remediation_total_cost, cost_details = calculate_cost_score(
-            required_treatments_raw
+            required_treatments_raw,
         )
 
         # 4. Create Cost Gauge Plot (axis max = theoretical worst-case $/ft³)
@@ -388,7 +387,7 @@ def setup_environmental_impact_callbacks(app):
                             "value": min(water_treatment_cost_per_ft3, cost_axis_max),
                         },
                     },
-                )
+                ),
             )
             cost_gauge_fig.update_layout(
                 margin=dict(l=10, r=10, t=60, b=10),
@@ -402,7 +401,12 @@ def setup_environmental_impact_callbacks(app):
             # Fallback figure if there's an error
             cost_gauge_fig = go.Figure()
             cost_gauge_fig.add_annotation(
-                text=f"Error creating cost gauge: {str(e)}", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+                text=f"Error creating cost gauge: {str(e)}",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
             )
             cost_gauge_fig.update_layout(height=250)
 
@@ -429,7 +433,7 @@ def setup_environmental_impact_callbacks(app):
                     html.H6(
                         "Estimated Water Treatment Costs (per ft3 of water)",
                         className="font-weight-bold mt-3 mb-2 text-primary",
-                    )
+                    ),
                 )
                 if q4_or_q5_yes:
                     cost_details_html.append(recovered_water_note)
@@ -437,7 +441,7 @@ def setup_environmental_impact_callbacks(app):
                     html.P(
                         f"Total Water Treatment Cost: {_format_usd_per_ft3(water_treatment_cost_per_ft3)}",
                         className="font-weight-bold mb-2",
-                    )
+                    ),
                 )
                 for detail in water_treatment_details:
                     cost_per_ft3 = detail.get("cost_per_ft3", 0)
@@ -446,7 +450,8 @@ def setup_environmental_impact_callbacks(app):
                             html.Div(
                                 [
                                     html.Span(
-                                        f"{detail['risk_factor']}: {detail['technology']}", className="font-weight-bold"
+                                        f"{detail['risk_factor']}: {detail['technology']}",
+                                        className="font-weight-bold",
                                     ),
                                     html.Span(
                                         _format_usd_per_ft3(cost_per_ft3),
@@ -460,7 +465,7 @@ def setup_environmental_impact_callbacks(app):
                                     "border-left": "4px solid #ffc107",
                                     "color": "#000",
                                 },
-                            )
+                            ),
                         )
 
             # Vadose Zone Remediation Section
@@ -469,17 +474,17 @@ def setup_environmental_impact_callbacks(app):
                     html.H6(
                         "(2) Vadose Zone Remediation Costs (Total Project Cost)",
                         className="font-weight-bold mt-3 mb-2 text-danger",
-                    )
+                    ),
                 )
                 cost_details_html.append(
                     html.P(
                         [
                             html.Strong(
-                                f"Estimated Total Vadose Zone Remediation Cost: ${vadose_remediation_total_cost:,.0f}"
+                                f"Estimated Total Vadose Zone Remediation Cost: ${vadose_remediation_total_cost:,.0f}",
                             ),
                         ],
                         className="font-weight-bold mb-2",
-                    )
+                    ),
                 )
                 cost_details_html.append(
                     html.Div(
@@ -501,10 +506,10 @@ def setup_environmental_impact_callbacks(app):
                                 ],
                                 className="text-muted mb-2",
                                 style={"fontSize": "0.9rem", "fontStyle": "italic"},
-                            )
+                            ),
                         ],
                         className="alert alert-warning mb-3",
-                    )
+                    ),
                 )
                 for detail in vadose_remediation_details:
                     cost_per_acreft = detail.get("cost_per_acreft", 0)
@@ -513,7 +518,8 @@ def setup_environmental_impact_callbacks(app):
                             html.Div(
                                 [
                                     html.Span(
-                                        f"{detail['risk_factor']}: {detail['technology']}", className="font-weight-bold"
+                                        f"{detail['risk_factor']}: {detail['technology']}",
+                                        className="font-weight-bold",
                                     ),
                                     html.Span(
                                         f"${cost_per_acreft:,.0f}/acre-ft",
@@ -527,11 +533,11 @@ def setup_environmental_impact_callbacks(app):
                                     "border-left": "4px solid #dc3545",
                                     "color": "#000",
                                 },
-                            )
+                            ),
                         )
         else:
             cost_details_html = [
-                html.P("No treatment required. Water Treatment Cost: $0.00/ft³", className="text-muted")
+                html.P("No treatment required. Water Treatment Cost: $0.00/ft³", className="text-muted"),
             ]
 
         # 6. Generate Treatment Summary Table
@@ -553,14 +559,14 @@ def setup_environmental_impact_callbacks(app):
                             if has_unknown
                             else "list-group-item list-group-item-secondary"
                         ),
-                    )
+                    ),
                 ]
             else:
                 recommendations_list = [
                     html.Li(
                         "No treatment recommendations were triggered by the current answers.",
                         className="list-group-item list-group-item-success",
-                    )
+                    ),
                 ]
 
         return (

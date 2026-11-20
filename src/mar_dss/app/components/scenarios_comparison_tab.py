@@ -30,7 +30,7 @@ def create_scenarios_comparison_content():
             name="Water Supply Security",
             line=dict(color="#2E8B57", width=3),
             marker=dict(size=8),
-        )
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -40,7 +40,7 @@ def create_scenarios_comparison_content():
             name="Cost Effectiveness",
             line=dict(color="#4169E1", width=3),
             marker=dict(size=8),
-        )
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -50,7 +50,7 @@ def create_scenarios_comparison_content():
             name="Environmental Impact",
             line=dict(color="#FF6347", width=3),
             marker=dict(size=8),
-        )
+        ),
     )
 
     fig.update_layout(
@@ -87,7 +87,7 @@ def create_scenarios_comparison_content():
                                             html.Li("Water Supply: 75%"),
                                             html.Li("Cost Effectiveness: 80%"),
                                             html.Li("Environmental: 70%"),
-                                        ]
+                                        ],
                                     ),
                                 ],
                                 width=6,
@@ -104,19 +104,19 @@ def create_scenarios_comparison_content():
                                             html.Li("Water Supply: 90%"),
                                             html.Li("Cost Effectiveness: 95%"),
                                             html.Li("Environmental: 85%"),
-                                        ]
+                                        ],
                                     ),
                                 ],
                                 width=6,
                             ),
-                        ]
-                    )
-                ]
+                        ],
+                    ),
+                ],
             ),
             html.Hr(),
             html.H5("Recommendations", className="mt-3"),
             html.P(
-                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions."
+                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions.",
             ),
-        ]
+        ],
     )

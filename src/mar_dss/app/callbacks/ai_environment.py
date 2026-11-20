@@ -46,7 +46,7 @@ def downloadable_html_deliverable_instructions(
            `report.html` and download/open it locally.
         7. After the code block, add one short sentence telling the user to save the
            code as an `.html` file and open it in a browser.
-        """
+        """,
     ).strip()
 
 
@@ -81,5 +81,5 @@ def build_mar_factors_prompt(location):
         * **Table columns (in the HTML report):** Category (Environmental, Ecological, or Cultural); Actionable Data Point/Factor; Priority (High, Medium, or Low); Justification/Rationale (why this is critical for the {location} project).
 
         {html_instructions}
-        """
+        """,
     ).strip()

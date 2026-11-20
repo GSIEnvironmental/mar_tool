@@ -75,7 +75,7 @@ _SKIP_PROJECT_EXPORT_KEYS = frozenset(
         "feasibility_analysis_hash",
         "graph_computation_log",
         "graph_computation_log_text",
-    }
+    },
 )
 
 
@@ -623,9 +623,9 @@ def setup_main_callbacks(app, dashboard_instance):
                                 html.P(
                                     "No layers added yet. Use the form on the left to add layers",
                                     className="text-muted text-center p-3",
-                                )
-                            ]
-                        )
+                                ),
+                            ],
+                        ),
                     ],
                     [
                         html.P("Total Depth: 0 m", className="mb-1"),
@@ -674,9 +674,9 @@ def setup_main_callbacks(app, dashboard_instance):
                             html.P(
                                 "No layers added yet. Use the form on the left to add layers",
                                 className="text-muted text-center p-3",
-                            )
-                        ]
-                    )
+                            ),
+                        ],
+                    ),
                 ],
                 [
                     html.P("Total Depth: 0 m", className="mb-1"),
@@ -761,15 +761,15 @@ def setup_main_callbacks(app, dashboard_instance):
                                                     "padding": "2px 6px",
                                                     "font-size": "0.7rem",
                                                 },
-                                            )
+                                            ),
                                         ],
                                         width=4,
                                     ),
-                                ]
-                            )
+                                ],
+                            ),
                         ],
                         style={"padding": "8px 12px"},
-                    )
+                    ),
                 ],
                 className="mb-1",
                 style={
@@ -939,7 +939,7 @@ def setup_main_callbacks(app, dashboard_instance):
                         "New project created! All data has been reset to defaults.",
                         color="info",
                         className="mb-3",
-                    )
+                    ),
                 ],
                 create_overview_content(),
                 *empty_rest,
@@ -1014,7 +1014,7 @@ def setup_main_callbacks(app, dashboard_instance):
                     "Closing MAR DSS… If this tab remains open, you may close it manually.",
                     color="info",
                     className="mb-3",
-                )
+                ),
             ],
             create_overview_content(),
             "overview",

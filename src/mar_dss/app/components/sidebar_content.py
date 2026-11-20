@@ -24,7 +24,7 @@ def create_water_levels_content():
             name="Water Level",
             line=dict(color="#1f77b4", width=2),
             marker=dict(size=4),
-        )
+        ),
     )
 
     fig.update_layout(
@@ -40,7 +40,7 @@ def create_water_levels_content():
             html.H3("Water Level Monitoring"),
             html.P("Real-time water level data and historical trends"),
             dcc.Graph(figure=fig),
-        ]
+        ],
     )
 
 
@@ -57,7 +57,7 @@ def create_recharge_content():
             y=recharge_data,
             name="Recharge Rate",
             marker_color="#2ca02c",
-        )
+        ),
     )
 
     fig.update_layout(
@@ -72,7 +72,7 @@ def create_recharge_content():
             html.H3("Recharge Rate Analysis"),
             html.P("Recharge rate monitoring and analysis tools"),
             dcc.Graph(figure=fig),
-        ]
+        ],
     )
 
 
@@ -98,7 +98,7 @@ def create_quality_content():
             text=scores,
             textposition="auto",
             name="Decision Scores",
-        )
+        ),
     )
 
     fig.update_layout(
@@ -124,14 +124,14 @@ def create_quality_content():
                     html.Li("Regulatory Compliance: Strong alignment (88%)"),
                     html.Li("Environmental Impact: Moderate concerns (72%)"),
                     html.Li("Technical Feasibility: Good prospects (78%)"),
-                ]
+                ],
             ),
             html.Hr(),
             html.H5("Recommendations", className="mt-3"),
             html.P(
-                "Based on the analysis, this MAR project shows strong potential with high scores in water supply security, economic viability, and regulatory compliance. Consider addressing environmental impact concerns through additional mitigation measures."
+                "Based on the analysis, this MAR project shows strong potential with high scores in water supply security, economic viability, and regulatory compliance. Consider addressing environmental impact concerns through additional mitigation measures.",
             ),
-        ]
+        ],
     )
 
 
@@ -195,13 +195,13 @@ def create_export_content():
                                         ],
                                         width=6,
                                     ),
-                                ]
+                                ],
                             ),
-                        ]
-                    )
-                ]
+                        ],
+                    ),
+                ],
             ),
-        ]
+        ],
     )
 
 
@@ -228,7 +228,7 @@ def create_scenarios_content():
             name="Water Supply Security",
             line=dict(color="#2E8B57", width=3),
             marker=dict(size=8),
-        )
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -238,7 +238,7 @@ def create_scenarios_content():
             name="Cost Effectiveness",
             line=dict(color="#4169E1", width=3),
             marker=dict(size=8),
-        )
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -248,7 +248,7 @@ def create_scenarios_content():
             name="Environmental Impact",
             line=dict(color="#FF6347", width=3),
             marker=dict(size=8),
-        )
+        ),
     )
 
     fig.update_layout(
@@ -280,7 +280,7 @@ def create_scenarios_content():
                                             html.Li("Water Supply: 75%"),
                                             html.Li("Cost Effectiveness: 80%"),
                                             html.Li("Environmental: 70%"),
-                                        ]
+                                        ],
                                     ),
                                 ],
                                 width=6,
@@ -297,21 +297,21 @@ def create_scenarios_content():
                                             html.Li("Water Supply: 90%"),
                                             html.Li("Cost Effectiveness: 95%"),
                                             html.Li("Environmental: 85%"),
-                                        ]
+                                        ],
                                     ),
                                 ],
                                 width=6,
                             ),
-                        ]
-                    )
-                ]
+                        ],
+                    ),
+                ],
             ),
             html.Hr(),
             html.H5("Recommendations", className="mt-3"),
             html.P(
-                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions."
+                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions.",
             ),
-        ]
+        ],
     )
 
 
@@ -338,7 +338,7 @@ def create_ai_decision_content():
             marker_color="#4CAF50",
             text=ai_scores,
             textposition="auto",
-        )
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -348,7 +348,7 @@ def create_ai_decision_content():
             name="Confidence Level",
             marker=dict(size=12, color="#FF9800", symbol="diamond"),
             yaxis="y2",
-        )
+        ),
     )
 
     fig.update_layout(
@@ -375,7 +375,7 @@ def create_ai_decision_content():
                         className="alert-heading",
                     ),
                     html.P(
-                        "Based on comprehensive AI analysis, this project shows strong potential with an overall recommendation score of 85.6%"
+                        "Based on comprehensive AI analysis, this project shows strong potential with an overall recommendation score of 85.6%",
                     ),
                     html.Hr(),
                     html.P("Confidence Level: 89%", className="mb-0"),
@@ -391,12 +391,12 @@ def create_ai_decision_content():
                     html.Li("Environmental Impact: Moderate (76% score, 78% confidence)"),
                     html.Li("Technical Feasibility: Good (85% score, 88% confidence)"),
                     html.Li("Social Acceptance: Fair (82% score, 85% confidence)"),
-                ]
+                ],
             ),
             html.Hr(),
             html.H5("AI Recommendations", className="mt-3"),
             html.P(
-                "The AI system recommends proceeding with the MAR project while implementing additional environmental mitigation measures to address the moderate environmental impact score. Focus on community engagement to improve social acceptance."
+                "The AI system recommends proceeding with the MAR project while implementing additional environmental mitigation measures to address the moderate environmental impact score. Focus on community engagement to improve social acceptance.",
             ),
-        ]
+        ],
     )

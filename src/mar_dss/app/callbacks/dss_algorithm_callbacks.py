@@ -40,7 +40,8 @@ def _get_decision_matrix(dss_results):
     # Get cost data (dict or Series from storage → aligned Series)
     capital_cost_num = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
     maintenance_cost_num = coerce_storage_cost_totals(
-        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
+        dash_storage.get_data("maintenance_cost_num"),
+        MAINTENANCE_COST_TOTAL_KEYS,
     )
     net_val_dict = dash_storage.get_data("net_val") or {}
 
@@ -320,7 +321,7 @@ def _create_decision_matrix_table(df, weights):
         header_content.append(f"(Weight: {weight:.2f})")
 
         header_cells.append(
-            html.Th(header_content, style={"textAlign": "center", "fontSize": "0.8rem", "padding": "0.5rem"})
+            html.Th(header_content, style={"textAlign": "center", "fontSize": "0.8rem", "padding": "0.5rem"}),
         )
 
     header = [html.Thead([html.Tr(header_cells)])]
@@ -342,7 +343,7 @@ def _create_decision_matrix_table(df, weights):
                                 "padding": "0.5rem",
                                 "fontWeight": "600",
                             },
-                        )
+                        ),
                     ]
                     + [
                         html.Td(
@@ -355,11 +356,11 @@ def _create_decision_matrix_table(df, weights):
                             },
                         )
                         for col in df.columns
-                    ]
+                    ],
                 )
                 for option_name in df.index
-            ]
-        )
+            ],
+        ),
     ]
 
     table = dbc.Table(
@@ -386,7 +387,7 @@ def _create_weighted_scores_display(weighted_scores):
                     html.Span(f"{score * 100:.2f}%", className="text-primary fw-bold"),
                 ],
                 className="mb-1 small",
-            )
+            ),
         )
 
     return html.Div(scores_list)
@@ -408,7 +409,7 @@ def _create_ranking_display(weighted_scores):
                     html.Span(f" {score * 100:.2f}%", className="text-muted ms-1 small"),
                 ],
                 className="py-1",
-            )
+            ),
         )
 
     return dbc.ListGroup(ranking_items, flush=True)
@@ -431,7 +432,7 @@ def _create_sensitivity_chart(decision_matrix, weighted_scores, weights):
             text=[f"{val * 100:.2f}%" for val in ranked.values],
             textposition="outside",
             hovertemplate="<b>%{x}</b><br>Weighted Score: %{y:.2f}%<extra></extra>",
-        )
+        ),
     )
 
     fig.update_layout(

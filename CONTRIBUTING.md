@@ -43,13 +43,14 @@ If you are proposing a feature:
 Ready to contribute? Here's how to set up `mar_dss` for local development.
 
 1. Fork the `mar_dss` repo on GitHub.
-2. Clone your fork locally:
+
+1. Clone your fork locally:
 
    ```sh
    git clone git@github.com:your_name_here/mar_dss.git
    ```
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
+1. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
 
    ```sh
    mkvirtualenv mar_dss
@@ -57,7 +58,7 @@ Ready to contribute? Here's how to set up `mar_dss` for local development.
    python setup.py develop
    ```
 
-4. Create a branch for local development:
+1. Create a branch for local development:
 
    ```sh
    git checkout -b name-of-your-bugfix-or-feature
@@ -65,7 +66,7 @@ Ready to contribute? Here's how to set up `mar_dss` for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
+1. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
 
    ```sh
    make lint
@@ -76,7 +77,7 @@ Ready to contribute? Here's how to set up `mar_dss` for local development.
 
    To get flake8 and tox, just pip install them into your virtualenv.
 
-6. Commit your changes and push your branch to GitHub:
+1. Commit your changes and push your branch to GitHub:
 
    ```sh
    git add .
@@ -84,15 +85,15 @@ Ready to contribute? Here's how to set up `mar_dss` for local development.
    git push origin name-of-your-bugfix-or-feature
    ```
 
-7. Submit a pull request through the GitHub website.
+1. Submit a pull request through the GitHub website.
 
 ## Pull Request Guidelines
 
 Before you submit a pull request, check that it meets these guidelines:
 
 1. The pull request should include tests.
-2. If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring, and add the feature to the list in README.md.
-3. The pull request should work for Python 3.12 and 3.13. Tests run in GitHub Actions on every pull request to the main branch, make sure that the tests pass for all supported Python versions.
+1. If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring, and add the feature to the list in README.md.
+1. The pull request should work for Python 3.12 and 3.13. Tests run in GitHub Actions on every pull request to the main branch, make sure that the tests pass for all supported Python versions.
 
 ## Tips
 

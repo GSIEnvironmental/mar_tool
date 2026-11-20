@@ -57,7 +57,7 @@ def hard_constraints(option: MAROption) -> list[dict[str, bool]]:
             "pass": vadose_check,
             "why": vadose_why,
             "type": "water_quality",
-        }
+        },
     )
 
     # ==================================================================
@@ -79,7 +79,7 @@ def hard_constraints(option: MAROption) -> list[dict[str, bool]]:
             "pass": anthro_check,
             "why": anthro_why,
             "type": "water_quality",
-        }
+        },
     )
 
     # ==================================================================

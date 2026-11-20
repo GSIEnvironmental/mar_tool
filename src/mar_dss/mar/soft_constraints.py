@@ -161,7 +161,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
                 if option.name == "Surface Recharge":
                     response = 2  # warning
                     penalty = [
-                        "Warning: Vadose zone pollution is biodegradable, ensure natural attenuation is monitored"
+                        "Warning: Vadose zone pollution is biodegradable, ensure natural attenuation is monitored",
                     ]
                 else:
                     response = 0
@@ -173,7 +173,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
                 else:
                     response = 2  # warning
                     penalty = [
-                        "Action: Toxic contamination in the vadose. Although can be bypassed, mounding water table may mobilize contaminants to the aquifer"
+                        "Action: Toxic contamination in the vadose. Although can be bypassed, mounding water table may mobilize contaminants to the aquifer",
                     ]
         else:
             response = 0
@@ -231,12 +231,12 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             if residence_time_issues is not None and len(residence_time_issues) > 0:
                 response = 3
                 penalty = [
-                    f"Mitigation: Vadose zone residence time ({vadose_residence_time} days) is not reasonable for {', '.join(residence_time_issues)}"
+                    f"Mitigation: Vadose zone residence time ({vadose_residence_time} days) is not reasonable for {', '.join(residence_time_issues)}",
                 ]
             else:
                 response = 2
                 penalty = [
-                    f"Warning: Vadose zone residence time ({vadose_residence_time} days) is reasonable but careful monitoring is needed"
+                    f"Warning: Vadose zone residence time ({vadose_residence_time} days) is reasonable but careful monitoring is needed",
                 ]
 
     vadose_residence_time_metric = {
@@ -264,7 +264,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             response = 3
             penalty = [
                 "Mitigation: Surface recharge is likely not suitable because of "
-                "ground slope, infiltration, or vadose zone contamination"
+                "ground slope, infiltration, or vadose zone contamination",
             ]
     surface_recharge_suitability_metric = {
         "name": "Surface recharge suitability",
@@ -354,7 +354,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
         if option.name == "Surface Recharge":
             land_use_response = 1
             land_use_penalty.append(
-                "Cost: Land cost increase in urban areas. Check zoning requirements and land use regulations."
+                "Cost: Land cost increase in urban areas. Check zoning requirements and land use regulations.",
             )
         else:
             land_use_response = 0
@@ -400,13 +400,14 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
         source_contaminants_penalty.append(
             "Mitigation + Cost: Source water is impacted with industrial, domestic, or emerging contaminants — "
             "MAR may still be possible based on site-specific conditions and overall objectives, but "
-            "additional considerations and potential costs may be necessary and are beyond the scope of this tool."
+            "additional considerations and potential costs may be necessary and are beyond the scope of this tool.",
         )
     elif source_contaminants == WQ_UNKNOWN:
         source_contaminants_penalty.append(_water_quality_data_gap_penalty("Source water contaminants"))
 
     source_contaminants_response, source_contaminants_penalty = _finalize_water_quality_group_response(
-        source_contaminants_response, source_contaminants_penalty
+        source_contaminants_response,
+        source_contaminants_penalty,
     )
     constraints.append(
         {
@@ -415,7 +416,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             "penalty": source_contaminants_penalty,
             "type": "environmental",
             "hard": True if "Source Water Contaminants" in hardened_constraints else False,
-        }
+        },
     )
 
     # ==================================================================
@@ -426,18 +427,19 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
     if source_turbidity == WQ_TURBIDITY_HIGH:
         clogging_fouling_response = 3
         clogging_fouling_penalty.append(
-            "Mitigation + Cost: Source-water turbidity >20 NTU requires pretreatment to prevent clogging"
+            "Mitigation + Cost: Source-water turbidity >20 NTU requires pretreatment to prevent clogging",
         )
     elif source_turbidity == WQ_TURBIDITY_MOD:
         clogging_fouling_response = 1
         clogging_fouling_penalty.append(
-            "Warning + Cost: Source-water turbidity 5-20 NTU may require sedimentation/clarification"
+            "Warning + Cost: Source-water turbidity 5-20 NTU may require sedimentation/clarification",
         )
     elif source_turbidity == WQ_UNKNOWN:
         clogging_fouling_penalty.append(_water_quality_data_gap_penalty("Source water turbidity"))
 
     clogging_fouling_response, clogging_fouling_penalty = _finalize_water_quality_group_response(
-        clogging_fouling_response, clogging_fouling_penalty
+        clogging_fouling_response,
+        clogging_fouling_penalty,
     )
     constraints.append(
         {
@@ -446,7 +448,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             "penalty": clogging_fouling_penalty,
             "type": "environmental",
             "hard": True if "Clogging & Fouling Risks" in hardened_constraints else False,
-        }
+        },
     )
 
     # ==================================================================
@@ -461,7 +463,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
         if option.name == "Surface Recharge":
             remediation_needed_response = 4
             remediation_needed_penalty.append(
-                "Reject: Vadose/unsaturated zone is impacted by contaminants — surface recharge is not feasible"
+                "Reject: Vadose/unsaturated zone is impacted by contaminants — surface recharge is not feasible",
             )
         else:
             remediation_needed_response = 0
@@ -469,7 +471,8 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
     elif vadose_impacted == WQ_UNKNOWN:
         remediation_needed_penalty.append(_water_quality_data_gap_penalty("Vadose/unsaturated zone contamination"))
         remediation_needed_response, remediation_needed_penalty = _finalize_water_quality_group_response(
-            remediation_needed_response, remediation_needed_penalty
+            remediation_needed_response,
+            remediation_needed_penalty,
         )
 
     constraints.append(
@@ -482,7 +485,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             if "Vadose Zone Contaminant Impact" in hardened_constraints
             or "Need for Remediation" in hardened_constraints
             else False,
-        }
+        },
     )
 
     # ==================================================================
@@ -494,13 +497,14 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
         aquifer_anthro_response = 4
         aquifer_anthro_penalty.append(
             "Reject: Target aquifer is impacted by anthropogenic contaminants — "
-            "aquifer water quality is unsuitable; all MAR options are not feasible"
+            "aquifer water quality is unsuitable; all MAR options are not feasible",
         )
     elif aquifer_anthropogenic == WQ_UNKNOWN:
         aquifer_anthro_penalty.append(_water_quality_data_gap_penalty("Target aquifer anthropogenic contaminants"))
 
     aquifer_anthro_response, aquifer_anthro_penalty = _finalize_water_quality_group_response(
-        aquifer_anthro_response, aquifer_anthro_penalty
+        aquifer_anthro_response,
+        aquifer_anthro_penalty,
     )
     constraints.append(
         {
@@ -509,7 +513,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             "penalty": aquifer_anthro_penalty,
             "type": "environmental",
             "hard": True if "Target Aquifer Anthropogenic Contaminants" in hardened_constraints else False,
-        }
+        },
     )
 
     # ==================================================================
@@ -522,15 +526,16 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
         aquifer_natural_penalty.append(
             "Warning + Cost: Target aquifer is impacted by naturally occurring contaminants — "
             "MAR may still be possible based on site-specific conditions and overall objectives, but "
-            "additional considerations and potential costs may be necessary and are beyond the scope of this tool."
+            "additional considerations and potential costs may be necessary and are beyond the scope of this tool.",
         )
     elif aquifer_natural == WQ_UNKNOWN:
         aquifer_natural_penalty.append(
-            _water_quality_data_gap_penalty("Target aquifer naturally occurring contaminants")
+            _water_quality_data_gap_penalty("Target aquifer naturally occurring contaminants"),
         )
 
     aquifer_natural_response, aquifer_natural_penalty = _finalize_water_quality_group_response(
-        aquifer_natural_response, aquifer_natural_penalty
+        aquifer_natural_response,
+        aquifer_natural_penalty,
     )
     constraints.append(
         {
@@ -539,7 +544,7 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             "penalty": aquifer_natural_penalty,
             "type": "environmental",
             "hard": True if "Target Aquifer Naturally Occurring Contaminants" in hardened_constraints else False,
-        }
+        },
     )
 
     # Regulation questionnaire scoring removed: (5.1) is informational only

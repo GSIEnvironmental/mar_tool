@@ -68,7 +68,7 @@ def create_analysis_tab_content():
                         id=tab_nav_id("analysis-decision-interpretation"),
                         tab_id="analysis-decision-interpretation",
                         children=[
-                            html.Div(id="analysis-decision-interpretation-content", children="Loading...")
+                            html.Div(id="analysis-decision-interpretation-content", children="Loading..."),
                         ],  # Lazy load
                         **_subtab_styles(2),
                     ),
@@ -126,7 +126,7 @@ def create_analysis_tab_content():
                         className="analysis-run-status-row mb-2",
                     ),
                     analysis_subtabs,
-                ]
+                ],
             ),
         ),
         # Hidden store to trigger knowledge graph initialization

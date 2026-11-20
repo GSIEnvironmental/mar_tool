@@ -3,7 +3,7 @@ rules:
   #   name: "Aquifer Type"
   #   symbol: "aqtype"
   #   description: "Determines  aquifer type"
-  #   type: categorical 
+  #   type: categorical
   #   module: "geohydro_rules"
   #   function_name: "determine_aquifer_type"
   #   dependencies: [Input_Aqtype]
@@ -23,7 +23,7 @@ rules:
     certainty: 1.0
     group: "Aquifer Characteristics"
     leaf: false
-  
+
   - id: "target_layer_index"
     name: "Target Layer Index"
     #symbol: "stratigraphy_table"
@@ -35,7 +35,7 @@ rules:
     certainty: 1.0
     group: "Aquifer Characteristics"
     leaf: false
-  
+
   - id: "infer_aquifer_type"
     name: "Infer Aquifer Type"
     description: "Infer the aquifer type from the stratigraphy table"
@@ -51,7 +51,7 @@ rules:
     name: "Unconfined Aquifer"
     #symbol: "unconfined"
     description: "Branch for unconfined aquifer"
-    type: categorical 
+    type: categorical
     module: "geohydro_rules"
     function_name: "is_unconfined"
     dependencies: [strat_df, monthly_gw_depth]
@@ -63,7 +63,7 @@ rules:
     name: "Confined Aquifer"
     #symbol: "confined"
     description: "Branch for confined aquifer"
-    type: categorical 
+    type: categorical
     module: "geohydro_rules"
     function_name: "is_confined"
     dependencies: [strat_df, monthly_gw_depth]
@@ -84,24 +84,24 @@ rules:
     certainty: 0.9
     group: "Aquifer Characteristics"
     leaf: false
-  
+
   - id: "k_min_vadose"
     name: "Minimum K in Vadose Zone"
     #symbol: "K_min"
     description: "Find vadose K_min"
-    type: numeric  
+    type: numeric
     module: "geohydro_rules"
     function_name: "find_min_k_vadose_zone"
     dependencies: [strat_df, limiting_layer]
     certainty: 0.9
     group: "Aquifer Characteristics"
     leaf: false
-  
+
   - id: "k_vadose_threshold"
     name: "Suitability of vadose infiltration capacity"
     #symbol: "K_min"
     description: "check if vadose K_min is suitable for infiltration"
-    type: boolean  
+    type: boolean
     module: "geohydro_rules"
     function_name: "check_k_vadose_threshold"
     dependencies: [k_min_vadose]
@@ -153,7 +153,7 @@ rules:
     group: "Environmental Quality"
     leaf: false
 
-    
+
   - id: "top_soil_limiting"
     name: "Topsoil Limiting Layer"
     #symbol: "TopRem"
@@ -208,7 +208,7 @@ rules:
     type: numeric
     module: "geohydro_rules"
     function_name: "compute_number_of_injection_wells"
-    dependencies: [source_water_volume, op_gw_depth, strat_df, monthly_gw_depth, Hmax, confined, unconfined] 
+    dependencies: [source_water_volume, op_gw_depth, strat_df, monthly_gw_depth, Hmax, confined, unconfined]
     certainty: 0.8
     group: "Design Sizing"
     leaf: false
@@ -246,7 +246,7 @@ rules:
     certainty: 0.8
     group: "Aquifer Properties"
     leaf: true
-    
+
   - id: "annual_dry_well_volume"
     name: "annual dry well volume"
     description: "Computes the annual dry well volume into the aquifer."
@@ -282,7 +282,7 @@ rules:
     group: "Environmental Quality"
     leaf: true
 
-  
+
   - id: "rechargability"
     name: "Rechargeable Percentage"
     #symbol: "StorageOK"
@@ -300,7 +300,7 @@ rules:
     name: "Max Annual Confined Aquifer Storage Volume"
     #symbol: "confined"
     description: "compute maximum storage volume for confined aquifer"
-    type: numeric 
+    type: numeric
     module: "geohydro_rules"
     function_name: "compute_confined_storage_volume"
     dependencies: [confined, strat_df, Hmax, number_of_injection_wells, source_water_volume]
@@ -308,7 +308,7 @@ rules:
     group: "Aquifer Characteristics"
     leaf: false
 
-  
+
   - id: "confined_rechargability"
     name: "Confined Storage Adequacy"
     #symbol: "StorageOK"
@@ -320,7 +320,7 @@ rules:
     certainty: 0.8
     group: "Aquifer Properties"
     leaf: true
-  
+
   - id: "leakage_significance"
     name: "Confined leakage Adequacy"
     #symbol: "StorageOK"
@@ -332,7 +332,7 @@ rules:
     certainty: 0.8
     group: "Aquifer Properties"
     leaf: true
-  
+
   - id: "excessive_deep_aquifer"
     name: "Confined aquifer depth adequacy"
     #symbol: "StorageOK"
@@ -356,7 +356,7 @@ rules:
     certainty: 0.8
     group: "Site Characteristics"
     leaf: true
-  
+
   # add a rule to assess the suitability of surface recharge
   - id: "surface_recharge_suitability"
     name: "Surface recharge suitability"
@@ -369,8 +369,8 @@ rules:
     certainty: 0.8
     group: "Engineering Feasibility"
     leaf: true
-  
-  
+
+
 
   # - id: "subsurface_recharge_suitability"
   #   name: "Subsurface recharge suitability"
@@ -384,9 +384,9 @@ rules:
   #   group: "Engineering Feasibility"
   #   leaf: true
 
-    
 
-  
+
+
 
   # - id: "PIEZO_HEAD"
   #   name: "Piezometric Head Condition"
@@ -463,4 +463,3 @@ rules:
   #   certainty: 0.8
   #   group: "Water Quality"
   #   leaf: false
-

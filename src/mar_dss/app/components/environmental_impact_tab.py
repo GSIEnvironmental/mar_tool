@@ -372,7 +372,7 @@ TREATMENT_DF = pd.DataFrame(
             "Pathogen inactivation",
             "Redox adjustment, Fe/Mn removal",
         ],
-    }
+    },
 )
 
 # 3. Treatment Mapping (from decision logic to treatment technologies)
@@ -745,7 +745,7 @@ def _build_treatment_cost_guidance_card():
                 target="env-treatment-appendix-table",
                 placement="top",
             ),
-        ]
+        ],
     )
     return dbc.Card(
         [
@@ -879,7 +879,7 @@ def create_water_quality_content():
                             lg=5,
                             style={"position": "sticky", "top": "20px", "align-self": "start"},
                         ),
-                    ]
+                    ],
                 ),
                 _build_treatment_cost_guidance_card(),
                 *question_tooltips,
