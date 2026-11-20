@@ -4,10 +4,13 @@ Dashboard launcher for MAR DSS.
 
 from __future__ import annotations
 
+import logging
 import os
 import webbrowser
 
 from mar_dss.app.main import DashboardApp
+
+logger = logging.getLogger(__name__)
 
 
 def launch_dashboard(debug=True, port=8050):
@@ -45,12 +48,12 @@ def launch_dashboard_waitress(
     # Behind a proxy, MAR_PUBLIC_URL is the address users open.
     public_url = os.environ.get("MAR_PUBLIC_URL")
     if public_url:
-        print(f"MAR-Tool is running at {public_url}", flush=True)
+        logger.info(f"MAR-Tool is running at {public_url}")
     else:
         display_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
-        print(f"Dashboard (Waitress) at: http://{display_host}:{port}/")
+        logger.info(f"Dashboard (Waitress) at: http://{display_host}:{port}/")
         if host == "0.0.0.0":
-            print("Listening on all interfaces (0.0.0.0).")
+            logger.info("Listening on all interfaces (0.0.0.0).")
 
     if open_browser:
         webbrowser.open(f"http://127.0.0.1:{port}/")

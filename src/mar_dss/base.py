@@ -1,5 +1,6 @@
 import importlib
 import importlib.util
+import logging
 import sys
 from collections import deque
 from collections.abc import Callable
@@ -11,6 +12,8 @@ import networkx as nx
 import numpy as np
 import plotly.graph_objects as go
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class Node:
@@ -153,11 +156,8 @@ class DecisionGraph:
                 try:
                     dep_val = self.evaluate_node(dep, input_values, cache)
                     dep_values[dep] = dep_val
-                except Exception as e:
-                    import traceback
-
-                    print(f"ERROR: Failed to evaluate dependency '{dep}' for node '{node_id}': {e}")
-                    traceback.print_exc()
+                except Exception:
+                    logger.exception(f"Failed to evaluate dependency '{dep}' for node '{node_id}'")
                     raise
 
             # Debug print for design_sizing specifically
@@ -192,15 +192,10 @@ class DecisionGraph:
                     # # Debug print for design_sizing specifically
                     # if node_id == "design_sizing":
                     #     print(f"DEBUG design_sizing - Function returned: {value}")
-                except Exception as e:
-                    # If function raises an exception, store None and re-raise
-                    import traceback
-
-                    print(f"Error evaluating node '{node_id}': {e}")
-                    print(f"Dependencies: {list(dep_values.keys())}")
-                    print(f"Dependency values: {dep_values}")
-                    print(f"Function: {node.function}")
-                    traceback.print_exc()
+                except Exception:
+                    logger.exception(
+                        f"Error evaluating node '{node_id}' (function {node.function}, dependency values {dep_values})",
+                    )
                     raise
             else:
                 # if node_id == "design_sizing":
@@ -277,7 +272,7 @@ class DecisionGraph:
             try:
                 results[nid] = self.evaluate_node(nid, input_values, cache)
             except Exception as e:
-                print(f"Error evaluating node '{nid}': {e}")
+                logger.error(f"Error evaluating node '{nid}': {e}")
                 raise ValueError(f"Error evaluating node '{nid}': {e}")
 
             # if nid == "design_sizing":

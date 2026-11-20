@@ -3,6 +3,7 @@ Callbacks for Cost calculations and display in the Engineering tab.
 """
 
 import json
+import logging
 
 import dash
 import dash_bootstrap_components as dbc
@@ -22,6 +23,9 @@ from mar_dss.app.utils.excel_table import (
     datatable_base_style_header,
     datatable_computed_data_style,
 )
+
+logger = logging.getLogger(__name__)
+
 
 try:
     from mar_dss.app.callbacks.cost_calculator import CostCalculator
@@ -1383,7 +1387,7 @@ def setup_cost_callbacks(app):
 
             cost_calculator = create_and_run_cost_calculator()
         except Exception as exc:
-            print(f"create_and_run_cost_calculator failed ({exc}); falling back to local CostCalculator")
+            logger.warning(f"create_and_run_cost_calculator failed ({exc}); falling back to local CostCalculator")
             cost_calculator = None
 
         if cost_calculator is None:

@@ -2,11 +2,15 @@
 Main dashboard application for MAR DSS.
 """
 
+import logging
 import webbrowser
 from pathlib import Path
 
 import dash
 import dash_bootstrap_components as dbc
+
+logger = logging.getLogger(__name__)
+
 
 _APP_DIR = Path(__file__).resolve().parent
 
@@ -186,11 +190,11 @@ class DashboardApp:
     def run(self, debug=True, port=8050, open_browser=True):
         """Run the Flask development server (local use only)."""
         url = f"http://127.0.0.1:{port}/"
-        print(f"Dashboard running at: {url}")
-        print("Open the URL in your browser to view the dashboard.")
+        logger.info(f"Dashboard running at: {url}")
+        logger.info("Open the URL in your browser to view the dashboard.")
 
         if open_browser:
-            print(f"Opening browser to: {url}")
+            logger.info(f"Opening browser to: {url}")
             webbrowser.open(url)
 
         try:
@@ -198,7 +202,7 @@ class DashboardApp:
 
         except OSError as e:
             if "Address already in use" in str(e):
-                print(f"Port {port} is already in use. Please close other instances or use a different port.")
+                logger.error(f"Port {port} is already in use. Please close other instances or use a different port.")
             else:
                 raise e
 

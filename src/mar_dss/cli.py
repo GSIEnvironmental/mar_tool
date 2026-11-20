@@ -5,6 +5,10 @@ import os
 
 import typer
 
+from mar_dss.logging_config import setup_logging
+
+logger = logging.getLogger(__name__)
+
 app = typer.Typer()
 
 
@@ -17,6 +21,7 @@ def main(
     dev: bool = typer.Option(False, help="Use Dash's debug server, which reloads on code changes. Local use only."),
 ):
     """Serve the MAR DSS dashboard with Waitress, or with the debug server if --dev is set."""
+    setup_logging(dev=dev)
     if dev:
         from mar_dss.app.main import DashboardApp
 
@@ -29,7 +34,7 @@ def main(
             dash_app.logger.setLevel(logging.WARNING)
             # The debug server runs the app in a child process; only it prints.
             if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-                print(f"MAR-Tool is running at {public_url}", flush=True)
+                logger.info(f"MAR-Tool is running at {public_url}")
         dash_app.run(debug=True, host=host, port=port)
         return
 

@@ -3,6 +3,7 @@ Callbacks for the Runoff Calculator tab.
 """
 
 import json
+import logging
 import os
 
 import dash
@@ -34,6 +35,9 @@ from mar_dss.pfdf.data.noaa.atlas14 import download
 
 # Make osmnx send our User-Agent too.
 ox.settings.http_user_agent = USER_AGENT
+
+
+logger = logging.getLogger(__name__)
 
 
 try:
@@ -279,9 +283,9 @@ def get_monthly_rain(latitude, longitude):
         return df
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching data: {e}")
+        logger.error(f"Error fetching data: {e}")
     except KeyError:
-        print(
+        logger.error(
             "Error: Could not find the expected data structure in the API response. The parameter or time frame might be incorrect.",
         )
 
@@ -324,7 +328,7 @@ def get_rain_data(lat, lon):
 def get_streams_near_point(lat, lon, distance_m=16093):
     """Find streams within specified distance of a point"""
     try:
-        print(f"Searching for streams near: {lat}, {lon}")
+        logger.debug(f"Searching for streams near: {lat}, {lon}")
         # Download waterway features using osmnx features module
         gdf_waterways = ox.features_from_point(center_point=(lat, lon), dist=distance_m, tags={"waterway": True})
 
@@ -332,22 +336,22 @@ def get_streams_near_point(lat, lon, distance_m=16093):
         stream_types = ["stream", "river", "canal", "drain", "ditch"]
         waterways = gdf_waterways[gdf_waterways["waterway"].isin(stream_types)]
 
-        print(f"Found {len(waterways)} waterway features")
+        logger.debug(f"Found {len(waterways)} waterway features")
         return waterways
     except Exception as e:
-        print(f"Error finding streams: {e}")
+        logger.error(f"Error finding streams: {e}")
         return gpd.GeoDataFrame(columns=["geometry"])
 
 
 def streams_to_geojson(streams):
     """Convert streams GeoDataFrame to GeoJSON"""
     if streams is None or streams.empty:
-        print("No streams to convert to GeoJSON")
+        logger.debug("No streams to convert to GeoJSON")
         return {}
 
     # Convert to GeoJSON
     geojson = json.loads(streams.to_json())
-    print(f"Converted {len(geojson.get('features', []))} features to GeoJSON")
+    logger.debug(f"Converted {len(geojson.get('features', []))} features to GeoJSON")
     return geojson
 
 
@@ -595,7 +599,7 @@ def build_monthly_runoff_calc_summary(table_data, rain_events, lat, lon):
 
 def setup_runoff_callbacks(app):
     """Register callbacks related to the runoff calculator tab."""
-    print("Setting up runoff callbacks...")
+    logger.debug("Setting up runoff callbacks...")
 
     # Client-side callback to resize map when tab becomes active
     app.clientside_callback(
@@ -821,7 +825,7 @@ def setup_runoff_callbacks(app):
         prevent_initial_call=False,
     )
     def update_coordinates_on_click(clickData):
-        print(f"Callback triggered with: {clickData}")  # Debug print
+        logger.debug(f"Callback triggered with: {clickData}")
 
         if clickData is None:
             # Initial load: match Project Location map center
@@ -906,7 +910,7 @@ def setup_runoff_callbacks(app):
     )
     def update_streams(n_clicks, lat, lon):
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
-            print(f"Searching streams for: {lat}, {lon}")
+            logger.debug(f"Searching streams for: {lat}, {lon}")
 
             # The distance is set in the function call to 16093 meters (approx 10 miles)
             streams = get_streams_near_point(lat, lon)
@@ -944,18 +948,18 @@ def setup_runoff_callbacks(app):
     )
     def get_watershed_info(n_clicks, lat, lon):
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
-            print(f"Getting watershed info for: {lat}, {lon}")
+            logger.debug(f"Getting watershed info for: {lat}, {lon}")
 
             # Get watershed data for the map
             try:
                 region = _get_state_from_coords(lat, lon)
-                print(f"Detected region/state: {region}")
+                logger.debug(f"Detected region/state: {region}")
 
                 watershed_geojson = _delineate_watershed(region, lat, lon)
-                print(f"Watershed delineation returned {len(watershed_geojson.get('features', []))} features")
+                logger.debug(f"Watershed delineation returned {len(watershed_geojson.get('features', []))} features")
 
                 basin_chars = _get_basin_characteristics(region, lat, lon)
-                print(f"Basin characteristics count: {len(basin_chars)}")
+                logger.debug(f"Basin characteristics count: {len(basin_chars)}")
 
                 df_data = []
                 for par in basin_chars:
@@ -964,14 +968,14 @@ def setup_runoff_callbacks(app):
                     code = par.get("code", "")
                     unit = par.get("unit", "")
                     value = par.get("value", "")
-                    print(f"Parameter: {name} = {value} {unit}")
+                    logger.debug(f"Parameter: {name} = {value} {unit}")
                     df_data.append([name, description, code, unit, value])
 
                 # Create DataFrame
                 df = pd.DataFrame(df_data, columns=["Name", "Description", "Code", "Unit", "Value"])
-                print(f"DataFrame created with {len(df)} rows")
-                print(f"DataFrame columns: {df.columns.tolist()}")
-                print(f"DataFrame data: {df.to_dict('records')}")
+                logger.debug(f"DataFrame created with {len(df)} rows")
+                logger.debug(f"DataFrame columns: {df.columns.tolist()}")
+                logger.debug(f"DataFrame data: {df.to_dict('records')}")
 
                 # Create watershed layer for the map
                 watershed_layer = dl.GeoJSON(
@@ -982,7 +986,7 @@ def setup_runoff_callbacks(app):
                 # Generate watershed table with error handling
                 try:
                     if df.empty:
-                        print("Watershed DataFrame is empty!")
+                        logger.warning("Watershed DataFrame is empty!")
                         watershed_table = html.P("No watershed parameters available", className="text-warning")
                     else:
                         watershed_table = dash_table.DataTable(
@@ -997,17 +1001,17 @@ def setup_runoff_callbacks(app):
                             export_format="csv",
                         )
                 except Exception as table_error:
-                    print(f"Error creating watershed table: {table_error}")
+                    logger.error(f"Error creating watershed table: {table_error}")
                     watershed_table = html.P(f"Error creating table: {str(table_error)}", className="text-danger")
 
-                print(f"Watershed table generated with {len(df)} rows")
+                logger.debug(f"Watershed table generated with {len(df)} rows")
 
                 # Show completion message
                 done_msg = html.Div("Done!", className="alert alert-success", role="alert")
                 return [watershed_layer], watershed_table, done_msg
 
             except Exception as e:
-                print(f"Error getting watershed data: {e}")
+                logger.error(f"Error getting watershed data: {e}")
                 error_msg = html.Div("Error getting watershed data", className="alert alert-danger", role="alert")
                 return [], html.P(f"Error getting watershed data: {str(e)}", className="text-danger"), error_msg
 
@@ -1721,7 +1725,7 @@ def setup_runoff_callbacks(app):
                 df_rain = pd.DataFrame(saved_data)
                 return _create_rain_statistics_display(df_rain)
             except Exception as e:
-                print(f"Error loading rain statistics from storage: {e}")
+                logger.warning(f"Error loading rain statistics from storage: {e}")
                 return dash.no_update
 
         return dash.no_update
@@ -1752,7 +1756,7 @@ def setup_runoff_callbacks(app):
                 return _create_rain_statistics_display(df_rain), html.Div()
 
             except Exception as e:
-                print(f"Error downloading rain statistics: {e}")
+                logger.error(f"Error downloading rain statistics: {e}")
                 return html.Div(), _rain_stats_unavailable_alert()
 
         return dash.no_update, dash.no_update
@@ -1862,7 +1866,7 @@ def setup_runoff_callbacks(app):
                 monthly_rain = pd.DataFrame(saved_data)
                 return _create_monthly_runoff_display(monthly_rain)
             except Exception as e:
-                print(f"Error loading monthly runoff from storage: {e}")
+                logger.warning(f"Error loading monthly runoff from storage: {e}")
                 return dash.no_update
 
         return dash.no_update
@@ -1971,7 +1975,7 @@ def setup_runoff_callbacks(app):
                 return _create_monthly_runoff_display(monthly_rain), flow_store_update
 
             except Exception as e:
-                print(f"Error getting monthly rain data: {e}")
+                logger.error(f"Error getting monthly rain data: {e}")
                 return html.P(f"Error getting monthly rain data: {str(e)}", className="text-danger"), dash.no_update
 
         return dash.no_update, dash.no_update

@@ -1,6 +1,10 @@
+import logging
+
 import numpy as np
 from scipy.integrate import quad_vec
 from scipy.special import erf, exp1
+
+logger = logging.getLogger(__name__)
 
 
 def concat(dh):
@@ -204,7 +208,7 @@ def theis_drawdown_or_Q(Q_or_dh, T, S, r, t, compute_Q=True):
     try:
         u = (r**2 * S) / (4 * T * t)
     except Exception as e:
-        print(f"Error calculating u: {e}")
+        logger.error(f"Error calculating u: {e}")
         return 0.0
 
     # 2. Calculate the Well Function W(u)
@@ -215,7 +219,7 @@ def theis_drawdown_or_Q(Q_or_dh, T, S, r, t, compute_Q=True):
         W_u = exp1(u)
     except Exception as e:
         # Fallback for extreme u values, although exp1 is robust
-        print(f"Error calculating W(u): {e}. Returning 0.")
+        logger.warning(f"Error calculating W(u): {e}. Returning 0.")
         return 0.0
 
     # 3. Calculate Drawdown (s)
