@@ -4,11 +4,10 @@ Based on chem2.py dashboard.
 """
 
 import dash_bootstrap_components as dbc
-from dash import dcc, html, dash_table
-import plotly.graph_objects as go
 import pandas as pd
+from dash import dash_table, dcc, html
+
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # --- Data Structures for Logic and Display ---
 
@@ -61,8 +60,7 @@ WQ_QUESTIONS = (
         "component_id": "env-wq-q3",
         "number": "3",
         "text": (
-            "Is the vadose/unsaturated zone impacted by contaminants "
-            "(e.g., VOCs, metals, emerging contaminants)?"
+            "Is the vadose/unsaturated zone impacted by contaminants (e.g., VOCs, metals, emerging contaminants)?"
         ),
         "options": YES_NO_UNKNOWN,
         "tooltip": (
@@ -77,8 +75,7 @@ WQ_QUESTIONS = (
         "component_id": "env-wq-q4",
         "number": "4",
         "text": (
-            "Is the target aquifer impacted by anthropogenic contaminants "
-            "(e.g., VOCs, metals, emerging contaminants)?"
+            "Is the target aquifer impacted by anthropogenic contaminants (e.g., VOCs, metals, emerging contaminants)?"
         ),
         "options": YES_NO_UNKNOWN,
         "tooltip": "Human-caused contaminants already present in native groundwater",
@@ -89,8 +86,7 @@ WQ_QUESTIONS = (
         "component_id": "env-wq-q5",
         "number": "5",
         "text": (
-            "Is the target aquifer impacted by naturally occurring contaminants "
-            "(e.g., salts, inorganic compounds)?"
+            "Is the target aquifer impacted by naturally occurring contaminants (e.g., salts, inorganic compounds)?"
         ),
         "options": YES_NO_UNKNOWN,
         "tooltip": "Naturally occurring salts or inorganics in native groundwater",
@@ -115,15 +111,21 @@ _WQ_RADIO_LABEL_STYLE = {
 DECISION_LOGIC = {
     "source_contaminants": {
         WQ_UNKNOWN: {
-            "score": 0, "color": "secondary", "treatment_key": "Q1_NA",
+            "score": 0,
+            "color": "secondary",
+            "treatment_key": "Q1_NA",
             "rec": "Collect source water contaminant data before final suitability assessment.",
         },
         WQ_NO: {
-            "score": 0, "color": "success", "treatment_key": "Q1_NO",
+            "score": 0,
+            "color": "success",
+            "treatment_key": "Q1_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 29, "color": "danger", "treatment_key": "Q1_YES",
+            "score": 29,
+            "color": "danger",
+            "treatment_key": "Q1_YES",
             "rec": (
                 "If the source water is impacted with anthropogenic contaminants, MAR may still "
                 "be possible based on site-specific conditions and overall objectives, but "
@@ -134,33 +136,47 @@ DECISION_LOGIC = {
     },
     "source_turbidity": {
         WQ_UNKNOWN: {
-            "score": 0, "color": "secondary", "treatment_key": "Q2_NA",
+            "score": 0,
+            "color": "secondary",
+            "treatment_key": "Q2_NA",
             "rec": "Collect source water turbidity data before final suitability assessment.",
         },
         WQ_TURBIDITY_LOW: {
-            "score": 0, "color": "success", "treatment_key": "Q2_LOW",
+            "score": 0,
+            "color": "success",
+            "treatment_key": "Q2_LOW",
             "rec": "None.",
         },
         WQ_TURBIDITY_MOD: {
-            "score": 6, "color": "warning", "treatment_key": "Q2_MOD",
+            "score": 6,
+            "color": "warning",
+            "treatment_key": "Q2_MOD",
             "rec": "Sedimentation/clarification may be needed; further evaluation required.",
         },
         WQ_TURBIDITY_HIGH: {
-            "score": 12, "color": "danger", "treatment_key": "Q2_HIGH",
+            "score": 12,
+            "color": "danger",
+            "treatment_key": "Q2_HIGH",
             "rec": "Pre-treatment required (sedimentation and filtration) to prevent clogging.",
         },
     },
     "vadose_impacted": {
         WQ_UNKNOWN: {
-            "score": 0, "color": "secondary", "treatment_key": "Q3_NA",
+            "score": 0,
+            "color": "secondary",
+            "treatment_key": "Q3_NA",
             "rec": "Collect information about potential contamination in the vadose zone",
         },
         WQ_NO: {
-            "score": 0, "color": "success", "treatment_key": "Q3_NO",
+            "score": 0,
+            "color": "success",
+            "treatment_key": "Q3_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 18, "color": "danger", "treatment_key": "Q3_YES",
+            "score": 18,
+            "color": "danger",
+            "treatment_key": "Q3_YES",
             "rec": (
                 "If the vadose/unsaturated zone is impacted by contaminants, "
                 "vadose remediation (or avoiding the pathway) applies only when "
@@ -175,15 +191,21 @@ DECISION_LOGIC = {
     },
     "aquifer_anthropogenic": {
         WQ_UNKNOWN: {
-            "score": 0, "color": "secondary", "treatment_key": "Q4_NA",
+            "score": 0,
+            "color": "secondary",
+            "treatment_key": "Q4_NA",
             "rec": "Evaluate target aquifer for anthropogenic contamination before final suitability assessment.",
         },
         WQ_NO: {
-            "score": 0, "color": "success", "treatment_key": "Q4_NO",
+            "score": 0,
+            "color": "success",
+            "treatment_key": "Q4_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 29, "color": "danger", "treatment_key": "Q4_YES",
+            "score": 29,
+            "color": "danger",
+            "treatment_key": "Q4_YES",
             "rec": (
                 "If the target aquifer is impacted by anthropogenic contaminants, "
                 "recharge should not be implemented at this location; consider a new "
@@ -194,15 +216,21 @@ DECISION_LOGIC = {
     },
     "aquifer_natural": {
         WQ_UNKNOWN: {
-            "score": 0, "color": "secondary", "treatment_key": "Q5_NA",
+            "score": 0,
+            "color": "secondary",
+            "treatment_key": "Q5_NA",
             "rec": "Evaluate target aquifer for naturally occurring contamination before final suitability assessment.",
         },
         WQ_NO: {
-            "score": 0, "color": "success", "treatment_key": "Q5_NO",
+            "score": 0,
+            "color": "success",
+            "treatment_key": "Q5_NO",
             "rec": "None.",
         },
         WQ_YES: {
-            "score": 12, "color": "warning", "treatment_key": "Q5_YES",
+            "score": 12,
+            "color": "warning",
+            "treatment_key": "Q5_YES",
             "rec": (
                 "If the target aquifer is impacted by naturally occurring contaminants, "
                 "recharge at this location may still be possible based on site-specific "
@@ -297,55 +325,55 @@ def _format_cost_range_ft3(lo_m3: float, hi_m3: float) -> str:
     return f"${lo_ft3:.4f}-{hi_ft3:.4f}"
 
 
-TREATMENT_DF = pd.DataFrame({
-    "Treatment Technology": [
-        "Sedimentation/Clarification",
-        "Media Filtration (Sand/Anthracite)",
-        "Membrane Filtration (MF/UF)",
-        "Granular Activated Carbon (GAC)",
-        "Ion Exchange",
-        "Reverse Osmosis (RO)",
-        "Advanced Oxidation (AOP)",
-        "Disinfection (Chlorination/UV/Ozone)",
-        "Aeration/Oxidation",
-    ],
-    "Cost Range ($/ft³)": [
-        _format_cost_range_ft3(lo, hi) for lo, hi in _TREATMENT_COST_RANGES_M3
-    ],
-    "Capital Cost Scale": [
-        "Low",
-        "Low-Medium",
-        "Medium-High",
-        "Medium",
-        "Medium-High",
-        "Very High",
-        "High",
-        "Low-Medium",
-        "Low-Medium",
-    ],
-    "O&M Intensity": [
-        "Low",
-        "Low-Medium",
-        "Medium",
-        "Medium-High",
-        "Medium",
-        "High",
-        "Medium-High",
-        "Low",
-        "Low-Medium",
-    ],
-    "Best For": [
-        "TSS/Turbidity removal",
-        "Particle removal, polishing",
-        "Fine particle, pathogen removal",
-        "Organic matter, emerging contaminants",
-        "Ion removal (nitrate, metals)",
-        "TDS/salinity reduction",
-        "Emerging contaminants, organics",
-        "Pathogen inactivation",
-        "Redox adjustment, Fe/Mn removal",
-    ],
-})
+TREATMENT_DF = pd.DataFrame(
+    {
+        "Treatment Technology": [
+            "Sedimentation/Clarification",
+            "Media Filtration (Sand/Anthracite)",
+            "Membrane Filtration (MF/UF)",
+            "Granular Activated Carbon (GAC)",
+            "Ion Exchange",
+            "Reverse Osmosis (RO)",
+            "Advanced Oxidation (AOP)",
+            "Disinfection (Chlorination/UV/Ozone)",
+            "Aeration/Oxidation",
+        ],
+        "Cost Range ($/ft³)": [_format_cost_range_ft3(lo, hi) for lo, hi in _TREATMENT_COST_RANGES_M3],
+        "Capital Cost Scale": [
+            "Low",
+            "Low-Medium",
+            "Medium-High",
+            "Medium",
+            "Medium-High",
+            "Very High",
+            "High",
+            "Low-Medium",
+            "Low-Medium",
+        ],
+        "O&M Intensity": [
+            "Low",
+            "Low-Medium",
+            "Medium",
+            "Medium-High",
+            "Medium",
+            "High",
+            "Medium-High",
+            "Low",
+            "Low-Medium",
+        ],
+        "Best For": [
+            "TSS/Turbidity removal",
+            "Particle removal, polishing",
+            "Fine particle, pathogen removal",
+            "Organic matter, emerging contaminants",
+            "Ion removal (nitrate, metals)",
+            "TDS/salinity reduction",
+            "Emerging contaminants, organics",
+            "Pathogen inactivation",
+            "Redox adjustment, Fe/Mn removal",
+        ],
+    },
+)
 
 # 3. Treatment Mapping (from decision logic to treatment technologies)
 TREATMENT_MAPPING = {
@@ -717,7 +745,7 @@ def _build_treatment_cost_guidance_card():
                 target="env-treatment-appendix-table",
                 placement="top",
             ),
-        ]
+        ],
     )
     return dbc.Card(
         [
@@ -779,66 +807,88 @@ def _build_treatment_cost_guidance_card():
 def create_water_quality_content():
     """Create the Water Quality screening content."""
     question_blocks = [
-        _wq_question_block(question, last=(i == len(WQ_QUESTIONS) - 1))
-        for i, question in enumerate(WQ_QUESTIONS)
+        _wq_question_block(question, last=(i == len(WQ_QUESTIONS) - 1)) for i, question in enumerate(WQ_QUESTIONS)
     ]
     question_tooltips = [
-        dbc.Tooltip(question["tooltip"], target=question["component_id"], placement="top")
-        for question in WQ_QUESTIONS
+        dbc.Tooltip(question["tooltip"], target=question["component_id"], placement="top") for question in WQ_QUESTIONS
     ]
 
     return [
         html.Div(
             [
-        dbc.Row([
-            dbc.Col([
-                html.H5("Water Quality Screening", className="mb-3 text-primary", style={"fontSize": "1.1rem"}),
-                dbc.Card([
-                    dbc.CardHeader(
-                        html.H6(
-                            "Source Water, Vadose Zone, and Target Aquifer",
-                            className="mb-0 text-white fw-bold",
-                            style={"fontSize": "0.95rem"},
-                        ),
-                        className="bg-primary py-2",
-                    ),
-                    dbc.CardBody(question_blocks, className="p-3"),
-                ], className="mb-3", style={"border-left": "4px solid #007bff"}),
-            ], width=12, lg=7, style={
-                "padding-right": "10px"
-            }),
-
-            dbc.Col([
-                html.Div(
+                dbc.Row(
                     [
-                        html.P(
-                            "Water Quality Indicator",
-                            className="text-center mb-2 fw-bold",
-                            style={"fontSize": "1rem", "color": "#000"},
+                        dbc.Col(
+                            [
+                                html.H5(
+                                    "Water Quality Screening",
+                                    className="mb-3 text-primary",
+                                    style={"fontSize": "1.1rem"},
+                                ),
+                                dbc.Card(
+                                    [
+                                        dbc.CardHeader(
+                                            html.H6(
+                                                "Source Water, Vadose Zone, and Target Aquifer",
+                                                className="mb-0 text-white fw-bold",
+                                                style={"fontSize": "0.95rem"},
+                                            ),
+                                            className="bg-primary py-2",
+                                        ),
+                                        dbc.CardBody(question_blocks, className="p-3"),
+                                    ],
+                                    className="mb-3",
+                                    style={"border-left": "4px solid #007bff"},
+                                ),
+                            ],
+                            width=12,
+                            lg=7,
+                            style={"padding-right": "10px"},
                         ),
-                        html.Div(id="env-wq-color-scale"),
+                        dbc.Col(
+                            [
+                                html.Div(
+                                    [
+                                        html.P(
+                                            "Water Quality Indicator",
+                                            className="text-center mb-2 fw-bold",
+                                            style={"fontSize": "1rem", "color": "#000"},
+                                        ),
+                                        html.Div(id="env-wq-color-scale"),
+                                    ],
+                                    className="mb-3",
+                                ),
+                                html.H6(
+                                    "Potential Treatment Options & Recommendations",
+                                    className="mt-2 mb-2 text-info",
+                                    style={"fontSize": "0.95rem"},
+                                ),
+                                html.Div(id="env-treatment-summary-output", className="mb-2"),
+                                html.H6(
+                                    "Recommendations",
+                                    className="mt-2 mb-1 text-secondary small",
+                                    style={"fontSize": "0.85rem"},
+                                ),
+                                html.Ul(
+                                    id="env-recommendations-list",
+                                    className="list-group small",
+                                    style={"fontSize": "0.8rem"},
+                                ),
+                            ],
+                            width=12,
+                            lg=5,
+                            style={"position": "sticky", "top": "20px", "align-self": "start"},
+                        ),
                     ],
-                    className="mb-3",
                 ),
-
-                html.H6("Potential Treatment Options & Recommendations", className="mt-2 mb-2 text-info", style={"fontSize": "0.95rem"}),
-                html.Div(id='env-treatment-summary-output', className="mb-2"),
-                html.H6("Recommendations", className="mt-2 mb-1 text-secondary small", style={"fontSize": "0.85rem"}),
-                html.Ul(id='env-recommendations-list', className="list-group small", style={"fontSize": "0.8rem"}),
-            ], width=12, lg=5, style={
-                "position": "sticky",
-                "top": "20px",
-                "align-self": "start"
-            }),
-        ]),
-        _build_treatment_cost_guidance_card(),
-        *question_tooltips,
-        dbc.Tooltip(
-            "Green: all No and turbidity <5 NTU. Yellow: Yes on Q1, Q3, or Q5 "
-            "(or incomplete / elevated turbidity). Red: Yes on Q4.",
-            target="env-wq-color-scale",
-            placement="top",
-        ),
+                _build_treatment_cost_guidance_card(),
+                *question_tooltips,
+                dbc.Tooltip(
+                    "Green: all No and turbidity <5 NTU. Yellow: Yes on Q1, Q3, or Q5 "
+                    "(or incomplete / elevated turbidity). Red: Yes on Q4.",
+                    target="env-wq-color-scale",
+                    placement="top",
+                ),
             ],
             className="water-quality-tab",
         ),
@@ -898,10 +948,7 @@ def create_environmental_considerations_content():
                             id="mar-factors-prompt-display",
                             value="",
                             readOnly=True,
-                            placeholder=(
-                                "Click Build Prompt to generate the text for the "
-                                "Overview project location…"
-                            ),
+                            placeholder=("Click Build Prompt to generate the text for the Overview project location…"),
                             style={
                                 "width": "100%",
                                 "minHeight": "220px",

@@ -1,0 +1,10 @@
+# Words typos would otherwise flag as misspellings.
+[default.extend-words]
+# Theis: the Theis well solution (rules/analytical_solutions.py).
+theis = "theis"
+# strat: short for stratigraphy.
+strat = "strat"
+
+[default.extend-identifiers]
+# Keep the rule name used in older knowledge YAML files.
+compute_rechargable_percentage = "compute_rechargable_percentage"

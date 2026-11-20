@@ -12,28 +12,30 @@ import pandas as pd
 
 import mar_dss.app.utils.data_storage as dash_storage
 
-_STRING_KEYS = frozenset({
-    "project_name",
-    "project_location",
-    "analysis_date",
-    "workspace",
-    "filename",
-    "land_use",
-    "water_source",
-    "water_conveyance",
-    "water_ownership",
-    "pumping_needed",
-    "aq_type",
-    "vadose_zone_pollution",
-    "overview_map_basemap",
-    "overview_map_location_label",
-    "water_source_map_site",
-    "wq_source_contaminants",
-    "wq_source_turbidity",
-    "wq_vadose_impacted",
-    "wq_aquifer_anthropogenic",
-    "wq_aquifer_natural",
-})
+_STRING_KEYS = frozenset(
+    {
+        "project_name",
+        "project_location",
+        "analysis_date",
+        "workspace",
+        "filename",
+        "land_use",
+        "water_source",
+        "water_conveyance",
+        "water_ownership",
+        "pumping_needed",
+        "aq_type",
+        "vadose_zone_pollution",
+        "overview_map_basemap",
+        "overview_map_location_label",
+        "water_source_map_site",
+        "wq_source_contaminants",
+        "wq_source_turbidity",
+        "wq_vadose_impacted",
+        "wq_aquifer_anthropogenic",
+        "wq_aquifer_natural",
+    },
+)
 
 
 def normalize_stored_string(value: Any) -> str:
@@ -77,9 +79,7 @@ def _parse_literal_if_needed(value: Any) -> Any:
     text = value.strip()
     if not text:
         return value
-    if (text.startswith("[") and text.endswith("]")) or (
-        text.startswith("{") and text.endswith("}")
-    ):
+    if (text.startswith("[") and text.endswith("]")) or (text.startswith("{") and text.endswith("}")):
         try:
             return ast.literal_eval(text)
         except (ValueError, SyntaxError):

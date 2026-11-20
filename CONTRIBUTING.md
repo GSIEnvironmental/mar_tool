@@ -8,7 +8,7 @@ You can contribute in many ways:
 
 ### Report Bugs
 
-Report bugs at https://github.com/aymanalz/mar_dss/issues.
+Report bugs at <https://github.com/GSIEnvironmental/mar_tool/issues>.
 
 If you are reporting a bug, please include:
 
@@ -30,7 +30,7 @@ mar_dss could always use more documentation, whether as part of the official doc
 
 ### Submit Feedback
 
-The best way to send feedback is to file an issue at https://github.com/aymanalz/mar_dss/issues.
+The best way to send feedback is to file an issue at <https://github.com/GSIEnvironmental/mar_tool/issues>.
 
 If you are proposing a feature:
 
@@ -38,45 +38,61 @@ If you are proposing a feature:
 - Keep the scope as narrow as possible, to make it easier to implement.
 - Remember that this is a volunteer-driven project, and that contributions are welcome :)
 
-## Get Started!
+## Get Started
 
-Ready to contribute? Here's how to set up `mar_dss` for local development.
+Install [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/) for local development.
 
-1. Fork the `mar_dss` repo on GitHub.
-2. Clone your fork locally:
+1. Fork the `mar_tool` repo on GitHub.
 
-   ```sh
-   git clone git@github.com:your_name_here/mar_dss.git
-   ```
-
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
+1. Clone your fork locally:
 
    ```sh
-   mkvirtualenv mar_dss
-   cd mar_dss/
-   python setup.py develop
+   git clone git@github.com:your_name_here/mar_tool.git
+   cd mar_tool
    ```
 
-4. Create a branch for local development:
+1. Install the project and test tools:
+
+   ```sh
+   uv sync --python=3.13 --locked --extra test
+   ```
+
+1. Create a branch for local development:
 
    ```sh
    git checkout -b name-of-your-bugfix-or-feature
    ```
 
-   Now you can make your changes locally.
+## Run Locally
 
-5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
+```sh
+uv run mar_dss --dev
+```
+
+Open <http://127.0.0.1:8050/>. The app reloads when you save a file.
+
+### With Docker
+
+Docker Compose runs the app behind Caddy at `/MAR-Tool/`.
+
+```sh
+docker compose up --build
+```
+
+Open <http://localhost:8085/MAR-Tool/>. Edits under `src/` reload automatically.
+
+## Test and Submit
+
+1. Run the quality checks and tests with `just qa`. Use `just testall` to test Python 3.10 through 3.13 in parallel with tox and uv.
 
    ```sh
-   make lint
-   make test
-   # Or
-   make test-all
+   just qa
+   just testall
    ```
 
-   To get flake8 and tox, just pip install them into your virtualenv.
+   Test runs show branch coverage and missing lines. Run `just coverage` to also write `htmlcov/index.html`.
 
-6. Commit your changes and push your branch to GitHub:
+1. Commit your changes and push your branch to GitHub:
 
    ```sh
    git add .
@@ -84,35 +100,36 @@ Ready to contribute? Here's how to set up `mar_dss` for local development.
    git push origin name-of-your-bugfix-or-feature
    ```
 
-7. Submit a pull request through the GitHub website.
+1. Submit a pull request through the GitHub website.
 
 ## Pull Request Guidelines
 
 Before you submit a pull request, check that it meets these guidelines:
 
 1. The pull request should include tests.
-2. If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring, and add the feature to the list in README.md.
-3. The pull request should work for Python 3.12 and 3.13. Tests run in GitHub Actions on every pull request to the main branch, make sure that the tests pass for all supported Python versions.
+1. Update the relevant documentation when you add functionality.
+1. GitHub Actions tests pull requests to `main` on Python 3.12 and 3.13. Run `just testall` to check the full local matrix.
 
 ## Tips
 
 To run a subset of tests:
 
 ```sh
-pytest tests.test_mar_dss
+just test tests/test_base.py
 ```
 
 ## Deploying
 
-A reminder for the maintainers on how to deploy. Make sure all your changes are committed (including an entry in HISTORY.md). Then run:
+Set the Caddy request body limit to `16MB` on the server's MAR-Tool route. This allows a 10 MiB project file to fit in the encoded upload request.
+
+Commit all changes first, including notes under "Unreleased" in [CHANGELOG.md](CHANGELOG.md). Then run:
 
 ```sh
-bump2version patch # possible: major / minor / patch
-git push
-git push --tags
+just bump-patch   # or bump-minor / bump-major
+just tag          # pushes main, then the new tag
 ```
 
-You can set up a [GitHub Actions workflow](https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing/building-and-testing-python#publishing-to-pypi) to automatically deploy your package to PyPI when you push a new tag.
+The bump updates the version, dates the changelog section, commits, and tags the release. Pushing the tag triggers deployment. [GitHub Actions workflow](.github/workflows/ci-cd.yaml)
 
 ## Code of Conduct
 

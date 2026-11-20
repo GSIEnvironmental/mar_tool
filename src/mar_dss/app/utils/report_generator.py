@@ -28,9 +28,9 @@ from mar_dss.app.components.hydro_tab import (
 from mar_dss.app.components.overview_tab import get_overview_map_basemap
 from mar_dss.app.components.water_source_tab import (
     WATER_SOURCE_LABELS,
+    _haversine_miles,
     build_water_source_location_map_figure,
     ensure_water_source_site_coordinates,
-    _haversine_miles,
 )
 
 ReportFormat = Literal["html", "pdf"]
@@ -102,9 +102,7 @@ _HYDROGEOLOGY_INTRO = (
     "stratigraphy layers, and seasonal groundwater elevations."
 )
 
-_INPUT_SUMMARY_INTRO = (
-    "Additional project inputs entered across MAR DSS tabs used in this prefeasibility analysis."
-)
+_INPUT_SUMMARY_INTRO = "Additional project inputs entered across MAR DSS tabs used in this prefeasibility analysis."
 
 
 def _esc(value: Any) -> str:
@@ -322,7 +320,7 @@ def _collect_water_source_flow_rows() -> list[list[str]]:
     if not isinstance(monthly, list) or len(monthly) != 12:
         return []
     rows: list[list[str]] = []
-    for month, value in zip(_MONTH_LABELS, monthly):
+    for month, value in zip(_MONTH_LABELS, monthly, strict=True):
         try:
             flow = float(value or 0)
             rows.append([month, f"{flow:,.0f}"])
@@ -358,14 +356,16 @@ def _collect_stratigraphy_table_rows() -> list[list[str]]:
     rows: list[list[str]] = []
     for layer in layers:
         recharge = "Yes" if layer.get("recharge_target") else "No"
-        rows.append([
-            _format_input_value(layer.get("layer")),
-            _format_input_value(layer.get("thickness")),
-            _format_input_value(layer.get("conductivity")),
-            _format_input_value(layer.get("storage")),
-            _format_input_value(layer.get("yield")),
-            recharge,
-        ])
+        rows.append(
+            [
+                _format_input_value(layer.get("layer")),
+                _format_input_value(layer.get("thickness")),
+                _format_input_value(layer.get("conductivity")),
+                _format_input_value(layer.get("storage")),
+                _format_input_value(layer.get("yield")),
+                recharge,
+            ],
+        )
     return rows
 
 
@@ -402,10 +402,7 @@ def _water_source_map_html(*, compact: bool = False) -> str:
         )
     encoded = base64.b64encode(png).decode("ascii")
     css_class = "report-map report-map-compact" if compact else "report-map"
-    return (
-        f'<img class="{css_class}" src="data:image/png;base64,{encoded}" '
-        'alt="Water source and recharge site map"/>'
-    )
+    return f'<img class="{css_class}" src="data:image/png;base64,{encoded}" alt="Water source and recharge site map"/>'
 
 
 def _pdf_water_source_map_flowable(width: float, height: float, body_style) -> Any:
@@ -448,11 +445,7 @@ def _html_executive_summary_section(data: dict[str, Any]) -> str:
         ],
         data["exec_table_rows"],
     )
-    return (
-        "<h2>Executive Summary</h2>"
-        f"<p class='lead'>{_esc(_EXEC_SUMMARY_INTRO)}</p>"
-        f"{exec_table}"
-    )
+    return f"<h2>Executive Summary</h2><p class='lead'>{_esc(_EXEC_SUMMARY_INTRO)}</p>{exec_table}"
 
 
 def _pdf_label_value_paragraph(label: str, value: str, style) -> Any:
@@ -480,12 +473,14 @@ def _pdf_report_header_section(
         colWidths=[3.4 * inch],
     )
     meta_table.setStyle(
-        TableStyle([
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ])
+        TableStyle(
+            [
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ],
+        ),
     )
 
     map_width = 3.1 * inch
@@ -497,13 +492,15 @@ def _pdf_report_header_section(
         colWidths=[3.4 * inch, map_width],
     )
     header_row.setStyle(
-        TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ])
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ],
+        ),
     )
     story.append(header_row)
     story.append(Spacer(1, 0.2 * inch))
@@ -545,9 +542,7 @@ def _gather_report_data() -> dict[str, Any]:
 
     dss_results = dash_storage.get_data("dss_results")
     if dss_results is None or not getattr(dss_results, "results", None):
-        raise ValueError(
-            "No DSS analysis results found. Run feasibility analysis on the Analysis tab first."
-        )
+        raise ValueError("No DSS analysis results found. Run feasibility analysis on the Analysis tab first.")
 
     results = dss_results.results
     filters = getattr(dss_results, "filters", {}) or {}
@@ -555,15 +550,17 @@ def _gather_report_data() -> dict[str, Any]:
     exec_rows = _build_ranked_executive_rows(results, filters)
     exec_table_rows = []
     for row in exec_rows:
-        exec_table_rows.append([
-            str(row["rank"]),
-            row["name"],
-            row["status"],
-            row["tier"],
-            _format_currency(row["capital"]) if row["capital"] else "—",
-            _format_volume_acre_ft(row["acre_ft"]),
-            _format_per_acre_ft(row["capital_per_acre_ft"]),
-        ])
+        exec_table_rows.append(
+            [
+                str(row["rank"]),
+                row["name"],
+                row["status"],
+                row["tier"],
+                _format_currency(row["capital"]) if row["capital"] else "—",
+                _format_volume_acre_ft(row["acre_ft"]),
+                _format_per_acre_ft(row["capital_per_acre_ft"]),
+            ],
+        )
 
     justification_blocks: list[tuple[str, str]] = []
     for option_name in MAR_ENGINEERING_OPTIONS:
@@ -620,7 +617,7 @@ def build_prefeasibility_report_html() -> str:
     for option_name, text in justification_blocks:
         html_justifications.append(
             f'<div class="justification-block"><h3>{_esc(option_name)}</h3>'
-            f'<pre class="justification-text">{_esc(text)}</pre></div>'
+            f'<pre class="justification-text">{_esc(text)}</pre></div>',
         )
 
     parts = [
@@ -633,8 +630,7 @@ def build_prefeasibility_report_html() -> str:
         "h1 { color: #0d6efd; border-bottom: 3px solid #0d6efd; padding-bottom: 8px; }",
         "h2 { color: #0d6efd; margin-top: 32px; }",
         "h3 { color: #495057; margin-top: 16px; }",
-        ".report-header-row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; "
-        "margin: 0 0 28px; }",
+        ".report-header-row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; margin: 0 0 28px; }",
         ".report-meta { flex: 1 1 240px; color: #6c757d; font-size: 15px; line-height: 1.8; }",
         ".report-meta strong { color: #495057; }",
         ".report-header-map { flex: 1 1 320px; max-width: 420px; }",

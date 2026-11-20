@@ -1,0 +1,95 @@
+# Checks that run on every `git commit`. To set them up once:
+#
+#   uv sync --extra test
+#   uv run pre-commit install
+#
+# To run them on every file: uv run pre-commit run --all-files
+fail_fast: false
+
+exclude: |
+  (?x)^(
+    .venv/|
+    # Copied from the USGS pfdf package, so leave it as is.
+    src/mar_dss/pfdf/
+  )
+
+repos:
+  - repo: meta
+    hooks:
+      - id: identity
+      - id: check-hooks-apply
+  # Protect secrets using Gitleaks
+  - repo: https://github.com/zricethezav/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+  # Keep uv.lock up to date with pyproject.toml.
+  - repo: local
+    hooks:
+      - id: uv-lock
+        name: uv lock
+        entry: uv lock
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+  # Base hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=10000]
+      - id: check-ast
+      - id: check-case-conflict
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+  # Hadolint Dockerfile linter
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.15.1
+    hooks:
+      - id: hadolint
+  # Add trailing commas to calls and literals.
+  - repo: https://github.com/asottile/add-trailing-comma
+    rev: v4.0.0
+    hooks:
+      - id: add-trailing-comma
+  # Opinionated markdown formatting
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 1.0.0
+    hooks:
+      - id: mdformat
+        language: python
+        # Stops mdformat from mangling YAML frontmatter (`---` blocks).
+        additional_dependencies:
+          # Pinned. Update it when you update mdformat.
+          - mdformat-frontmatter==2.1.2
+        exclude: |
+          (?x)^(
+            \.claude/.*
+          )$
+  # Markdown lint
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.50.0
+    hooks:
+      - id: markdownlint
+        types: [file]
+        files: .(md)$
+        args: [--disable, MD013]
+  # Spell check
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.52.2
+    hooks:
+      - id: typos
+  # Lint and format with ruff (settings are in pyproject.toml). Keep this rev
+  # the same as the ruff version in uv.lock, since CI uses that one.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.6
+    hooks:
+      - id: ruff-check
+        args: [--exit-non-zero-on-fix]
+      - id: ruff-format
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.27
+    hooks:
+      - id: validate-pyproject

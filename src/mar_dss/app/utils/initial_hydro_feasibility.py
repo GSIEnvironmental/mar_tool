@@ -8,7 +8,8 @@ Green: otherwise (only acceptable / irrelevant soft responses, all hard pass).
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Literal, Optional, Sequence, Tuple
+from collections.abc import Iterable, Sequence
+from typing import Any, Literal
 
 RESPONSE_LABELS = {
     -1: "Irrelevant",
@@ -26,7 +27,7 @@ TrafficColor = Literal["green", "orange", "red"]
 HYDROGEOLOGIC_CONSTRAINT_TYPES = frozenset({"hydrogeologic"})
 
 
-def _constraint_type(constraint: Dict[str, Any]) -> str:
+def _constraint_type(constraint: dict[str, Any]) -> str:
     raw = constraint.get("type")
     if raw is None or str(raw).strip() == "":
         return "hydrogeologic"
@@ -34,9 +35,9 @@ def _constraint_type(constraint: Dict[str, Any]) -> str:
 
 
 def filter_constraints_by_type(
-    constraints: Sequence[Dict[str, Any]],
-    allowed_types: Optional[Iterable[str]],
-) -> List[Dict[str, Any]]:
+    constraints: Sequence[dict[str, Any]],
+    allowed_types: Iterable[str] | None,
+) -> list[dict[str, Any]]:
     """Keep constraints whose ``type`` is in *allowed_types* (case-insensitive).
 
     If *allowed_types* is None, return all constraints unchanged.
@@ -49,9 +50,9 @@ def filter_constraints_by_type(
 
 
 def classify_constraints_traffic_light(
-    hard_list: List[Dict[str, Any]],
-    soft_list: List[Dict[str, Any]],
-) -> Tuple[TrafficColor, str]:
+    hard_list: list[dict[str, Any]],
+    soft_list: list[dict[str, Any]],
+) -> tuple[TrafficColor, str]:
     """
     Returns (color, short status line).
 
@@ -64,11 +65,7 @@ def classify_constraints_traffic_light(
         detail = hc.get("why") or hc.get("name") or "Hard constraint failed"
         return ("red", f"Fail - {detail}")
 
-    soft_relevant = [
-        sm
-        for sm in soft_list
-        if sm.get("response") is not None and sm.get("response") != -1
-    ]
+    soft_relevant = [sm for sm in soft_list if sm.get("response") is not None and sm.get("response") != -1]
 
     reject_soft = [sm for sm in soft_relevant if sm.get("response") == 4]
     if reject_soft:
@@ -80,11 +77,7 @@ def classify_constraints_traffic_light(
             detail = sm.get("name") or "Soft reject"
         return ("red", f"Fail - {detail}")
 
-    warn_soft = [
-        sm
-        for sm in soft_list
-        if sm.get("response") in (1, 2, 3)
-    ]
+    warn_soft = [sm for sm in soft_list if sm.get("response") in (1, 2, 3)]
     if warn_soft:
         max_r = max(sm["response"] for sm in warn_soft)
         worst = [sm for sm in warn_soft if sm.get("response") == max_r]
@@ -104,8 +97,8 @@ def evaluate_option_traffic_light(
     hard_constraints_fn,
     soft_constraints_fn,
     *,
-    allowed_types: Optional[Iterable[str]] = None,
-) -> Tuple[TrafficColor, str]:
+    allowed_types: Iterable[str] | None = None,
+) -> tuple[TrafficColor, str]:
     """Run MAR constraint builders for one option and classify.
 
     Parameters
@@ -115,10 +108,6 @@ def evaluate_option_traffic_light(
         ``type`` is in this set are used. Water quality / environmental items are
         omitted from the Initial Hydrogeologic Feasibility screen.
     """
-    hc_list = filter_constraints_by_type(
-        hard_constraints_fn(option), allowed_types
-    )
-    sc_list = filter_constraints_by_type(
-        soft_constraints_fn(option), allowed_types
-    )
+    hc_list = filter_constraints_by_type(hard_constraints_fn(option), allowed_types)
+    sc_list = filter_constraints_by_type(soft_constraints_fn(option), allowed_types)
     return classify_constraints_traffic_light(hc_list, sc_list)

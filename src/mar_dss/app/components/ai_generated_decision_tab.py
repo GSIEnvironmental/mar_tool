@@ -7,8 +7,8 @@ Prompt-builder only — in-app Gemini API generation has been removed.
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
-from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
 import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
 
 
 def create_ai_generated_decision_content():
@@ -101,10 +101,7 @@ def create_ai_generated_decision_content():
                                 id="ai-decision-prompt-display",
                                 value="",
                                 readOnly=True,
-                                placeholder=(
-                                    "Click Build Prompt to generate the full project "
-                                    "context prompt…"
-                                ),
+                                placeholder=("Click Build Prompt to generate the full project context prompt…"),
                                 style={
                                     "width": "100%",
                                     "minHeight": "260px",
@@ -134,5 +131,5 @@ def create_ai_generated_decision_content():
                 target="copy-ai-decision-prompt-btn",
                 placement="top",
             ),
-        ]
+        ],
     )

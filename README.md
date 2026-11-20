@@ -1,18 +1,7 @@
-# mar_dss
+# MAR-Tool
 
-![PyPI version](https://img.shields.io/pypi/v/mar_dss.svg)
-[![Documentation Status](https://readthedocs.org/projects/mar_dss/badge/?version=latest)](https://mar_dss.readthedocs.io/en/latest/?version=latest)
+Managed Aquifer Recharge Decision Support System: a web app for checking whether a managed aquifer recharge project is feasible.
 
-Managed Aquifer Recharge Decision Support System
+It runs at <https://apps.gsienv.com/MAR-Tool/>.
 
-* PyPI package: https://pypi.org/project/mar_dss/
-* Free software: MIT License
-* Documentation: https://mar_dss.readthedocs.io.
-
-## Features
-
-* TODO
-
-## Credits
-
-This package was created with [Cookiecutter](https://github.com/audreyfeldroy/cookiecutter) and the [audreyfeldroy/cookiecutter-pypackage](https://github.com/audreyfeldroy/cookiecutter-pypackage) project template.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local development, testing, and releases.

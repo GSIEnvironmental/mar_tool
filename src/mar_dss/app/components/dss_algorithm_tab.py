@@ -17,10 +17,10 @@ def create_dss_algorithm_content():
                     html.P(
                         "Weighted sum multi-criteria decision analysis (MCDA) to rank MAR options"
                         "Adjust weights to reflect the relative importance of each criterion.",
-                        className="text-muted mb-3 small"
+                        className="text-muted mb-3 small",
                     ),
-                    width=12
-                )
+                    width=12,
+                ),
             ),
             # Weights in compact grid
             dbc.Row(
@@ -36,10 +36,10 @@ def create_dss_algorithm_content():
                                 min=0,
                                 max=10,
                                 step=0.1,
-                                size="sm"
-                            )
+                                size="sm",
+                            ),
                         ],
-                        width=2
+                        width=2,
                     ),
                     dbc.Col(
                         [
@@ -52,10 +52,10 @@ def create_dss_algorithm_content():
                                 min=0,
                                 max=10,
                                 step=0.1,
-                                size="sm"
-                            )
+                                size="sm",
+                            ),
                         ],
-                        width=2
+                        width=2,
                     ),
                     dbc.Col(
                         [
@@ -68,10 +68,10 @@ def create_dss_algorithm_content():
                                 min=0,
                                 max=10,
                                 step=0.1,
-                                size="sm"
-                            )
+                                size="sm",
+                            ),
                         ],
-                        width=2
+                        width=2,
                     ),
                     dbc.Col(
                         [
@@ -84,10 +84,10 @@ def create_dss_algorithm_content():
                                 min=0,
                                 max=10,
                                 step=0.1,
-                                size="sm"
-                            )
+                                size="sm",
+                            ),
                         ],
-                        width=2
+                        width=2,
                     ),
                     dbc.Col(
                         [
@@ -100,13 +100,13 @@ def create_dss_algorithm_content():
                                 min=0,
                                 max=10,
                                 step=0.1,
-                                size="sm"
-                            )
+                                size="sm",
+                            ),
                         ],
-                        width=2
-                    )
+                        width=2,
+                    ),
                 ],
-                className="mb-3"
+                className="mb-3",
             ),
             # Main content row: Decision Matrix and Results side by side
             dbc.Row(
@@ -119,23 +119,23 @@ def create_dss_algorithm_content():
                                     dbc.CardHeader(
                                         "Decision Matrix",
                                         className="fw-bold text-white py-2",
-                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
+                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"},
                                     ),
                                     dbc.CardBody(
                                         id="dss-decision-matrix-table",
                                         children=[
                                             html.Div(
                                                 "Loading decision matrix...",
-                                                className="text-center text-muted p-2 small"
-                                            )
+                                                className="text-center text-muted p-2 small",
+                                            ),
                                         ],
-                                        style={"maxHeight": "400px", "overflowY": "auto", "padding": "0.5rem"}
-                                    )
+                                        style={"maxHeight": "400px", "overflowY": "auto", "padding": "0.5rem"},
+                                    ),
                                 ],
-                                className="h-100"
-                            )
+                                className="h-100",
+                            ),
                         ],
-                        width=7
+                        width=7,
                     ),
                     # Results - Right side (compact)
                     dbc.Col(
@@ -146,14 +146,14 @@ def create_dss_algorithm_content():
                                     dbc.CardHeader(
                                         "Ranking",
                                         className="fw-bold text-white py-2",
-                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
+                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"},
                                     ),
                                     dbc.CardBody(
                                         id="dss-ranking",
-                                        style={"padding": "0.5rem", "maxHeight": "200px", "overflowY": "auto"}
-                                    )
+                                        style={"padding": "0.5rem", "maxHeight": "200px", "overflowY": "auto"},
+                                    ),
                                 ],
-                                className="mb-2"
+                                className="mb-2",
                             ),
                             # Weighted Scores card
                             dbc.Card(
@@ -161,19 +161,19 @@ def create_dss_algorithm_content():
                                     dbc.CardHeader(
                                         "Weighted Scores",
                                         className="fw-bold text-white py-2",
-                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
+                                        style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"},
                                     ),
                                     dbc.CardBody(
                                         id="dss-weighted-scores",
-                                        style={"padding": "0.5rem", "maxHeight": "180px", "overflowY": "auto"}
-                                    )
-                                ]
-                            )
+                                        style={"padding": "0.5rem", "maxHeight": "180px", "overflowY": "auto"},
+                                    ),
+                                ],
+                            ),
                         ],
-                        width=5
-                    )
+                        width=5,
+                    ),
                 ],
-                className="mb-3"
+                className="mb-3",
             ),
             # Visualization row
             dbc.Row(
@@ -184,19 +184,17 @@ def create_dss_algorithm_content():
                                 dbc.CardHeader(
                                     "Weighted Scores Visualization",
                                     className="fw-bold text-white py-2",
-                                    style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
+                                    style={"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"},
                                 ),
                                 dbc.CardBody(
-                                    [
-                                        dcc.Graph(id="dss-sensitivity-chart", config={"displayModeBar": False})
-                                    ],
-                                    style={"padding": "0.5rem"}
-                                )
-                            ]
-                        )
+                                    [dcc.Graph(id="dss-sensitivity-chart", config={"displayModeBar": False})],
+                                    style={"padding": "0.5rem"},
+                                ),
+                            ],
+                        ),
                     ],
-                    width=12
-                )
+                    width=12,
+                ),
             ),
             dbc.Tooltip(
                 "Relative weight for hydrogeologic feasibility scores in the MCDA (0–10)",
@@ -229,5 +227,5 @@ def create_dss_algorithm_content():
                 placement="top",
             ),
         ],
-        style={"padding": "0.5rem"}
+        style={"padding": "0.5rem"},
     )

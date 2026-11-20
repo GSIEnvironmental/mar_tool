@@ -2,6 +2,7 @@
 Hydrogeology tab callbacks for MAR DSS dashboard.
 """
 
+import contextlib
 import copy
 import math
 
@@ -9,9 +10,10 @@ import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, callback_context, dcc, html, State
+from dash import Input, Output, State, callback_context, html
+
 import mar_dss.app.utils.data_storage as dash_storage
-from mar_dss.app.utils.excel_table import input_cell_style, label_cell_style
+from mar_dss.app.callbacks.analysis_callbacks import get_graph_inputs, get_session_graph
 from mar_dss.app.components.hydro_tab import (
     GROUNDWATER_MONTH_NAMES,
     RULE_DEFAULT_SCALAR_ROWS,
@@ -24,28 +26,31 @@ from mar_dss.app.components.hydro_tab import (
     normalize_stratigraphy_recharge_target,
     soil_property_defaults,
 )
-
+from mar_dss.app.utils.excel_table import input_cell_style, label_cell_style
+from mar_dss.app.utils.initial_hydro_feasibility import (
+    HYDROGEOLOGIC_CONSTRAINT_TYPES,
+    evaluate_option_traffic_light,
+)
+from mar_dss.app.utils.plotly_contour_grid import rectilinear_grid_for_plotly_contour
+from mar_dss.mar import hard_constraints as hc_module
+from mar_dss.mar import soft_constraints as sc_module
+from mar_dss.mar.forward_run import evaluate_and_store_decision_graph
+from mar_dss.mar.options import mar_options
+from mar_dss.rules.defaults import (
+    RULE_DEFAULTS_OVERRIDES_STORAGE_KEY,
+)
+from mar_dss.rules.defaults import (
+    defaults as RULE_DEFAULTS_BASE,
+)
+from mar_dss.rules.defaults import (
+    get_default as rule_defaults_get,
+)
 from mar_dss.rules.geohydro_rules import (
     DEFAULT_AQUITARD_K_MAX_FT_DAY,
     build_confined_theis_xy_plot_dict,
     build_unconfined_mounding_xy_plot_dict,
     infer_dashboard_aquifer_type,
 )
-from mar_dss.rules.defaults import (
-    RULE_DEFAULTS_OVERRIDES_STORAGE_KEY,
-    defaults as RULE_DEFAULTS_BASE,
-    get_default as rule_defaults_get,
-)
-from mar_dss.mar import hard_constraints as hc_module
-from mar_dss.mar import soft_constraints as sc_module
-from mar_dss.mar.options import mar_options
-from mar_dss.mar.forward_run import evaluate_and_store_decision_graph
-from mar_dss.app.callbacks.analysis_callbacks import get_session_graph, get_graph_inputs
-from mar_dss.app.utils.initial_hydro_feasibility import (
-    HYDROGEOLOGIC_CONSTRAINT_TYPES,
-    evaluate_option_traffic_light,
-)
-from mar_dss.app.utils.plotly_contour_grid import rectilinear_grid_for_plotly_contour
 
 DEFAULT_MAX_DRY_WELL_DEPTH_FT = 120.0
 
@@ -78,7 +83,7 @@ def _render_initial_feasibility_status(status_line: str):
         return html.Span("Pass", className="fw-bold text-success fs-6")
     prefix_pw = "Pass with Warnings - "
     if status_line.startswith(prefix_pw):
-        rest = status_line[len(prefix_pw):]
+        rest = status_line[len(prefix_pw) :]
         return html.Span(
             [
                 html.Span("Pass", className="fw-bold text-success"),
@@ -88,7 +93,7 @@ def _render_initial_feasibility_status(status_line: str):
         )
     prefix_fail = "Fail - "
     if status_line.startswith(prefix_fail):
-        rest = status_line[len(prefix_fail):]
+        rest = status_line[len(prefix_fail) :]
         return html.Span(
             [
                 html.Span("Fail", className="fw-bold text-danger"),
@@ -133,24 +138,24 @@ def _xy_view_empty_figure():
     """No geometry or contours until the user clicks *Show Contour Lines*."""
     fig = go.Figure()
     fig.update_layout(
-        title=dict(text="Plan View", x=0.5, xanchor="center", font=dict(size=16)),
+        title={"text": "Plan View", "x": 0.5, "xanchor": "center", "font": {"size": 16}},
         template="plotly_white",
         height=500,
-        margin=dict(l=50, r=50, t=60, b=50),
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
+        margin={"l": 50, "r": 50, "t": 60, "b": 50},
+        xaxis={"visible": False},
+        yaxis={"visible": False},
         annotations=[
-            dict(
-                x=0.5,
-                y=0.5,
-                xref="paper",
-                yref="paper",
-                text='Click "Show Contour Lines" to display the plan view with head contours.',
-                showarrow=False,
-                font=dict(size=14, color="#000"),
-                xanchor="center",
-                yanchor="middle",
-            )
+            {
+                "x": 0.5,
+                "y": 0.5,
+                "xref": "paper",
+                "yref": "paper",
+                "text": 'Click "Show Contour Lines" to display the plan view with head contours.',
+                "showarrow": False,
+                "font": {"size": 14, "color": "#000"},
+                "xanchor": "center",
+                "yanchor": "middle",
+            },
         ],
     )
     return fig
@@ -285,10 +290,10 @@ def _add_footprint_outline(fig, half_length, half_width, rotation_deg):
             x=x_c,
             y=y_c,
             mode="lines",
-            line=dict(color="#212529", width=2),
+            line={"color": "#212529", "width": 2},
             name="MAR footprint",
             hoverinfo="skip",
-        )
+        ),
     )
 
 
@@ -360,8 +365,7 @@ def _xy_view_contour_error_alert(detail):
     return dbc.Alert(
         [
             html.Div(
-                "Could not show contour lines. Some input information may be "
-                "incorrect or missing.",
+                "Could not show contour lines. Some input information may be incorrect or missing.",
                 className="fw-semibold mb-2",
             ),
             html.Div(
@@ -436,17 +440,17 @@ def _add_confined_theis_contour_to_figure(
             z=zp,
             colorscale="Jet",
             name="Mound + 2% regional gradient",
-            colorbar=dict(title="Mound + gradient (ft)"),
+            colorbar={"title": "Mound + gradient (ft)"},
             opacity=0.82,
-            contours=dict(showlines=True, coloring="fill"),
+            contours={"showlines": True, "coloring": "fill"},
             hovertemplate=(
-                "<b>Theis + regional gradient</b><br>%{z:.2f} ft<br>"
-                "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
+                "<b>Theis + regional gradient</b><br>%{z:.2f} ft<br>x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
             ),
             uirevision=str(n_clicks or 0),
-        )
+        ),
     )
     return fig, True, None
+
 
 def setup_hydro_callbacks(app):
     """Set up all hydrogeology-related callbacks."""
@@ -595,11 +599,7 @@ def setup_hydro_callbacks(app):
         return inferred
 
     # Callback to synchronize geometry tabs with view tabs
-    @app.callback(
-        Output("view-tabs", "active_tab"),
-        [Input("geometry-tabs", "active_tab")],
-        prevent_initial_call=False
-    )
+    @app.callback(Output("view-tabs", "active_tab"), [Input("geometry-tabs", "active_tab")], prevent_initial_call=False)
     def sync_view_tabs_with_geometry_tabs(active_geometry_tab):
         """Synchronize view tabs based on geometry tab selection."""
         # Map geometry tabs to view tabs
@@ -607,7 +607,7 @@ def setup_hydro_callbacks(app):
             "stratigraphy-tab": "stratigraphy-cross-section",
             "groundwater-level-tab": "available-mar-storage",
         }
-        
+
         # Return the corresponding view tab, or default to stratigraphy-cross-section
         return tab_mapping.get(active_geometry_tab, "stratigraphy-cross-section")
 
@@ -685,9 +685,7 @@ def setup_hydro_callbacks(app):
                         return v
                 except (TypeError, ValueError):
                     pass
-            dash_storage.set_data(
-                "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
-            )
+            dash_storage.set_data("max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT)
             return DEFAULT_MAX_DRY_WELL_DEPTH_FT
 
         if not ctx.triggered:
@@ -699,22 +697,16 @@ def setup_hydro_callbacks(app):
             return _load_or_default()
 
         if value is None or str(value).strip() == "":
-            dash_storage.set_data(
-                "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
-            )
+            dash_storage.set_data("max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT)
             return DEFAULT_MAX_DRY_WELL_DEPTH_FT
 
         try:
             fv = float(str(value).strip())
             if not math.isfinite(fv) or fv <= 0:
-                dash_storage.set_data(
-                    "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
-                )
+                dash_storage.set_data("max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT)
                 return DEFAULT_MAX_DRY_WELL_DEPTH_FT
         except (ValueError, TypeError):
-            dash_storage.set_data(
-                "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
-            )
+            dash_storage.set_data("max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT)
             return DEFAULT_MAX_DRY_WELL_DEPTH_FT
 
         dash_storage.set_data("max_dry_well_depth_ft", fv)
@@ -744,9 +736,7 @@ def setup_hydro_callbacks(app):
                         return _aquitard_k_input_str(aq)
                 except (TypeError, ValueError):
                     pass
-            dash_storage.set_data(
-                "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
-            )
+            dash_storage.set_data("aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY)
             return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
 
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
@@ -761,9 +751,7 @@ def setup_hydro_callbacks(app):
                         return _aquitard_k_input_str(aq)
                 except (TypeError, ValueError):
                     pass
-            dash_storage.set_data(
-                "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
-            )
+            dash_storage.set_data("aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY)
             return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
 
         # Blur or Enter: commit current text from State
@@ -776,9 +764,7 @@ def setup_hydro_callbacks(app):
             except (TypeError, ValueError):
                 pass
 
-        dash_storage.set_data(
-            "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
-        )
+        dash_storage.set_data("aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY)
         return _aquitard_k_input_str(DEFAULT_AQUITARD_K_MAX_FT_DAY)
 
     # Persist stratigraphy store → dash_storage (do not Output to the same Store as Input;
@@ -810,7 +796,7 @@ def setup_hydro_callbacks(app):
             dash_storage.set_data("groundwater_data", copy.deepcopy(data))
         n = prev_ping if isinstance(prev_ping, int) else 0
         return n + 1
-    
+
     # Callback to save ground surface elevation to data storage
     @app.callback(
         Output("ground-surface-elevation", "value"),
@@ -818,14 +804,14 @@ def setup_hydro_callbacks(app):
             Input("ground-surface-elevation", "value"),
             Input("ground-surface-elevation", "n_blur"),
             Input("ground-surface-elevation", "n_submit"),
-            Input("ground-surface-elevation", "id")
+            Input("ground-surface-elevation", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_ground_surface_elevation_input(value, n_blur, n_submit, component_id):
         """Handle ground surface elevation input and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value and ensure it's a float, then save it
             elevation = dash_storage.get_data("ground_surface_elevation")
@@ -838,7 +824,7 @@ def setup_hydro_callbacks(app):
                 elevation = 120.0
             dash_storage.set_data("ground_surface_elevation", elevation)
             return elevation
-        
+
         # Get the current value and convert to float
         if value is not None:
             try:
@@ -847,16 +833,16 @@ def setup_hydro_callbacks(app):
                 current_value = 120.0
         else:
             current_value = 120.0
-        
+
         # Determine which trigger caused the callback
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
+
         # Save for all triggers except initial load (ensure it's saved as float)
         if trigger_prop != "id":
             dash_storage.set_data("ground_surface_elevation", current_value)
-        
+
         return current_value
-    
+
     # Callback to save max MAR storage depth to data storage
     @app.callback(
         Output("max-mar-storage-depth", "value"),
@@ -914,6 +900,7 @@ def setup_hydro_callbacks(app):
 
         dash_storage.set_data("max_mar_storage_depth", value)
         return value, False, ""
+
     # Callback to save extension length to data storage
     @app.callback(
         Output("extension-length", "value"),
@@ -921,28 +908,28 @@ def setup_hydro_callbacks(app):
             Input("extension-length", "value"),
             Input("extension-length", "n_blur"),
             Input("extension-length", "n_submit"),
-            Input("extension-length", "id")
+            Input("extension-length", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_extension_length_input(value, n_blur, n_submit, component_id):
         """Handle extension length input and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             length = dash_storage.get_data("extension_length") or 100.0
             dash_storage.set_data("extension_length", length)
             return length
-        
+
         current_value = value if value is not None else 100.0
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
+
         if trigger_prop != "id":
             dash_storage.set_data("extension_length", current_value)
-        
+
         return current_value
-    
+
     # Callback to save extension width to data storage
     @app.callback(
         Output("extension-width", "value"),
@@ -950,28 +937,28 @@ def setup_hydro_callbacks(app):
             Input("extension-width", "value"),
             Input("extension-width", "n_blur"),
             Input("extension-width", "n_submit"),
-            Input("extension-width", "id")
+            Input("extension-width", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_extension_width_input(value, n_blur, n_submit, component_id):
         """Handle extension width input and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             width = dash_storage.get_data("extension_width") or 50.0
             dash_storage.set_data("extension_width", width)
             return width
-        
+
         current_value = value if value is not None else 50.0
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
+
         if trigger_prop != "id":
             dash_storage.set_data("extension_width", current_value)
-        
+
         return current_value
-    
+
     # Callback to save extension rotation to data storage
     @app.callback(
         Output("extension-rotation", "value"),
@@ -979,35 +966,35 @@ def setup_hydro_callbacks(app):
             Input("extension-rotation", "value"),
             Input("extension-rotation", "n_blur"),
             Input("extension-rotation", "n_submit"),
-            Input("extension-rotation", "id")
+            Input("extension-rotation", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_extension_rotation_input(value, n_blur, n_submit, component_id):
         """Handle extension rotation input and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             rotation = dash_storage.get_data("extension_rotation") or 0.0
             dash_storage.set_data("extension_rotation", rotation)
             return rotation
-        
+
         current_value = value if value is not None else 0.0
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1] if ctx.triggered else ""
-        
+
         if trigger_prop != "id":
             dash_storage.set_data("extension_rotation", current_value)
-        
+
         return current_value
-    
+
     @app.callback(
         Output("stratigraphy-table-body", "children"),
         [
             Input("stratigraphy-data-store", "data"),
             Input("stratigraphy-validation-tick", "data"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def update_stratigraphy_table(data, validation_tick):
         """Update the stratigraphy table based on stored data."""
@@ -1021,7 +1008,7 @@ def setup_hydro_callbacks(app):
             checkbox = dbc.Checkbox(
                 id={"type": "layer-checkbox", "index": i},
                 value=row.get("selected", False),
-                className="form-check-input"
+                className="form-check-input",
             )
 
             recharge_checkbox = dbc.Checkbox(
@@ -1034,11 +1021,11 @@ def setup_hydro_callbacks(app):
             layer_dropdown = dbc.Select(
                 id={"type": "layer-select", "index": i},
                 value=row["layer"],
-                options=[{"label": lith, "value": lith} for lith in SOIL_PROPERTIES.keys()],
+                options=[{"label": lith, "value": lith} for lith in SOIL_PROPERTIES],
                 size="sm",
                 className="table-cell-input-borderless",
             )
-            
+
             # key includes validation tick so rejected edits remount with store values
             # Use step="any" for hydro properties. Fixed steps + a tiny min
             # (e.g. 1e-12) make HTML5 reject valid values like Ss=0.000005
@@ -1055,7 +1042,7 @@ def setup_hydro_callbacks(app):
                 className="table-cell-input-borderless",
                 key=f"thickness-{i}-{tick}",
             )
-            
+
             conductivity_input = dbc.Input(
                 id={"type": "conductivity-input", "index": i},
                 value=row["conductivity"],
@@ -1067,7 +1054,7 @@ def setup_hydro_callbacks(app):
                 className="table-cell-input-borderless",
                 key=f"conductivity-{i}-{tick}",
             )
-            
+
             storage_input = dbc.Input(
                 id={"type": "storage-input", "index": i},
                 value=row["storage"],
@@ -1079,7 +1066,7 @@ def setup_hydro_callbacks(app):
                 className="table-cell-input-borderless",
                 key=f"storage-{i}-{tick}",
             )
-            
+
             yield_input = dbc.Input(
                 id={"type": "yield-input", "index": i},
                 value=row["yield"],
@@ -1091,33 +1078,39 @@ def setup_hydro_callbacks(app):
                 className="table-cell-input-borderless",
                 key=f"yield-{i}-{tick}",
             )
-            
-            rows.append(html.Tr([
-                html.Td(checkbox, style=input_cell_style()),
-                html.Td(layer_dropdown, style=input_cell_style()),
-                html.Td(
-                    html.Div(
-                        recharge_checkbox,
-                        className="d-flex justify-content-center align-items-center",
-                    ),
-                    style=input_cell_style(),
+
+            rows.append(
+                html.Tr(
+                    [
+                        html.Td(checkbox, style=input_cell_style()),
+                        html.Td(layer_dropdown, style=input_cell_style()),
+                        html.Td(
+                            html.Div(
+                                recharge_checkbox,
+                                className="d-flex justify-content-center align-items-center",
+                            ),
+                            style=input_cell_style(),
+                        ),
+                        html.Td(thickness_input, style=input_cell_style()),
+                        html.Td(conductivity_input, style=input_cell_style()),
+                        html.Td(storage_input, style=input_cell_style()),
+                        html.Td(yield_input, style=input_cell_style()),
+                    ],
                 ),
-                html.Td(thickness_input, style=input_cell_style()),
-                html.Td(conductivity_input, style=input_cell_style()),
-                html.Td(storage_input, style=input_cell_style()),
-                html.Td(yield_input, style=input_cell_style()),
-            ]))
-        
+            )
+
         return rows
-    
+
     @app.callback(
         Output("stratigraphy-data-store", "data"),
-        [Input("add-layer-btn", "n_clicks"),
-         Input("delete-layer-btn", "n_clicks"),
-         Input("move-up-btn", "n_clicks"),
-         Input("move-down-btn", "n_clicks")],
+        [
+            Input("add-layer-btn", "n_clicks"),
+            Input("delete-layer-btn", "n_clicks"),
+            Input("move-up-btn", "n_clicks"),
+            Input("move-down-btn", "n_clicks"),
+        ],
         [State("stratigraphy-data-store", "data")],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def handle_table_actions(add_clicks, delete_clicks, move_up_clicks, move_down_clicks, data):
         """Handle table actions (add, delete, move)."""
@@ -1136,7 +1129,7 @@ def setup_hydro_callbacks(app):
 
         ac = add_clicks if add_clicks is not None else 0
         dc = delete_clicks if delete_clicks is not None else 0
-        muc = move_up_clicks if move_up_clicks is not None else 0
+        much = move_up_clicks if move_up_clicks is not None else 0
         mdc = move_down_clicks if move_down_clicks is not None else 0
 
         if tid == "add-layer-btn":
@@ -1157,7 +1150,7 @@ def setup_hydro_callbacks(app):
             current_data = [row for row in current_data if not row.get("selected", False)]
 
         elif tid == "move-up-btn":
-            if muc < 1:
+            if much < 1:
                 return data
             for i in range(1, len(current_data)):
                 if current_data[i].get("selected", False) and not current_data[i - 1].get("selected", False):
@@ -1222,17 +1215,19 @@ def setup_hydro_callbacks(app):
         Output("stratigraphy-data-store", "data", allow_duplicate=True),
         Output("stratigraphy-error-message", "children"),
         Output("stratigraphy-validation-tick", "data"),
-        [Input({"type": "layer-checkbox", "index": dash.dependencies.ALL}, "value"),
-         Input({"type": "layer-select", "index": dash.dependencies.ALL}, "value"),
-         Input({"type": "thickness-input", "index": dash.dependencies.ALL}, "value"),
-         Input({"type": "conductivity-input", "index": dash.dependencies.ALL}, "value"),
-         Input({"type": "storage-input", "index": dash.dependencies.ALL}, "value"),
-         Input({"type": "yield-input", "index": dash.dependencies.ALL}, "value")],
+        [
+            Input({"type": "layer-checkbox", "index": dash.dependencies.ALL}, "value"),
+            Input({"type": "layer-select", "index": dash.dependencies.ALL}, "value"),
+            Input({"type": "thickness-input", "index": dash.dependencies.ALL}, "value"),
+            Input({"type": "conductivity-input", "index": dash.dependencies.ALL}, "value"),
+            Input({"type": "storage-input", "index": dash.dependencies.ALL}, "value"),
+            Input({"type": "yield-input", "index": dash.dependencies.ALL}, "value"),
+        ],
         [
             State("stratigraphy-data-store", "data"),
             State("stratigraphy-validation-tick", "data"),
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def update_table_data(
         checkbox_values,
@@ -1298,24 +1293,17 @@ def setup_hydro_callbacks(app):
             blank = raw is None or (isinstance(raw, str) and str(raw).strip() == "")
             if blank:
                 if strict:
-                    errors.append(
-                        f"Row {row_num}: {field_label} must be greater than zero."
-                    )
+                    errors.append(f"Row {row_num}: {field_label} must be greater than zero.")
                 return None
             try:
                 value = float(raw)
             except (TypeError, ValueError):
                 if strict:
-                    errors.append(
-                        f"Row {row_num}: {field_label} must be a number "
-                        "greater than zero."
-                    )
+                    errors.append(f"Row {row_num}: {field_label} must be a number greater than zero.")
                 return None
             if value <= 0:
                 if strict:
-                    errors.append(
-                        f"Row {row_num}: {field_label} must be greater than zero."
-                    )
+                    errors.append(f"Row {row_num}: {field_label} must be greater than zero.")
                 return None
             return value
 
@@ -1332,16 +1320,8 @@ def setup_hydro_callbacks(app):
                 row["selected"] = checkbox_values[i] or False
 
             old_layer = row.get("layer")
-            new_layer = (
-                layer_values[i]
-                if i < len(layer_values) and layer_values[i] is not None
-                else old_layer
-            )
-            soil_type_changed = (
-                triggered_layer_idx == i
-                and new_layer is not None
-                and new_layer != old_layer
-            )
+            new_layer = layer_values[i] if i < len(layer_values) and layer_values[i] is not None else old_layer
+            soil_type_changed = triggered_layer_idx == i and new_layer is not None and new_layer != old_layer
 
             if new_layer is not None:
                 row["layer"] = new_layer
@@ -1353,10 +1333,7 @@ def setup_hydro_callbacks(app):
                         thickness_values[i],
                         "Thickness",
                         row_num,
-                        strict=(
-                            triggered_numeric_type == "thickness-input"
-                            and triggered_numeric_idx == i
-                        ),
+                        strict=(triggered_numeric_type == "thickness-input" and triggered_numeric_idx == i),
                     )
                     if parsed is not None:
                         row["thickness"] = parsed
@@ -1370,13 +1347,8 @@ def setup_hydro_callbacks(app):
                 values = input_lists[type_key]
                 if i >= len(values):
                     continue
-                strict = (
-                    triggered_numeric_type == type_key
-                    and triggered_numeric_idx == i
-                )
-                parsed = _apply_positive(
-                    values[i], label, row_num, strict=strict
-                )
+                strict = triggered_numeric_type == type_key and triggered_numeric_idx == i
+                parsed = _apply_positive(values[i], label, row_num, strict=strict)
                 if parsed is not None:
                     row[store_key] = parsed
 
@@ -1411,7 +1383,8 @@ def setup_hydro_callbacks(app):
         if data == original:
             return dash.no_update, [], tick
 
-        return data, [], tick    
+        return data, [], tick
+
     # Groundwater Level Table Callbacks
     @app.callback(
         Output("groundwater-table-body", "children"),
@@ -1443,8 +1416,8 @@ def setup_hydro_callbacks(app):
                             style=label_cell_style(i),
                         ),
                         html.Td(elevation_input, style=input_cell_style()),
-                    ]
-                )
+                    ],
+                ),
             )
         return rows_out
 
@@ -1466,10 +1439,8 @@ def setup_hydro_callbacks(app):
             if i >= len(base):
                 break
             if i < len(elevation_values) and elevation_values[i] is not None:
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     base[i]["elevation"] = float(elevation_values[i])
-                except (TypeError, ValueError):
-                    pass
             base[i]["month"] = name
 
         if use_constant:
@@ -1484,93 +1455,113 @@ def setup_hydro_callbacks(app):
                 row["elevation"] = jan_val
 
         return base
-    
+
     # Groundwater Level Plot Callback
     @app.callback(
         Output("groundwater-plot", "figure"),
-        [Input("groundwater-data-store", "data"),
-         Input("ground-surface-elevation", "value"),
-         Input("max-mar-storage-depth", "value")],
-        prevent_initial_call=False
+        [
+            Input("groundwater-data-store", "data"),
+            Input("ground-surface-elevation", "value"),
+            Input("max-mar-storage-depth", "value"),
+        ],
+        prevent_initial_call=False,
     )
     def update_groundwater_plot(data, ground_elevation, max_storage_depth):
         """Update the groundwater level plot based on table data."""
-        
+
         if not data:
             return go.Figure()
-        
+
         # Convert input values to float in case they're strings (from CSV storage)
         ground_elevation_float = None
         max_storage_depth_float = None
-        
+
         if ground_elevation is not None:
             try:
                 ground_elevation_float = float(ground_elevation)
             except (ValueError, TypeError):
                 ground_elevation_float = None
-        
+
         if max_storage_depth is not None:
             try:
                 max_storage_depth_float = float(max_storage_depth)
             except (ValueError, TypeError):
                 max_storage_depth_float = None
-        
+
         # Convert data to DataFrame for easier handling
         df = pd.DataFrame(data)
-        
+
         # Sort by month order
-        month_order = ['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December']
-        df['month_num'] = df['month'].map({month: i for i, month in enumerate(month_order)})
-        df = df.sort_values('month_num')
-        
+        month_order = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ]
+        df["month_num"] = df["month"].map({month: i for i, month in enumerate(month_order)})
+        df = df.sort_values("month_num")
+
         # Create the plot
         fig = go.Figure()
-        
+
         # Add groundwater elevation line plot
-        fig.add_trace(go.Scatter(
-            x=df['month'],
-            y=df['elevation'],
-            mode='lines+markers',
-            name='Groundwater Elevation',
-            line=dict(color='#1f77b4', width=3),
-            marker=dict(size=8, color='#1f77b4'),
-            hovertemplate='<b>%{x}</b><br>Elevation: %{y:.1f} ft<extra></extra>'
-        ))
-        
+        fig.add_trace(
+            go.Scatter(
+                x=df["month"],
+                y=df["elevation"],
+                mode="lines+markers",
+                name="Groundwater Elevation",
+                line={"color": "#1f77b4", "width": 3},
+                marker={"size": 8, "color": "#1f77b4"},
+                hovertemplate="<b>%{x}</b><br>Elevation: %{y:.1f} ft<extra></extra>",
+            ),
+        )
+
         # Add filled area between MAR storage and groundwater if both values are provided
         if max_storage_depth_float is not None and ground_elevation_float is not None:
             mar_storage_line = ground_elevation - max_storage_depth
-            
+
             # Create filled area between MAR storage line and groundwater elevation
             # We need to create a polygon that fills the area between the two lines
-            months = df['month'].tolist()
-            groundwater_elevations = df['elevation'].tolist()
+            months = df["month"].tolist()
+            groundwater_elevations = df["elevation"].tolist()
             mar_storage_elevations = [mar_storage_line] * len(months)
-            
+
             # Create the filled area by combining the lines
-            fig.add_trace(go.Scatter(
-                x=months + months[::-1],  # Forward then reverse for closed polygon
-                y=groundwater_elevations + mar_storage_elevations[::-1],  # Combine both lines
-                fill='toself',
-                fillcolor='rgba(255, 165, 0, 0.3)',  # Orange with transparency
-                line=dict(color='rgba(255,255,255,0)'),  # Transparent line
-                name='Available MAR Storage',
-                hovertemplate='<b>Available MAR Storage Area</b><extra></extra>',
-                showlegend=True
-            ))
-            
+            fig.add_trace(
+                go.Scatter(
+                    x=months + months[::-1],  # Forward then reverse for closed polygon
+                    y=groundwater_elevations + mar_storage_elevations[::-1],  # Combine both lines
+                    fill="toself",
+                    fillcolor="rgba(255, 165, 0, 0.3)",  # Orange with transparency
+                    line={"color": "rgba(255,255,255,0)"},  # Transparent line
+                    name="Available MAR Storage",
+                    hovertemplate="<b>Available MAR Storage Area</b><extra></extra>",
+                    showlegend=True,
+                ),
+            )
+
             # Add the MAR storage line as a reference
-            fig.add_trace(go.Scatter(
-                x=months,
-                y=mar_storage_elevations,
-                mode='lines',
-                line=dict(color='red', width=2, dash='dot'),
-                name='MAR Storage Limit',
-                hovertemplate='<b>%{x}</b><br>MAR Storage Limit: %{y:.1f} ft<extra></extra>',
-                showlegend=True
-            ))
-        
+            fig.add_trace(
+                go.Scatter(
+                    x=months,
+                    y=mar_storage_elevations,
+                    mode="lines",
+                    line={"color": "red", "width": 2, "dash": "dot"},
+                    name="MAR Storage Limit",
+                    hovertemplate="<b>%{x}</b><br>MAR Storage Limit: %{y:.1f} ft<extra></extra>",
+                    showlegend=True,
+                ),
+            )
+
         # Add horizontal lines if values are provided
         if ground_elevation_float is not None:
             # Ground surface elevation line
@@ -1580,9 +1571,9 @@ def setup_hydro_callbacks(app):
                 line_color="green",
                 line_width=2,
                 annotation_text=f"Ground Surface: {ground_elevation_float:.1f} ft",
-                annotation_position="top right"
+                annotation_position="top right",
             )
-        
+
         if max_storage_depth_float is not None and ground_elevation_float is not None:
             # Maximum MAR storage depth line (from ground surface)
             mar_storage_line = ground_elevation_float - max_storage_depth_float
@@ -1592,38 +1583,32 @@ def setup_hydro_callbacks(app):
                 line_color="red",
                 line_width=2,
                 annotation_text=f"Max MAR Storage: {mar_storage_line:.1f} ft",
-                annotation_position="bottom right"
+                annotation_position="bottom right",
             )
-        
+
         # Update layout
         fig.update_layout(
             title={
-                'text': 'Groundwater Elevation Variation by Month',
-                'x': 0.5,
-                'xanchor': 'center',
-                'font': {'size': 16}
+                "text": "Groundwater Elevation Variation by Month",
+                "x": 0.5,
+                "xanchor": "center",
+                "font": {"size": 16},
             },
             xaxis_title="Month",
             yaxis_title="Elevation (ft)",
             template="plotly_white",
             height=600,
-            margin=dict(l=50, r=50, t=60, b=100),
+            margin={"l": 50, "r": 50, "t": 60, "b": 100},
             showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.15,
-                xanchor="center",
-                x=0.5
-            )
+            legend={"orientation": "h", "yanchor": "top", "y": -0.15, "xanchor": "center", "x": 0.5},
         )
-        
+
         # Add grid
-        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")
+
         return fig
-    
+
     # Stratigraphy Cross Section Plot Callback
     @app.callback(
         Output("stratigraphy-cross-section-plot", "figure"),
@@ -1632,7 +1617,7 @@ def setup_hydro_callbacks(app):
             Input("groundwater-data-store", "data"),
             Input("ground-surface-elevation", "value"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def update_stratigraphy_cross_section(data, gw_data, gs_elevation):
         """Update the stratigraphy cross-section plot based on table data."""
@@ -1665,11 +1650,7 @@ def setup_hydro_callbacks(app):
             return float(gs_f - min_elev)
 
         strat_rows = data
-        gw_rows = (
-            gw_data
-            if gw_data is not None
-            else dash_storage.get_data("groundwater_data")
-        )
+        gw_rows = gw_data if gw_data is not None else dash_storage.get_data("groundwater_data")
         gs_use = gs_elevation
         if gs_use is None:
             gs_use = dash_storage.get_data("ground_surface_elevation")
@@ -1678,14 +1659,14 @@ def setup_hydro_callbacks(app):
 
         # Define colors for different layer types
         layer_colors = {
-            "Gravel": "#BDBDBD",      # Light gray (distinct from Other)
-            "Sand": "#F4A460",        # Sandy brown
-            "Silt": "#C4A574",        # Dusty khaki (distinct from Loam)
-            "Loam": "#8FBC8F",        # Soft green-brown (organic-rich loam)
-            "Clay": "#A0522D",        # Sienna
-            "Other": "#6C757D",       # Mid gray (unspecified / average mix)
+            "Gravel": "#BDBDBD",  # Light gray (distinct from Other)
+            "Sand": "#F4A460",  # Sandy brown
+            "Silt": "#C4A574",  # Dusty khaki (distinct from Loam)
+            "Loam": "#8FBC8F",  # Soft green-brown (organic-rich loam)
+            "Clay": "#A0522D",  # Sienna
+            "Other": "#6C757D",  # Mid gray (unspecified / average mix)
         }
-        
+
         # Create the plot
         fig = go.Figure()
 
@@ -1723,38 +1704,38 @@ def setup_hydro_callbacks(app):
             bot_d = cumulative_depth + thick_f
             elev_hover = ""
             if gs_f is not None:
-                elev_hover = (
-                    f"<br>Elevation: {_elev_at_depth(top_d):.1f} - {_elev_at_depth(bot_d):.1f} ft"
-                )
+                elev_hover = f"<br>Elevation: {_elev_at_depth(top_d):.1f} - {_elev_at_depth(bot_d):.1f} ft"
 
             # Add layer rectangle
-            fig.add_trace(go.Scatter(
-                x=[0, 1, 1, 0, 0],  # Rectangle coordinates
-                y=[
-                    top_d,
-                    top_d,
-                    bot_d,
-                    bot_d,
-                    top_d,
-                ],
-                fill='toself',
-                fillcolor=layer_colors.get(layer_name, "#808080"),  # Default gray if layer not found
-                line=dict(color='black', width=1),
-                name=layer_name,
-                hovertemplate=(
-                    f"<b>{layer_name}</b><br>Thickness: {thick_f:.1f} ft<br>"
-                    f"Depth: {top_d:.1f} - {bot_d:.1f} ft bgs{elev_hover}<extra></extra>"
+            fig.add_trace(
+                go.Scatter(
+                    x=[0, 1, 1, 0, 0],  # Rectangle coordinates
+                    y=[
+                        top_d,
+                        top_d,
+                        bot_d,
+                        bot_d,
+                        top_d,
+                    ],
+                    fill="toself",
+                    fillcolor=layer_colors.get(layer_name, "#808080"),  # Default gray if layer not found
+                    line={"color": "black", "width": 1},
+                    name=layer_name,
+                    hovertemplate=(
+                        f"<b>{layer_name}</b><br>Thickness: {thick_f:.1f} ft<br>"
+                        f"Depth: {top_d:.1f} - {bot_d:.1f} ft bgs{elev_hover}<extra></extra>"
+                    ),
+                    showlegend=True,
                 ),
-                showlegend=True
-            ))
-            
+            )
+
             # Add layer label in the middle of the layer
             fig.add_annotation(
                 x=0.5,
                 y=cumulative_depth + thick_f / 2.0,
                 text=layer_name,
                 showarrow=False,
-                font=dict(size=12, color="black")
+                font={"size": 12, "color": "black"},
             )
 
             cumulative_depth += thick_f
@@ -1779,39 +1760,33 @@ def setup_hydro_callbacks(app):
                 mode="lines",
                 name=(
                     "GW at min WT elev "
-                    + (f'({gw_depth_ft:.1f} ft bgs)' if gw_depth_ft is not None else "(profile bottom)")
+                    + (f"({gw_depth_ft:.1f} ft bgs)" if gw_depth_ft is not None else "(profile bottom)")
                 ),
-                line=dict(color="#0d6efd", width=2, dash="dash"),
+                line={"color": "#0d6efd", "width": 2, "dash": "dash"},
                 hovertemplate=(
                     "<b>Water table (min monthly elev)</b><br>"
                     f"Depth: {wt_depth_plot:.1f} ft bgs"
-                    + (
-                        f"<br>Elevation: {_elev_at_depth(wt_depth_plot):.1f} ft"
-                        if gs_f is not None
-                        else ""
-                    )
+                    + (f"<br>Elevation: {_elev_at_depth(wt_depth_plot):.1f} ft" if gs_f is not None else "")
                     + "<extra></extra>"
                 ),
-            )
+            ),
         )
 
         if recharge_target_mid_depth is not None:
             elev_mid = _elev_at_depth(recharge_target_mid_depth)
-            elev_hover = (
-                f"<br>Elevation at midpoint: {elev_mid:.1f} ft" if elev_mid is not None else ""
-            )
+            elev_hover = f"<br>Elevation at midpoint: {elev_mid:.1f} ft" if elev_mid is not None else ""
             fig.add_trace(
                 go.Scatter(
                     x=[0.18],
                     y=[recharge_target_mid_depth],
                     mode="markers",
                     name="Target Recharge Layer",
-                    marker=dict(
-                        symbol="circle",
-                        size=18,
-                        color="#22c55e",
-                        line=dict(width=2, color="#15803d"),
-                    ),
+                    marker={
+                        "symbol": "circle",
+                        "size": 18,
+                        "color": "#22c55e",
+                        "line": {"width": 2, "color": "#15803d"},
+                    },
                     hovertemplate=(
                         "<b>Target Recharge Layer</b><br>"
                         f"{recharge_target_layer_name or ''}<br>"
@@ -1820,44 +1795,44 @@ def setup_hydro_callbacks(app):
                         "<extra></extra>"
                     ),
                     showlegend=True,
-                )
+                ),
             )
 
         # Depth increases downward (0 at top). Elevation = GS − depth (GS at top).
         y_depth_range = [max(total_depth, 0.0), 0.0]
-        layout_kwargs = dict(
-            title={
+        layout_kwargs = {
+            "title": {
                 "text": "Stratigraphy Cross Section",
                 "x": 0.5,
                 "xanchor": "center",
                 "font": {"size": 16},
             },
-            xaxis_title="",
-            yaxis=dict(
-                title="Depth (ft)",
-                range=y_depth_range,
-                showgrid=True,
-                gridwidth=1,
-                gridcolor="lightgray",
-                zeroline=False,
-            ),
-            template="plotly_white",
-            height=500,
-            margin=dict(l=60, r=70, t=60, b=50),
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.1,
-                xanchor="center",
-                x=0.5,
-            ),
-            xaxis=dict(
-                showgrid=False,
-                showticklabels=False,
-                range=[-0.1, 1.1],
-            ),
-        )
+            "xaxis_title": "",
+            "yaxis": {
+                "title": "Depth (ft)",
+                "range": y_depth_range,
+                "showgrid": True,
+                "gridwidth": 1,
+                "gridcolor": "lightgray",
+                "zeroline": False,
+            },
+            "template": "plotly_white",
+            "height": 500,
+            "margin": {"l": 60, "r": 70, "t": 60, "b": 50},
+            "showlegend": True,
+            "legend": {
+                "orientation": "h",
+                "yanchor": "top",
+                "y": -0.1,
+                "xanchor": "center",
+                "x": 0.5,
+            },
+            "xaxis": {
+                "showgrid": False,
+                "showticklabels": False,
+                "range": [-0.1, 1.1],
+            },
+        }
 
         if gs_f is not None:
             elev_bottom = gs_f - max(total_depth, 0.0)
@@ -1869,19 +1844,19 @@ def setup_hydro_callbacks(app):
                     y=[elev_top],
                     yaxis="y2",
                     mode="markers",
-                    marker=dict(opacity=0),
+                    marker={"opacity": 0},
                     showlegend=False,
                     hoverinfo="skip",
-                )
+                ),
             )
-            layout_kwargs["yaxis2"] = dict(
-                title="Elevation (ft)",
-                overlaying="y",
-                side="right",
-                range=[elev_bottom, elev_top],
-                showgrid=False,
-                zeroline=False,
-            )
+            layout_kwargs["yaxis2"] = {
+                "title": "Elevation (ft)",
+                "overlaying": "y",
+                "side": "right",
+                "range": [elev_bottom, elev_top],
+                "showgrid": False,
+                "zeroline": False,
+            }
 
         fig.update_layout(**layout_kwargs)
 
@@ -1951,9 +1926,7 @@ def setup_hydro_callbacks(app):
             if length <= 0 or width <= 0:
                 return (
                     _xy_view_empty_figure(),
-                    _xy_view_contour_error_alert(
-                        "Length and width must be positive values."
-                    ),
+                    _xy_view_contour_error_alert("Length and width must be positive values."),
                 )
 
             aq_type_raw = dash_storage.get_data("aq_type") or "unconfined"
@@ -1967,9 +1940,7 @@ def setup_hydro_callbacks(app):
 
             half_length = length / 2
             half_width = width / 2
-            footprint_x_range, footprint_y_range = _axis_ranges_for_footprint(
-                half_length, half_width, rotation
-            )
+            footprint_x_range, footprint_y_range = _axis_ranges_for_footprint(half_length, half_width, rotation)
 
             if is_confined:
                 strat_in = dash_storage.get_data("stratigraphy_data")
@@ -1986,18 +1957,14 @@ def setup_hydro_callbacks(app):
             else:
                 # unconfined aquifer
                 strat_in = dash_storage.get_data("stratigraphy_data")
-                gw_rows = normalize_groundwater_data(
-                    dash_storage.get_data("groundwater_data") or []
-                )
+                gw_rows = normalize_groundwater_data(dash_storage.get_data("groundwater_data") or [])
                 gs_elev = dash_storage.get_data("ground_surface_elevation")
 
                 graph = get_session_graph()
                 if graph is None:
                     return (
                         _xy_view_empty_figure(),
-                        _xy_view_contour_error_alert(
-                            "Decision graph is not available."
-                        ),
+                        _xy_view_contour_error_alert("Decision graph is not available."),
                     )
                 inputs = get_graph_inputs()
                 evaluate_and_store_decision_graph(graph, inputs)
@@ -2017,9 +1984,7 @@ def setup_hydro_callbacks(app):
                         Z = np.asarray(mound_pack["drawdown_ft"], dtype=float)
                         Xmesh = np.asarray(mound_pack["x_grid"], dtype=float)
                         Ymesh = np.asarray(mound_pack["y_grid"], dtype=float)
-                        Z_background = (
-                            -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
-                        )
+                        Z_background = -XY_VIEW_BACKGROUND_HYDRAULIC_GRADIENT * Xmesh
                         Z = Z + Z_background
                         xi, yi, Zi = _prepare_contour_from_mesh(
                             Xmesh,
@@ -2036,23 +2001,23 @@ def setup_hydro_callbacks(app):
                                 z=Zi,
                                 colorscale="Jet",
                                 name="Unconfined mound + 2% regional gradient",
-                                colorbar=dict(title="Mound + gradient (ft)"),
+                                colorbar={"title": "Mound + gradient (ft)"},
                                 opacity=0.82,
-                                contours=dict(showlines=True, coloring="fill"),
+                                contours={"showlines": True, "coloring": "fill"},
                                 hovertemplate=(
                                     "<b>Hantush mound + regional gradient</b><br>"
                                     "%{z:.2f} ft<br>"
                                     "x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
                                 ),
                                 uirevision=str(n_clicks or 0),
-                            )
+                            ),
                         )
                     else:
                         message = _xy_view_contour_error_alert(
                             mound_pack.get(
                                 "error",
                                 "Could not build unconfined mound contours.",
-                            )
+                            ),
                         )
                 else:
                     # Surface recharge not possible — fall back to confined Theis contours.
@@ -2069,15 +2034,12 @@ def setup_hydro_callbacks(app):
                         message = _xy_view_contour_warning_alert(
                             "Unconfined design sizing is not available "
                             "(surface recharge may not be feasible). "
-                            "Showing confined Theis contours instead."
+                            "Showing confined Theis contours instead.",
                         )
                     else:
                         message = _xy_view_contour_error_alert(
                             contour_err
-                            or (
-                                "Unconfined design sizing is not available, and "
-                                "confined Theis contours also failed."
-                            )
+                            or ("Unconfined design sizing is not available, and confined Theis contours also failed."),
                         )
 
             _add_footprint_outline(fig, half_length, half_width, rotation)
@@ -2100,27 +2062,27 @@ def setup_hydro_callbacks(app):
                 yaxis_title="Distance (ft)",
                 template="plotly_white",
                 height=500,
-                margin=dict(l=50, r=50, t=60, b=50),
+                margin={"l": 50, "r": 50, "t": 60, "b": 50},
                 showlegend=True,
-                legend=dict(
-                    orientation="h",
-                    yanchor="top",
-                    y=-0.1,
-                    xanchor="center",
-                    x=0.5,
-                ),
-                xaxis=dict(
-                    scaleanchor="y",
-                    scaleratio=1,
-                    range=list(xr),
-                    autorange=False,
-                ),
-                yaxis=dict(
-                    scaleanchor="x",
-                    scaleratio=1,
-                    range=list(yr),
-                    autorange=False,
-                ),
+                legend={
+                    "orientation": "h",
+                    "yanchor": "top",
+                    "y": -0.1,
+                    "xanchor": "center",
+                    "x": 0.5,
+                },
+                xaxis={
+                    "scaleanchor": "y",
+                    "scaleratio": 1,
+                    "range": list(xr),
+                    "autorange": False,
+                },
+                yaxis={
+                    "scaleanchor": "x",
+                    "scaleratio": 1,
+                    "range": list(yr),
+                    "autorange": False,
+                },
             )
 
             return fig, message
@@ -2128,6 +2090,7 @@ def setup_hydro_callbacks(app):
         except Exception as err:
             traceback.print_exc()
             return _xy_view_empty_figure(), _xy_view_contour_error_alert(err)
+
     _TRAFFIC_DOT = {"green": "#198754", "orange": "#fd7e14", "red": "#dc3545"}
 
     @app.callback(
@@ -2178,21 +2141,15 @@ def setup_hydro_callbacks(app):
             if gw_store is not None:
                 dash_storage.set_data("groundwater_data", gw_store)
             if gs_elev is not None and str(gs_elev).strip() != "":
-                try:
-                    dash_storage.set_data(
-                        "ground_surface_elevation", float(gs_elev)
-                    )
-                except (TypeError, ValueError):
-                    pass
+                with contextlib.suppress(TypeError, ValueError):
+                    dash_storage.set_data("ground_surface_elevation", float(gs_elev))
             aq_k = _coerce_aquitard_k_ft_day(aq_k_input)
             dash_storage.set_data("aquitard_conductivity_ft_day", aq_k)
 
             inputs = get_graph_inputs()
             graph = get_session_graph()
             if graph is None:
-                return _initial_feasibility_error_alert(
-                    ValueError("Decision graph is not available.")
-                )
+                return _initial_feasibility_error_alert(ValueError("Decision graph is not available."))
             evaluate_and_store_decision_graph(graph, inputs)
 
             cols_out = []
@@ -2205,9 +2162,7 @@ def setup_hydro_callbacks(app):
                 )
                 dot = _TRAFFIC_DOT[color]
                 name_cls = (
-                    "fw-semibold fs-5 text-success"
-                    if color in ("green", "orange")
-                    else "fw-semibold fs-5 text-danger"
+                    "fw-semibold fs-5 text-success" if color in ("green", "orange") else "fw-semibold fs-5 text-danger"
                 )
                 col_border = (
                     "mb-2 mb-sm-3 mb-md-0 border-start border-secondary border-opacity-25 ps-md-3"
@@ -2234,15 +2189,11 @@ def setup_hydro_callbacks(app):
                                 dbc.Col(
                                     [
                                         html.Div(
-                                            initial_feasibility_option_label(
-                                                option.name
-                                            ),
+                                            initial_feasibility_option_label(option.name),
                                             className=name_cls,
                                         ),
                                         html.Div(
-                                            _render_initial_feasibility_status(
-                                                status_line
-                                            ),
+                                            _render_initial_feasibility_status(status_line),
                                             className="fs-6",
                                         ),
                                     ],
@@ -2255,7 +2206,7 @@ def setup_hydro_callbacks(app):
                         sm=6,
                         md=4,
                         className=col_border,
-                    )
+                    ),
                 )
 
             return html.Div(
@@ -2299,9 +2250,7 @@ def setup_hydro_callbacks(app):
                 ov0 = dict(dash_storage.get_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY) or {})
                 if value is None or str(value).strip() == "":
                     ov0.pop(rkey, None)
-                    dash_storage.set_data(
-                        RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov0 if ov0 else None
-                    )
+                    dash_storage.set_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov0 if ov0 else None)
                     return rule_defaults_get(rkey)
                 try:
                     if isinstance(base, bool):
@@ -2342,9 +2291,7 @@ def setup_hydro_callbacks(app):
         [State(_lo_ex, "value"), State(_hi_ex, "value")],
         prevent_initial_call=False,
     )
-    def _persist_excessive_deep_aquifer_bounds(
-        nb0, ns0, nb1, ns1, id0, v0, v1
-    ):
+    def _persist_excessive_deep_aquifer_bounds(nb0, ns0, nb1, ns1, id0, v0, v1):
         ctx = dash.callback_context
         base = RULE_DEFAULTS_BASE["excessive_deep_aquifer"]
         if not ctx.triggered:
@@ -2365,9 +2312,7 @@ def setup_hydro_callbacks(app):
         except (ValueError, TypeError):
             ov = dict(dash_storage.get_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY) or {})
             ov.pop("excessive_deep_aquifer", None)
-            dash_storage.set_data(
-                RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov if ov else None
-            )
+            dash_storage.set_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, ov if ov else None)
             return float(base[0]), float(base[1])
 
         ov = dict(dash_storage.get_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY) or {})
@@ -2380,10 +2325,7 @@ def setup_hydro_callbacks(app):
             Output("aquitard-conductivity-input", "value", allow_duplicate=True),
             Output("confined-aquifer-head-input", "value", allow_duplicate=True),
             Output("max-dry-well-depth-input", "value", allow_duplicate=True),
-            *[
-                Output(_rule_def_input_id(row[0]), "value", allow_duplicate=True)
-                for row in RULE_DEFAULT_SCALAR_ROWS
-            ],
+            *[Output(_rule_def_input_id(row[0]), "value", allow_duplicate=True) for row in RULE_DEFAULT_SCALAR_ROWS],
             Output("rule-def-excessive-deep-aquifer-0-input", "value", allow_duplicate=True),
             Output("rule-def-excessive-deep-aquifer-1-input", "value", allow_duplicate=True),
         ],
@@ -2396,13 +2338,9 @@ def setup_hydro_callbacks(app):
             raise dash.exceptions.PreventUpdate
 
         dash_storage.set_data(RULE_DEFAULTS_OVERRIDES_STORAGE_KEY, None)
-        dash_storage.set_data(
-            "aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY
-        )
+        dash_storage.set_data("aquitard_conductivity_ft_day", DEFAULT_AQUITARD_K_MAX_FT_DAY)
         dash_storage.set_data("confined_aquifer_head_ft", None)
-        dash_storage.set_data(
-            "max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT
-        )
+        dash_storage.set_data("max_dry_well_depth_ft", DEFAULT_MAX_DRY_WELL_DEPTH_FT)
 
         scalar_values = []
         for key, *_rest in RULE_DEFAULT_SCALAR_ROWS:

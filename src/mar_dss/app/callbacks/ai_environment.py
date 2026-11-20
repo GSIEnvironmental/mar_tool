@@ -25,9 +25,7 @@ def downloadable_html_deliverable_instructions(
     context_line: str = "",
 ) -> str:
     """Shared prompt text asking the AI to return a neat downloadable HTML report."""
-    context = (
-        f"\n        - Context line in the header: {context_line}" if context_line else ""
-    )
+    context = f"\n        - Context line in the header: {context_line}" if context_line else ""
     return textwrap.dedent(
         f"""
         **FINAL DELIVERABLE — DOWNLOADABLE HTML REPORT:**
@@ -48,7 +46,7 @@ def downloadable_html_deliverable_instructions(
            `report.html` and download/open it locally.
         7. After the code block, add one short sentence telling the user to save the
            code as an `.html` file and open it in a browser.
-        """
+        """,
     ).strip()
 
 
@@ -64,24 +62,37 @@ def build_mar_factors_prompt(location):
     )
 
     return textwrap.dedent(
-        f"""
-        **ROLE:** Multidisciplinary Managed Aquifer Recharge (MAR) Project Planning Expert (Hydrogeologist, Ecologist, Community Engagement Specialist).
-        **GOAL:** Generate a comprehensive, *prioritized* list of *actionable* data points, metrics, or factors that *must* be collected and analyzed for an MAR project at **{location}**. The focus is strictly on **Environmental, Ecological, and Cultural impacts and viability** relevant to the specified geographic context.
-
-        **LOCATION:** {location}
-        **CONTEXT CONSTRAINT:** All data points/factors must be relevant to the unique geographic, regulatory, and ecological context of the {location} area.
-
-        **TASK INSTRUCTIONS (Follow Step-by-Step):**
-        1.  **Environmental Factors (Geochemistry):** Identify critical factors and actionable data points concerning chemical compatibility and sustainability (e.g., water quality degradation, geo-chemical reactions).
-        2.  **Ecological Factors (Ecosystem Health):** Identify critical factors and actionable data points related to the impact on Groundwater-Dependent Ecosystems (GDEs) like wetlands, riparian zones, and surface water bodies (e.g., changes to habitat or species).
-        3.  **Cultural Factors (Socio-economic/Governance):** Identify critical factors and actionable data points related to community impact, land use, legal/regulatory framework, and heritage preservation.
-        4.  **Prioritization and Justification:** For each identified item, assign a prioritization (High/Medium/Low) based on its criticality for the {location} context and provide a brief rationale.
-
-        **CONTENT CONSTRAINTS:**
-        * **Quantification:** Provide a minimum of four specific factors/data points for *each* of the three categories (Environmental, Ecological, Cultural), for a total of at least 12 rows.
-        * **Precision:** Focus on actionable data points (e.g., "Groundwater-Surface Water Interaction Flow Rate," not just "Hydrology").
-        * **Table columns (in the HTML report):** Category (Environmental, Ecological, or Cultural); Actionable Data Point/Factor; Priority (High, Medium, or Low); Justification/Rationale (why this is critical for the {location} project).
-
-        {html_instructions}
-        """
+        "\n        **ROLE:** Multidisciplinary Managed Aquifer Recharge (MAR) Project Planning Expert "
+        "(Hydrogeologist, Ecologist, Community Engagement Specialist).\n"
+        "        **GOAL:** Generate a comprehensive, *prioritized* list of *actionable* data points, metrics, or "
+        f"factors that *must* be collected and analyzed for an MAR project at **{location}**. The focus is strictly "
+        "on **Environmental, Ecological, and Cultural impacts and viability** relevant to the specified geographic "
+        "context.\n"
+        "\n"
+        f"        **LOCATION:** {location}\n"
+        "        **CONTEXT CONSTRAINT:** All data points/factors must be relevant to the unique geographic, "
+        f"regulatory, and ecological context of the {location} area.\n"
+        "\n"
+        "        **TASK INSTRUCTIONS (Follow Step-by-Step):**\n"
+        "        1.  **Environmental Factors (Geochemistry):** Identify critical factors and actionable data points "
+        "concerning chemical compatibility and sustainability (e.g., water quality degradation, geo-chemical "
+        "reactions).\n"
+        "        2.  **Ecological Factors (Ecosystem Health):** Identify critical factors and actionable data "
+        "points related to the impact on Groundwater-Dependent Ecosystems (GDEs) like wetlands, riparian zones, and "
+        "surface water bodies (e.g., changes to habitat or species).\n"
+        "        3.  **Cultural Factors (Socio-economic/Governance):** Identify critical factors and actionable "
+        "data points related to community impact, land use, legal/regulatory framework, and heritage preservation.\n"
+        "        4.  **Prioritization and Justification:** For each identified item, assign a prioritization "
+        f"(High/Medium/Low) based on its criticality for the {location} context and provide a brief rationale.\n"
+        "\n"
+        "        **CONTENT CONSTRAINTS:**\n"
+        "        * **Quantification:** Provide a minimum of four specific factors/data points for *each* of the "
+        "three categories (Environmental, Ecological, Cultural), for a total of at least 12 rows.\n"
+        '        * **Precision:** Focus on actionable data points (e.g., "Groundwater-Surface Water Interaction '
+        'Flow Rate," not just "Hydrology").\n'
+        "        * **Table columns (in the HTML report):** Category (Environmental, Ecological, or Cultural); "
+        "Actionable Data Point/Factor; Priority (High, Medium, or Low); Justification/Rationale (why this is "
+        f"critical for the {location} project).\n"
+        "\n"
+        f"        {html_instructions}\n        ",
     ).strip()

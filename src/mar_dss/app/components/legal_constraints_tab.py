@@ -8,11 +8,11 @@ Legal Constraints tab component.
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
+
 from mar_dss.app.components.environmental_impact_tab import (
     create_environmental_considerations_content,
 )
-
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # Informational considerations (formerly questionnaire topics). Not scored.
 # Each item: (title, why_it_matters, example_obstacles_tuple)
@@ -120,8 +120,7 @@ REGULATORY_CONSIDERATIONS = (
                     "State dam safety classifies basin embankments as "
                     "jurisdictional dams requiring engineered spillways the "
                     "sponsor cannot fund.",
-                    "Soft or collapsible soils fail slope-stability criteria, "
-                    "so regulators reject the basin geometry.",
+                    "Soft or collapsible soils fail slope-stability criteria, so regulators reject the basin geometry.",
                     "Geotechnical investigations show high liquefaction "
                     "potential under seismic loading, blocking embankment "
                     "approval.",
@@ -154,17 +153,16 @@ REGULATORY_CONSIDERATIONS = (
                 "timing, place of use, and often the storage of water "
                 "underground.",
                 (
-                    "Surface-water rights are junior and rarely available in "
-                    "wet years when recharge is needed most.",
+                    "Surface-water rights are junior and rarely available in wet years when recharge is needed most.",
                     "A municipal allotment cannot be used for underground "
                     "storage because the place-of-use description excludes "
                     "recharge facilities.",
-                    "Stored-water credits are disputed, so lenders will not "
-                    "finance recovery wells.",
+                    "Stored-water credits are disputed, so lenders will not finance recovery wells.",
                 ),
             ),
             (
-                "Recharge authorization, accounting, and recovery (state managed aquifer recharge / aquifer storage and recovery framework)",
+                "Recharge authorization, accounting, and recovery (state managed aquifer recharge / aquifer storage "
+                "and recovery framework)",
                 "Many states require explicit authorization to recharge and "
                 "later recover water under an MAR (managed aquifer recharge) or "
                 "ASR (aquifer storage and recovery) framework, plus accounting "
@@ -176,10 +174,8 @@ REGULATORY_CONSIDERATIONS = (
                     "storage-and-recovery accounting system, so even if water is "
                     "recharged, the project may have no legal right to recover it "
                     "later as credited project water.",
-                    "Credit calculations assume high losses, making recovered "
-                    "yield too small to justify cost.",
-                    "Recovery is limited to the same year as recharge, "
-                    "eliminating multi-year drought buffering.",
+                    "Credit calculations assume high losses, making recovered yield too small to justify cost.",
+                    "Recovery is limited to the same year as recharge, eliminating multi-year drought buffering.",
                 ),
             ),
             (
@@ -189,16 +185,15 @@ REGULATORY_CONSIDERATIONS = (
                 "rules. Noncompliance can halt diversions or trigger "
                 "enforcement.",
                 (
-                    "Recharge diversions would violate compact delivery "
-                    "schedules to a downstream state.",
+                    "Recharge diversions would violate compact delivery schedules to a downstream state.",
                     "Contract water may only be used for irrigation, not "
                     "underground storage for later municipal recovery.",
-                    "Compact accounting cannot track banked water, so the "
-                    "project cannot claim stored credits.",
+                    "Compact accounting cannot track banked water, so the project cannot claim stored credits.",
                 ),
             ),
             (
-                "Source-specific compliance (stormwater, surface water, recycled water, agricultural drainage, or other)",
+                "Source-specific compliance (stormwater, surface water, recycled water, agricultural drainage, or "
+                "other)",
                 "Each source type carries distinct permitting, treatment, and "
                 "monitoring expectations. Choosing a source that cannot meet "
                 "those rules blocks the recharge pathway. For stormwater, an "
@@ -212,8 +207,7 @@ REGULATORY_CONSIDERATIONS = (
                     "runoff to infiltration basins.",
                     "Recycled-water regulations require advanced treatment "
                     "before injection that the utility cannot build.",
-                    "Agricultural drain water exceeds salinity or pesticide "
-                    "limits for recharge under state policy.",
+                    "Agricultural drain water exceeds salinity or pesticide limits for recharge under state policy.",
                 ),
             ),
             (
@@ -227,10 +221,8 @@ REGULATORY_CONSIDERATIONS = (
                 (
                     "A canal company refuses a wheeling agreement during peak "
                     "irrigation season when surplus water is available.",
-                    "Pipeline capacity is fully subscribed; no interruptible "
-                    "capacity remains for recharge pulses.",
-                    "Right-of-way for a new lateral cannot be obtained across "
-                    "multiple private parcels.",
+                    "Pipeline capacity is fully subscribed; no interruptible capacity remains for recharge pulses.",
+                    "Right-of-way for a new lateral cannot be obtained across multiple private parcels.",
                 ),
             ),
         ),
@@ -286,12 +278,12 @@ REGULATORY_CONSIDERATIONS = (
                     "A future municipal well field is planned downgradient, "
                     "so agencies impose near-drinking-water standards on "
                     "recharge water.",
-                    "Anti-degradation policy forbids any increase in key "
-                    "contaminants in a potable aquifer.",
+                    "Anti-degradation policy forbids any increase in key contaminants in a potable aquifer.",
                 ),
             ),
             (
-                "Ability to meet Safe Drinking Water Act maximum contaminant levels / no-endangerment and state reuse criteria",
+                "Ability to meet Safe Drinking Water Act maximum contaminant levels / no-endangerment and state "
+                "reuse criteria",
                 "Projects must show recharged water will not cause MCL "
                 "(maximum contaminant level) exceedances under the Safe "
                 "Drinking Water Act, or violate state reuse criteria. Persistent "
@@ -299,8 +291,7 @@ REGULATORY_CONSIDERATIONS = (
                 (
                     "Source nitrate or disinfection byproduct precursors "
                     "routinely exceed levels acceptable for recharge.",
-                    "State reuse rules require full advanced treatment "
-                    "before any subsurface application.",
+                    "State reuse rules require full advanced treatment before any subsurface application.",
                     "Pilot data show MCL (maximum contaminant level) "
                     "exceedances in downgradient monitoring wells during "
                     "recharge tests.",
@@ -320,8 +311,7 @@ REGULATORY_CONSIDERATIONS = (
                     "water.",
                     "Anti-degradation review classifies the project as "
                     "lowering high-quality groundwater, triggering denial.",
-                    "Connected surface-water TMDLs constrain recharge that "
-                    "would increase baseflow pollutant loads.",
+                    "Connected surface-water TMDLs constrain recharge that would increase baseflow pollutant loads.",
                 ),
             ),
             (
@@ -354,8 +344,7 @@ REGULATORY_CONSIDERATIONS = (
                     "A monitoring order requires multi-year CEC "
                     "(contaminants of emerging concern) sampling before any "
                     "recharge authorization is issued.",
-                    "Downgradient drinking-water wells trigger stricter "
-                    "PFAS limits that the project cannot guarantee.",
+                    "Downgradient drinking-water wells trigger stricter PFAS limits that the project cannot guarantee.",
                 ),
             ),
             (
@@ -395,14 +384,15 @@ REGULATORY_CONSIDERATIONS = (
         "Project And Jurisdiction Screen",
         (
             (
-                "Federal nexus that may trigger federal environmental laws and reviews (for example National Environmental Policy Act, Endangered Species Act, National Historic Preservation Act)",
+                "Federal nexus that may trigger federal environmental laws and reviews (for example National "
+                "Environmental Policy Act, Endangered Species Act, National Historic Preservation Act)",
                 "Federal funding, permits, or land create a federal nexus that "
                 "can trigger NEPA (National Environmental Policy Act), ESA "
                 "(Endangered Species Act), NHPA (National Historic Preservation "
                 "Act), and related consultations. These reviews often control "
                 "overall schedule more than local permits.",
                 (
-                    "Federal cost-share triggers an EIS (environmental impact "
+                    "Federal cost-share triggers an IS (environmental impact "
                     "statement) lasting several years before construction can "
                     "start.",
                     "A federal permit requires ESA (Endangered Species Act) "
@@ -422,8 +412,7 @@ REGULATORY_CONSIDERATIONS = (
                 (
                     "Recharge may affect culturally important springs; tribal "
                     "consultation results in a request to abandon the site.",
-                    "An interstate groundwater basin requires dual-state "
-                    "approvals that conflict on accounting rules.",
+                    "An interstate groundwater basin requires dual-state approvals that conflict on accounting rules.",
                     "Treaty fishing or water rights concerns lead agencies to "
                     "pause permits until mitigation is negotiated.",
                 ),
@@ -523,7 +512,7 @@ def create_basic_regulation_feasibility_content():
                     dbc.CardBody(item_nodes, className="p-3"),
                 ],
                 className="mb-3",
-            )
+            ),
         )
 
     return [
@@ -607,10 +596,7 @@ def create_ai_regulations_permits_content():
                             id="mar-regs-prompt-display",
                             value="",
                             readOnly=True,
-                            placeholder=(
-                                "Click Build Prompt to generate the text for the "
-                                "Overview project location…"
-                            ),
+                            placeholder=("Click Build Prompt to generate the text for the Overview project location…"),
                             style={
                                 "width": "100%",
                                 "minHeight": "220px",
@@ -666,10 +652,7 @@ def create_legal_constraints_content():
                         ),
                         html.Li(
                             [
-                                html.Strong(
-                                    "(5.3) AI-Powered Environmental, Ecological, "
-                                    "and Cultural Factors: "
-                                ),
+                                html.Strong("(5.3) AI-Powered Environmental, Ecological, and Cultural Factors: "),
                                 "Build a prompt, then paste it into your preferred AI model "
                                 "to explore potential environmental, ecological, and cultural "
                                 "factors relevant to your project.",
@@ -748,6 +731,6 @@ def create_legal_constraints_content():
                     "environmental-considerations-tab",
                     "AI-assisted environmental, ecological, and cultural factors",
                 ),
-            ]
-        )
+            ],
+        ),
     ]

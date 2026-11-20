@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import textwrap
 from typing import Any
 
-import mar_dss.app.utils.data_storage as dash_storage
 import pandas as pd
+
+import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.callbacks.ai_environment import (
     _location_text,
     downloadable_html_deliverable_instructions,
 )
+
+logger = logging.getLogger(__name__)
 
 ENGINEERING_OPTIONS = ("Surface Recharge", "Injection Well", "Dry Well")
 
@@ -71,7 +75,7 @@ _EXCLUDED_STORAGE_KEYS = frozenset(
         "capital_costs_calculations_df",
         "maintenance_costs_calculations_df",
         "npv_calculations_df",
-    }
+    },
 )
 
 _QUANTITY_BILL_COLUMNS = ("Category", "Item", "Unit", "Number of Units")
@@ -97,7 +101,7 @@ _QUANTITY_BILL_SKIP_ITEMS = frozenset(
         "Permitting (15%)",
         "Reporting",
         "Reporting (2%)",
-    }
+    },
 )
 
 _GRAPH_QUANTITY_NODES = (
@@ -108,13 +112,16 @@ _GRAPH_QUANTITY_NODES = (
     "basin_area",
 )
 
-_SKIP_KEYS = frozenset(
-    {
-        "decision_graph",
-        "workspace",
-        "filename",
-    }
-) | _EXCLUDED_STORAGE_KEYS
+_SKIP_KEYS = (
+    frozenset(
+        {
+            "decision_graph",
+            "workspace",
+            "filename",
+        },
+    )
+    | _EXCLUDED_STORAGE_KEYS
+)
 
 
 def _json_safe(value: Any, *, depth: int = 0) -> Any:
@@ -136,16 +143,9 @@ def _json_safe(value: Any, *, depth: int = 0) -> Any:
             return []
         return value.where(pd.notnull(value), None).to_dict(orient="records")
     if isinstance(value, pd.Series):
-        return {
-            str(k): _json_safe(v, depth=depth + 1)
-            for k, v in value.to_dict().items()
-        }
+        return {str(k): _json_safe(v, depth=depth + 1) for k, v in value.to_dict().items()}
     if isinstance(value, dict):
-        return {
-            str(k): _json_safe(v, depth=depth + 1)
-            for k, v in value.items()
-            if str(k) not in _SKIP_KEYS
-        }
+        return {str(k): _json_safe(v, depth=depth + 1) for k, v in value.items() if str(k) not in _SKIP_KEYS}
     if isinstance(value, (list, tuple)):
         return [_json_safe(v, depth=depth + 1) for v in value]
     if hasattr(value, "tolist"):
@@ -181,7 +181,7 @@ def _extract_quantity_bill(df: pd.DataFrame, *, bill_type: str) -> list[dict]:
                 "item": item,
                 "unit": str(row.get("Unit", "")).strip(),
                 "number_of_units": qty,
-            }
+            },
         )
     return rows
 
@@ -197,6 +197,7 @@ def _summarize_graph_quantities() -> dict | None:
         try:
             value = graph.get_node_value(node_id)
         except Exception:
+            logger.debug("Could not read engineering quantity %s", node_id, exc_info=True)
             continue
         if value is None:
             continue
@@ -363,5 +364,5 @@ def build_engineering_decision_prompt(context: dict | None = None) -> str:
         authoritative ranking; explanations must not contradict the scores or ranks.
 
         {html_instructions}
-        """
+        """,
     ).strip()

@@ -7,7 +7,7 @@ Developers can adjust wording by editing :func:`format_computation_log_entries` 
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def safe_repr(value: Any, max_len: int = 240) -> str:
@@ -35,7 +35,7 @@ def safe_repr(value: Any, max_len: int = 240) -> str:
         return "<unprintable>"
 
 
-def format_computation_log_entries(entries: Optional[List[Dict[str, Any]]]) -> str:
+def format_computation_log_entries(entries: list[dict[str, Any]] | None) -> str:
     """Plain-text workbook from trace entries (developer-editable layout)."""
     if not entries:
         return (
@@ -43,7 +43,7 @@ def format_computation_log_entries(entries: Optional[List[Dict[str, Any]]]) -> s
             "Analysis tab so the decision graph is evaluated."
         )
 
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Detailed calculations workbook")
     lines.append("=" * 52)
     for i, e in enumerate(entries, 1):

@@ -7,7 +7,7 @@
 - [Usage](usage.md)
 - [Modules](modules.md)
 - [Contributing](contributing.md)
-- [History](history.md)
+- [Changelog](../CHANGELOG.md)
 
 ## Indices and tables
 

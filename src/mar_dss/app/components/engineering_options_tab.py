@@ -3,7 +3,8 @@ Engineering Options tab component.
 """
 
 import dash_bootstrap_components as dbc
-from dash import html, dcc
+from dash import html
+
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
@@ -52,7 +53,7 @@ def _eng_help_modal(section, title, body_children):
                     id={"type": "eng-help-close", "section": section},
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id={"type": "eng-help-modal", "section": section},
@@ -73,7 +74,7 @@ def _cost_summary_metric_card(title, display_id, accent, background, title_color
                         "backgroundColor": accent,
                         "borderTopLeftRadius": "0.375rem",
                         "borderTopRightRadius": "0.375rem",
-                    }
+                    },
                 ),
                 dbc.CardBody(
                     [
@@ -186,7 +187,7 @@ def create_engineering_help_modals():
                                 "related O&M → ",
                                 html.Strong("higher capital, maintenance, and NPV"),
                                 ".",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
@@ -194,12 +195,12 @@ def create_engineering_help_modals():
                                 "smaller design event → ",
                                 html.Strong("lower cost"),
                                 " (less conservative sizing).",
-                            ]
+                            ],
                         ),
                         html.Li(
                             "Does not change conveyance length ($/LF × distance) or "
                             "whether sediment/storage are Yes/No — those are separate "
-                            "choices — but it does scale volume- and flow-based line items."
+                            "choices — but it does scale volume- and flow-based line items.",
                         ),
                     ],
                     className="mb-0",
@@ -223,13 +224,13 @@ def create_engineering_help_modals():
                             [
                                 html.Strong("Gravity Flow in Ditch/Channel: "),
                                 "open-channel civil cost only.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Gravity Flow in Pipeline: "),
                                 "gravity pipe/culvert civil cost only.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
@@ -237,14 +238,14 @@ def create_engineering_help_modals():
                                 "single force-main unit rate that already includes "
                                 "pipe + pumping ($60/LF); no separate capital pump-"
                                 "package line.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Pumped into Ditch/Channel: "),
                                 "channel civil ($100/LF) plus a separate pump package "
                                 "($307/LF) to lift into the ditch/channel.",
-                            ]
+                            ],
                         ),
                     ],
                     className="mb-3",
@@ -278,7 +279,7 @@ def create_engineering_help_modals():
                                 "Among pumped options, ditch ($407/LF + ditch O&M) "
                                 "is slightly higher capital and higher annual O&M "
                                 "than pipeline ($60/LF + pump O&M only).",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
@@ -286,11 +287,11 @@ def create_engineering_help_modals():
                                 "set by source and recharge map points on Water "
                                 "Source. Longer L increases all $/LF capital and "
                                 "O&M line items proportionally.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             "Conveyance cost is added to every recharge option’s "
-                            "capital / maintenance / NPV totals on Cost Analysis."
+                            "capital / maintenance / NPV totals on Cost Analysis.",
                         ),
                     ],
                     className="mb-0",
@@ -311,17 +312,16 @@ def create_engineering_help_modals():
                 html.H6("Removal target (automatic)", className="fw-bold mb-2"),
                 html.P(
                     [
-                        "The silt removal target is set from Environmental Impact → "
-                        "Water Quality ",
+                        "The silt removal target is set from Environmental Impact → Water Quality ",
                         html.Strong("question 2 (source-water turbidity)"),
                         ", not from a separate Engineering input:",
                     ],
                     className="mb-2",
                 ),
                 html.Pre(
-                    "If turbidity < 20 NTU  (answers \"<5 NTU\" or \"5-20 NTU\")\n"
+                    'If turbidity < 20 NTU  (answers "<5 NTU" or "5-20 NTU")\n'
                     "    → Medium Silt\n"
-                    "Else (\">20 NTU\" or Unknown)\n"
+                    'Else (">20 NTU" or Unknown)\n'
                     "    → Fine Silt  (more conservative / longer settling)",
                     className="bg-light border rounded p-2 small mb-3",
                 ),
@@ -344,7 +344,7 @@ def create_engineering_help_modals():
                                 "maintenance → ",
                                 html.Strong("higher total cost"),
                                 ".",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
@@ -352,7 +352,7 @@ def create_engineering_help_modals():
                                 "sediment-pond capital and O&M drop to zero → ",
                                 html.Strong("lower total cost"),
                                 ".",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
@@ -360,12 +360,12 @@ def create_engineering_help_modals():
                                 "Fine Silt needs longer settling → larger trap "
                                 "volume/footprint → higher pond cost when sediment "
                                 "removal is Yes. Medium Silt is typically smaller/cheaper.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             "Pond size also grows with Q_peak, so fewer design "
                             "events (larger design flow) increase sediment-removal "
-                            "cost when this option is Yes."
+                            "cost when this option is Yes.",
                         ),
                     ],
                     className="mb-0",
@@ -410,21 +410,20 @@ def create_engineering_help_modals():
                                 "plus the fixed 500 ft pumped conveyance package → ",
                                 html.Strong("higher capital, maintenance, and NPV"),
                                 ".",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("No: "),
-                                "storage pond and its 500 ft conveyance package are "
-                                "omitted → ",
+                                "storage pond and its 500 ft conveyance package are omitted → ",
                                 html.Strong("lower total cost"),
                                 ".",
-                            ]
+                            ],
                         ),
                         html.Li(
                             "Larger design events (fewer events per month) increase "
                             "V_day and therefore storage pond area and cost when "
-                            "storage is Yes."
+                            "storage is Yes.",
                         ),
                     ],
                     className="mb-0",
@@ -462,21 +461,19 @@ def create_engineering_help_modals():
                                 "e.g. infiltration basin, Ag MAR, Flood MAR; "
                                 "footprint from V_day and depth, constrained by "
                                 "maximum infiltration area.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Dry well(s): "),
-                                "vadose-zone wells; count and rate from hydrogeology "
-                                "/ Default Parameters.",
-                            ]
+                                "vadose-zone wells; count and rate from hydrogeology / Default Parameters.",
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Injection well(s): "),
-                                "direct aquifer injection; count and rate from "
-                                "hydrogeology / Default Parameters.",
-                            ]
+                                "direct aquifer injection; count and rate from hydrogeology / Default Parameters.",
+                            ],
                         ),
                     ],
                     className="mb-3",
@@ -512,14 +509,14 @@ def create_engineering_help_modals():
                             "Shared upstream costs (conveyance to site, sediment, "
                             "storage) are included in each option’s totals; method-"
                             "specific costs (basin earthwork vs dry/injection wells) "
-                            "differ by column."
+                            "differ by column.",
                         ),
                         html.Li(
                             [
                                 html.Strong("Surface recharge: "),
                                 "cost grows with required basin area (V_day). Larger "
                                 "design events raise surface-recharge capital.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
@@ -527,12 +524,12 @@ def create_engineering_help_modals():
                                 "cost grows mainly with well count and capacity from "
                                 "the hydrogeology sizing (not from the conveyance "
                                 "radio). More wells → higher capital and O&M.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             "If an option is not feasible after Analysis, Cost "
                             "Analysis shows N/A for that option instead of a dollar "
-                            "amount."
+                            "amount.",
                         ),
                     ],
                     className="mb-0",
@@ -568,9 +565,7 @@ def create_engineering_elements_content():
                                             [
                                                 dbc.Col(
                                                     [
-                                                        _eng_question(
-                                                            "Maximum Monthly Flow (ft³/month)"
-                                                        ),
+                                                        _eng_question("Maximum Monthly Flow (ft³/month)"),
                                                         _eng_metric(
                                                             "max-monthly-flow-display",
                                                             "0.0",
@@ -581,16 +576,11 @@ def create_engineering_elements_content():
                                                 ),
                                                 dbc.Col(
                                                     [
-                                                        _eng_question(
-                                                            "Number of Events per Month"
-                                                        ),
+                                                        _eng_question("Number of Events per Month"),
                                                         dbc.Input(
                                                             type="number",
                                                             value=float(
-                                                                dash_storage.get_data(
-                                                                    "design_events_per_month"
-                                                                )
-                                                                or 4.0
+                                                                dash_storage.get_data("design_events_per_month") or 4.0,
                                                             ),
                                                             id="design-events-per-month-input",
                                                             debounce=True,
@@ -608,9 +598,7 @@ def create_engineering_elements_content():
                                                 ),
                                                 dbc.Col(
                                                     [
-                                                        _eng_question(
-                                                            "Design Event Flow (ft³/day)"
-                                                        ),
+                                                        _eng_question("Design Event Flow (ft³/day)"),
                                                         _eng_metric(
                                                             "design-event-flow-display",
                                                             "0.0",
@@ -634,9 +622,7 @@ def create_engineering_elements_content():
                                             "conveyance-sediment",
                                             "Help: conveyance methods and distance",
                                         ),
-                                        _eng_question(
-                                            "How will source water be conveyed to the recharge site?"
-                                        ),
+                                        _eng_question("How will source water be conveyed to the recharge site?"),
                                         dbc.RadioItems(
                                             options=[
                                                 {
@@ -660,9 +646,7 @@ def create_engineering_elements_content():
                                             id="conveyance-method-radio",
                                             className="eng-radio-stack",
                                         ),
-                                        _eng_question(
-                                            "Conveyance length (source → recharge)"
-                                        ),
+                                        _eng_question("Conveyance length (source → recharge)"),
                                         _eng_metric(
                                             "conveyance-distance-display",
                                             "Not available — set source and recharge "
@@ -687,9 +671,7 @@ def create_engineering_elements_content():
                                                             "sediment-pond",
                                                             "Help: sediment removal need and target",
                                                         ),
-                                                        _eng_question(
-                                                            "Is sediment removal needed prior to recharge?"
-                                                        ),
+                                                        _eng_question("Is sediment removal needed prior to recharge?"),
                                                         dbc.RadioItems(
                                                             options=[
                                                                 {
@@ -706,9 +688,7 @@ def create_engineering_elements_content():
                                                             inline=True,
                                                             className="eng-radio-inline",
                                                         ),
-                                                        _eng_question(
-                                                            "Sediment removal target"
-                                                        ),
+                                                        _eng_question("Sediment removal target"),
                                                         _eng_metric(
                                                             "sediment-removal-target-display",
                                                             "Medium Silt",
@@ -732,9 +712,7 @@ def create_engineering_elements_content():
                                                             "storage-pond",
                                                             "Help: storage pond need",
                                                         ),
-                                                        _eng_question(
-                                                            "Is a storage pond needed prior to recharge?"
-                                                        ),
+                                                        _eng_question("Is a storage pond needed prior to recharge?"),
                                                         dbc.RadioItems(
                                                             options=[
                                                                 {
@@ -769,8 +747,7 @@ def create_engineering_elements_content():
                                             "Help: surface, dry wells, injection wells",
                                         ),
                                         _eng_question(
-                                            "Cost for the following recharge engineering "
-                                            "options will be estimated"
+                                            "Cost for the following recharge engineering options will be estimated",
                                         ),
                                         dbc.Checklist(
                                             options=[
@@ -821,7 +798,7 @@ def create_engineering_elements_content():
                                 ),
                             ],
                             className="eng-side-panel",
-                        )
+                        ),
                     ],
                     width=4,
                 ),
@@ -898,22 +875,20 @@ def create_cost_content():
                         html.Li(
                             [
                                 html.Strong("Capital Cost: "),
-                                "sum of included structures, conveyance, ponds, "
-                                "pumps, and infiltration works.",
-                            ]
+                                "sum of included structures, conveyance, ponds, pumps, and infiltration works.",
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Annual Maintenance: "),
                                 "5% of each option's Capital Total Cost.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("NPV (20 years): "),
-                                "present worth of capital plus discounted maintenance "
-                                "over the analysis horizon.",
-                            ]
+                                "present worth of capital plus discounted maintenance over the analysis horizon.",
+                            ],
                         ),
                     ],
                     className="mb-3",
@@ -926,35 +901,34 @@ def create_cost_content():
                                 html.Strong("Events per month: "),
                                 "fewer events → larger design event → higher "
                                 "volume/flow-based costs; more events → lower cost.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Conveyance method & distance: "),
                                 "gravity ≪ pumped; longer source→recharge distance "
                                 "scales all $/LF conveyance capital and O&M.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Sediment removal Yes/No: "),
-                                "Yes adds pond + O&M (size from Q_peak and Fine/"
-                                "Medium Silt); No removes those costs.",
-                            ]
+                                "Yes adds pond + O&M (size from Q_peak and Fine/Medium Silt); No removes those costs.",
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Storage Yes/No: "),
                                 "Yes adds storage pond (from V_day) plus 500 ft "
                                 "pumped conveyance; No removes those costs.",
-                            ]
+                            ],
                         ),
                         html.Li(
                             [
                                 html.Strong("Recharge method columns: "),
                                 "surface / dry well / injection each get their own "
                                 "totals; infeasible options show N/A (no NPV bars).",
-                            ]
+                            ],
                         ),
                     ],
                     className="mb-3",
@@ -984,7 +958,7 @@ def create_cost_content():
                             "higher bound.",
                             className="mb-0 mt-2 text-muted",
                         ),
-                    ]
+                    ],
                 ),
             ],
             className="mb-4",
@@ -1018,7 +992,8 @@ def create_cost_content():
         dbc.Tabs(
             [
                 dbc.Tab(
-                    label="Capital Cost Table", id=tab_nav_id("capital-cost-table-tab"),
+                    label="Capital Cost Table",
+                    id=tab_nav_id("capital-cost-table-tab"),
                     tab_id="capital-cost-table-tab",
                     children=[
                         dbc.Card(
@@ -1026,16 +1001,15 @@ def create_cost_content():
                                 dbc.CardBody(
                                     [
                                         html.P(
-                                            "Capital Cost Table will be displayed "
-                                            "here.",
-                                            id="capital-cost-table-content"
+                                            "Capital Cost Table will be displayed here.",
+                                            id="capital-cost-table-content",
                                         ),
-                                    ]
+                                    ],
                                 ),
                             ],
                             className="mb-4",
-                        )
-                    ]
+                        ),
+                    ],
                 ),
                 dbc.Tab(
                     label="Maintenance Cost Table",
@@ -1047,19 +1021,19 @@ def create_cost_content():
                                 dbc.CardBody(
                                     [
                                         html.P(
-                                            "Maintenance Cost Table will be "
-                                            "displayed here.",
-                                            id="maintenance-cost-table-content"
+                                            "Maintenance Cost Table will be displayed here.",
+                                            id="maintenance-cost-table-content",
                                         ),
-                                    ]
+                                    ],
                                 ),
                             ],
                             className="mb-4",
-                        )
-                    ]
+                        ),
+                    ],
                 ),
                 dbc.Tab(
-                    label="Net Present Value Table", id=tab_nav_id("npv-table-tab"),
+                    label="Net Present Value Table",
+                    id=tab_nav_id("npv-table-tab"),
                     tab_id="npv-table-tab",
                     children=[
                         dbc.Card(
@@ -1067,16 +1041,15 @@ def create_cost_content():
                                 dbc.CardBody(
                                     [
                                         html.P(
-                                            "Net Present Value Table will be "
-                                            "displayed here.",
-                                            id="npv-table-content"
+                                            "Net Present Value Table will be displayed here.",
+                                            id="npv-table-content",
                                         ),
-                                    ]
+                                    ],
                                 ),
                             ],
                             className="mb-4",
-                        )
-                    ]
+                        ),
+                    ],
                 ),
             ],
             id="cost-tables-tabs",
@@ -1115,4 +1088,3 @@ def create_cost_content():
 def create_engineering_options_content():
     """Create the Engineering Options tab content."""
     return create_engineering_elements_content()
-

@@ -3,10 +3,10 @@ Feasibilities tab content for MAR DSS dashboard.
 """
 
 import dash_bootstrap_components as dbc
-from dash import html, dcc
-from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
-import mar_dss.app.utils.data_storage as dash_storage
+from dash import dcc, html
 
+import mar_dss.app.utils.data_storage as dash_storage
+from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 _HEADER_STYLE = {"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
 
@@ -21,7 +21,7 @@ def _detail_card_header(title, help_btn=None):
                     help_btn,
                 ],
                 className="d-flex align-items-center justify-content-between w-100",
-            )
+            ),
         ]
     return dbc.CardHeader(
         children if help_btn is not None else title,
@@ -62,24 +62,18 @@ def _spider_performance_help_modal():
                         [
                             html.Li(
                                 "Each spoke is one criterion. The plotted point on that "
-                                "spoke is the score for this option."
+                                "spoke is the score for this option.",
                             ),
                             html.Li(
                                 "The blue filled shape connects all six scores. "
                                 "Compare shapes across options: farther from the center "
-                                "is better on that axis."
+                                "is better on that axis.",
                             ),
-                            html.Li(
-                                "Score colors under each axis label: green ≥ 75%, "
-                                "orange 50–75%, red < 50%."
-                            ),
-                            html.Li(
-                                "Average Score (title) is the simple mean of the six "
-                                "axis scores for this option."
-                            ),
+                            html.Li("Score colors under each axis label: green ≥ 75%, orange 50–75%, red < 50%."),
+                            html.Li("Average Score (title) is the simple mean of the six axis scores for this option."),
                             html.Li(
                                 "If an option is not feasible, all six scores are set "
-                                "to 0% so the polygon collapses to the center."
+                                "to 0% so the polygon collapses to the center.",
                             ),
                         ],
                         className="mb-3",
@@ -95,7 +89,7 @@ def _spider_performance_help_modal():
                                     "Constraint response levels map to points "
                                     "(acceptable = 10 … reject = 0). Hard hydrogeologic "
                                     "failure forces this score to 0%.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -103,7 +97,7 @@ def _spider_performance_help_modal():
                                     "Same scoring approach using water-quality "
                                     "(environmental) soft constraints and benefits "
                                     "(0–100%).",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -112,7 +106,7 @@ def _spider_performance_help_modal():
                                     "The lowest-cost feasible option scores 100%; others "
                                     "score 100 × (minimum cost ÷ this option’s cost). "
                                     "Lower cost → higher efficiency.",
-                                ]
+                                ],
                             ),
                             html.Li(
                                 [
@@ -121,7 +115,7 @@ def _spider_performance_help_modal():
                                     "divided by annual recharge volume (acre-ft/yr). "
                                     "The lowest $/acre-ft among feasible options is 100%. "
                                     "The label may also show the absolute $/acre-ft.",
-                                ]
+                                ],
                             ),
                         ],
                         className="mb-3",
@@ -139,7 +133,7 @@ def _spider_performance_help_modal():
                         "Average Score = mean of the six axis scores",
                         className="bg-light border rounded p-2 small mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -147,7 +141,7 @@ def _spider_performance_help_modal():
                     id="spider-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="spider-performance-help-modal",
@@ -177,7 +171,7 @@ def _performance_comparison_panel():
                 ],
                 className="shadow-sm",
             ),
-        ]
+        ],
     )
 
 
@@ -196,7 +190,7 @@ def _executive_summary_card():
                         html.Div(
                             "Loading option economics...",
                             className="text-center text-muted p-3 small",
-                        )
+                        ),
                     ],
                 ),
                 style={"padding": "0.5rem 0.75rem"},
@@ -225,8 +219,7 @@ def _constraint_help_note(btn_id, title="Help: constraint meanings"):
                 "?",
                 id=btn_id,
                 type="button",
-                className="mar-help-btn eng-help-btn d-inline-flex align-items-center "
-                "justify-content-center",
+                className="mar-help-btn eng-help-btn d-inline-flex align-items-center justify-content-center",
                 title=title,
                 style={
                     "width": "1.25rem",
@@ -264,13 +257,8 @@ def _response_level_help_block():
             html.H6("How to read the chart", className="fw-bold mb-2"),
             html.Ul(
                 [
-                    html.Li(
-                        "Each column is one soft constraint; each row is one MAR option."
-                    ),
-                    html.Li(
-                        "Circle color and number are the DSS response level for that "
-                        "option–constraint pair."
-                    ),
+                    html.Li("Each column is one soft constraint; each row is one MAR option."),
+                    html.Li("Circle color and number are the DSS response level for that option–constraint pair."),
                     html.Li(
                         [
                             "Response levels: ",
@@ -286,22 +274,22 @@ def _response_level_help_block():
                             " Mitigation needed; ",
                             html.Strong("4"),
                             " Reject.",
-                        ]
+                        ],
                     ),
                     html.Li(
                         "Higher levels reduce the hydrogeologic / water-quality "
                         "score on the Performance Comparison spiders "
-                        "(points drop from 10 at level 0 toward 0 at level 4)."
+                        "(points drop from 10 at level 0 toward 0 at level 4).",
                     ),
                     html.Li(
                         "For Water Quality answers of Unknown, level 2 (yellow) is a "
                         "data-gap warning — collect information; it does not mean "
-                        "remediation is already required."
+                        "remediation is already required.",
                     ),
                 ],
                 className="mb-3",
             ),
-        ]
+        ],
     )
 
 
@@ -328,8 +316,7 @@ def _hydrogeologic_constraints_help_modal():
                         [
                             _constraint_entry(
                                 "Ground surface slope Suitability",
-                                "Whether ground slope is suitable for surface "
-                                "infiltration basins / spreading.",
+                                "Whether ground slope is suitable for surface infiltration basins / spreading.",
                                 "Uses ground-surface slope significance (Gentle / "
                                 "Moderate / Steep). For Surface Recharge: Gentle → 0; "
                                 "Moderate → 1 (earthwork cost); Steep → 3 (mitigation). "
@@ -340,8 +327,7 @@ def _hydrogeologic_constraints_help_modal():
                             ),
                             _constraint_entry(
                                 "Vadose zone infiltration",
-                                "Whether unsaturated-zone hydraulic conductivity "
-                                "supports meaningful infiltration.",
+                                "Whether unsaturated-zone hydraulic conductivity supports meaningful infiltration.",
                                 "Always Irrelevant (−1 / grey) for Injection Well. "
                                 "Confined → −1. If infiltration is inadequate, "
                                 "Surface Recharge → 3 (consider bypassing the vadose); "
@@ -360,8 +346,7 @@ def _hydrogeologic_constraints_help_modal():
                             ),
                             _constraint_entry(
                                 "Vadose zone pollution biodegradability",
-                                "Whether vadose pollution can biodegrade / attenuate "
-                                "naturally.",
+                                "Whether vadose pollution can biodegrade / attenuate naturally.",
                                 "Always Irrelevant (−1 / grey) for Injection Well. "
                                 "Only scored when vadose pollution is present. "
                                 "Biodegradable + Surface Recharge → 2 (monitor "
@@ -373,13 +358,11 @@ def _hydrogeologic_constraints_help_modal():
                             ),
                             _constraint_entry(
                                 "Vadose zone remediation needed",
-                                "Whether cleanup of the vadose is required before "
-                                "or during recharge.",
+                                "Whether cleanup of the vadose is required before or during recharge.",
                                 "Always Irrelevant (−1 / grey) for Injection Well. "
                                 "Confined → −1. If remediation is needed, Surface "
                                 "Recharge → 3.",
-                                "Remediation adds cost for surface methods; injection "
-                                "wells bypass the vadose.",
+                                "Remediation adds cost for surface methods; injection wells bypass the vadose.",
                             ),
                             _constraint_entry(
                                 "Vadose zone residence time",
@@ -407,36 +390,30 @@ def _hydrogeologic_constraints_help_modal():
                             ),
                             _constraint_entry(
                                 "Confined aquifer depth Suitability",
-                                "Whether the confined target is at a workable depth "
-                                "for wells.",
-                                "Unconfined → −1. Confined: Too Deep → 4 (reject); "
-                                "Moderate Deep → 2; otherwise 0.",
-                                "Excessive depth drives drilling cost and may make "
-                                "injection impractical.",
+                                "Whether the confined target is at a workable depth for wells.",
+                                "Unconfined → −1. Confined: Too Deep → 4 (reject); Moderate Deep → 2; otherwise 0.",
+                                "Excessive depth drives drilling cost and may make injection impractical.",
                             ),
                             _constraint_entry(
                                 "Confined leakage significance",
                                 "Degree of leakage through confining layers.",
-                                "Unconfined → −1. Confined: low → 0; medium → 2; "
-                                "high → 3.",
+                                "Unconfined → −1. Confined: low → 0; medium → 2; high → 3.",
                                 "High leakage can lose recharge, affect adjacent "
                                 "units, or create pressure/geomechanical issues.",
                             ),
                             _constraint_entry(
                                 "Land Use",
-                                "Compatibility of land use with land-intensive "
-                                "surface recharge.",
+                                "Compatibility of land use with land-intensive surface recharge.",
                                 "Overview land use Residential or "
                                 "Commercial/Industrial → 1 (extra land cost) for "
                                 "Surface Recharge; Agricultural / Open Space → 0. "
                                 "Dry Well and Injection Well stay 0.",
-                                "Developed land is costly and may face zoning limits "
-                                "for basins and spreading areas.",
+                                "Developed land is costly and may face zoning limits for basins and spreading areas.",
                             ),
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -444,7 +421,7 @@ def _hydrogeologic_constraints_help_modal():
                     id="hydro-constraints-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="hydro-constraints-help-modal",
@@ -477,8 +454,7 @@ def _water_quality_constraints_help_modal():
                         [
                             _constraint_entry(
                                 "Source Water Contaminants",
-                                "Whether source water has industrial, domestic, or "
-                                "emerging contaminants.",
+                                "Whether source water has industrial, domestic, or emerging contaminants.",
                                 "Yes → 3 (mitigation / extra cost beyond this tool’s "
                                 "scope). Unknown → data-gap warning (2). No → 0.",
                                 "Contaminated source water may need treatment, "
@@ -509,10 +485,8 @@ def _water_quality_constraints_help_modal():
                             ),
                             _constraint_entry(
                                 "Target Aquifer Anthropogenic Contaminants",
-                                "Whether the target aquifer already has human-caused "
-                                "contamination.",
-                                "Yes → 4 (reject all MAR options). Unknown → data-gap "
-                                "warning (2). No → 0.",
+                                "Whether the target aquifer already has human-caused contamination.",
+                                "Yes → 4 (reject all MAR options). Unknown → data-gap warning (2). No → 0.",
                                 "Recharging into an already unsuitable aquifer does "
                                 "not meet water-quality objectives and can worsen "
                                 "liability.",
@@ -530,7 +504,7 @@ def _water_quality_constraints_help_modal():
                         ],
                         className="mb-0",
                     ),
-                ]
+                ],
             ),
             dbc.ModalFooter(
                 dbc.Button(
@@ -538,7 +512,7 @@ def _water_quality_constraints_help_modal():
                     id="wq-constraints-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="wq-constraints-help-modal",
@@ -584,7 +558,7 @@ def _hydrogeologic_constraints_panel():
                 ],
                 className="shadow-sm w-100",
             ),
-        ]
+        ],
     )
 
 
@@ -624,7 +598,7 @@ def _water_quality_constraints_panel():
                 ],
                 className="shadow-sm w-100",
             ),
-        ]
+        ],
     )
 
 
@@ -656,7 +630,7 @@ def _cost_comparison_panel():
                             ),
                         ],
                         className="d-flex flex-column align-items-center w-100",
-                    )
+                    ),
                 ],
                 style={"padding": "0.75rem"},
                 className="w-100",
@@ -715,9 +689,7 @@ def create_feasibilities_content():
                 [
                     dbc.Checkbox(
                         id="view-feasibility-details-check",
-                        label=html.Strong(
-                            "View additional details about the feasibility of each option"
-                        ),
+                        label=html.Strong("View additional details about the feasibility of each option"),
                         value=view_details,
                         className="mb-0 collapse-toggle-check",
                         input_class_name="me-1",
@@ -731,7 +703,7 @@ def create_feasibilities_content():
                 id="feasibility-details-collapse",
                 is_open=view_details,
             ),
-        ]
+        ],
     )
 
     return html.Div(

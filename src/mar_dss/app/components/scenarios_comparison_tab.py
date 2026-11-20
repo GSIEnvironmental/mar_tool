@@ -28,9 +28,9 @@ def create_scenarios_comparison_content():
             y=water_supply,
             mode="lines+markers",
             name="Water Supply Security",
-            line=dict(color="#2E8B57", width=3),
-            marker=dict(size=8),
-        )
+            line={"color": "#2E8B57", "width": 3},
+            marker={"size": 8},
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -38,9 +38,9 @@ def create_scenarios_comparison_content():
             y=cost_effectiveness,
             mode="lines+markers",
             name="Cost Effectiveness",
-            line=dict(color="#4169E1", width=3),
-            marker=dict(size=8),
-        )
+            line={"color": "#4169E1", "width": 3},
+            marker={"size": 8},
+        ),
     )
     fig.add_trace(
         go.Scatter(
@@ -48,9 +48,9 @@ def create_scenarios_comparison_content():
             y=environmental_impact,
             mode="lines+markers",
             name="Environmental Impact",
-            line=dict(color="#FF6347", width=3),
-            marker=dict(size=8),
-        )
+            line={"color": "#FF6347", "width": 3},
+            marker={"size": 8},
+        ),
     )
 
     fig.update_layout(
@@ -65,9 +65,7 @@ def create_scenarios_comparison_content():
     return html.Div(
         [
             html.H3("Scenarios Comparison"),
-            html.P(
-                "Compare different MAR project scenarios and their outcomes"
-            ),
+            html.P("Compare different MAR project scenarios and their outcomes"),
             dcc.Graph(id="scenarios-comparison-chart", figure=fig),
             dbc.Tooltip(
                 "Illustrative scenario scores for supply, cost, and environment",
@@ -82,18 +80,14 @@ def create_scenarios_comparison_content():
                         [
                             dbc.Col(
                                 [
-                                    html.H6(
-                                        "Baseline Scenario", className="fw-bold"
-                                    ),
-                                    html.P(
-                                        "Standard conditions with moderate growth"
-                                    ),
+                                    html.H6("Baseline Scenario", className="fw-bold"),
+                                    html.P("Standard conditions with moderate growth"),
                                     html.Ul(
                                         [
                                             html.Li("Water Supply: 75%"),
                                             html.Li("Cost Effectiveness: 80%"),
                                             html.Li("Environmental: 70%"),
-                                        ]
+                                        ],
                                     ),
                                 ],
                                 width=6,
@@ -104,29 +98,27 @@ def create_scenarios_comparison_content():
                                         "Optimistic Scenario",
                                         className="fw-bold",
                                     ),
-                                    html.P(
-                                        "Best-case conditions with high efficiency"
-                                    ),
+                                    html.P("Best-case conditions with high efficiency"),
                                     html.Ul(
                                         [
                                             html.Li("Water Supply: 90%"),
                                             html.Li("Cost Effectiveness: 95%"),
                                             html.Li("Environmental: 85%"),
-                                        ]
+                                        ],
                                     ),
                                 ],
                                 width=6,
                             ),
-                        ]
-                    )
-                ]
+                        ],
+                    ),
+                ],
             ),
             html.Hr(),
             html.H5("Recommendations", className="mt-3"),
             html.P(
-                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions."
+                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing "
+                "efficiency measures to achieve optimistic outcomes while preparing contingency plans for "
+                "pessimistic conditions.",
             ),
-        ]
+        ],
     )
-
-

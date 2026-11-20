@@ -1,23 +1,26 @@
 """
 Callbacks for the Runoff Calculator tab.
 """
+
+import contextlib
+import json
+import logging
 import os
+
 import dash
-from dash import Input, Output, html, no_update, State, dcc, ALL, dash_table
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
-import pandas as pd
-import osmnx as ox
 import geopandas as gpd
-import json
-from mar_dss.pfdf.data.noaa.atlas14 import download
-import requests
 import numpy as np
+import osmnx as ox
+import pandas as pd
 import plotly.graph_objects as go
+import requests
+from dash import ALL, Input, Output, State, dash_table, dcc, html
 from scipy.special import exp1
+
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.excel_table import (
-    INPUT_CELL_BG,
     build_param_value_table,
     build_table_legend,
     datatable_base_style_cell,
@@ -28,17 +31,23 @@ from mar_dss.app.utils.excel_table import (
     wrap_table_with_legend,
 )
 from mar_dss.app.utils.tab_tooltips import TOOLTIPS_ENABLED
+from mar_dss.app.utils.web_services import USER_AGENT, nominatim_get
+from mar_dss.pfdf.data.noaa.atlas14 import download
+
+# Make osmnx send our User-Agent too.
+ox.settings.http_user_agent = USER_AGENT
+
+
+logger = logging.getLogger(__name__)
 
 
 try:
     from mar_dss.app.components.runoff_calculator_tab import (
         _project_location_map_center,
-        create_runoff_map,
     )
 except ImportError:
     from ..components.runoff_calculator_tab import (
         _project_location_map_center,
-        create_runoff_map,
     )
 df = pd.DataFrame()
 
@@ -90,9 +99,7 @@ def _compute_composite_cn_rows(table_data, selected_option):
 def _composite_cn_excel_table(table_data):
     computed = {"Composite CN"}
     editable = {
-        str(row.get("Parameter", ""))
-        for row in (table_data or [])
-        if str(row.get("Parameter", "")) not in computed
+        str(row.get("Parameter", "")) for row in (table_data or []) if str(row.get("Parameter", "")) not in computed
     }
     return wrap_table_with_legend(
         build_param_value_table(
@@ -101,7 +108,7 @@ def _composite_cn_excel_table(table_data):
             readonly_params=computed,
             input_highlight_params=editable,
             computed_highlight_params=computed,
-        )
+        ),
     )
 
 
@@ -128,13 +135,12 @@ def _runoff_calc_excel_table(table_data):
             readonly_params=RUNOFF_CALC_COMPUTED_PARAMS,
             input_highlight_params=RUNOFF_CALC_EDITABLE_PARAMS,
             computed_highlight_params=RUNOFF_CALC_COMPUTED_PARAMS,
-        )
+        ),
     )
 
 
 _RUNOFF_NEGATIVE_INPUT_ALERT = dbc.Alert(
-    "Water Source: negative values are not allowed. "
-    "All table input values must be zero or greater.",
+    "Water Source: negative values are not allowed. All table input values must be zero or greater.",
     color="danger",
     className="py-2 small mb-2",
 )
@@ -218,7 +224,7 @@ def _recompute_runoff_dependent_values(table_data):
 def _runoff_rows_equal(a, b):
     if not a or not b or len(a) != len(b):
         return False
-    for ra, rb in zip(a, b):
+    for ra, rb in zip(a, b, strict=True):
         if ra.get("Parameter") != rb.get("Parameter"):
             return False
         try:
@@ -230,10 +236,9 @@ def _runoff_rows_equal(a, b):
     return True
 
 
-    
 def get_monthly_rain(latitude, longitude):
     START_YEAR = 1981
-    END_YEAR = 2021 
+    END_YEAR = 2021
     API_URL = "https://power.larc.nasa.gov/api/temporal/climatology/point"
     PARAMETERS = "PRECTOTCORR"
     COMMUNITY = "AG"  # Agroclimatology community, provides standard units (mm/day)
@@ -241,40 +246,56 @@ def get_monthly_rain(latitude, longitude):
 
     # 2. Construct the API call URL
     payload = {
-        'parameters': PARAMETERS,
-        'community': COMMUNITY,
-        'latitude': latitude,
-        'longitude': longitude,
-        'start': START_YEAR,
-        'end': END_YEAR,
-        'format': 'JSON'
+        "parameters": PARAMETERS,
+        "community": COMMUNITY,
+        "latitude": latitude,
+        "longitude": longitude,
+        "start": START_YEAR,
+        "end": END_YEAR,
+        "format": "JSON",
     }
 
     # 3. Make the API request
     try:
         response = requests.get(API_URL, params=payload, timeout=10)
-        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
-        data = response.json()        
-        all_data = list(data['properties']['parameter']['PRECTOTCORR'].values())
-        annual_data = all_data[-1]*365.25/25.4
-        monthly_data = np.array(all_data[0:12]) * 30.4375/25.4
-        df = pd.DataFrame(columns=['Month', 'Rain (inches)'])
-        df['Month'] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-        df['Rain (inches)'] = monthly_data
+        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+        data = response.json()
+        all_data = list(data["properties"]["parameter"]["PRECTOTCORR"].values())
+        annual_data = all_data[-1] * 365.25 / 25.4
+        monthly_data = np.array(all_data[0:12]) * 30.4375 / 25.4
+        df = pd.DataFrame(columns=["Month", "Rain (inches)"])
+        df["Month"] = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ]
+        df["Rain (inches)"] = monthly_data
 
-        return df       
+        return df
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching data: {e}")
+        logger.error(f"Error fetching data: {e}")
     except KeyError:
-        print("Error: Could not find the expected data structure in the API response. The parameter or time frame might be incorrect.")
+        logger.error(
+            "Error: Could not find the expected data structure in the API response. The parameter or time frame "
+            "might be incorrect.",
+        )
+
 
 def get_rain_data(lat, lon):
     """Get rain data from NOAA Atlas 14 and return as DataFrame."""
-    file_path = download(lat=lat, lon=lon, units='english', data='depth', overwrite=True)
-    fidr = open(file_path, 'r')
-    lines = fidr.readlines()
-    fidr.close()
+    file_path = download(lat=lat, lon=lon, units="english", data="depth", overwrite=True)
+    with open(file_path) as fidr:
+        lines = fidr.readlines()
 
     # remove the file
     os.remove(file_path)
@@ -287,15 +308,15 @@ def get_rain_data(lat, lon):
             readdata = True
             readheader = True
             continue
-        
+
         if readdata:
             if readheader:
-                header = [hval.strip() for hval in line.split(',')]
+                header = [hval.strip() for hval in line.split(",")]
                 readheader = False
                 continue
-            parts = line.split(',')
+            parts = line.split(",")
             duration = parts[0]
-            if duration.strip() == '':
+            if duration.strip() == "":
                 break
             frequency = [float(fval) for fval in parts[1:]]
             record = [duration] + frequency
@@ -303,55 +324,92 @@ def get_rain_data(lat, lon):
     df_rain = pd.DataFrame(data, columns=header)
     return df_rain
 
+
 def get_streams_near_point(lat, lon, distance_m=16093):
     """Find streams within specified distance of a point"""
     try:
-        print(f"Searching for streams near: {lat}, {lon}")
+        logger.debug(f"Searching for streams near: {lat}, {lon}")
         # Download waterway features using osmnx features module
-        gdf_waterways = ox.features_from_point(
-            center_point=(lat, lon), 
-            dist=distance_m, 
-            tags={'waterway': True}
-        )
-        
+        gdf_waterways = ox.features_from_point(center_point=(lat, lon), dist=distance_m, tags={"waterway": True})
+
         # Filter for stream-like features
-        stream_types = ['stream', 'river', 'canal', 'drain', 'ditch']
-        waterways = gdf_waterways[gdf_waterways['waterway'].isin(stream_types)]
-        
-        print(f"Found {len(waterways)} waterway features")
+        stream_types = ["stream", "river", "canal", "drain", "ditch"]
+        waterways = gdf_waterways[gdf_waterways["waterway"].isin(stream_types)]
+
+        logger.debug(f"Found {len(waterways)} waterway features")
         return waterways
     except Exception as e:
-        print(f"Error finding streams: {e}")
+        logger.error(f"Error finding streams: {e}")
         return gpd.GeoDataFrame(columns=["geometry"])
+
 
 def streams_to_geojson(streams):
     """Convert streams GeoDataFrame to GeoJSON"""
     if streams is None or streams.empty:
-        print("No streams to convert to GeoJSON")
+        logger.debug("No streams to convert to GeoJSON")
         return {}
-    
+
     # Convert to GeoJSON
     geojson = json.loads(streams.to_json())
-    print(f"Converted {len(geojson.get('features', []))} features to GeoJSON")
+    logger.debug(f"Converted {len(geojson.get('features', []))} features to GeoJSON")
     return geojson
+
 
 SS_DELINEATE_BASE = "https://streamstats.usgs.gov/ss-delineate/v1"
 SS_HYDRO_BASE = "https://streamstats.usgs.gov/ss-hydro/v1"
 
 _STATE_NAME_TO_ABBR = {
-    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
-    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
-    "Florida": "FL", "Georgia": "GA", "Hawaii": "HI", "Idaho": "ID",
-    "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
-    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
-    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
-    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
-    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
-    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
-    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
-    "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
-    "Vermont": "VT", "Virginia": "VA", "Washington": "WA", "West Virginia": "WV",
-    "Wisconsin": "WI", "Wyoming": "WY", "District of Columbia": "DC",
+    "Alabama": "AL",
+    "Alaska": "AK",
+    "Arizona": "AZ",
+    "Arkansas": "AR",
+    "California": "CA",
+    "Colorado": "CO",
+    "Connecticut": "CT",
+    "Delaware": "DE",
+    "Florida": "FL",
+    "Georgia": "GA",
+    "Hawaii": "HI",
+    "Idaho": "ID",
+    "Illinois": "IL",
+    "Indiana": "IN",
+    "Iowa": "IA",
+    "Kansas": "KS",
+    "Kentucky": "KY",
+    "Louisiana": "LA",
+    "Maine": "ME",
+    "Maryland": "MD",
+    "Massachusetts": "MA",
+    "Michigan": "MI",
+    "Minnesota": "MN",
+    "Mississippi": "MS",
+    "Missouri": "MO",
+    "Montana": "MT",
+    "Nebraska": "NE",
+    "Nevada": "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "AND",
+    "Ohio": "OH",
+    "Oklahoma": "OK",
+    "Oregon": "OR",
+    "Pennsylvania": "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    "Tennessee": "TN",
+    "Texas": "TX",
+    "Utah": "UT",
+    "Vermont": "VT",
+    "Virginia": "VA",
+    "Washington": "WA",
+    "West Virginia": "WV",
+    "Wisconsin": "WI",
+    "Wyoming": "WY",
+    "District of Columbia": "DC",
 }
 
 
@@ -405,10 +463,9 @@ def _get_state_from_coords(lat, lon):
 
     # 3) OpenStreetMap Nominatim reverse geocode
     try:
-        resp = requests.get(
+        resp = nominatim_get(
             "https://nominatim.openstreetmap.org/reverse",
             params={"lat": lat, "lon": lon, "format": "json"},
-            headers={"User-Agent": "MAR-DSS/1.0 (watershed state lookup)"},
             timeout=20,
         )
         resp.raise_for_status()
@@ -427,10 +484,7 @@ def _get_state_from_coords(lat, lon):
     except Exception as exc:
         errors.append(f"Nominatim: {exc}")
 
-    raise ValueError(
-        f"Could not determine state for coordinates ({lat}, {lon}). "
-        + " | ".join(errors)
-    )
+    raise ValueError(f"Could not determine state for coordinates ({lat}, {lon}). " + " | ".join(errors))
 
 
 def _delineate_watershed(region, lat, lon):
@@ -478,10 +532,7 @@ def _monthly_runoff_volumes_to_flow_list(monthly_runoff_records):
         if short not in MONTHS_SHORT:
             continue
         try:
-            by_month[short] = float(
-                row.get("Runoff Volume (ft3/month)", row.get("Runoff Volume (ft3)", 0))
-                or 0
-            )
+            by_month[short] = float(row.get("Runoff Volume (ft3/month)", row.get("Runoff Volume (ft3)", 0)) or 0)
         except (TypeError, ValueError):
             by_month[short] = 0.0
     return [by_month.get(month, 0.0) for month in MONTHS_SHORT]
@@ -494,7 +545,7 @@ def _sync_runoff_volumes_to_monthly_flow():
         return None
     monthly_flows = _monthly_runoff_volumes_to_flow_list(saved_data)
     dash_storage.set_data("monthly_flow", monthly_flows)
-    return {month: flow for month, flow in zip(MONTHS_SHORT, monthly_flows)}
+    return dict(zip(MONTHS_SHORT, monthly_flows, strict=True))
 
 
 def _param_from_runoff_table(table_data, parameter, default=None):
@@ -548,8 +599,8 @@ def build_monthly_runoff_calc_summary(table_data, rain_events, lat, lon):
 
 def setup_runoff_callbacks(app):
     """Register callbacks related to the runoff calculator tab."""
-    print("Setting up runoff callbacks...")
-    
+    logger.debug("Setting up runoff callbacks...")
+
     # Client-side callback to resize map when tab becomes active
     app.clientside_callback(
         """
@@ -765,15 +816,17 @@ def setup_runoff_callbacks(app):
 
     # Callback 1: Handle map clicks to update coordinates (exact same as open3.py)
     @app.callback(
-        [Output('selected-latitude', 'value'),
-         Output('selected-longitude', 'value'),
-         Output('runoff-results', 'children')],
-        [Input('runoff-map', 'clickData')],
+        [
+            Output("selected-latitude", "value"),
+            Output("selected-longitude", "value"),
+            Output("runoff-results", "children"),
+        ],
+        [Input("runoff-map", "clickData")],
         prevent_initial_call=False,
     )
     def update_coordinates_on_click(clickData):
-        print(f"Callback triggered with: {clickData}")  # Debug print
-        
+        logger.debug(f"Callback triggered with: {clickData}")
+
         if clickData is None:
             # Initial load: match Project Location map center
             lat, lon, _ = _project_location_map_center()
@@ -782,11 +835,11 @@ def setup_runoff_callbacks(app):
                 lon,
                 f"Map centered on Project Location: {lat:.4f}, {lon:.4f}",
             )
-        
+
         # Extract coordinates from clickData (Leaflet format)
-        lat = clickData['latlng']['lat']
-        lon = clickData['latlng']['lng']
-        
+        lat = clickData["latlng"]["lat"]
+        lon = clickData["latlng"]["lng"]
+
         # Return the new coordinates directly to the input fields
         return lat, lon, f"Map Click Coordinates: {lat:.4f}, {lon:.4f}"
 
@@ -800,9 +853,7 @@ def setup_runoff_callbacks(app):
         ],
         prevent_initial_call=True,
     )
-    def sync_watershed_map_center_from_project_location(
-        _project_location, runoff_tab, top_tab
-    ):
+    def sync_watershed_map_center_from_project_location(_project_location, runoff_tab, top_tab):
         """Keep Watershed Information map center aligned with Project Location."""
         ctx = dash.callback_context
         if not ctx.triggered:
@@ -821,10 +872,8 @@ def setup_runoff_callbacks(app):
 
     # Callback 2: Update marker and map center based on input fields (exact same as open3.py)
     @app.callback(
-        [Output('marker-layer', 'children'),
-         Output('runoff-map', 'center')],
-        [Input('selected-latitude', 'value'),
-         Input('selected-longitude', 'value')],
+        [Output("marker-layer", "children"), Output("runoff-map", "center")],
+        [Input("selected-latitude", "value"), Input("selected-longitude", "value")],
         prevent_initial_call=False,
     )
     def update_marker_on_coordinate_change(lat, lon):
@@ -833,119 +882,115 @@ def setup_runoff_callbacks(app):
 
         marker = dl.Marker(
             position=[lat, lon],
-            children=(
-                [dl.Tooltip(f"Selected: {lat:.4f}, {lon:.4f}")]
-                if TOOLTIPS_ENABLED
-                else []
-            ),
-            icon={'iconUrl': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', 'iconSize': [25, 41], 'iconAnchor': [12, 41]}
+            children=([dl.Tooltip(f"Selected: {lat:.4f}, {lon:.4f}")] if TOOLTIPS_ENABLED else []),
+            icon={
+                "iconUrl": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+                "iconSize": [25, 41],
+                "iconAnchor": [12, 41],
+            },
         )
-        
+
         # Center the map on the new coordinates when they change
         return [marker], [lat, lon]
 
     # Callback 3: Handle "Obtain nearby streams" button with working message
     @app.callback(
-        [Output('stations-layer', 'children'),
-         Output('status-message', 'children')],
-        [Input('obtain-streams-btn', 'n_clicks')],
-        [State('selected-latitude', 'value'),
-         State('selected-longitude', 'value')],
+        [Output("stations-layer", "children"), Output("status-message", "children")],
+        [Input("obtain-streams-btn", "n_clicks")],
+        [State("selected-latitude", "value"), State("selected-longitude", "value")],
         prevent_initial_call=True,
         running=[
             (
-                Output('status-message', 'children'),
+                Output("status-message", "children"),
                 _download_progress_banner("Downloading nearby stream information…"),
                 html.Div(""),
             ),
-            (Output('obtain-streams-btn', 'disabled'), True, False),
+            (Output("obtain-streams-btn", "disabled"), True, False),
         ],
     )
     def update_streams(n_clicks, lat, lon):
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
-            print(f"Searching streams for: {lat}, {lon}")
-            
+            logger.debug(f"Searching streams for: {lat}, {lon}")
+
             # The distance is set in the function call to 16093 meters (approx 10 miles)
-            streams = get_streams_near_point(lat, lon) 
+            streams = get_streams_near_point(lat, lon)
             geojson_data = streams_to_geojson(streams)
-            
-            if geojson_data and 'features' in geojson_data and len(geojson_data['features']) > 0:
+
+            if geojson_data and "features" in geojson_data and len(geojson_data["features"]) > 0:
                 # Show completion message
                 done_msg = html.Div("Done!", className="alert alert-success", role="alert")
-                return [dl.GeoJSON(
-                    data=geojson_data, 
-                    style={'color': 'blue', 'weight': 3, 'opacity': 0.8}
-                )], done_msg
+                return [dl.GeoJSON(data=geojson_data, style={"color": "blue", "weight": 3, "opacity": 0.8})], done_msg
             else:
                 # Show completion message even if no streams found
                 done_msg = html.Div("Done! (No streams found)", className="alert alert-warning", role="alert")
                 return [], done_msg
-        
+
         return [], html.Div("")
 
     # Callback 4: Handle "Get Watershed Info" button with working message
     @app.callback(
-        [Output('watershed-layer', 'children'),
-         Output('watershed-info-content', 'children'),
-         Output('status-message', 'children', allow_duplicate=True)],
-        [Input('get-watershed-btn', 'n_clicks')],
-        [State('selected-latitude', 'value'),
-         State('selected-longitude', 'value')],
+        [
+            Output("watershed-layer", "children"),
+            Output("watershed-info-content", "children"),
+            Output("status-message", "children", allow_duplicate=True),
+        ],
+        [Input("get-watershed-btn", "n_clicks")],
+        [State("selected-latitude", "value"), State("selected-longitude", "value")],
         prevent_initial_call=True,
         running=[
             (
-                Output('status-message', 'children', allow_duplicate=True),
+                Output("status-message", "children", allow_duplicate=True),
                 _download_progress_banner("Downloading watershed information…"),
                 html.Div(""),
             ),
-            (Output('get-watershed-btn', 'disabled'), True, False),
+            (Output("get-watershed-btn", "disabled"), True, False),
         ],
     )
     def get_watershed_info(n_clicks, lat, lon):
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
-            print(f"Getting watershed info for: {lat}, {lon}")
-            
+            logger.debug(f"Getting watershed info for: {lat}, {lon}")
+
             # Get watershed data for the map
             try:
                 region = _get_state_from_coords(lat, lon)
-                print(f"Detected region/state: {region}")
+                logger.debug(f"Detected region/state: {region}")
 
                 watershed_geojson = _delineate_watershed(region, lat, lon)
-                print(f"Watershed delineation returned {len(watershed_geojson.get('features', []))} features")
+                logger.debug(f"Watershed delineation returned {len(watershed_geojson.get('features', []))} features")
 
                 basin_chars = _get_basin_characteristics(region, lat, lon)
-                print(f"Basin characteristics count: {len(basin_chars)}")
+                logger.debug(f"Basin characteristics count: {len(basin_chars)}")
 
                 df_data = []
                 for par in basin_chars:
-                    name = par.get('name', '')
-                    description = par.get('description', '')
-                    code = par.get('code', '')
-                    unit = par.get('unit', '')
-                    value = par.get('value', '')
-                    print(f"Parameter: {name} = {value} {unit}")
+                    name = par.get("name", "")
+                    description = par.get("description", "")
+                    code = par.get("code", "")
+                    unit = par.get("unit", "")
+                    value = par.get("value", "")
+                    logger.debug(f"Parameter: {name} = {value} {unit}")
                     df_data.append([name, description, code, unit, value])
-                
+
                 # Create DataFrame
-                df = pd.DataFrame(df_data, columns=['Name', 'Description', 'Code', 'Unit', 'Value'])
-                print(f"DataFrame created with {len(df)} rows")
-                print(f"DataFrame columns: {df.columns.tolist()}")
-                print(f"DataFrame data: {df.to_dict('records')}")
-                
+                df = pd.DataFrame(df_data, columns=["Name", "Description", "Code", "Unit", "Value"])
+                logger.debug(f"DataFrame created with {len(df)} rows")
+                logger.debug(f"DataFrame columns: {df.columns.tolist()}")
+                logger.debug(f"DataFrame data: {df.to_dict('records')}")
+
                 # Create watershed layer for the map
                 watershed_layer = dl.GeoJSON(
-                    data=watershed_geojson, 
-                    style={'color': 'red', 'weight': 3, 'opacity': 0.8, 'fillOpacity': 0.2}
+                    data=watershed_geojson,
+                    style={"color": "red", "weight": 3, "opacity": 0.8, "fillOpacity": 0.2},
                 )
-                
+
                 # Generate watershed table with error handling
                 try:
                     if df.empty:
-                        print("Watershed DataFrame is empty!")
+                        logger.warning("Watershed DataFrame is empty!")
                         watershed_table = html.P("No watershed parameters available", className="text-warning")
                     else:
                         watershed_table = dash_table.DataTable(
-                            data=df.to_dict('records'),
+                            data=df.to_dict("records"),
                             columns=[{"name": i, "id": i} for i in df.columns],
                             style_cell=datatable_base_style_cell(),
                             style_header=datatable_base_style_header(),
@@ -956,20 +1001,20 @@ def setup_runoff_callbacks(app):
                             export_format="csv",
                         )
                 except Exception as table_error:
-                    print(f"Error creating watershed table: {table_error}")
+                    logger.error(f"Error creating watershed table: {table_error}")
                     watershed_table = html.P(f"Error creating table: {str(table_error)}", className="text-danger")
-                
-                print(f"Watershed table generated with {len(df)} rows")
-                
+
+                logger.debug(f"Watershed table generated with {len(df)} rows")
+
                 # Show completion message
                 done_msg = html.Div("Done!", className="alert alert-success", role="alert")
                 return [watershed_layer], watershed_table, done_msg
-                
+
             except Exception as e:
-                print(f"Error getting watershed data: {e}")
+                logger.error(f"Error getting watershed data: {e}")
                 error_msg = html.Div("Error getting watershed data", className="alert alert-danger", role="alert")
                 return [], html.P(f"Error getting watershed data: {str(e)}", className="text-danger"), error_msg
-        
+
         return [], html.Div("Click 'Get Watershed Info' to retrieve watershed data."), html.Div("")
 
     @app.callback(
@@ -1010,8 +1055,7 @@ def setup_runoff_callbacks(app):
                 className="text-muted",
             ),
             html.Div(
-                "Drainage point and map layers reset to Project Location. "
-                "Click the map to choose a new point.",
+                "Drainage point and map layers reset to Project Location. Click the map to choose a new point.",
                 className="alert alert-info",
                 role="alert",
             ),
@@ -1022,106 +1066,94 @@ def setup_runoff_callbacks(app):
 
     # Callback to save impervious outlet option (1A/1B) to data storage
     @app.callback(
-        Output('impervious-outlet-option', 'value'),
-        [
-            Input('impervious-outlet-option', 'value'),
-            Input('impervious-outlet-option', 'id')
-        ],
-        prevent_initial_call=False
+        Output("impervious-outlet-option", "value"),
+        [Input("impervious-outlet-option", "value"), Input("impervious-outlet-option", "id")],
+        prevent_initial_call=False,
     )
     def handle_impervious_outlet_option(value, component_id):
         """Handle impervious outlet option selection and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             outlet_option = dash_storage.get_data("impervious_outlet_option") or "1A"
             dash_storage.set_data("impervious_outlet_option", outlet_option)
             return outlet_option
-        
+
         # Save to data storage
         dash_storage.set_data("impervious_outlet_option", value)
         return value
-    
+
     # Callback to save impervious curve number select to data storage
     @app.callback(
-        Output('impervious-curve-number-select', 'value'),
-        [
-            Input('impervious-curve-number-select', 'value'),
-            Input('impervious-curve-number-select', 'id')
-        ],
-        prevent_initial_call=False
+        Output("impervious-curve-number-select", "value"),
+        [Input("impervious-curve-number-select", "value"), Input("impervious-curve-number-select", "id")],
+        prevent_initial_call=False,
     )
     def handle_impervious_curve_number_select(value, component_id):
         """Handle impervious curve number selection and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             impervious_cn = dash_storage.get_data("impervious_curve_number_select")
             dash_storage.set_data("impervious_curve_number_select", impervious_cn)
             return impervious_cn
-        
+
         # Save to data storage
         dash_storage.set_data("impervious_curve_number_select", value)
         return value
-    
+
     # Callback to save cover description select to data storage
     @app.callback(
-        Output('cover-description-select', 'value'),
-        [
-            Input('cover-description-select', 'value'),
-            Input('cover-description-select', 'id')
-        ],
-        prevent_initial_call=False
+        Output("cover-description-select", "value"),
+        [Input("cover-description-select", "value"), Input("cover-description-select", "id")],
+        prevent_initial_call=False,
     )
     def handle_cover_description_select(value, component_id):
         """Handle cover description selection and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             cover_desc = dash_storage.get_data("cover_description_select")
             dash_storage.set_data("cover_description_select", cover_desc)
             return cover_desc
-        
+
         # Save to data storage
         dash_storage.set_data("cover_description_select", value)
         return value
-    
+
     # Callback to save soil type select to data storage
     @app.callback(
-        Output('soil-type-select', 'value'),
-        [
-            Input('soil-type-select', 'value'),
-            Input('soil-type-select', 'id')
-        ],
-        prevent_initial_call=False
+        Output("soil-type-select", "value"),
+        [Input("soil-type-select", "value"), Input("soil-type-select", "id")],
+        prevent_initial_call=False,
     )
     def handle_soil_type_select(value, component_id):
         """Handle soil type selection and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             soil_type = dash_storage.get_data("soil_type_select")
             dash_storage.set_data("soil_type_select", soil_type)
             return soil_type
-        
+
         # Save to data storage
         dash_storage.set_data("soil_type_select", value)
         return value
-    
+
     # Callback for impervious curve number selection
     @app.callback(
-        Output('selected-impervious-curve-number-display', 'children'),
-        Input('impervious-curve-number-select', 'value')
+        Output("selected-impervious-curve-number-display", "children"),
+        Input("impervious-curve-number-select", "value"),
     )
     def update_impervious_curve_number_display(selected_value):
         """Display the selected impervious curve number information."""
         if not selected_value:
             return html.Div("Please select a surface condition.", className="text-muted")
-        
+
         # Map values to curve numbers
         curve_number_map = {
             "concrete_fresh": {"surface": "Concrete", "condition": "Fresh/Uncracked", "cn": 99},
@@ -1129,110 +1161,108 @@ def setup_runoff_callbacks(app):
             "asphalt_fresh": {"surface": "Asphalt", "condition": "Fresh/Uncracked", "cn": 99},
             "asphalt_weathered": {"surface": "Asphalt", "condition": "Weathered/Cracked", "cn": 97},
         }
-        
+
         info = curve_number_map.get(selected_value)
         if info:
-            return dbc.Alert([
-                html.H5("Selected Surface Condition", className="mb-2"),
-                html.P([
-                    html.Strong("Surface: "), info["surface"], html.Br(),
-                    html.Strong("Condition: "), info["condition"], html.Br(),
-                    html.Strong("Curve Number (CN): "), html.Span(str(info["cn"]), className="text-primary fw-bold fs-4")
-                ], className="mb-0")
-            ], color="info")
-        
+            return dbc.Alert(
+                [
+                    html.H5("Selected Surface Condition", className="mb-2"),
+                    html.P(
+                        [
+                            html.Strong("Surface: "),
+                            info["surface"],
+                            html.Br(),
+                            html.Strong("Condition: "),
+                            info["condition"],
+                            html.Br(),
+                            html.Strong("Curve Number (CN): "),
+                            html.Span(str(info["cn"]), className="text-primary fw-bold fs-4"),
+                        ],
+                        className="mb-0",
+                    ),
+                ],
+                color="info",
+            )
+
         return html.Div("Invalid selection.", className="text-danger")
 
     # Callback for curve number selection based on cover description and soil type
     @app.callback(
-        Output('selected-curve-number-display', 'children'),
-        [Input('cover-description-select', 'value'),
-         Input('soil-type-select', 'value')]
+        Output("selected-curve-number-display", "children"),
+        [Input("cover-description-select", "value"), Input("soil-type-select", "value")],
     )
     def update_curve_number_display(cover_description, soil_type):
         """Display the selected curve number based on cover description and soil type."""
         if not cover_description or not soil_type:
             return html.Div("Please select both Cover Description and Hydrologic Soil Type.", className="text-muted")
-        
+
         # Curve number lookup table
         # Structure: {cover_description: {soil_type: curve_number}}
         curve_number_table = {
-            "open_space_poor": {
-                "type_a": 56,
-                "type_b": 70,
-                "type_c": 79,
-                "type_d": 84
-            },
-            "open_space_fair": {
-                "type_a": 36,
-                "type_b": 57,
-                "type_c": 70,
-                "type_d": 77
-            },
-            "open_space_good": {
-                "type_a": 26,
-                "type_b": 48,
-                "type_c": 64,
-                "type_d": 71
-            },
-            "natural_desert": {
-                "type_a": 50,
-                "type_b": 67,
-                "type_c": 78,
-                "type_d": 82
-            },
-            "developing_urban": {
-                "type_a": 67,
-                "type_b": 79,
-                "type_c": 87,
-                "type_d": 91
-            }
+            "open_space_poor": {"type_a": 56, "type_b": 70, "type_c": 79, "type_d": 84},
+            "open_space_fair": {"type_a": 36, "type_b": 57, "type_c": 70, "type_d": 77},
+            "open_space_good": {"type_a": 26, "type_b": 48, "type_c": 64, "type_d": 71},
+            "natural_desert": {"type_a": 50, "type_b": 67, "type_c": 78, "type_d": 82},
+            "developing_urban": {"type_a": 67, "type_b": 79, "type_c": 87, "type_d": 91},
         }
-        
+
         # Cover description labels
         cover_labels = {
             "open_space_poor": "Open Space - Poor Condition",
             "open_space_fair": "Open Space - Fair Condition",
             "open_space_good": "Open Space - Good Condition",
             "natural_desert": "Natural Desert Landscaping (pervious areas only)",
-            "developing_urban": "Developing Urban Areas - Newly Graded Areas"
+            "developing_urban": "Developing Urban Areas - Newly Graded Areas",
         }
-        
+
         # Soil type labels
         soil_labels = {
             "type_a": "Hydrologic Soil Type A",
             "type_b": "Hydrologic Soil Type B",
             "type_c": "Hydrologic Soil Type C",
-            "type_d": "Hydrologic Soil Type D"
+            "type_d": "Hydrologic Soil Type D",
         }
-        
+
         # Get curve number
         cn = curve_number_table.get(cover_description, {}).get(soil_type)
-        
+
         if cn is not None:
-            return dbc.Alert([
-                html.H5("Selected Curve Number", className="mb-2"),
-                html.P([
-                    html.Strong("Cover Description: "), cover_labels.get(cover_description, cover_description), html.Br(),
-                    html.Strong("Soil Type: "), soil_labels.get(soil_type, soil_type), html.Br(),
-                    html.Hr(className="my-2"),
-                    html.Strong("Curve Number (CN): "), html.Span(str(cn), className="text-primary fw-bold fs-3")
-                ], className="mb-0")
-            ], color="info")
-        
+            return dbc.Alert(
+                [
+                    html.H5("Selected Curve Number", className="mb-2"),
+                    html.P(
+                        [
+                            html.Strong("Cover Description: "),
+                            cover_labels.get(cover_description, cover_description),
+                            html.Br(),
+                            html.Strong("Soil Type: "),
+                            soil_labels.get(soil_type, soil_type),
+                            html.Br(),
+                            html.Hr(className="my-2"),
+                            html.Strong("Curve Number (CN): "),
+                            html.Span(str(cn), className="text-primary fw-bold fs-3"),
+                        ],
+                        className="mb-0",
+                    ),
+                ],
+                color="info",
+            )
+
         return html.Div("Invalid selection combination.", className="text-danger")
 
     # Callback for composite CN table based on 1A/1B selection
     @app.callback(
         [
-            Output('composite-cn-table', 'children'),
-            Output('composite-cn-table-store', 'data'),
-            Output('composite-cn-input-error', 'children', allow_duplicate=True),
+            Output("composite-cn-table", "children"),
+            Output("composite-cn-table-store", "data"),
+            Output("composite-cn-input-error", "children", allow_duplicate=True),
         ],
-        [Input('impervious-outlet-option', 'value'),
-         Input('impervious-curve-number-select', 'value'),
-         Input('cover-description-select', 'value'),
-         Input('soil-type-select', 'value')],
+        [
+            Input("impervious-outlet-option", "value"),
+            Input("impervious-curve-number-select", "value"),
+            Input("cover-description-select", "value"),
+            Input("soil-type-select", "value"),
+        ],
         prevent_initial_call="initial_duplicate",
     )
     def update_composite_cn_table(selected_option, impervious_cn_selection, cover_description, soil_type):
@@ -1243,58 +1273,33 @@ def setup_runoff_callbacks(app):
                 None,
                 None,
             )
-        
+
         # Get CN impervious value from the impervious curve number selection
         cn_impervious_map = {
             "concrete_fresh": 99,
             "concrete_weathered": 97,
             "asphalt_fresh": 99,
-            "asphalt_weathered": 97
+            "asphalt_weathered": 97,
         }
         cn_impervious = cn_impervious_map.get(impervious_cn_selection, 50)  # Default to 50 if not selected
-        
+
         # Get CN pervious value from the cover description and soil type selection
         curve_number_table = {
-            "open_space_poor": {
-                "type_a": 56,
-                "type_b": 70,
-                "type_c": 79,
-                "type_d": 84
-            },
-            "open_space_fair": {
-                "type_a": 36,
-                "type_b": 57,
-                "type_c": 70,
-                "type_d": 77
-            },
-            "open_space_good": {
-                "type_a": 26,
-                "type_b": 48,
-                "type_c": 64,
-                "type_d": 71
-            },
-            "natural_desert": {
-                "type_a": 50,
-                "type_b": 67,
-                "type_c": 78,
-                "type_d": 82
-            },
-            "developing_urban": {
-                "type_a": 67,
-                "type_b": 79,
-                "type_c": 87,
-                "type_d": 91
-            }
+            "open_space_poor": {"type_a": 56, "type_b": 70, "type_c": 79, "type_d": 84},
+            "open_space_fair": {"type_a": 36, "type_b": 57, "type_c": 70, "type_d": 77},
+            "open_space_good": {"type_a": 26, "type_b": 48, "type_c": 64, "type_d": 71},
+            "natural_desert": {"type_a": 50, "type_b": 67, "type_c": 78, "type_d": 82},
+            "developing_urban": {"type_a": 67, "type_b": 79, "type_c": 87, "type_d": 91},
         }
         cn_pervious = curve_number_table.get(cover_description, {}).get(soil_type, 50)  # Default to 50 if not selected
-        
+
         if selected_option == "1A":
             # Table data for 1A
             table_data = [
                 {"Parameter": "CN impervious", "Value": cn_impervious},
                 {"Parameter": "CN pervious", "Value": cn_pervious},
                 {"Parameter": "Connected Impervious Area %", "Value": 20},
-                {"Parameter": "Composite CN", "Value": 50}
+                {"Parameter": "Composite CN", "Value": 50},
             ]
         elif selected_option == "1B":
             # Table data for 1B
@@ -1303,7 +1308,7 @@ def setup_runoff_callbacks(app):
                 {"Parameter": "CN pervious", "Value": cn_pervious},
                 {"Parameter": "Total Impervious Area %", "Value": 20},
                 {"Parameter": "R %", "Value": 1},
-                {"Parameter": "Composite CN", "Value": 0}
+                {"Parameter": "Composite CN", "Value": 0},
             ]
         else:
             return (
@@ -1311,7 +1316,7 @@ def setup_runoff_callbacks(app):
                 None,
                 None,
             )
-        
+
         if table_data:
             # Compute Composite CN based on the formula
             if selected_option == "1A":
@@ -1326,7 +1331,8 @@ def setup_runoff_callbacks(app):
                 except (ValueError, TypeError, IndexError):
                     table_data[3]["Value"] = 0
             elif selected_option == "1B":
-                # Formula: (((P11*P13)+(P12*(100-P13)))/100)-(((P14/100)*P13*((((P11*P13)+(P12*(100-P13)))/100)-P12))/100)
+                # Formula: (((P11*P13)+(P12*(100-P13)))/100)
+                #          -(((P14/100)*P13*((((P11*P13)+(P12*(100-P13)))/100)-P12))/100)
                 # P11: CN impervious, P12: CN pervious, P13: Total Impervious Area %, P14: R %
                 try:
                     p11 = float(table_data[0]["Value"]) if table_data[0]["Value"] != "" else 0
@@ -1342,12 +1348,12 @@ def setup_runoff_callbacks(app):
                     table_data[4]["Value"] = round(composite_cn, 2)
                 except (ValueError, TypeError, IndexError):
                     table_data[4]["Value"] = 0
-            
+
             table = _composite_cn_excel_table(table_data)
             # Save table data to storage
             dash_storage.set_data("composite_cn_datatable", table_data)
             return table, table_data, None
-        
+
         return (
             html.Div("No data available for this option.", className="text-warning"),
             None,
@@ -1357,19 +1363,19 @@ def setup_runoff_callbacks(app):
     # Callback to recompute Composite CN when table values are edited
     @app.callback(
         [
-            Output('composite-cn-table', 'children', allow_duplicate=True),
-            Output('composite-cn-table-store', 'data', allow_duplicate=True),
-            Output('composite-cn-input-error', 'children'),
+            Output("composite-cn-table", "children", allow_duplicate=True),
+            Output("composite-cn-table-store", "data", allow_duplicate=True),
+            Output("composite-cn-input-error", "children"),
         ],
         [
             Input({"type": "composite-cn-value", "param": ALL}, "value"),
-            Input('impervious-outlet-option', 'value'),
+            Input("impervious-outlet-option", "value"),
         ],
         [
             State({"type": "composite-cn-value", "param": ALL}, "id"),
-            State('composite-cn-table-store', 'data'),
+            State("composite-cn-table-store", "data"),
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def recompute_composite_cn_from_table(values, selected_option, input_ids, store_data):
         """Recompute Composite CN when any table value is edited."""
@@ -1385,11 +1391,7 @@ def setup_runoff_callbacks(app):
         if not store_data or not selected_option or not input_ids:
             return dash.no_update, dash.no_update, dash.no_update
 
-        error = (
-            _RUNOFF_NEGATIVE_INPUT_ALERT
-            if _param_input_values_have_negative(values)
-            else None
-        )
+        error = _RUNOFF_NEGATIVE_INPUT_ALERT if _param_input_values_have_negative(values) else None
         updated_data = rows_from_param_inputs(values, input_ids, store_data)
         updated_data = _compute_composite_cn_rows(updated_data, selected_option)
         dash_storage.set_data("composite_cn_datatable", updated_data)
@@ -1397,9 +1399,9 @@ def setup_runoff_callbacks(app):
 
     # Sync Composite CN into runoff calculations store (Excel table views that store)
     @app.callback(
-        Output('runoff-calculations-table', 'data'),
-        Input('composite-cn-table-store', 'data'),
-        State('runoff-calculations-table', 'data'),
+        Output("runoff-calculations-table", "data"),
+        Input("composite-cn-table-store", "data"),
+        State("runoff-calculations-table", "data"),
         prevent_initial_call=True,
     )
     def sync_composite_cn_to_runoff_table(cn_store_data, current_table_data):
@@ -1410,10 +1412,8 @@ def setup_runoff_callbacks(app):
         composite_cn = None
         for row in cn_store_data:
             if row.get("Parameter") == "Composite CN":
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     composite_cn = float(row.get("Value", 0))
-                except (ValueError, TypeError):
-                    pass
                 break
 
         if composite_cn is None:
@@ -1470,11 +1470,7 @@ def setup_runoff_callbacks(app):
         """Commit blur edits from runoff calc inputs and recompute dependents."""
         if not current_table_data or not input_ids:
             return dash.no_update, dash.no_update
-        error = (
-            _RUNOFF_NEGATIVE_INPUT_ALERT
-            if _param_input_values_have_negative(values)
-            else None
-        )
+        error = _RUNOFF_NEGATIVE_INPUT_ALERT if _param_input_values_have_negative(values) else None
         updated = rows_from_param_inputs(values, input_ids, current_table_data)
         updated = _recompute_runoff_dependent_values(updated)
         if _runoff_rows_equal(updated, current_table_data):
@@ -1484,19 +1480,19 @@ def setup_runoff_callbacks(app):
 
     # Callback to save runoff single storm latitude to data storage
     @app.callback(
-        Output('runoff-single-storm-latitude', 'value'),
+        Output("runoff-single-storm-latitude", "value"),
         [
-            Input('runoff-single-storm-latitude', 'value'),
-            Input('runoff-single-storm-latitude', 'n_blur'),
-            Input('runoff-single-storm-latitude', 'n_submit'),
-            Input('runoff-single-storm-latitude', 'id')
+            Input("runoff-single-storm-latitude", "value"),
+            Input("runoff-single-storm-latitude", "n_blur"),
+            Input("runoff-single-storm-latitude", "n_submit"),
+            Input("runoff-single-storm-latitude", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_runoff_single_storm_latitude(value, n_blur, n_submit, component_id):
         """Handle runoff single storm latitude input and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             latitude = dash_storage.get_data("runoff_single_storm_latitude")
@@ -1509,14 +1505,14 @@ def setup_runoff_callbacks(app):
                     latitude = 38.5816
             dash_storage.set_data("runoff_single_storm_latitude", latitude)
             return latitude
-        
+
         # Get the current value from the input
         current_value = value if value is not None else 38.5816
-        
+
         # Determine which trigger caused the callback
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
+
         # Save latitude for all triggers except initial load
         if trigger_prop != "id":
             try:
@@ -1524,24 +1520,24 @@ def setup_runoff_callbacks(app):
                 dash_storage.set_data("runoff_single_storm_latitude", current_value)
             except (ValueError, TypeError):
                 pass
-        
+
         return current_value
-    
+
     # Callback to save runoff single storm longitude to data storage
     @app.callback(
-        Output('runoff-single-storm-longitude', 'value'),
+        Output("runoff-single-storm-longitude", "value"),
         [
-            Input('runoff-single-storm-longitude', 'value'),
-            Input('runoff-single-storm-longitude', 'n_blur'),
-            Input('runoff-single-storm-longitude', 'n_submit'),
-            Input('runoff-single-storm-longitude', 'id')
+            Input("runoff-single-storm-longitude", "value"),
+            Input("runoff-single-storm-longitude", "n_blur"),
+            Input("runoff-single-storm-longitude", "n_submit"),
+            Input("runoff-single-storm-longitude", "id"),
         ],
-        prevent_initial_call=False
+        prevent_initial_call=False,
     )
     def handle_runoff_single_storm_longitude(value, n_blur, n_submit, component_id):
         """Handle runoff single storm longitude input and save to data storage."""
         ctx = dash.callback_context
-        
+
         if not ctx.triggered:
             # Initial load - get saved value or use default, and save it
             longitude = dash_storage.get_data("runoff_single_storm_longitude")
@@ -1554,14 +1550,14 @@ def setup_runoff_callbacks(app):
                     longitude = -121.4944
             dash_storage.set_data("runoff_single_storm_longitude", longitude)
             return longitude
-        
+
         # Get the current value from the input
         current_value = value if value is not None else -121.4944
-        
+
         # Determine which trigger caused the callback
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
-        
+
         # Save longitude for all triggers except initial load
         if trigger_prop != "id":
             try:
@@ -1569,7 +1565,7 @@ def setup_runoff_callbacks(app):
                 dash_storage.set_data("runoff_single_storm_longitude", current_value)
             except (ValueError, TypeError):
                 pass
-        
+
         return current_value
 
     @app.callback(
@@ -1602,15 +1598,12 @@ def setup_runoff_callbacks(app):
         return float(slat), float(slon), True, True
 
     _RAIN_STATS_UNAVAILABLE_MSG = (
-        "No Rain Statistics is available. If the site is outside the USA, "
-        "the rain statistics must be entered manually."
+        "No Rain Statistics is available. If the site is outside the USA, the rain statistics must be entered manually."
     )
 
     def _rain_stats_unavailable_alert():
-        return dbc.Alert(
-            _RAIN_STATS_UNAVAILABLE_MSG, color="warning", className="mb-0"
-        )
-    
+        return dbc.Alert(_RAIN_STATS_UNAVAILABLE_MSG, color="warning", className="mb-0")
+
     # Load saved rain events per month on startup (does not commit while typing)
     @app.callback(
         Output("rain-events-per-month", "value"),
@@ -1674,10 +1667,10 @@ def setup_runoff_callbacks(app):
         """Create the rain statistics table display component."""
         if df_rain is None or df_rain.empty:
             return _rain_stats_unavailable_alert()
-        
+
         # Create rain statistics table
         rain_statistics_table = dash_table.DataTable(
-            data=df_rain.to_dict('records'),
+            data=df_rain.to_dict("records"),
             columns=[{"name": i, "id": i} for i in df_rain.columns],
             style_cell=datatable_base_style_cell(),
             style_header=datatable_base_style_header(),
@@ -1687,37 +1680,45 @@ def setup_runoff_callbacks(app):
             filter_action="native",
             export_format="csv",
         )
-        
+
         # Return table with heading
-        return html.Div([
-            html.H6("Precipitation Frequency Estimates (NOAA Atlas 14) — Precipitation is in inches", className="fw-bold mb-2"),
-            html.Small(
-                "Note: The Annual Recurrence Interval (ARI), also known as the return period, is the average time interval between rainfall events of a given magnitude or greater. For example: An ARI of 100 years means that, on average, a precipitation event of that magnitude (e.g., 5.38 inches over 24-hr) or greater has a 1% chance (1/100) of being equaled or exceeded in any given year.",
-                className="text-muted d-block mb-2"
-            ),
-            rain_statistics_table,
-            build_table_legend(),
-        ])
-    
+        return html.Div(
+            [
+                html.H6(
+                    "Precipitation Frequency Estimates (NOAA Atlas 14) — Precipitation is in inches",
+                    className="fw-bold mb-2",
+                ),
+                html.Small(
+                    "Note: The Annual Recurrence Interval (ARI), also known as the return period, is the average "
+                    "time interval between rainfall events of a given magnitude or greater. For example: An ARI of "
+                    "100 years means that, on average, a precipitation event of that magnitude (e.g., 5.38 inches "
+                    "over 24-hr) or greater has a 1% chance (1/100) of being equaled or exceeded in any given year.",
+                    className="text-muted d-block mb-2",
+                ),
+                rain_statistics_table,
+                build_table_legend(),
+            ],
+        )
+
     # Callback to load rain statistics table from storage on initial load
     @app.callback(
-        Output('rain-statistics-table-placeholder', 'children', allow_duplicate=True),
+        Output("rain-statistics-table-placeholder", "children", allow_duplicate=True),
         [
-            Input('top-tabs', 'active_tab'),
-            Input('optional-runoff-tabs', 'active_tab'),
+            Input("top-tabs", "active_tab"),
+            Input("optional-runoff-tabs", "active_tab"),
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def load_rain_statistics_from_storage(top_tab, optional_runoff_tab):
         """Load rain statistics table from storage when tab is accessed."""
         # Only load if we're on the water source tab
         if top_tab != "water-source":
             return dash.no_update
-        
+
         # Only load when Curve Number nested tab is active (where the table lives)
         if optional_runoff_tab != "curve-number":
             return dash.no_update
-        
+
         # Get saved rain statistics data
         saved_data = dash_storage.get_data("rain_statistics_table")
         if saved_data:
@@ -1726,19 +1727,18 @@ def setup_runoff_callbacks(app):
                 df_rain = pd.DataFrame(saved_data)
                 return _create_rain_statistics_display(df_rain)
             except Exception as e:
-                print(f"Error loading rain statistics from storage: {e}")
+                logger.warning(f"Error loading rain statistics from storage: {e}")
                 return dash.no_update
-        
+
         return dash.no_update
-    
+
     # Callback for "Download Rain Statistics" button in Runoff for Single Storm card
     @app.callback(
-        Output('rain-statistics-table-placeholder', 'children', allow_duplicate=True),
-        Output('rain-statistics-download-message', 'children'),
-        Input('download-rain-statistics-btn', 'n_clicks'),
-        [State('runoff-single-storm-latitude', 'value'),
-         State('runoff-single-storm-longitude', 'value')],
-        prevent_initial_call=True
+        Output("rain-statistics-table-placeholder", "children", allow_duplicate=True),
+        Output("rain-statistics-download-message", "children"),
+        Input("download-rain-statistics-btn", "n_clicks"),
+        [State("runoff-single-storm-latitude", "value"), State("runoff-single-storm-longitude", "value")],
+        prevent_initial_call=True,
     )
     def download_rain_statistics(n_clicks, lat, lon):
         """Download rain statistics and display as table side by side with runoff calculations table."""
@@ -1746,21 +1746,21 @@ def setup_runoff_callbacks(app):
             try:
                 # Get rain data
                 df_rain = get_rain_data(lat, lon)
-                
+
                 if df_rain is None or df_rain.empty:
                     return html.Div(), _rain_stats_unavailable_alert()
-                
+
                 # Save to data storage
-                rain_data_dict = df_rain.to_dict('records')
+                rain_data_dict = df_rain.to_dict("records")
                 dash_storage.set_data("rain_statistics_table", rain_data_dict)
-                
+
                 # Create and return display
                 return _create_rain_statistics_display(df_rain), html.Div()
-                
+
             except Exception as e:
-                print(f"Error downloading rain statistics: {e}")
+                logger.error(f"Error downloading rain statistics: {e}")
                 return html.Div(), _rain_stats_unavailable_alert()
-        
+
         return dash.no_update, dash.no_update
 
     # Helper function to create monthly runoff display
@@ -1770,21 +1770,16 @@ def setup_runoff_callbacks(app):
             return html.P("No monthly rain data available", className="text-warning")
 
         # Prefer ft3/month label; migrate older saved column name for display
-        if (
-            "Runoff Volume (ft3)" in monthly_rain.columns
-            and "Runoff Volume (ft3/month)" not in monthly_rain.columns
-        ):
-            monthly_rain = monthly_rain.rename(
-                columns={"Runoff Volume (ft3)": "Runoff Volume (ft3/month)"}
-            )
-        
+        if "Runoff Volume (ft3)" in monthly_rain.columns and "Runoff Volume (ft3/month)" not in monthly_rain.columns:
+            monthly_rain = monthly_rain.rename(columns={"Runoff Volume (ft3)": "Runoff Volume (ft3/month)"})
+
         # Column styling: Month = label; all value columns = calculated (blue)
         monthly_columns = list(monthly_rain.columns)
         label_cols = [c for c in monthly_columns if c == "Month"]
         computed_cols = [c for c in monthly_columns if c != "Month"]
 
         monthly_rain_table = dash_table.DataTable(
-            data=monthly_rain.to_dict('records'),
+            data=monthly_rain.to_dict("records"),
             columns=[{"name": i, "id": i} for i in monthly_columns],
             style_cell=datatable_base_style_cell(textAlign="left"),
             style_header=datatable_base_style_header(),
@@ -1798,75 +1793,73 @@ def setup_runoff_callbacks(app):
             filter_action="native",
             export_format="csv",
         )
-        
+
         # Create grouped bar chart for monthly rain and runoff depth
-        fig = go.Figure(data=[
-            go.Bar(
-                name='Rainfall',
-                x=monthly_rain['Month'],
-                y=monthly_rain['Rain (inches)'],
-                marker_color='steelblue',
-                text=monthly_rain['Rain (inches)'].round(2),
-                textposition='outside'
-            ),
-            go.Bar(
-                name='Runoff depth (inches)',
-                x=monthly_rain['Month'],
-                y=monthly_rain['Runoff depth (inches)'],
-                marker_color='orange',
-                text=monthly_rain['Runoff depth (inches)'].round(2),
-                textposition='outside'
-            )
-        ])
-        
+        fig = go.Figure(
+            data=[
+                go.Bar(
+                    name="Rainfall",
+                    x=monthly_rain["Month"],
+                    y=monthly_rain["Rain (inches)"],
+                    marker_color="steelblue",
+                    text=monthly_rain["Rain (inches)"].round(2),
+                    textposition="outside",
+                ),
+                go.Bar(
+                    name="Runoff depth (inches)",
+                    x=monthly_rain["Month"],
+                    y=monthly_rain["Runoff depth (inches)"],
+                    marker_color="orange",
+                    text=monthly_rain["Runoff depth (inches)"].round(2),
+                    textposition="outside",
+                ),
+            ],
+        )
+
         fig.update_layout(
-            title='Monthly Average Precipitation and Runoff Depth',
-            xaxis_title='Month',
-            yaxis_title='Depth (inches)',
-            xaxis={'tickangle': -45},
-            barmode='group',  # Group bars side by side
+            title="Monthly Average Precipitation and Runoff Depth",
+            xaxis_title="Month",
+            yaxis_title="Depth (inches)",
+            xaxis={"tickangle": -45},
+            barmode="group",  # Group bars side by side
             height=400,
-            margin=dict(l=50, r=50, t=50, b=100),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            )
+            margin={"l": 50, "r": 50, "t": 50, "b": 100},
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},
         )
         monthly_rain_chart = dcc.Graph(figure=fig)
-        
+
         # Return table and chart side by side
         return html.Div(
             [
-                dbc.Row([
-                    dbc.Col([monthly_rain_table], width=6),
-                    dbc.Col([monthly_rain_chart], width=6),
-                ]),
+                dbc.Row(
+                    [
+                        dbc.Col([monthly_rain_table], width=6),
+                        dbc.Col([monthly_rain_chart], width=6),
+                    ],
+                ),
                 build_table_legend(),
-            ]
+            ],
         )
-    
+
     # Callback to load monthly runoff data from storage on initial load
     @app.callback(
-        Output('monthly-runoff-estimation-content', 'children', allow_duplicate=True),
+        Output("monthly-runoff-estimation-content", "children", allow_duplicate=True),
         [
-            Input('top-tabs', 'active_tab'),
-            Input('optional-runoff-tabs', 'active_tab'),
+            Input("top-tabs", "active_tab"),
+            Input("optional-runoff-tabs", "active_tab"),
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def load_monthly_runoff_from_storage(top_tab, optional_runoff_tab):
         """Load monthly runoff table from storage when tab is accessed."""
         # Only load if we're on the water source tab
         if top_tab != "water-source":
             return dash.no_update
-        
+
         # Only load when Curve Number nested tab is active (where the table lives)
         if optional_runoff_tab != "curve-number":
             return dash.no_update
-        
+
         # Get saved monthly runoff data
         saved_data = dash_storage.get_data("monthly_runoff_table")
         if saved_data:
@@ -1875,37 +1868,42 @@ def setup_runoff_callbacks(app):
                 monthly_rain = pd.DataFrame(saved_data)
                 return _create_monthly_runoff_display(monthly_rain)
             except Exception as e:
-                print(f"Error loading monthly runoff from storage: {e}")
+                logger.warning(f"Error loading monthly runoff from storage: {e}")
                 return dash.no_update
-        
+
         return dash.no_update
-    
+
     # Callback for "Get Monthly Rainfall and Runoff" button in Monthly Runoff Estimation card
     @app.callback(
         [
-            Output('monthly-runoff-estimation-content', 'children', allow_duplicate=True),
-            Output('flow-data-store', 'data', allow_duplicate=True),
+            Output("monthly-runoff-estimation-content", "children", allow_duplicate=True),
+            Output("flow-data-store", "data", allow_duplicate=True),
         ],
-        Input('get-monthly-rain-btn', 'n_clicks'),
+        Input("get-monthly-rain-btn", "n_clicks"),
         [
-            State('runoff-single-storm-latitude', 'value'),
-            State('runoff-single-storm-longitude', 'value'),
-            State('runoff-calculations-table', 'data'),
-            State('rain-events-per-month', 'value'),
-            State('use-runoff-for-recharge-check', 'value'),
+            State("runoff-single-storm-latitude", "value"),
+            State("runoff-single-storm-longitude", "value"),
+            State("runoff-calculations-table", "data"),
+            State("rain-events-per-month", "value"),
+            State("use-runoff-for-recharge-check", "value"),
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def get_monthly_rain_for_runoff(
-        n_clicks, lat, lon, runoff_table_data, rain_events_per_month, use_runoff_for_recharge
+        n_clicks,
+        lat,
+        lon,
+        runoff_table_data,
+        rain_events_per_month,
+        use_runoff_for_recharge,
     ):
         """Get monthly rain data and display as table and chart side by side."""
         if n_clicks and n_clicks > 0 and lat is not None and lon is not None:
             try:
                 # Get monthly rain data
                 monthly_rain = get_monthly_rain(lat, lon)
-                #rain_stat = get_rain_data(lat, lon)
-                ### 
+                # rain_stat = get_rain_data(lat, lon)
+                ###
                 # Get Composite Curve Number and Area from the runoff calculations table
                 cn = 50  # default value
                 area = 0  # default value
@@ -1922,7 +1920,6 @@ def setup_runoff_callbacks(app):
                             except (ValueError, TypeError):
                                 area = 0
 
-                
                 runoff_volume = []
                 runoff_depth = []
                 # Get rain events per month from input, default to 3.0 if not provided
@@ -1935,41 +1932,40 @@ def setup_runoff_callbacks(app):
                             rain_events_per_month = 3.0  # Ensure positive value
                     except (ValueError, TypeError):
                         rain_events_per_month = 3.0
-                
-                for p_monthly in monthly_rain['Rain (inches)']:
-                    p = p_monthly/rain_events_per_month
-                    if p > 0:                        
+
+                for p_monthly in monthly_rain["Rain (inches)"]:
+                    p = p_monthly / rain_events_per_month
+                    if p > 0:
                         s = (1000.0 / cn) - 10
                         alpha_s = p - s
                         lambda005 = 0.05
-                        exp_lambda005 = np.exp(-1.0 * lambda005 * (s/p))
+                        exp_lambda005 = np.exp(-1.0 * lambda005 * (s / p))
                         term1 = alpha_s * exp_lambda005
 
-                        tm1 = s*s/p
-                        tm2 = np.exp(((1-lambda005)*s)/p)
-                        tm3 = exp1(s/p)
+                        tm1 = s * s / p
+                        tm2 = np.exp(((1 - lambda005) * s) / p)
+                        tm3 = exp1(s / p)
                         term2 = tm1 * tm2 * tm3
-                        vol = area * (43560 / 12) * (term1 + term2)*rain_events_per_month
+                        vol = area * (43560 / 12) * (term1 + term2) * rain_events_per_month
                         vol = round(vol, 1)
-                        depth = round((term1 + term2)*rain_events_per_month, 3)
-                        runoff_depth.append(depth)                       
+                        depth = round((term1 + term2) * rain_events_per_month, 3)
+                        runoff_depth.append(depth)
                         runoff_volume.append(vol)
-                       
+
                     else:
                         runoff_volume.append(0)
                         runoff_depth.append(0)
-                    
 
                 ###
-                monthly_rain['Rain (inches)'] = monthly_rain['Rain (inches)'].round(3)
+                monthly_rain["Rain (inches)"] = monthly_rain["Rain (inches)"].round(3)
                 if monthly_rain is None or monthly_rain.empty:
                     return html.P("No monthly rain data available", className="text-warning"), dash.no_update
-                if len(runoff_volume)>0:
-                    monthly_rain['Runoff depth (inches)'] = runoff_depth
-                    monthly_rain['Runoff Volume (ft3/month)'] = runoff_volume
-                
+                if len(runoff_volume) > 0:
+                    monthly_rain["Runoff depth (inches)"] = runoff_depth
+                    monthly_rain["Runoff Volume (ft3/month)"] = runoff_volume
+
                 # Save to data storage
-                monthly_rain_dict = monthly_rain.to_dict('records')
+                monthly_rain_dict = monthly_rain.to_dict("records")
                 dash_storage.set_data("monthly_runoff_table", monthly_rain_dict)
 
                 flow_store_update = dash.no_update
@@ -1979,16 +1975,16 @@ def setup_runoff_callbacks(app):
                         flow_store_update = flow_data
 
                 return _create_monthly_runoff_display(monthly_rain), flow_store_update
-                
+
             except Exception as e:
-                print(f"Error getting monthly rain data: {e}")
+                logger.error(f"Error getting monthly rain data: {e}")
                 return html.P(f"Error getting monthly rain data: {str(e)}", className="text-danger"), dash.no_update
-        
+
         return dash.no_update, dash.no_update
 
     @app.callback(
-        Output('flow-data-store', 'data', allow_duplicate=True),
-        Input('use-runoff-for-recharge-check', 'value'),
+        Output("flow-data-store", "data", allow_duplicate=True),
+        Input("use-runoff-for-recharge-check", "value"),
         prevent_initial_call=True,
     )
     def apply_runoff_volumes_when_checked(use_runoff_for_recharge):
@@ -1997,5 +1993,3 @@ def setup_runoff_callbacks(app):
             return dash.no_update
         flow_data = _sync_runoff_volumes_to_monthly_flow()
         return flow_data if flow_data else dash.no_update
-
-

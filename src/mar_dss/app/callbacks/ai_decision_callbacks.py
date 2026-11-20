@@ -59,8 +59,7 @@ def setup_ai_decision_callbacks(app):
 
         prompt = build_engineering_decision_prompt(context)
         feedback = html.Small(
-            "Prompt ready with full project context. Click Copy Prompt, then paste "
-            "it into your preferred AI model.",
+            "Prompt ready with full project context. Click Copy Prompt, then paste it into your preferred AI model.",
             className="text-success",
         )
         return prompt, feedback

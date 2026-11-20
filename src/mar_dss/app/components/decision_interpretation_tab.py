@@ -2,17 +2,18 @@
 Decision Interpretation tab content for MAR DSS dashboard.
 """
 
-from dash import dcc, html
-import dash_bootstrap_components as dbc
 import math
+
+import dash_bootstrap_components as dbc
 import pandas as pd
+from dash import dcc, html
+
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.cost_storage import (
     CAPITAL_COST_TOTAL_KEYS,
     MAINTENANCE_COST_TOTAL_KEYS,
     coerce_storage_cost_totals,
 )
-
 
 _HEADER_STYLE = {"backgroundColor": "#1e3a5f", "fontSize": "0.95rem"}
 
@@ -82,30 +83,20 @@ CONSTRAINT_HELP = {
     },
     "Vadose zone contaminant impact": {
         "meaning": (
-            "Hard check on whether an impacted vadose / unsaturated zone blocks "
-            "surface recharge (Water Quality Q3)."
+            "Hard check on whether an impacted vadose / unsaturated zone blocks surface recharge (Water Quality Q3)."
         ),
         "triggered": (
-            "Fails for Surface Recharge when vadose impact = Yes. Well options pass "
-            "because they can bypass the vadose."
+            "Fails for Surface Recharge when vadose impact = Yes. Well options pass because they can bypass the vadose."
         ),
-        "why": (
-            "Recharging through contaminated unsaturated soils can mobilize "
-            "contaminants into the aquifer."
-        ),
+        "why": ("Recharging through contaminated unsaturated soils can mobilize contaminants into the aquifer."),
     },
     "Target aquifer anthropogenic contaminants": {
         "meaning": (
             "Hard check that the target aquifer is not already unsuitable due to "
             "human-caused contamination (Water Quality Q4)."
         ),
-        "triggered": (
-            "Fails for every MAR option when aquifer anthropogenic contaminants = Yes."
-        ),
-        "why": (
-            "Recharging into a compromised aquifer does not meet water-quality goals "
-            "and can increase liability."
-        ),
+        "triggered": ("Fails for every MAR option when aquifer anthropogenic contaminants = Yes."),
+        "why": ("Recharging into a compromised aquifer does not meet water-quality goals and can increase liability."),
     },
     "Recharge Efficiency": {
         "meaning": (
@@ -117,29 +108,20 @@ CONSTRAINT_HELP = {
             "rechargability) is below the configured minimum acceptable recharge %."
         ),
         "why": (
-            "If too little source water can be recharged, the project cannot meet "
-            "storage / water-supply objectives."
+            "If too little source water can be recharged, the project cannot meet storage / water-supply objectives."
         ),
     },
     "Ground surface slope Suitability": {
-        "meaning": (
-            "Soft check on whether ground slope is suitable for surface infiltration "
-            "basins or spreading."
-        ),
+        "meaning": ("Soft check on whether ground slope is suitable for surface infiltration basins or spreading."),
         "triggered": (
             "Uses ground-surface slope significance. For Surface Recharge: Gentle → "
             "acceptable; Moderate → cost; Steep → mitigation. Dry/Injection wells stay "
             "acceptable. Confined aquifers → irrelevant."
         ),
-        "why": (
-            "Steep slopes raise earthwork cost and reduce reliable basin performance."
-        ),
+        "why": ("Steep slopes raise earthwork cost and reduce reliable basin performance."),
     },
     "Vadose zone infiltration": {
-        "meaning": (
-            "Soft check that unsaturated-zone hydraulic conductivity supports "
-            "infiltration."
-        ),
+        "meaning": ("Soft check that unsaturated-zone hydraulic conductivity supports infiltration."),
         "triggered": (
             "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
             "Irrelevant. If the vadose K threshold is not met, Surface Recharge → "
@@ -158,15 +140,11 @@ CONSTRAINT_HELP = {
             "(bypass or remediate)."
         ),
         "why": (
-            "Recharge through a polluted vadose can mobilize contaminants; "
-            "injection wells bypass the vadose pathway."
+            "Recharge through a polluted vadose can mobilize contaminants; injection wells bypass the vadose pathway."
         ),
     },
     "Vadose zone pollution biodegradability": {
-        "meaning": (
-            "Soft check on whether vadose pollution can biodegrade / attenuate "
-            "naturally."
-        ),
+        "meaning": ("Soft check on whether vadose pollution can biodegrade / attenuate naturally."),
         "triggered": (
             "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
             "Irrelevant. Only scored when vadose pollution is present. "
@@ -180,9 +158,7 @@ CONSTRAINT_HELP = {
         ),
     },
     "Vadose zone remediation needed": {
-        "meaning": (
-            "Soft check on whether vadose cleanup is needed before or during recharge."
-        ),
+        "meaning": ("Soft check on whether vadose cleanup is needed before or during recharge."),
         "triggered": (
             "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
             "Irrelevant. If remediation is needed, Surface Recharge → mitigation."
@@ -212,8 +188,7 @@ CONSTRAINT_HELP = {
     },
     "Surface recharge suitability": {
         "meaning": (
-            "Overall soft roll-up of whether surface recharge is suitable "
-            "(slope, infiltration, vadose issues)."
+            "Overall soft roll-up of whether surface recharge is suitable (slope, infiltration, vadose issues)."
         ),
         "triggered": (
             "Always Irrelevant (−1 / grey) for Injection Well and Dry Well. "
@@ -226,67 +201,38 @@ CONSTRAINT_HELP = {
         ),
     },
     "Confined aquifer depth Suitability": {
-        "meaning": (
-            "Soft check that a confined target is at a workable well depth."
-        ),
+        "meaning": ("Soft check that a confined target is at a workable well depth."),
         "triggered": (
-            "Unconfined → irrelevant. Confined: Too Deep → reject; Moderate Deep → "
-            "warning; otherwise acceptable."
+            "Unconfined → irrelevant. Confined: Too Deep → reject; Moderate Deep → warning; otherwise acceptable."
         ),
-        "why": (
-            "Excessive depth drives drilling cost and may make injection impractical."
-        ),
+        "why": ("Excessive depth drives drilling cost and may make injection impractical."),
     },
     "Confined leakage significance": {
         "meaning": "Soft check on leakage through confining layers.",
-        "triggered": (
-            "Unconfined → irrelevant. Confined: low → acceptable; medium → warning; "
-            "high → mitigation."
-        ),
-        "why": (
-            "High leakage can lose recharge, affect adjacent units, or create "
-            "pressure issues."
-        ),
+        "triggered": ("Unconfined → irrelevant. Confined: low → acceptable; medium → warning; high → mitigation."),
+        "why": ("High leakage can lose recharge, affect adjacent units, or create pressure issues."),
     },
     "Land Use": {
-        "meaning": (
-            "Soft check on land-use compatibility for land-intensive surface recharge."
-        ),
+        "meaning": ("Soft check on land-use compatibility for land-intensive surface recharge."),
         "triggered": (
             "Overview land use Residential or Commercial/Industrial → additional "
             "cost for Surface Recharge; Agricultural / Open Space → acceptable. "
             "Dry Well and Injection Well stay acceptable."
         ),
-        "why": (
-            "Developed land is costly and may face zoning limits for basins and spreading."
-        ),
+        "why": ("Developed land is costly and may face zoning limits for basins and spreading."),
     },
     "Source Water Contaminants": {
-        "meaning": (
-            "Water-quality soft check on industrial, domestic, or emerging "
-            "contaminants in source water."
-        ),
-        "triggered": (
-            "Yes → mitigation / extra cost beyond this tool. Unknown → data-gap "
-            "warning. No → acceptable."
-        ),
-        "why": (
-            "Contaminated source water may need treatment or may be unsuitable for "
-            "some MAR goals."
-        ),
+        "meaning": ("Water-quality soft check on industrial, domestic, or emerging contaminants in source water."),
+        "triggered": ("Yes → mitigation / extra cost beyond this tool. Unknown → data-gap warning. No → acceptable."),
+        "why": ("Contaminated source water may need treatment or may be unsuitable for some MAR goals."),
     },
     "Clogging & Fouling Risks": {
-        "meaning": (
-            "Water-quality soft check on turbidity-related clogging of basins or wells."
-        ),
+        "meaning": ("Water-quality soft check on turbidity-related clogging of basins or wells."),
         "triggered": (
             "Turbidity >20 NTU → mitigation (pretreatment); 5–20 NTU → additional cost; "
             "Unknown → data-gap warning; <5 NTU → acceptable."
         ),
-        "why": (
-            "High solids reduce infiltration rates and increase O&M "
-            "(scraping, well rehabilitation)."
-        ),
+        "why": ("High solids reduce infiltration rates and increase O&M (scraping, well rehabilitation)."),
     },
     "Vadose Zone Contaminant Impact": {
         "meaning": (
@@ -305,9 +251,7 @@ CONSTRAINT_HELP = {
     },
     # Legacy alias kept for older saved DSS result payloads
     "Need for Remediation": {
-        "meaning": (
-            "Legacy name for Vadose Zone Contaminant Impact (Water Quality Q3)."
-        ),
+        "meaning": ("Legacy name for Vadose Zone Contaminant Impact (Water Quality Q3)."),
         "triggered": (
             "Confined → irrelevant. Vadose impacted Yes + Surface Recharge → reject. "
             "Wells that bypass the vadose stay acceptable. Unknown → yellow data-gap "
@@ -319,31 +263,16 @@ CONSTRAINT_HELP = {
         ),
     },
     "Target Aquifer Anthropogenic Contaminants": {
-        "meaning": (
-            "Water-quality soft check that the target aquifer is free of "
-            "human-caused contamination."
-        ),
-        "triggered": (
-            "Yes → reject all MAR options. Unknown → data-gap warning. No → acceptable."
-        ),
-        "why": (
-            "Recharging into an already unsuitable aquifer fails water-quality "
-            "objectives."
-        ),
+        "meaning": ("Water-quality soft check that the target aquifer is free of human-caused contamination."),
+        "triggered": ("Yes → reject all MAR options. Unknown → data-gap warning. No → acceptable."),
+        "why": ("Recharging into an already unsuitable aquifer fails water-quality objectives."),
     },
     "Target Aquifer Naturally Occurring Contaminants": {
-        "meaning": (
-            "Water-quality soft check for natural / geogenic contaminants in the "
-            "target aquifer."
-        ),
+        "meaning": ("Water-quality soft check for natural / geogenic contaminants in the target aquifer."),
         "triggered": (
-            "Yes → warning (site-specific cost / treatment may be needed). Unknown → "
-            "data-gap warning. No → acceptable."
+            "Yes → warning (site-specific cost / treatment may be needed). Unknown → data-gap warning. No → acceptable."
         ),
-        "why": (
-            "Natural contaminants may still allow MAR but often need extra monitoring "
-            "or treatment."
-        ),
+        "why": ("Natural contaminants may still allow MAR but often need extra monitoring or treatment."),
     },
 }
 
@@ -429,18 +358,12 @@ def _npv_dict_from_storage():
 
 def _option_cost_totals(option_name):
     """Return capital, annual maintenance, and NPV for an option (raw dollars)."""
-    capital = coerce_storage_cost_totals(
-        dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS
-    )
-    maintenance = coerce_storage_cost_totals(
-        dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS
-    )
+    capital = coerce_storage_cost_totals(dash_storage.get_data("capital_cost_num"), CAPITAL_COST_TOTAL_KEYS)
+    maintenance = coerce_storage_cost_totals(dash_storage.get_data("maintenance_cost_num"), MAINTENANCE_COST_TOTAL_KEYS)
     npv_dict = _npv_dict_from_storage()
 
     capital_val = _series_value(capital, _OPTION_TO_CAPITAL_COL.get(option_name))
-    maintenance_val = _series_value(
-        maintenance, _OPTION_TO_MAINTENANCE_COL.get(option_name)
-    )
+    maintenance_val = _series_value(maintenance, _OPTION_TO_MAINTENANCE_COL.get(option_name))
     npv_col = _OPTION_TO_NPV_COL.get(option_name)
     npv_val = 0.0
     if npv_col and npv_col in npv_dict:
@@ -509,10 +432,7 @@ def _cost_section_body(option_name, legacy_cost, not_feasible=False):
     if isinstance(legacy_cost, list):
         if legacy_cost:
             return html.Ul(
-                [
-                    html.Li(item if isinstance(item, str) else str(item))
-                    for item in legacy_cost
-                ],
+                [html.Li(item if isinstance(item, str) else str(item)) for item in legacy_cost],
                 className="mb-0 di-list",
             )
         return html.P(
@@ -568,7 +488,7 @@ def _constraint_name_cell(constraint_name):
                 _constraint_help_btn(constraint_name),
             ],
             className="d-flex align-items-center justify-content-between gap-2",
-        )
+        ),
     )
 
 
@@ -580,7 +500,7 @@ def constraint_help_body(constraint_name):
             html.P(
                 f"No detailed help is defined yet for “{constraint_name}”",
                 className="mb-0",
-            )
+            ),
         ]
     return [
         html.P(
@@ -612,7 +532,7 @@ def _constraint_help_modal():
                     id="di-constraint-help-close",
                     className="ms-auto",
                     color="secondary",
-                )
+                ),
             ),
         ],
         id="di-constraint-help-modal",
@@ -634,11 +554,7 @@ def _enrich_issue_labels(labels, soft_constraints):
     except ImportError:
         from ...mar.dss import _format_soft_issue_message
 
-    by_name = {
-        sc.get("name"): sc
-        for sc in (soft_constraints or [])
-        if isinstance(sc, dict) and sc.get("name")
-    }
+    by_name = {sc.get("name"): sc for sc in (soft_constraints or []) if isinstance(sc, dict) and sc.get("name")}
     enriched = []
     for label in labels or []:
         text = label if isinstance(label, str) else str(label)
@@ -690,10 +606,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                             className="di-status-badge",
                         ),
                     ],
-                    className=(
-                        "d-flex flex-wrap align-items-center "
-                        "justify-content-between gap-2 mb-3"
-                    ),
+                    className=("d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3"),
                 ),
                 dbc.Row(
                     [
@@ -709,7 +622,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                 ),
             ],
             className="di-option-header",
-        )
+        ),
     ]
 
     sections.append(
@@ -720,7 +633,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                 cost,
                 not_feasible=(display_status == "Not Feasible"),
             ),
-        )
+        ),
     )
 
     if warnings:
@@ -732,7 +645,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                     className="mb-0 di-list di-list-warning",
                 ),
                 accent="warning",
-            )
+            ),
         )
 
     if mitigations:
@@ -744,7 +657,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                     className="mb-0 di-list di-list-info",
                 ),
                 accent="info",
-            )
+            ),
         )
 
     if hard_constraints:
@@ -759,11 +672,11 @@ def _create_option_interpretation(option_name, result, filters=None):
                             dbc.Badge(
                                 "Pass" if passed else "Fail",
                                 color="success" if passed else "danger",
-                            )
+                            ),
                         ),
                         html.Td(hc.get("why", "No explanation available")),
-                    ]
-                )
+                    ],
+                ),
             )
         sections.append(
             _section(
@@ -776,8 +689,8 @@ def _create_option_interpretation(option_name, result, filters=None):
                                     html.Th("Constraint"),
                                     html.Th("Status"),
                                     html.Th("Explanation"),
-                                ]
-                            )
+                                ],
+                            ),
                         ),
                         html.Tbody(hard_rows),
                     ],
@@ -786,7 +699,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                     responsive=True,
                     className="mb-0 table-sm di-table",
                 ),
-            )
+            ),
         )
 
     if soft_constraints:
@@ -805,21 +718,18 @@ def _create_option_interpretation(option_name, result, filters=None):
                                 _RESPONSE_LABELS.get(response, "Unknown"),
                                 color=_RESPONSE_COLORS.get(response, "secondary"),
                                 className="text-wrap",
-                            )
+                            ),
                         ),
                         html.Td(
                             html.Ul(
-                                [
-                                    html.Li(p if isinstance(p, str) else str(p))
-                                    for p in penalty
-                                ],
+                                [html.Li(p if isinstance(p, str) else str(p)) for p in penalty],
                                 className="mb-0 di-list-compact",
                             )
                             if isinstance(penalty, list) and penalty
-                            else html.Span("None", className="text-muted")
+                            else html.Span("None", className="text-muted"),
                         ),
-                    ]
-                )
+                    ],
+                ),
             )
         if soft_rows:
             sections.append(
@@ -833,8 +743,8 @@ def _create_option_interpretation(option_name, result, filters=None):
                                         html.Th("Constraint"),
                                         html.Th("Response"),
                                         html.Th("Notes"),
-                                    ]
-                                )
+                                    ],
+                                ),
                             ),
                             html.Tbody(soft_rows),
                         ],
@@ -843,7 +753,7 @@ def _create_option_interpretation(option_name, result, filters=None):
                         responsive=True,
                         className="mb-0 table-sm di-table",
                     ),
-                )
+                ),
             )
 
     return html.Div(sections, className="di-details")
@@ -864,10 +774,7 @@ def _get_status_interpretation(status, warnings, mitigations):
             "constraints and has acceptable soft-constraint responses."
         )
     if display == "Conditionally Feasible":
-        return (
-            f"Conditionally feasible — address {len(mitigations)} mitigation "
-            "measure(s) before proceeding."
-        )
+        return f"Conditionally feasible — address {len(mitigations)} mitigation measure(s) before proceeding."
     if display == "Not Feasible":
         return (
             "Not feasible under current inputs: hard-constraint failures or critical "
@@ -939,10 +846,7 @@ def create_decision_interpretation_content():
                                     ),
                                     dcc.Dropdown(
                                         id="decision-interpretation-option-selector",
-                                        options=[
-                                            {"label": name, "value": name}
-                                            for name in option_names
-                                        ],
+                                        options=[{"label": name, "value": name} for name in option_names],
                                         value=option_names[0] if option_names else None,
                                         placeholder="Select an option…",
                                         className="di-dropdown",
