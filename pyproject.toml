@@ -1,6 +1,6 @@
 [project]
 name = "mar_dss"
-version = "0.1.0"
+version = "0.2.0"
 description = "Managed Aquifer Recharge Decision Support System"
 readme = "README.md"
 authors = [
@@ -168,7 +168,7 @@ package = true
 # then commits and tags the result as v<version>. Pushing the tag to GitHub
 # deploys to production (see .github/workflows/ci-cd.yaml).
 [tool.bumpversion]
-current_version = "0.1.0"
+current_version = "0.2.0"
 commit = true
 tag = true
 tag_name = "v{new_version}"
