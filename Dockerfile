@@ -8,7 +8,7 @@
 # ---------------
 FROM python:3.13-slim-bookworm AS build
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.0 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /usr/local/bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \

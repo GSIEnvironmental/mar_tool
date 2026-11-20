@@ -26,3 +26,18 @@ def test_session_count_is_capped(client, monkeypatch):
     # The two oldest sessions were dropped.
     assert browsers[-1].get("/get").text == "user4"
     assert browsers[0].get("/get").text == ""
+
+
+def test_returning_browser_expires_after_inactivity(client, monkeypatch):
+    now = 100
+    monkeypatch.setattr(data_storage.time, "time", lambda: now)
+    monkeypatch.setattr(data_storage, "_SESSION_TTL_SECONDS", 10)
+    browser = client()
+
+    browser.get("/set/alpha")
+    now += 9
+    assert browser.get("/get").text == "alpha"
+    now += 9
+    assert browser.get("/get").text == "alpha"
+    now += 11
+    assert browser.get("/get").text == ""

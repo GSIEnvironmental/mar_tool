@@ -56,7 +56,7 @@ def _current_storage():
     now = time.time()
     with _sessions_lock:
         entry = _sessions.get(sid)
-        if entry is None:
+        if entry is None or now - entry["last_seen"] > _SESSION_TTL_SECONDS:
             _evict_sessions(now)
             entry = {"data": copy.deepcopy(_data_storage), "last_seen": now}
             _sessions[sid] = entry

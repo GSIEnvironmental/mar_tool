@@ -18,6 +18,11 @@ ______________________________________________________________________
 
 - Open uploads a project file from your computer. Save, Save As and the report download files through the browser. They used to open desktop file dialogs.
 
+### Fixed
+
+- Idle browser sessions expire when you return after the session timeout.
+- The web app accepts project uploads up to 10 MiB.
+
 ### Removed
 
 - The Windows .exe build. Use the website instead.

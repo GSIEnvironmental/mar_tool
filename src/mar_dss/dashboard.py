@@ -58,7 +58,8 @@ def launch_dashboard_waitress(
     if open_browser:
         webbrowser.open(f"http://127.0.0.1:{port}/")
 
-    serve(dashboard.app.server, host=host, port=port, threads=threads)
+    # Match Caddy's limit, with room for a base64-encoded 10 MiB project.
+    serve(dashboard.app.server, host=host, port=port, threads=threads, max_request_body_size=16_000_000)
 
 
 if __name__ == "__main__":

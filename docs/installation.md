@@ -16,23 +16,11 @@ pip install mar_dss
 
 ## From source
 
-The source files for mar_dss can be downloaded from the [Github repo](https://github.com/GSIEnvironmental/mar_tool).
-
-You can either clone the public repository:
+Clone the repository and install the locked dependencies with uv.
 
 ```sh
-git clone git://github.com/GSIEnvironmental/mar_tool
-```
-
-Or download the [tarball](https://github.com/GSIEnvironmental/mar_tool/tarball/master):
-
-```sh
-curl -OJL https://github.com/GSIEnvironmental/mar_tool/tarball/master
-```
-
-Once you have a copy of the source, you can install it with:
-
-```sh
-cd mar_dss
-uv pip install .
+git clone https://github.com/GSIEnvironmental/mar_tool.git
+cd mar_tool
+uv sync --python=3.13 --locked
+uv run mar_dss
 ```

@@ -17,7 +17,7 @@ configs:
         redir /MAR-Tool /MAR-Tool/ 308
         handle_path /MAR-Tool/* {
           request_body {
-            max_size 12MB
+            max_size 16MB
           }
           reverse_proxy web:8050
         }

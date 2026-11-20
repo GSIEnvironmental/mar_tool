@@ -120,6 +120,8 @@ just test tests/test_base.py
 
 ## Deploying
 
+Set the Caddy request body limit to `16MB` on the server's MAR-Tool route. This allows a 10 MiB project file to fit in the encoded upload request.
+
 Commit all changes first, including notes under "Unreleased" in [CHANGELOG.md](CHANGELOG.md). Then run:
 
 ```sh

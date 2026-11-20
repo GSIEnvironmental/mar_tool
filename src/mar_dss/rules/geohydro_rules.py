@@ -843,7 +843,7 @@ def check_vadose_residence_time_reasonable(vadose_residence_time):
     return unreasonble
 
 
-def compute_rechargeable_percentage(
+def compute_rechargable_percentage(
     annual_surface_recharge_volume,
     annual_injection_volume,
     annual_dry_well_volume,

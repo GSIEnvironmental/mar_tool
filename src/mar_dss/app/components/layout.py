@@ -13,6 +13,8 @@ import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss import __version__
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
+MAX_PROJECT_UPLOAD_BYTES = 10 * 1024 * 1024
+
 
 def setup_layout(app_ctx):
     """Set up the main dashboard layout on the given app context.
@@ -182,7 +184,7 @@ def _build_file_toolbar() -> html.Div:
                     ),
                     id="upload-project",
                     accept=".csv,.json",
-                    max_size=10 * 1024 * 1024,
+                    max_size=MAX_PROJECT_UPLOAD_BYTES,
                     className="btn-group",
                 ),
                 dbc.Button(

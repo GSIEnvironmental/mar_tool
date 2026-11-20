@@ -41,7 +41,7 @@ try:
         normalize_stratigraphy_list_from_raw,
         stratigraphy_store_payload_from_storage,
     )
-    from mar_dss.app.components.layout import main_tab_panel_id
+    from mar_dss.app.components.layout import MAX_PROJECT_UPLOAD_BYTES, main_tab_panel_id
     from mar_dss.app.components.overview_tab import (
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_LAND_USE,
@@ -63,7 +63,7 @@ except ImportError:
         normalize_stratigraphy_list_from_raw,
         stratigraphy_store_payload_from_storage,
     )
-    from ..components.layout import main_tab_panel_id
+    from ..components.layout import MAX_PROJECT_UPLOAD_BYTES, main_tab_panel_id
     from ..components.overview_tab import (
         ALLOWED_OVERVIEW_BASEMAP_STYLES,
         DEFAULT_LAND_USE,
@@ -683,7 +683,10 @@ def setup_overview_callbacks(app):
         filename = os.path.basename(filename or "project.csv")
         try:
             _, encoded = contents.split(",", 1)
-            text = base64.b64decode(encoded).decode("utf-8-sig")
+            payload = base64.b64decode(encoded)
+            if len(payload) > MAX_PROJECT_UPLOAD_BYTES:
+                return _error_outputs("Project files must be 10 MiB or smaller.")
+            text = payload.decode("utf-8-sig")
         except (ValueError, UnicodeDecodeError) as e:
             return _error_outputs(f"Error loading project: could not read {filename} ({e})")
 
