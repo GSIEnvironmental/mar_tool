@@ -40,22 +40,21 @@ If you are proposing a feature:
 
 ## Get Started
 
-Ready to contribute? Here's how to set up `mar_dss` for local development.
+Install [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/) for local development.
 
-1. Fork the `mar_dss` repo on GitHub.
+1. Fork the `mar_tool` repo on GitHub.
 
 1. Clone your fork locally:
 
    ```sh
-   git clone git@github.com:your_name_here/mar_dss.git
+   git clone git@github.com:your_name_here/mar_tool.git
+   cd mar_tool
    ```
 
-1. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
+1. Install the project and test tools:
 
    ```sh
-   mkvirtualenv mar_dss
-   cd mar_dss/
-   python setup.py develop
+   uv sync --python=3.13 --locked --extra test
    ```
 
 1. Create a branch for local development:
@@ -64,18 +63,34 @@ Ready to contribute? Here's how to set up `mar_dss` for local development.
    git checkout -b name-of-your-bugfix-or-feature
    ```
 
-   Now you can make your changes locally.
+## Run Locally
 
-1. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
+```sh
+uv run mar_dss --dev
+```
+
+Open <http://127.0.0.1:8050/>. The app reloads when you save a file.
+
+### With Docker
+
+Docker Compose runs the app behind Caddy at `/MAR-Tool/`.
+
+```sh
+docker compose up --build
+```
+
+Open <http://localhost:8085/MAR-Tool/>. Edits under `src/` reload automatically.
+
+## Test and Submit
+
+1. Run the quality checks and tests with `just qa`. Use `just testall` to test Python 3.10 through 3.13 in parallel with tox and uv.
 
    ```sh
-   make lint
-   make test
-   # Or
-   make test-all
+   just qa
+   just testall
    ```
 
-   To get flake8 and tox, just pip install them into your virtualenv.
+   Test runs show branch coverage and missing lines. Run `just coverage` to also write `htmlcov/index.html`.
 
 1. Commit your changes and push your branch to GitHub:
 
@@ -92,27 +107,27 @@ Ready to contribute? Here's how to set up `mar_dss` for local development.
 Before you submit a pull request, check that it meets these guidelines:
 
 1. The pull request should include tests.
-1. If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring, and add the feature to the list in README.md.
-1. The pull request should work for Python 3.12 and 3.13. Tests run in GitHub Actions on every pull request to the main branch, make sure that the tests pass for all supported Python versions.
+1. Update the relevant documentation when you add functionality.
+1. GitHub Actions tests pull requests to `main` on Python 3.12 and 3.13. Run `just testall` to check the full local matrix.
 
 ## Tips
 
 To run a subset of tests:
 
 ```sh
-pytest tests.test_mar_dss
+just test tests/test_base.py
 ```
 
 ## Deploying
 
-A reminder for the maintainers on how to release. Commit all your changes first, including notes under "Unreleased" in CHANGELOG.md. Then run:
+Commit all changes first, including notes under "Unreleased" in [CHANGELOG.md](CHANGELOG.md). Then run:
 
 ```sh
 just bump-patch   # or bump-minor / bump-major
 just tag          # pushes main, then the new tag
 ```
 
-The bump updates the version, dates the changelog section, commits and tags. Pushing the tag deploys to https://apps.gsienv.com/MAR-Tool/ (see .github/workflows/ci-cd.yaml).
+The bump updates the version, dates the changelog section, commits, and tags the release. Pushing the tag triggers deployment. [GitHub Actions workflow](.github/workflows/ci-cd.yaml)
 
 ## Code of Conduct
 

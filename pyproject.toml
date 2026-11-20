@@ -81,10 +81,11 @@ colleague = [
 ]
 test = [
   "bump-my-version",
-  "coverage",
   "pre-commit",
   "pytest",
+  "pytest-cov",
   "ruff",
+  "tox-uv>=1.35.2",
   "ty",
   "ipdb",
 ]
@@ -96,6 +97,31 @@ homepage = "https://github.com/GSIEnvironmental/mar_tool"
 
 [project.scripts]
 mar_dss = "mar_dss.cli:app"
+
+[tool.tox]
+requires = ["tox-uv>=1.35.2"]
+env_list = ["py310", "py311", "py312", "py313"]
+
+[tool.tox.env_run_base]
+runner = "uv-venv-lock-runner"
+extras = ["test"]
+parallel_show_output = true
+set_env = { COVERAGE_FILE = "{env_tmp_dir}/.coverage" }
+commands = [[
+  "pytest",
+  "--cov=mar_dss",
+  "--cov-branch",
+  "--cov-report=term-missing",
+  "--color=yes",
+  "-ra",
+  { replace = "posargs", extend = true },
+]]
+
+[tool.coverage.run]
+omit = ["*/mar_dss/pfdf/*"]
+
+[tool.coverage.report]
+include_namespace_packages = true
 
 [tool.ty]
 # All rules are enabled as "error" by default; no need to specify unless overriding.
