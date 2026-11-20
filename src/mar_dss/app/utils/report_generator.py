@@ -320,7 +320,7 @@ def _collect_water_source_flow_rows() -> list[list[str]]:
     if not isinstance(monthly, list) or len(monthly) != 12:
         return []
     rows: list[list[str]] = []
-    for month, value in zip(_MONTH_LABELS, monthly):
+    for month, value in zip(_MONTH_LABELS, monthly, strict=True):
         try:
             flow = float(value or 0)
             rows.append([month, f"{flow:,.0f}"])

@@ -119,7 +119,10 @@ def hard_constraints(option: MAROption) -> list[dict[str, bool]]:
             if option.name == "Injection Well":
                 injection_wells_result = graph.get_node_value("number_of_injection_wells")
                 if isinstance(injection_wells_result, dict) and injection_wells_result.get("reason"):
-                    why = f"{injection_wells_result['reason']} ({round(rechargeable_percentage, 2)}% of source water recharged this way)"
+                    why = (
+                        f"{injection_wells_result['reason']} ({round(rechargeable_percentage, 2)}% of source water "
+                        "recharged this way)"
+                    )
         else:
             check = True
             why = (

@@ -3,6 +3,7 @@ Overview tab callbacks for MAR DSS dashboard.
 """
 
 import base64
+import contextlib
 import io
 import json
 import os
@@ -89,10 +90,8 @@ def _extract_mapbox_view_from_relayout(relayout_data):
     for prefix in ("map", "mapbox"):
         z = relayout_data.get(f"{prefix}.zoom")
         if z is not None and zoom is None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 zoom = float(z)
-            except (TypeError, ValueError):
-                pass
         center = relayout_data.get(f"{prefix}.center")
         if isinstance(center, dict) and lat is None:
             try:
@@ -101,15 +100,11 @@ def _extract_mapbox_view_from_relayout(relayout_data):
             except (KeyError, TypeError, ValueError):
                 pass
         if lat is None and f"{prefix}.center.lat" in relayout_data:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 lat = float(relayout_data[f"{prefix}.center.lat"])
-            except (TypeError, ValueError):
-                pass
         if lon is None and f"{prefix}.center.lon" in relayout_data:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 lon = float(relayout_data[f"{prefix}.center.lon"])
-            except (TypeError, ValueError):
-                pass
     return lat, lon, zoom
 
 
@@ -271,7 +266,7 @@ def setup_overview_callbacks(app):
                         formatted_date = parsed_date.strftime("%Y-%m-%d")
                     dash_storage.set_data("analysis_date", formatted_date)
                     return formatted_date
-                except:
+                except Exception:
                     # If parsing fails, use today's date
                     from datetime import datetime
 
@@ -312,7 +307,7 @@ def setup_overview_callbacks(app):
                     parsed_date = datetime.strptime(str(current_value), "%Y-%m-%d")
                     formatted_date = parsed_date.strftime("%Y-%m-%d")
                 dash_storage.set_data("analysis_date", formatted_date)
-            except:
+            except Exception:
                 # If formatting fails, save as is
                 dash_storage.set_data("analysis_date", current_value)
 

@@ -480,7 +480,9 @@ def test_node_value_updates():
     print(f"Initial values: {initial_values}")
     print(f"Final values: {final_values}")
     print(
-        f"Individual queries - A: {graph.get_node_value('A')}, B: {graph.get_node_value('B')}, C: {graph.get_node_value('C')}",
+        f"Individual queries - A: {graph.get_node_value('A')}, ",
+        f"B: {graph.get_node_value('B')}, ",
+        f"C: {graph.get_node_value('C')}",
     )
 
 

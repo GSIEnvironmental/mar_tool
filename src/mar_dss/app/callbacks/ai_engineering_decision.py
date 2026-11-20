@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import textwrap
 from typing import Any
@@ -14,6 +15,8 @@ from mar_dss.app.callbacks.ai_environment import (
     _location_text,
     downloadable_html_deliverable_instructions,
 )
+
+logger = logging.getLogger(__name__)
 
 ENGINEERING_OPTIONS = ("Surface Recharge", "Injection Well", "Dry Well")
 
@@ -194,6 +197,7 @@ def _summarize_graph_quantities() -> dict | None:
         try:
             value = graph.get_node_value(node_id)
         except Exception:
+            logger.debug("Could not read engineering quantity %s", node_id, exc_info=True)
             continue
         if value is None:
             continue

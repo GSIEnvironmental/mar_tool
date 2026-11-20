@@ -296,7 +296,7 @@ def create_feasibility_gauge(score):
         ),
     )
 
-    fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
+    fig.update_layout(height=300, margin={"l": 20, "r": 20, "t": 40, "b": 20})
 
     return fig, status, color
 
@@ -321,8 +321,8 @@ def create_monthly_gw_depth_chart(monthly_gw_depth, op_gw_depth=None):
             y=monthly_gw_depth,
             mode="lines+markers",
             name="Groundwater Depth",
-            line=dict(color="blue", width=3),
-            marker=dict(size=8),
+            line={"color": "blue", "width": 3},
+            marker={"size": 8},
             fill="tozeroy",
             fillcolor="rgba(0, 100, 255, 0.1)",
         ),
@@ -335,7 +335,7 @@ def create_monthly_gw_depth_chart(monthly_gw_depth, op_gw_depth=None):
             y=[avg_depth] * 12,
             mode="lines",
             name="Average Depth",
-            line=dict(color="green", width=2, dash="dash"),
+            line={"color": "green", "width": 2, "dash": "dash"},
         ),
     )
 
@@ -347,7 +347,7 @@ def create_monthly_gw_depth_chart(monthly_gw_depth, op_gw_depth=None):
                 y=[op_gw_depth] * 12,
                 mode="lines",
                 name="Operational Depth",
-                line=dict(color="red", width=2, dash="dot"),
+                line={"color": "red", "width": 2, "dash": "dot"},
             ),
         )
 
@@ -357,7 +357,7 @@ def create_monthly_gw_depth_chart(monthly_gw_depth, op_gw_depth=None):
         yaxis_title="Depth (ft)",
         height=400,
         hovermode="x unified",
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        legend={"yanchor": "top", "y": 0.99, "xanchor": "left", "x": 0.01},
     )
 
     return fig
@@ -401,7 +401,7 @@ def create_component_scores_chart(breakdown):
             y=node_names,
             x=scores,
             orientation="h",
-            marker=dict(color=colors),
+            marker={"color": colors},
             text=[f"{s:.1f}%" for s in scores],
             textposition="outside",
             hovertemplate="<b>%{y}</b><br>Score: %{x:.1f}%<br>Type: %{customdata}<extra></extra>",
@@ -414,8 +414,8 @@ def create_component_scores_chart(breakdown):
         xaxis_title="Score (%)",
         yaxis_title="",
         height=max(400, len(node_names) * 40),
-        xaxis=dict(range=[0, 100]),
-        margin=dict(l=200, r=50, t=50, b=50),
+        xaxis={"range": [0, 100]},
+        margin={"l": 200, "r": 50, "t": 50, "b": 50},
     )
 
     return fig
@@ -466,14 +466,14 @@ def create_stratigraphy_profile(stratigraphy_data):
 
     fig = go.Figure()
 
-    for i, (name, top, bottom, k, color) in enumerate(zip(layer_names, y_top, y_bottom, k_values, colors)):
+    for i, (name, top, bottom, k, color) in enumerate(zip(layer_names, y_top, y_bottom, k_values, colors, strict=True)):
         fig.add_trace(
             go.Bar(
                 x=[1],
                 y=[bottom - top],
                 base=top,
                 name=name,
-                marker=dict(color=color),
+                marker={"color": color},
                 text=f"{name}<br>K: {k:.2f} ft/day<br>Thickness: {bottom - top:.1f} ft",
                 textposition="inside",
                 hovertemplate=f"<b>{name}</b><br>Thickness: {bottom - top:.1f} ft<br>K: {k:.2f} ft/day<extra></extra>",
@@ -482,12 +482,12 @@ def create_stratigraphy_profile(stratigraphy_data):
 
     fig.update_layout(
         title="Stratigraphy Profile",
-        xaxis=dict(showticklabels=False, range=[0.5, 1.5]),
-        yaxis=dict(title="Depth (ft)", autorange="reversed"),
+        xaxis={"showticklabels": False, "range": [0.5, 1.5]},
+        yaxis={"title": "Depth (ft)", "autorange": "reversed"},
         barmode="stack",
         height=400,
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},
     )
 
     return fig

@@ -69,7 +69,7 @@ def _get_decision_matrix(dss_results):
     maintenance_costs = []
     npv_values = []
 
-    for option_name in scores.keys():
+    for option_name in scores:
         # Capital cost
         capital_col = option_to_capital_col.get(option_name)
         if capital_col and capital_cost_num is not None and capital_col in capital_cost_num.index:
@@ -436,13 +436,13 @@ def _create_sensitivity_chart(decision_matrix, weighted_scores, weights):
     )
 
     fig.update_layout(
-        title=dict(text="Weighted Scores Ranking", font=dict(size=14)),
+        title={"text": "Weighted Scores Ranking", "font": {"size": 14}},
         xaxis_title="MAR Option",
         yaxis_title="Weighted Score (%)",
         template="plotly_white",
         height=300,
         showlegend=False,
-        margin=dict(l=50, r=50, t=40, b=50),
+        margin={"l": 50, "r": 50, "t": 40, "b": 50},
     )
 
     return fig

@@ -2,6 +2,7 @@
 Hydrogeology tab callbacks for MAR DSS dashboard.
 """
 
+import contextlib
 import copy
 import math
 
@@ -137,24 +138,24 @@ def _xy_view_empty_figure():
     """No geometry or contours until the user clicks *Show Contour Lines*."""
     fig = go.Figure()
     fig.update_layout(
-        title=dict(text="Plan View", x=0.5, xanchor="center", font=dict(size=16)),
+        title={"text": "Plan View", "x": 0.5, "xanchor": "center", "font": {"size": 16}},
         template="plotly_white",
         height=500,
-        margin=dict(l=50, r=50, t=60, b=50),
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
+        margin={"l": 50, "r": 50, "t": 60, "b": 50},
+        xaxis={"visible": False},
+        yaxis={"visible": False},
         annotations=[
-            dict(
-                x=0.5,
-                y=0.5,
-                xref="paper",
-                yref="paper",
-                text='Click "Show Contour Lines" to display the plan view with head contours.',
-                showarrow=False,
-                font=dict(size=14, color="#000"),
-                xanchor="center",
-                yanchor="middle",
-            ),
+            {
+                "x": 0.5,
+                "y": 0.5,
+                "xref": "paper",
+                "yref": "paper",
+                "text": 'Click "Show Contour Lines" to display the plan view with head contours.',
+                "showarrow": False,
+                "font": {"size": 14, "color": "#000"},
+                "xanchor": "center",
+                "yanchor": "middle",
+            },
         ],
     )
     return fig
@@ -289,7 +290,7 @@ def _add_footprint_outline(fig, half_length, half_width, rotation_deg):
             x=x_c,
             y=y_c,
             mode="lines",
-            line=dict(color="#212529", width=2),
+            line={"color": "#212529", "width": 2},
             name="MAR footprint",
             hoverinfo="skip",
         ),
@@ -439,9 +440,9 @@ def _add_confined_theis_contour_to_figure(
             z=zp,
             colorscale="Jet",
             name="Mound + 2% regional gradient",
-            colorbar=dict(title="Mound + gradient (ft)"),
+            colorbar={"title": "Mound + gradient (ft)"},
             opacity=0.82,
-            contours=dict(showlines=True, coloring="fill"),
+            contours={"showlines": True, "coloring": "fill"},
             hovertemplate=(
                 "<b>Theis + regional gradient</b><br>%{z:.2f} ft<br>x=%{x:.1f} ft, y=%{y:.1f} ft<extra></extra>"
             ),
@@ -1020,7 +1021,7 @@ def setup_hydro_callbacks(app):
             layer_dropdown = dbc.Select(
                 id={"type": "layer-select", "index": i},
                 value=row["layer"],
-                options=[{"label": lith, "value": lith} for lith in SOIL_PROPERTIES.keys()],
+                options=[{"label": lith, "value": lith} for lith in SOIL_PROPERTIES],
                 size="sm",
                 className="table-cell-input-borderless",
             )
@@ -1438,10 +1439,8 @@ def setup_hydro_callbacks(app):
             if i >= len(base):
                 break
             if i < len(elevation_values) and elevation_values[i] is not None:
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     base[i]["elevation"] = float(elevation_values[i])
-                except (TypeError, ValueError):
-                    pass
             base[i]["month"] = name
 
         if use_constant:
@@ -1520,8 +1519,8 @@ def setup_hydro_callbacks(app):
                 y=df["elevation"],
                 mode="lines+markers",
                 name="Groundwater Elevation",
-                line=dict(color="#1f77b4", width=3),
-                marker=dict(size=8, color="#1f77b4"),
+                line={"color": "#1f77b4", "width": 3},
+                marker={"size": 8, "color": "#1f77b4"},
                 hovertemplate="<b>%{x}</b><br>Elevation: %{y:.1f} ft<extra></extra>",
             ),
         )
@@ -1543,7 +1542,7 @@ def setup_hydro_callbacks(app):
                     y=groundwater_elevations + mar_storage_elevations[::-1],  # Combine both lines
                     fill="toself",
                     fillcolor="rgba(255, 165, 0, 0.3)",  # Orange with transparency
-                    line=dict(color="rgba(255,255,255,0)"),  # Transparent line
+                    line={"color": "rgba(255,255,255,0)"},  # Transparent line
                     name="Available MAR Storage",
                     hovertemplate="<b>Available MAR Storage Area</b><extra></extra>",
                     showlegend=True,
@@ -1556,7 +1555,7 @@ def setup_hydro_callbacks(app):
                     x=months,
                     y=mar_storage_elevations,
                     mode="lines",
-                    line=dict(color="red", width=2, dash="dot"),
+                    line={"color": "red", "width": 2, "dash": "dot"},
                     name="MAR Storage Limit",
                     hovertemplate="<b>%{x}</b><br>MAR Storage Limit: %{y:.1f} ft<extra></extra>",
                     showlegend=True,
@@ -1599,9 +1598,9 @@ def setup_hydro_callbacks(app):
             yaxis_title="Elevation (ft)",
             template="plotly_white",
             height=600,
-            margin=dict(l=50, r=50, t=60, b=100),
+            margin={"l": 50, "r": 50, "t": 60, "b": 100},
             showlegend=True,
-            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+            legend={"orientation": "h", "yanchor": "top", "y": -0.15, "xanchor": "center", "x": 0.5},
         )
 
         # Add grid
@@ -1720,7 +1719,7 @@ def setup_hydro_callbacks(app):
                     ],
                     fill="toself",
                     fillcolor=layer_colors.get(layer_name, "#808080"),  # Default gray if layer not found
-                    line=dict(color="black", width=1),
+                    line={"color": "black", "width": 1},
                     name=layer_name,
                     hovertemplate=(
                         f"<b>{layer_name}</b><br>Thickness: {thick_f:.1f} ft<br>"
@@ -1736,7 +1735,7 @@ def setup_hydro_callbacks(app):
                 y=cumulative_depth + thick_f / 2.0,
                 text=layer_name,
                 showarrow=False,
-                font=dict(size=12, color="black"),
+                font={"size": 12, "color": "black"},
             )
 
             cumulative_depth += thick_f
@@ -1763,7 +1762,7 @@ def setup_hydro_callbacks(app):
                     "GW at min WT elev "
                     + (f"({gw_depth_ft:.1f} ft bgs)" if gw_depth_ft is not None else "(profile bottom)")
                 ),
-                line=dict(color="#0d6efd", width=2, dash="dash"),
+                line={"color": "#0d6efd", "width": 2, "dash": "dash"},
                 hovertemplate=(
                     "<b>Water table (min monthly elev)</b><br>"
                     f"Depth: {wt_depth_plot:.1f} ft bgs"
@@ -1782,12 +1781,12 @@ def setup_hydro_callbacks(app):
                     y=[recharge_target_mid_depth],
                     mode="markers",
                     name="Target Recharge Layer",
-                    marker=dict(
-                        symbol="circle",
-                        size=18,
-                        color="#22c55e",
-                        line=dict(width=2, color="#15803d"),
-                    ),
+                    marker={
+                        "symbol": "circle",
+                        "size": 18,
+                        "color": "#22c55e",
+                        "line": {"width": 2, "color": "#15803d"},
+                    },
                     hovertemplate=(
                         "<b>Target Recharge Layer</b><br>"
                         f"{recharge_target_layer_name or ''}<br>"
@@ -1801,39 +1800,39 @@ def setup_hydro_callbacks(app):
 
         # Depth increases downward (0 at top). Elevation = GS − depth (GS at top).
         y_depth_range = [max(total_depth, 0.0), 0.0]
-        layout_kwargs = dict(
-            title={
+        layout_kwargs = {
+            "title": {
                 "text": "Stratigraphy Cross Section",
                 "x": 0.5,
                 "xanchor": "center",
                 "font": {"size": 16},
             },
-            xaxis_title="",
-            yaxis=dict(
-                title="Depth (ft)",
-                range=y_depth_range,
-                showgrid=True,
-                gridwidth=1,
-                gridcolor="lightgray",
-                zeroline=False,
-            ),
-            template="plotly_white",
-            height=500,
-            margin=dict(l=60, r=70, t=60, b=50),
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.1,
-                xanchor="center",
-                x=0.5,
-            ),
-            xaxis=dict(
-                showgrid=False,
-                showticklabels=False,
-                range=[-0.1, 1.1],
-            ),
-        )
+            "xaxis_title": "",
+            "yaxis": {
+                "title": "Depth (ft)",
+                "range": y_depth_range,
+                "showgrid": True,
+                "gridwidth": 1,
+                "gridcolor": "lightgray",
+                "zeroline": False,
+            },
+            "template": "plotly_white",
+            "height": 500,
+            "margin": {"l": 60, "r": 70, "t": 60, "b": 50},
+            "showlegend": True,
+            "legend": {
+                "orientation": "h",
+                "yanchor": "top",
+                "y": -0.1,
+                "xanchor": "center",
+                "x": 0.5,
+            },
+            "xaxis": {
+                "showgrid": False,
+                "showticklabels": False,
+                "range": [-0.1, 1.1],
+            },
+        }
 
         if gs_f is not None:
             elev_bottom = gs_f - max(total_depth, 0.0)
@@ -1845,19 +1844,19 @@ def setup_hydro_callbacks(app):
                     y=[elev_top],
                     yaxis="y2",
                     mode="markers",
-                    marker=dict(opacity=0),
+                    marker={"opacity": 0},
                     showlegend=False,
                     hoverinfo="skip",
                 ),
             )
-            layout_kwargs["yaxis2"] = dict(
-                title="Elevation (ft)",
-                overlaying="y",
-                side="right",
-                range=[elev_bottom, elev_top],
-                showgrid=False,
-                zeroline=False,
-            )
+            layout_kwargs["yaxis2"] = {
+                "title": "Elevation (ft)",
+                "overlaying": "y",
+                "side": "right",
+                "range": [elev_bottom, elev_top],
+                "showgrid": False,
+                "zeroline": False,
+            }
 
         fig.update_layout(**layout_kwargs)
 
@@ -2002,9 +2001,9 @@ def setup_hydro_callbacks(app):
                                 z=Zi,
                                 colorscale="Jet",
                                 name="Unconfined mound + 2% regional gradient",
-                                colorbar=dict(title="Mound + gradient (ft)"),
+                                colorbar={"title": "Mound + gradient (ft)"},
                                 opacity=0.82,
-                                contours=dict(showlines=True, coloring="fill"),
+                                contours={"showlines": True, "coloring": "fill"},
                                 hovertemplate=(
                                     "<b>Hantush mound + regional gradient</b><br>"
                                     "%{z:.2f} ft<br>"
@@ -2063,27 +2062,27 @@ def setup_hydro_callbacks(app):
                 yaxis_title="Distance (ft)",
                 template="plotly_white",
                 height=500,
-                margin=dict(l=50, r=50, t=60, b=50),
+                margin={"l": 50, "r": 50, "t": 60, "b": 50},
                 showlegend=True,
-                legend=dict(
-                    orientation="h",
-                    yanchor="top",
-                    y=-0.1,
-                    xanchor="center",
-                    x=0.5,
-                ),
-                xaxis=dict(
-                    scaleanchor="y",
-                    scaleratio=1,
-                    range=list(xr),
-                    autorange=False,
-                ),
-                yaxis=dict(
-                    scaleanchor="x",
-                    scaleratio=1,
-                    range=list(yr),
-                    autorange=False,
-                ),
+                legend={
+                    "orientation": "h",
+                    "yanchor": "top",
+                    "y": -0.1,
+                    "xanchor": "center",
+                    "x": 0.5,
+                },
+                xaxis={
+                    "scaleanchor": "y",
+                    "scaleratio": 1,
+                    "range": list(xr),
+                    "autorange": False,
+                },
+                yaxis={
+                    "scaleanchor": "x",
+                    "scaleratio": 1,
+                    "range": list(yr),
+                    "autorange": False,
+                },
             )
 
             return fig, message
@@ -2142,10 +2141,8 @@ def setup_hydro_callbacks(app):
             if gw_store is not None:
                 dash_storage.set_data("groundwater_data", gw_store)
             if gs_elev is not None and str(gs_elev).strip() != "":
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     dash_storage.set_data("ground_surface_elevation", float(gs_elev))
-                except (TypeError, ValueError):
-                    pass
             aq_k = _coerce_aquitard_k_ft_day(aq_k_input)
             dash_storage.set_data("aquitard_conductivity_ft_day", aq_k)
 

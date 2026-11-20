@@ -173,7 +173,8 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
                 else:
                     response = 2  # warning
                     penalty = [
-                        "Action: Toxic contamination in the vadose. Although can be bypassed, mounding water table may mobilize contaminants to the aquifer",
+                        "Action: Toxic contamination in the vadose. Although can be bypassed, mounding water table "
+                        "may mobilize contaminants to the aquifer",
                     ]
         else:
             response = 0
@@ -231,12 +232,14 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
             if residence_time_issues is not None and len(residence_time_issues) > 0:
                 response = 3
                 penalty = [
-                    f"Mitigation: Vadose zone residence time ({vadose_residence_time} days) is not reasonable for {', '.join(residence_time_issues)}",
+                    f"Mitigation: Vadose zone residence time ({vadose_residence_time} days) is not reasonable for "
+                    f"{', '.join(residence_time_issues)}",
                 ]
             else:
                 response = 2
                 penalty = [
-                    f"Warning: Vadose zone residence time ({vadose_residence_time} days) is reasonable but careful monitoring is needed",
+                    f"Warning: Vadose zone residence time ({vadose_residence_time} days) is reasonable but careful "
+                    "monitoring is needed",
                 ]
 
     vadose_residence_time_metric = {
@@ -385,7 +388,10 @@ def soft_constraints(option: MAROption) -> list[dict[str, Any]]:
     # if land_use in ["Urban Residential", "Urban Nonresidential"]:
     #     if water_source in ["Urban Stormwater Runoff"]:
     #         environmental_assessment_response = 1
-    #         environmental_assessment_penalty.append("Cost: Environmental assessment cost increase in urban areas. Check zoning requirements and land use regulations.")
+    #         environmental_assessment_penalty.append(
+    #             "Cost: Environmental assessment cost increase in urban areas. "
+    #             "Check zoning requirements and land use regulations."
+    #         )
     #     else:
     #         environmental_assessment_response = 0
     #         environmental_assessment_penalty = []

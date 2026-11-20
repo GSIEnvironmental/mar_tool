@@ -28,8 +28,8 @@ def create_scenarios_comparison_content():
             y=water_supply,
             mode="lines+markers",
             name="Water Supply Security",
-            line=dict(color="#2E8B57", width=3),
-            marker=dict(size=8),
+            line={"color": "#2E8B57", "width": 3},
+            marker={"size": 8},
         ),
     )
     fig.add_trace(
@@ -38,8 +38,8 @@ def create_scenarios_comparison_content():
             y=cost_effectiveness,
             mode="lines+markers",
             name="Cost Effectiveness",
-            line=dict(color="#4169E1", width=3),
-            marker=dict(size=8),
+            line={"color": "#4169E1", "width": 3},
+            marker={"size": 8},
         ),
     )
     fig.add_trace(
@@ -48,8 +48,8 @@ def create_scenarios_comparison_content():
             y=environmental_impact,
             mode="lines+markers",
             name="Environmental Impact",
-            line=dict(color="#FF6347", width=3),
-            marker=dict(size=8),
+            line={"color": "#FF6347", "width": 3},
+            marker={"size": 8},
         ),
     )
 
@@ -116,7 +116,9 @@ def create_scenarios_comparison_content():
             html.Hr(),
             html.H5("Recommendations", className="mt-3"),
             html.P(
-                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions.",
+                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing "
+                "efficiency measures to achieve optimistic outcomes while preparing contingency plans for "
+                "pessimistic conditions.",
             ),
         ],
     )

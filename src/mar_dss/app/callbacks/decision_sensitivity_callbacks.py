@@ -448,7 +448,8 @@ def run_sensitivity_analysis(parameter_name, variation_range=None, num_points=10
         logger.warning(f"Error restoring baseline state: {e}")
 
     logger.info(
-        f"Sensitivity analysis completed for {parameter_name}: {len(sensitivity_results['variations'])} variations tested",
+        f"Sensitivity analysis completed for {parameter_name}: {len(sensitivity_results['variations'])} variations "
+        "tested",
     )
 
     return sensitivity_results
@@ -747,7 +748,7 @@ def create_status_transition_heatmap(sensitivity_results):
             text=[[f"{rate:.1%}" for rate in change_rates]],
             texttemplate="%{text}",
             textfont={"size": 10},
-            colorbar=dict(title="Change Rate"),
+            colorbar={"title": "Change Rate"},
         ),
     )
 
@@ -1013,7 +1014,9 @@ def setup_decision_sensitivity_callbacks(app):
 
         # Show progress
         progress_msg = dbc.Alert(
-            f"Running sensitivity analysis for {PARAMETER_DEFINITIONS.get(selected_parameter, {}).get('name', selected_parameter)}... This may take a few minutes.",
+            "Running sensitivity analysis for "
+            f"{PARAMETER_DEFINITIONS.get(selected_parameter, {}).get('name', selected_parameter)}... This may take a "
+            "few minutes.",
             color="info",
             className="mb-2",
         )

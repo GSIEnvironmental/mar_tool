@@ -238,7 +238,7 @@ def create_mar_purpose_section():
             else:
                 parsed_date = helpers.parse_unknown_date(analysis_date_raw)
                 analysis_date = parsed_date.strftime("%Y-%m-%d")
-        except:
+        except Exception:
             analysis_date = datetime.now().strftime("%Y-%m-%d")
     else:
         analysis_date = datetime.now().strftime("%Y-%m-%d")

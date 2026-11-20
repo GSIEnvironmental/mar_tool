@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 defaults = {}
 defaults["k_min_vadose_threshold"] = 0.3
 defaults["leakage_radius"] = 1000
@@ -106,5 +110,5 @@ def get_default(key):
                 return base
         return val
     except Exception:
-        pass
+        logger.debug("Could not load the override for %s", key, exc_info=True)
     return base

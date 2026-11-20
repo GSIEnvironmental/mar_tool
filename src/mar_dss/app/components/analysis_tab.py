@@ -9,9 +9,6 @@ from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
 # Import all the analysis components
 try:
-    from mar_dss.app.components.ai_generated_decision_tab import create_ai_generated_decision_content
-    from mar_dss.app.components.data_export_tab import create_data_export_content
-    from mar_dss.app.components.decision_interpretation_tab import create_decision_interpretation_content
     from mar_dss.app.components.engineering_options_tab import create_cost_content
     from mar_dss.app.components.feasibilities_tab import create_feasibilities_content
 except ImportError:

@@ -50,9 +50,9 @@ def launch_dashboard_waitress(
     if public_url:
         logger.info(f"MAR-Tool is running at {public_url}")
     else:
-        display_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
+        display_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host  # noqa S104
         logger.info(f"Dashboard (Waitress) at: http://{display_host}:{port}/")
-        if host == "0.0.0.0":
+        if host == "0.0.0.0":  # noqa S104
             logger.info("Listening on all interfaces (0.0.0.0).")
 
     if open_browser:

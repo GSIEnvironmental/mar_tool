@@ -115,14 +115,13 @@ class CostCalculator:
         self.sediment_pond_area_available_acres = sediment_pond_area_available_acres
 
         feasible_options = ["Fine Silt", "Medium Silt", "Coarse Silt", "Sand"]
-        if fine_sediment_removal_goal is not None:
-            if fine_sediment_removal_goal not in feasible_options:
-                raise ValueError(
-                    f"Invalid fine_sediment_removal_goal: "
-                    f"{fine_sediment_removal_goal}. "
-                    f"Feasible options are: "
-                    f"{', '.join(feasible_options)}",
-                )
+        if fine_sediment_removal_goal is not None and fine_sediment_removal_goal not in feasible_options:
+            raise ValueError(
+                f"Invalid fine_sediment_removal_goal: "
+                f"{fine_sediment_removal_goal}. "
+                f"Feasible options are: "
+                f"{', '.join(feasible_options)}",
+            )
         self.fine_sediment_removal_goal = fine_sediment_removal_goal
 
         self.dry_well_diameter_ft = dry_well_diameter_ft

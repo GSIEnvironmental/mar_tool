@@ -533,7 +533,8 @@ def create_single_storm_runoff_help_modal():
                             html.Li("Enter watershed area (acres), or obtain area from the Watershed Information tab."),
                             html.Li("Composite Curve Number carries forward from Step 1."),
                             html.Li(
-                                "Runoff depth, ratio, and volume update automatically from the SCS curve number method.",
+                                "Runoff depth, ratio, and volume update automatically from the SCS curve number "
+                                "method.",
                             ),
                             html.Li(
                                 [
@@ -1465,7 +1466,8 @@ def create_curve_number_tab():
                                     [
                                         create_single_storm_runoff_help_modal(),
                                         html.H5(
-                                            "Step 2 Provide watershed area upstream of the diversion point of interest, and compute runoff",
+                                            "Step 2 Provide watershed area upstream of the diversion point of "
+                                            "interest, and compute runoff",
                                             className="fw-bold mb-3",
                                         ),
                                         dbc.Row(
@@ -1607,7 +1609,10 @@ def create_curve_number_tab():
                                                                     type="number",
                                                                     value=3.0,
                                                                     step=0.1,
-                                                                    className="text-center table-cell-input-borderless excel-cell-input",
+                                                                    className=(
+                                                                        "text-center table-cell-input-borderless "
+                                                                        "excel-cell-input"
+                                                                    ),
                                                                     style={"maxWidth": "100px"},
                                                                 ),
                                                                 dbc.FormFeedback(
@@ -1637,7 +1642,10 @@ def create_curve_number_tab():
                                                             id="get-monthly-rain-btn",
                                                             color="primary",
                                                             className="mb-3",
-                                                            title="Compute monthly rainfall depth and runoff using storm statistics",
+                                                            title=(
+                                                                "Compute monthly rainfall depth and runoff using "
+                                                                "storm statistics"
+                                                            ),
                                                         ),
                                                     ],
                                                     width="auto",

@@ -3,6 +3,7 @@ Hydrogeology tab content for MAR DSS dashboard.
 """
 
 import ast
+import contextlib
 import copy
 import json
 import math
@@ -121,10 +122,8 @@ def normalize_stratigraphy_list_from_raw(value):
     if isinstance(value, float) and pd.isna(value):
         return None
     if hasattr(value, "item") and callable(value.item):
-        try:
+        with contextlib.suppress(Exception):
             value = value.item()
-        except Exception:
-            pass
     if isinstance(value, str):
         s = value.strip()
         if not s or s.lower() == "nan":

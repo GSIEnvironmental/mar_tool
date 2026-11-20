@@ -62,7 +62,8 @@ def create_decision_sensitivity_content():
                     dbc.CardBody(
                         [
                             html.P(
-                                "Configure variation settings above, then click the button below to run sensitivity analysis"
+                                "Configure variation settings above, then click the button below to run sensitivity "
+                                "analysis"
                                 "This may take a few minutes depending on the number of variation points.",
                                 className="text-muted small mb-3",
                             ),

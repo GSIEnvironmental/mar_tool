@@ -222,33 +222,33 @@ _MAP_LAYOUT_KEY = "mapbox" if hasattr(go, "Scattermapbox") else "map"
 def _mapbox_dict_for_style(style, center_lat, center_lon, zoom):
     """Map layout subtree for Scattermap / Scattermapbox (tiles / preset style)."""
     style = _normalize_map_style(style)
-    map_layout = dict(
-        center=dict(lat=float(center_lat), lon=float(center_lon)),
-        zoom=float(zoom),
-    )
+    map_layout = {
+        "center": {"lat": float(center_lat), "lon": float(center_lon)},
+        "zoom": float(zoom),
+    }
     if style == "opentopomap":
         map_layout["style"] = "white-bg"
         map_layout["layers"] = [
-            dict(
-                sourcetype="raster",
-                source=list(_OPENTOPOMAP_TILES),
-                below="traces",
-            ),
+            {
+                "sourcetype": "raster",
+                "source": list(_OPENTOPOMAP_TILES),
+                "below": "traces",
+            },
         ]
     elif style == "satellite-streets":
         map_layout["style"] = "white-bg"
         map_layout["layers"] = [
-            dict(sourcetype="raster", source=[_ESRI_WORLD_IMAGERY], below="traces"),
-            dict(
-                sourcetype="raster",
-                source=[_ESRI_WORLD_TRANSPORTATION],
-                below="traces",
-            ),
-            dict(
-                sourcetype="raster",
-                source=[_ESRI_WORLD_BOUNDARIES_PLACES],
-                below="traces",
-            ),
+            {"sourcetype": "raster", "source": [_ESRI_WORLD_IMAGERY], "below": "traces"},
+            {
+                "sourcetype": "raster",
+                "source": [_ESRI_WORLD_TRANSPORTATION],
+                "below": "traces",
+            },
+            {
+                "sourcetype": "raster",
+                "source": [_ESRI_WORLD_BOUNDARIES_PLACES],
+                "below": "traces",
+            },
         ]
     else:
         map_layout["style"] = style
@@ -374,7 +374,7 @@ def create_water_source_sites_map(
             lat=[float(source_lat)],
             lon=[float(source_lon)],
             mode="markers",
-            marker=dict(size=18, color="red", symbol="circle"),
+            marker={"size": 18, "color": "red", "symbol": "circle"},
             text=["Source Site"],
             textposition="top center",
             name="Source Site",
@@ -385,7 +385,7 @@ def create_water_source_sites_map(
             lat=[float(recharge_lat)],
             lon=[float(recharge_lon)],
             mode="markers",
-            marker=dict(size=18, color="blue", symbol="circle"),
+            marker={"size": 18, "color": "blue", "symbol": "circle"},
             text=["Recharge Site"],
             textposition="top center",
             name="Recharge Site",
@@ -394,7 +394,7 @@ def create_water_source_sites_map(
     map_layout = _mapbox_dict_for_style(style, center_lat, center_lon, zoom)
     layout = {
         _MAP_LAYOUT_KEY: map_layout,
-        "margin": dict(l=0, r=0, t=0, b=0),
+        "margin": {"l": 0, "r": 0, "t": 0, "b": 0},
         "uirevision": uirevision,
         "dragmode": "pan",
         "showlegend": False,
@@ -456,7 +456,7 @@ def create_location_map(
             lat=[lat],
             lon=[lon],
             mode="markers",
-            marker=dict(size=20, color="red", symbol="circle"),
+            marker={"size": 20, "color": "red", "symbol": "circle"},
             text=[location_name],
             textposition="top center",
             name=location_name,
@@ -465,7 +465,7 @@ def create_location_map(
     map_layout = _mapbox_dict_for_style(style, lat, lon, zoom)
     layout = {
         _MAP_LAYOUT_KEY: map_layout,
-        "margin": dict(l=0, r=0, t=0, b=0),
+        "margin": {"l": 0, "r": 0, "t": 0, "b": 0},
         "uirevision": uirevision,
         "dragmode": "pan",
     }
@@ -514,20 +514,20 @@ def create_monthly_flow_chart(flow_data=None):
             y=cumulative_flow,
             mode="lines+markers",
             name="Cumulative Annual Flow",
-            line=dict(color="red", width=3),
-            marker=dict(size=8),
+            line={"color": "red", "width": 3},
+            marker={"size": 8},
             yaxis="y2",
         ),
     )
     fig.update_layout(
         title="Monthly Flow and Cumulative Annual Flow",
         xaxis_title="Month",
-        yaxis=dict(title="Monthly Flow (ft³/month)", side="left"),
-        yaxis2=dict(title="Cumulative Flow (ft³)", side="right", overlaying="y"),
+        yaxis={"title": "Monthly Flow (ft\u00b3/month)", "side": "left"},
+        yaxis2={"title": "Cumulative Flow (ft\u00b3)", "side": "right", "overlaying": "y"},
         height=480,
         width=800,
-        margin=dict(l=0, r=50, t=50, b=50),
-        legend=dict(yanchor="top", y=0.95, xanchor="center", x=0.5, orientation="v"),
+        margin={"l": 0, "r": 50, "t": 50, "b": 50},
+        legend={"yanchor": "top", "y": 0.95, "xanchor": "center", "x": 0.5, "orientation": "v"},
         autosize=False,
     )
     return fig
@@ -577,7 +577,7 @@ def _normalize_monthly_flows(monthly_flows_raw):
 def flow_dict_from_list(monthly_flows):
     """Jan–Dec dict from a 12-value list."""
     flows = _normalize_monthly_flows(monthly_flows)
-    return {month: flow for month, flow in zip(FLOW_MONTHS, flows)}
+    return dict(zip(FLOW_MONTHS, flows, strict=True))
 
 
 def flow_records_from_dict(flow_data=None):
@@ -586,7 +586,7 @@ def flow_records_from_dict(flow_data=None):
         monthly_flows = [float(flow_data.get(month, 0) or 0) for month in FLOW_MONTHS]
     else:
         monthly_flows = _normalize_monthly_flows(dash_storage.get_data("monthly_flow"))
-    return [{"Month": month, FLOW_VALUE_COL: flow} for month, flow in zip(FLOW_MONTHS, monthly_flows)]
+    return [{"Month": month, FLOW_VALUE_COL: flow} for month, flow in zip(FLOW_MONTHS, monthly_flows, strict=True)]
 
 
 def flow_dict_from_records(table_data):
@@ -636,7 +636,7 @@ def flow_dict_from_input_values(values, ids, fallback=None):
     if not values or not ids:
         return flow_data
 
-    for id_dict, raw in zip(ids, values):
+    for id_dict, raw in zip(ids, values, strict=False):
         if not isinstance(id_dict, dict):
             continue
         month = id_dict.get("month")
@@ -675,7 +675,7 @@ def create_editable_flow_table(flow_data=None):
             style={"backgroundColor": "#28a745"},
         ),
     ]
-    for i, (month, flow) in enumerate(zip(FLOW_MONTHS, monthly_flows)):
+    for i, (month, flow) in enumerate(zip(FLOW_MONTHS, monthly_flows, strict=True)):
         rows.append(
             html.Tr(
                 [
@@ -692,7 +692,9 @@ def create_editable_flow_table(flow_data=None):
                             step=1,
                             debounce=True,
                             size="sm",
-                            className="text-center table-cell-input-borderless monthly-flow-input-borderless excel-cell-input",
+                            className=(
+                                "text-center table-cell-input-borderless monthly-flow-input-borderless excel-cell-input"
+                            ),
                         ),
                         className="text-center py-0 px-1 align-middle",
                         style={"backgroundColor": INPUT_CELL_BG},
@@ -1296,8 +1298,10 @@ def create_water_source_info_tab():
                                         ),
                                         html.P(
                                             [
-                                                "Runoff calculator in the following section can be used to estimate available surface water. ",
-                                                "If you decide to use runoff calculator values as the recharge source, check the ",
+                                                "Runoff calculator in the following section can be used to estimate "
+                                                "available surface water. ",
+                                                "If you decide to use runoff calculator values as the recharge "
+                                                "source, check the ",
                                                 html.Strong("Use Runoff For Recharge"),
                                                 " box in Step 3 below.",
                                             ],

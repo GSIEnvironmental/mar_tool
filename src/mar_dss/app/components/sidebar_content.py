@@ -22,8 +22,8 @@ def create_water_levels_content():
             y=water_levels,
             mode="lines+markers",
             name="Water Level",
-            line=dict(color="#1f77b4", width=2),
-            marker=dict(size=4),
+            line={"color": "#1f77b4", "width": 2},
+            marker={"size": 4},
         ),
     )
 
@@ -129,7 +129,9 @@ def create_quality_content():
             html.Hr(),
             html.H5("Recommendations", className="mt-3"),
             html.P(
-                "Based on the analysis, this MAR project shows strong potential with high scores in water supply security, economic viability, and regulatory compliance. Consider addressing environmental impact concerns through additional mitigation measures.",
+                "Based on the analysis, this MAR project shows strong potential with high scores in water supply "
+                "security, economic viability, and regulatory compliance. Consider addressing environmental impact "
+                "concerns through additional mitigation measures.",
             ),
         ],
     )
@@ -226,8 +228,8 @@ def create_scenarios_content():
             y=water_supply,
             mode="lines+markers",
             name="Water Supply Security",
-            line=dict(color="#2E8B57", width=3),
-            marker=dict(size=8),
+            line={"color": "#2E8B57", "width": 3},
+            marker={"size": 8},
         ),
     )
     fig.add_trace(
@@ -236,8 +238,8 @@ def create_scenarios_content():
             y=cost_effectiveness,
             mode="lines+markers",
             name="Cost Effectiveness",
-            line=dict(color="#4169E1", width=3),
-            marker=dict(size=8),
+            line={"color": "#4169E1", "width": 3},
+            marker={"size": 8},
         ),
     )
     fig.add_trace(
@@ -246,8 +248,8 @@ def create_scenarios_content():
             y=environmental_impact,
             mode="lines+markers",
             name="Environmental Impact",
-            line=dict(color="#FF6347", width=3),
-            marker=dict(size=8),
+            line={"color": "#FF6347", "width": 3},
+            marker={"size": 8},
         ),
     )
 
@@ -309,7 +311,9 @@ def create_scenarios_content():
             html.Hr(),
             html.H5("Recommendations", className="mt-3"),
             html.P(
-                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing efficiency measures to achieve optimistic outcomes while preparing contingency plans for pessimistic conditions.",
+                "The Optimistic scenario shows the highest potential across all metrics. Consider implementing "
+                "efficiency measures to achieve optimistic outcomes while preparing contingency plans for "
+                "pessimistic conditions.",
             ),
         ],
     )
@@ -346,7 +350,7 @@ def create_ai_decision_content():
             y=confidence_levels,
             mode="markers",
             name="Confidence Level",
-            marker=dict(size=12, color="#FF9800", symbol="diamond"),
+            marker={"size": 12, "color": "#FF9800", "symbol": "diamond"},
             yaxis="y2",
         ),
     )
@@ -354,8 +358,8 @@ def create_ai_decision_content():
     fig.update_layout(
         title="AI Generated Decision Analysis",
         xaxis_title="Decision Factors",
-        yaxis=dict(title="Assessment Score (%)", side="left"),
-        yaxis2=dict(title="Confidence Level (%)", side="right", overlaying="y"),
+        yaxis={"title": "Assessment Score (%)", "side": "left"},
+        yaxis2={"title": "Confidence Level (%)", "side": "right", "overlaying": "y"},
         hovermode="x unified",
         template="plotly_white",
         height=500,
@@ -375,7 +379,8 @@ def create_ai_decision_content():
                         className="alert-heading",
                     ),
                     html.P(
-                        "Based on comprehensive AI analysis, this project shows strong potential with an overall recommendation score of 85.6%",
+                        "Based on comprehensive AI analysis, this project shows strong potential with an overall "
+                        "recommendation score of 85.6%",
                     ),
                     html.Hr(),
                     html.P("Confidence Level: 89%", className="mb-0"),
@@ -396,7 +401,9 @@ def create_ai_decision_content():
             html.Hr(),
             html.H5("AI Recommendations", className="mt-3"),
             html.P(
-                "The AI system recommends proceeding with the MAR project while implementing additional environmental mitigation measures to address the moderate environmental impact score. Focus on community engagement to improve social acceptance.",
+                "The AI system recommends proceeding with the MAR project while implementing additional "
+                "environmental mitigation measures to address the moderate environmental impact score. Focus on "
+                "community engagement to improve social acceptance.",
             ),
         ],
     )

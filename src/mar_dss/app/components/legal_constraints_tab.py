@@ -161,7 +161,8 @@ REGULATORY_CONSIDERATIONS = (
                 ),
             ),
             (
-                "Recharge authorization, accounting, and recovery (state managed aquifer recharge / aquifer storage and recovery framework)",
+                "Recharge authorization, accounting, and recovery (state managed aquifer recharge / aquifer storage "
+                "and recovery framework)",
                 "Many states require explicit authorization to recharge and "
                 "later recover water under an MAR (managed aquifer recharge) or "
                 "ASR (aquifer storage and recovery) framework, plus accounting "
@@ -191,7 +192,8 @@ REGULATORY_CONSIDERATIONS = (
                 ),
             ),
             (
-                "Source-specific compliance (stormwater, surface water, recycled water, agricultural drainage, or other)",
+                "Source-specific compliance (stormwater, surface water, recycled water, agricultural drainage, or "
+                "other)",
                 "Each source type carries distinct permitting, treatment, and "
                 "monitoring expectations. Choosing a source that cannot meet "
                 "those rules blocks the recharge pathway. For stormwater, an "
@@ -280,7 +282,8 @@ REGULATORY_CONSIDERATIONS = (
                 ),
             ),
             (
-                "Ability to meet Safe Drinking Water Act maximum contaminant levels / no-endangerment and state reuse criteria",
+                "Ability to meet Safe Drinking Water Act maximum contaminant levels / no-endangerment and state "
+                "reuse criteria",
                 "Projects must show recharged water will not cause MCL "
                 "(maximum contaminant level) exceedances under the Safe "
                 "Drinking Water Act, or violate state reuse criteria. Persistent "
@@ -381,7 +384,8 @@ REGULATORY_CONSIDERATIONS = (
         "Project And Jurisdiction Screen",
         (
             (
-                "Federal nexus that may trigger federal environmental laws and reviews (for example National Environmental Policy Act, Endangered Species Act, National Historic Preservation Act)",
+                "Federal nexus that may trigger federal environmental laws and reviews (for example National "
+                "Environmental Policy Act, Endangered Species Act, National Historic Preservation Act)",
                 "Federal funding, permits, or land create a federal nexus that "
                 "can trigger NEPA (National Environmental Policy Act), ESA "
                 "(Endangered Species Act), NHPA (National Historic Preservation "

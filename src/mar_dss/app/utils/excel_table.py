@@ -236,7 +236,7 @@ def rows_from_param_inputs(
 ) -> list[dict]:
     """Merge pattern-matching input values into Parameter/Value row dicts."""
     by_param = {}
-    for id_dict, raw in zip(ids or [], values or []):
+    for id_dict, raw in zip(ids or [], values or [], strict=False):
         if not isinstance(id_dict, dict):
             continue
         param = id_dict.get("param")

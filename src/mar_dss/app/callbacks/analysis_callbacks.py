@@ -229,8 +229,8 @@ def get_graph_inputs():
 
         try:
             gs_elevation = float(gs_elevation)
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid ground_surface_elevation: {gs_elevation}")
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid ground_surface_elevation: {gs_elevation}") from e
 
         depth_to_gw = gs_elevation - gw_data["elevation"].values
         inputs["monthly_gw_depth"] = depth_to_gw
@@ -286,7 +286,7 @@ def get_graph_inputs():
 
     except (KeyError, ValueError, TypeError) as e:
         logger.error(f"Error getting graph inputs: {e}")
-        raise ValueError(f"Invalid graph input data: {e}")
+        raise ValueError(f"Invalid graph input data: {e}") from e
 
 
 def create_inputs_hash(inputs):
@@ -316,7 +316,7 @@ def create_inputs_hash(inputs):
     json_str = json.dumps(hashable_data, sort_keys=True, default=str)
 
     # Generate MD5 hash
-    hash_obj = hashlib.md5(json_str.encode("utf-8"))
+    hash_obj = hashlib.md5(json_str.encode("utf-8"), usedforsecurity=False)
     return hash_obj.hexdigest()
 
 
@@ -395,7 +395,7 @@ def calculate_environmental_feasibility():
         ]
         answers = {
             logic_key: dash_storage.get_data(storage_key) or "Unknown"
-            for logic_key, storage_key in zip(WQ_LOGIC_KEYS, storage_keys)
+            for logic_key, storage_key in zip(WQ_LOGIC_KEYS, storage_keys, strict=True)
         }
         wq_color = classify_wq_color(answers)
 
@@ -897,7 +897,8 @@ def _format_analysis_error(exc):
         ("decision_graph", "The decision knowledge graph could not be loaded."),
         (
             "DSS evaluation failed",
-            "Check that required inputs are entered across Overview, Water Source, Hydrogeology, Engineering, and Regulations tabs.",
+            "Check that required inputs are entered across Overview, Water Source, Hydrogeology, Engineering, and "
+            "Regulations tabs.",
         ),
     ]
     extra = next((hint for key, hint in guidance if key in msg), None)
@@ -1110,7 +1111,10 @@ def setup_analysis_callbacks(app):
     #     ],
     #     prevent_initial_call=False
     # )
-    # def update_individual_feasibility_metrics(top_tab, analysis_tab, tech_analysis_tab, feasible_container, conditionally_feasible_container, graph_store):
+    # def update_individual_feasibility_metrics(
+    #     top_tab, analysis_tab, tech_analysis_tab, feasible_container,
+    #     conditionally_feasible_container, graph_store,
+    # ):
     #     """Update individual feasibility metrics when technology is selected or tab is accessed."""
     #     # Function body commented out - tab was removed
     #     pass

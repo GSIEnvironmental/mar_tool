@@ -527,51 +527,51 @@ def _get_empty_dashboard_content(is_dark=False):
 
     empty_hydro_heatmap_fig = go.Figure()
     empty_hydro_heatmap_fig.update_layout(
-        title=dict(text="Hydrogeologic Constraints Heatmap", font=dict(color=font_color)),
+        title={"text": "Hydrogeologic Constraints Heatmap", "font": {"color": font_color}},
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
-        font=dict(color=font_color),
+        font={"color": font_color},
     )
 
     empty_hydro_heatmap_legend = html.Div()
 
     empty_env_heatmap_fig = go.Figure()
     empty_env_heatmap_fig.update_layout(
-        title=dict(text="Water Quality Constraints Heatmap", font=dict(color=font_color)),
+        title={"text": "Water Quality Constraints Heatmap", "font": {"color": font_color}},
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
-        font=dict(color=font_color),
+        font={"color": font_color},
     )
 
     empty_env_heatmap_legend = html.Div()
 
     empty_capital_fig = go.Figure()
     empty_capital_fig.update_layout(
-        title=dict(text="Capital Cost", font=dict(color=font_color)),
+        title={"text": "Capital Cost", "font": {"color": font_color}},
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
-        font=dict(color=font_color),
+        font={"color": font_color},
     )
 
     empty_maintenance_fig = go.Figure()
     empty_maintenance_fig.update_layout(
-        title=dict(text="Maintenance Cost", font=dict(color=font_color)),
+        title={"text": "Maintenance Cost", "font": {"color": font_color}},
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
-        font=dict(color=font_color),
+        font={"color": font_color},
     )
 
     empty_npv_fig = go.Figure()
     empty_npv_fig.update_layout(
-        title=dict(text="NPV (20 years)", font=dict(color=font_color)),
+        title={"text": "NPV (20 years)", "font": {"color": font_color}},
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
-        font=dict(color=font_color),
+        font={"color": font_color},
     )
 
     empty_spider_plots = html.Div(
@@ -771,7 +771,7 @@ def _prepare_constraints_data(results, filters, constraint_type=None):
         4: "Reject",
     }
 
-    for option_name in results.keys():
+    for option_name in results:
         constraint_data[option_name] = {}
         detail_data[option_name] = {}
         if option_name in filters:
@@ -848,7 +848,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
     if not sorted_constraints or not constraint_data:
         heatmap_fig = go.Figure()
         heatmap_fig.update_layout(
-            title=dict(text=title, font=dict(size=16, color=font_color)),
+            title={"text": title, "font": {"size": 16, "color": font_color}},
             template="plotly_dark" if is_dark else "plotly_white",
             height=520,
             autosize=True,
@@ -856,7 +856,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
             yaxis_title="",
             paper_bgcolor=paper_bg,
             plot_bgcolor=plot_bg,
-            font=dict(color=font_color),
+            font={"color": font_color},
         )
         return heatmap_fig, html.Div()
 
@@ -911,16 +911,16 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                 x=[x_data[i] for i in relevant_indices],
                 y=[y_data[i] for i in relevant_indices],
                 mode="markers+text",
-                marker=dict(
-                    size=[marker_sizes[i] for i in relevant_indices],
-                    color=[marker_colors[i] for i in relevant_indices],
-                    line=dict(width=1.5, color="white"),
-                    sizemode="diameter",
-                    opacity=0.9,
-                ),
+                marker={
+                    "size": [marker_sizes[i] for i in relevant_indices],
+                    "color": [marker_colors[i] for i in relevant_indices],
+                    "line": {"width": 1.5, "color": "white"},
+                    "sizemode": "diameter",
+                    "opacity": 0.9,
+                },
                 text=[str(response_levels[i]) for i in relevant_indices],
                 textposition="middle center",
-                textfont=dict(size=9, color="white", family="Arial, sans-serif"),
+                textfont={"size": 9, "color": "white", "family": "Arial, sans-serif"},
                 hovertemplate=(
                     "<b>%{customdata[0]}</b><br>%{x}<br>"
                     "Response: %{customdata[1]} (%{customdata[2]})<br>"
@@ -946,17 +946,20 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                 x=[x_data[i] for i in irrelevant_indices],
                 y=[y_data[i] for i in irrelevant_indices],
                 mode="markers+text",
-                marker=dict(
-                    size=[marker_sizes[i] for i in irrelevant_indices],
-                    color=[marker_colors[i] for i in irrelevant_indices],
-                    line=dict(width=1, color="#666666"),
-                    sizemode="diameter",
-                    opacity=0.4,
-                ),
+                marker={
+                    "size": [marker_sizes[i] for i in irrelevant_indices],
+                    "color": [marker_colors[i] for i in irrelevant_indices],
+                    "line": {"width": 1, "color": "#666666"},
+                    "sizemode": "diameter",
+                    "opacity": 0.4,
+                },
                 text=["—" for _ in irrelevant_indices],  # Use dash for irrelevant
                 textposition="middle center",
-                textfont=dict(size=9, color="#666666", family="Arial, sans-serif"),
-                hovertemplate="<b>%{customdata[0]}</b><br>%{x}<br>Response Level: Irrelevant (excluded from analysis)<extra></extra>",
+                textfont={"size": 9, "color": "#666666", "family": "Arial, sans-serif"},
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>%{x}<br>Response Level: Irrelevant (excluded from "
+                    "analysis)<extra></extra>"
+                ),
                 customdata=[[y_data[i], "Irrelevant"] for i in irrelevant_indices],
                 showlegend=False,
             ),
@@ -1011,40 +1014,40 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
     # Use categorical axes to ensure consistent spacing across all heatmaps
     # Both x and y axes are categorical to prevent layout shifts
     heatmap_fig.update_layout(
-        title=dict(text=title, font=dict(size=16, color=font_color)),
-        xaxis_title=dict(text="Constraints", font=dict(size=13, color=font_color)),
-        yaxis_title=dict(text="Options", font=dict(size=13, color=font_color)),
+        title={"text": title, "font": {"size": 16, "color": font_color}},
+        xaxis_title={"text": "Constraints", "font": {"size": 13, "color": font_color}},
+        yaxis_title={"text": "Options", "font": {"size": 13, "color": font_color}},
         template="plotly_dark" if is_dark else "plotly_white",
         height=520,
         autosize=True,
-        margin=dict(l=100, r=40, t=50, b=120),
+        margin={"l": 100, "r": 40, "t": 50, "b": 120},
         paper_bgcolor=paper_bg,
         plot_bgcolor=plot_bg,
-        font=dict(color=font_color),
-        xaxis=dict(
-            type="category",  # Categorical x-axis for consistent spacing
-            categoryorder="array",
-            categoryarray=sorted_constraints,  # Use original names for data mapping
-            tickmode="array",
-            tickvals=sorted_constraints,
-            ticktext=x_labels,  # Use two-line labels for display
-            side="bottom",
-            tickangle=0,  # No rotation needed with two-line labels
-            showgrid=True,
-            gridcolor=grid_color,
-            tickfont=dict(size=12, color=font_color),
-            title_font=dict(color=font_color),
-        ),
-        yaxis=dict(
-            type="category",  # Use categorical axis for consistent spacing
-            categoryorder="array",
-            categoryarray=all_option_names[::-1],  # Reversed for top-to-bottom order
-            showgrid=True,
-            gridcolor=grid_color,
-            fixedrange=True,  # Prevent zoom/pan that could affect spacing
-            tickfont=dict(size=12, color=font_color),
-            title_font=dict(color=font_color),
-        ),
+        font={"color": font_color},
+        xaxis={
+            "type": "category",  # Categorical x-axis for consistent spacing
+            "categoryorder": "array",
+            "categoryarray": sorted_constraints,  # Use original names for data mapping
+            "tickmode": "array",
+            "tickvals": sorted_constraints,
+            "ticktext": x_labels,  # Use two-line labels for display
+            "side": "bottom",
+            "tickangle": 0,  # No rotation needed with two-line labels
+            "showgrid": True,
+            "gridcolor": grid_color,
+            "tickfont": {"size": 12, "color": font_color},
+            "title_font": {"color": font_color},
+        },
+        yaxis={
+            "type": "category",  # Use categorical axis for consistent spacing
+            "categoryorder": "array",
+            "categoryarray": all_option_names[::-1],  # Reversed for top-to-bottom order
+            "showgrid": True,
+            "gridcolor": grid_color,
+            "fixedrange": True,  # Prevent zoom/pan that could affect spacing
+            "tickfont": {"size": 12, "color": font_color},
+            "title_font": {"color": font_color},
+        },
     )
 
     # Create legend
@@ -1227,9 +1230,9 @@ def _create_cost_chart(option_names, values, title, color):
         template="plotly_white",
         height=320,
         autosize=True,
-        margin=dict(l=50, r=20, t=40, b=50),
+        margin={"l": 50, "r": 20, "t": 40, "b": 50},
         showlegend=False,
-        yaxis=dict(tickformat="$,.0f"),
+        yaxis={"tickformat": "$,.0f"},
     )
     return fig
 
@@ -1498,7 +1501,7 @@ def _create_spider_plots(dss_results, categorized_data):
     maintenance_costs = []
     npv_values = []
 
-    for option_name in scores.keys():
+    for option_name in scores:
         option_not_feasible = _is_option_not_feasible(categorized_data, option_name)
 
         # Get capital cost
@@ -1540,7 +1543,7 @@ def _create_spider_plots(dss_results, categorized_data):
 
     cost_per_acre_ft_dict = {}
     cost_per_acre_ft_values = []
-    for option_name in scores.keys():
+    for option_name in scores:
         if _is_option_not_feasible(categorized_data, option_name):
             cost_per_acre_ft_dict[option_name] = 0.0
             continue
@@ -1636,7 +1639,7 @@ def _create_spider_plots(dss_results, categorized_data):
 
         # Create categories with scores (score below category name, centered)
         categories_with_scores = []
-        for category, score in zip(categories, values):
+        for category, score in zip(categories, values, strict=True):
             style = get_score_style(score)
             if category == "Cost per Acre-Ft":
                 if cost_per_acre_ft_val > 0:
@@ -1669,58 +1672,61 @@ def _create_spider_plots(dss_results, categorized_data):
                 theta=categories_closed,
                 fill="toself",
                 name=option_name,
-                line=dict(color="#1e90ff", width=3),
+                line={"color": "#1e90ff", "width": 3},
                 fillcolor="rgba(30, 144, 255, 0.4)",
                 mode="lines+markers",
-                marker=dict(size=8, color="#1e90ff", line=dict(width=2, color="white")),
+                marker={"size": 8, "color": "#1e90ff", "line": {"width": 2, "color": "white"}},
                 hovertemplate="<b>%{theta}</b><br>Value: %{r:.1f}<extra></extra>",
             ),
         )
 
         # Update layout with clean polar plot
         fig.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 100],
-                    tickmode="linear",
-                    tick0=0,
-                    dtick=20,
-                    tickfont=dict(size=9, color="black"),
-                    gridcolor="lightgrey",
-                    gridwidth=1,
-                    linecolor="grey",
-                    linewidth=1,
-                    showline=True,
-                ),
-                angularaxis=dict(
-                    tickmode="array",
-                    tickvals=categories,
-                    ticktext=categories_with_scores,
-                    tickfont=dict(size=10, family="Arial, sans-serif"),
-                    rotation=0,
-                    direction="clockwise",
-                    linecolor="grey",
-                    linewidth=1,
-                    gridcolor="lightgrey",
-                    gridwidth=1,
-                ),
-                bgcolor="white",
-            ),
+            polar={
+                "radialaxis": {
+                    "visible": True,
+                    "range": [0, 100],
+                    "tickmode": "linear",
+                    "tick0": 0,
+                    "dtick": 20,
+                    "tickfont": {"size": 9, "color": "black"},
+                    "gridcolor": "lightgrey",
+                    "gridwidth": 1,
+                    "linecolor": "grey",
+                    "linewidth": 1,
+                    "showline": True,
+                },
+                "angularaxis": {
+                    "tickmode": "array",
+                    "tickvals": categories,
+                    "ticktext": categories_with_scores,
+                    "tickfont": {"size": 10, "family": "Arial, sans-serif"},
+                    "rotation": 0,
+                    "direction": "clockwise",
+                    "linecolor": "grey",
+                    "linewidth": 1,
+                    "gridcolor": "lightgrey",
+                    "gridwidth": 1,
+                },
+                "bgcolor": "white",
+            },
             plot_bgcolor="white",
             paper_bgcolor="white",
             showlegend=False,
             height=350,
-            margin=dict(l=80, r=80, t=100, b=80),
-            title=dict(
-                text=f'{option_name}<br><span style="font-size:14px; color:red;">Average Score: {average_score:.1f}%</span>',
-                x=0.5,
-                y=0.98,
-                font=dict(size=16, color="#006400", family="Arial, sans-serif", weight="bold"),
-                xanchor="center",
-                yanchor="top",
-                pad=dict(t=10),
-            ),
+            margin={"l": 80, "r": 80, "t": 100, "b": 80},
+            title={
+                "text": (
+                    f'{option_name}<br><span style="font-size:14px; color:red;">Average Score: '
+                    f"{average_score:.1f}%</span>"
+                ),
+                "x": 0.5,
+                "y": 0.98,
+                "font": {"size": 16, "color": "#006400", "family": "Arial, sans-serif", "weight": "bold"},
+                "xanchor": "center",
+                "yanchor": "top",
+                "pad": {"t": 10},
+            },
         )
 
         # Create card for this option's spider plot

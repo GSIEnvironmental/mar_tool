@@ -271,7 +271,7 @@ def setup_environmental_impact_callbacks(app):
 
         # Map inputs to logic keys
         input_keys = list(WQ_LOGIC_KEYS)
-        answers = dict(zip(input_keys, inputs))
+        answers = dict(zip(input_keys, inputs, strict=False))
         wq_color = classify_wq_color(answers)
 
         # Collect all required treatments and recommendations
@@ -279,7 +279,7 @@ def setup_environmental_impact_callbacks(app):
         recommendations_list = []
 
         # 1. Collect per-question details (treatments / recommendations)
-        for key, value in zip(input_keys, inputs):
+        for key, value in zip(input_keys, inputs, strict=False):
             step_logic = DECISION_LOGIC[key]
             score_data = step_logic.get(value, {"score": 0, "color": "dark", "treatment_key": "", "rec": "No data."})
 
@@ -390,7 +390,7 @@ def setup_environmental_impact_callbacks(app):
                 ),
             )
             cost_gauge_fig.update_layout(
-                margin=dict(l=10, r=10, t=60, b=10),
+                margin={"l": 10, "r": 10, "t": 60, "b": 10},
                 height=250,
                 autosize=True,
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -492,13 +492,15 @@ def setup_environmental_impact_callbacks(app):
                             html.P(
                                 [
                                     html.Strong("Note: "),
-                                    "This is a one-time total project cost estimate, not a per-volume ($/ft³) unit cost, "
+                                    "This is a one-time total project cost estimate, not a per-volume ($/ft\xb3) "
+                                    "unit cost, "
                                     "so it is not included on the Estimated Water Treatment Cost gauge. "
                                     "Include this vadose remediation cost only if surface recharge is selected "
                                     "or the target aquifer is the unsaturated zone. Injection can bypass the "
                                     "vadose and may not require this treatment; for confined aquifers injection "
                                     "is typically the only option, so the vadose is not a consideration. "
-                                    "Vadose zone remediation costs can vary by orders of magnitude depending on contaminant type, "
+                                    "Vadose zone remediation costs can vary by orders of magnitude depending on "
+                                    "contaminant type, "
                                     "site size, depth, remediation technology, and regulatory requirements. "
                                     "Typical range: $50,000 - $10,000,000. "
                                     "The estimate above ($200,000) represents a mid-range scenario. "

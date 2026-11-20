@@ -13,10 +13,8 @@ default:
 # Run all the formatting, linting, and testing commands
 [group: 'quality']
 qa:
-    uv run --python=3.13 --extra test ruff format .
-    uv run --python=3.13 --extra test ruff check . --fix
-    uv run --python=3.13 --extra test ruff check --select I --fix .
-    uv run --python=3.13 --extra test ty check .
+    uv run pre-commit run --all-files
+    # uv run --python=3.13 --extra test ty check .
     uv run --python=3.13 --extra test pytest .
 
 # Run all the tests, but allow for arguments to be passed

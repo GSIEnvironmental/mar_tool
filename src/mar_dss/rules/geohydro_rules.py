@@ -111,7 +111,7 @@ def _strat_df_to_dashboard_rows(strat_df):
 
 
 def _monthly_depths_to_gw_rows(monthly_gw_depth):
-    """Build dashboard-style groundwater rows; use datum ``gs=0`` so ``elevation = -depth`` (see ``infer_aquifer_type``)."""
+    "Build dashboard-style groundwater rows; use datum ``gs=0`` so ``elevation = -depth`` (see ``infer_aquifer_type``)."
     d = np.asarray(monthly_gw_depth, dtype=float).reshape(-1)
     if d.size == 0:
         return []
@@ -188,7 +188,7 @@ def _resolve_aquitard_k_max_ft_day(explicit):
             except (TypeError, ValueError):
                 pass
     except Exception:
-        pass
+        logger.debug("Could not load aquitard conductivity from storage", exc_info=True)
     return DEFAULT_AQUITARD_K_MAX_FT_DAY
 
 
@@ -264,10 +264,9 @@ def infer_dashboard_aquifer_type(
         return "unconfined"
 
     is_bottom_target = ti >= len(rows) - 1
-    if not is_bottom_target:
-        # Interior target: need lower aquitard as well.
-        if not _is_aquitard(rows[ti + 1]):
-            return "unconfined"
+    # Interior targets need a lower aquitard.
+    if not is_bottom_target and not _is_aquitard(rows[ti + 1]):
+        return "unconfined"
 
     try:
         thicknesses = [float(r.get("thickness", 0.0)) for r in rows]
@@ -355,10 +354,7 @@ def check_vadose_pollution(unconfined, vadose_polluted_present):
     if vadose_polluted_present is None:
         return None
 
-    if vadose_polluted_present:
-        return True
-    else:
-        return False
+    return bool(vadose_polluted_present)
 
 
 def check_vadose_high_toxicity(vadose_pollution_present, vadose_pollution_high_toxicity):
@@ -377,19 +373,13 @@ def check_vadose_high_toxicity(vadose_pollution_present, vadose_pollution_high_t
     if vadose_pollution_present is None:
         return None  # irrelevant for confined aquifer
 
-    if vadose_pollution_high_toxicity:
-        return True
-    else:
-        return False
+    return bool(vadose_pollution_high_toxicity)
 
 
 def check_vadose_biodegradable(vadose_pollution_present, vadose_pollution_high_toxicity):
     if vadose_pollution_high_toxicity is None:
         return None  # irrelevant for confined aquifer
-    if vadose_pollution_present and not vadose_pollution_high_toxicity:
-        return True
-    else:
-        return False
+    return bool(vadose_pollution_present) and not vadose_pollution_high_toxicity
 
 
 def check_vadose_remediation(vadose_pollution_high_toxicity):
@@ -407,27 +397,18 @@ def check_vadose_remediation(vadose_pollution_high_toxicity):
     """
     if vadose_pollution_high_toxicity is None:
         return None  # irrelevant for confined aquifer
-    if vadose_pollution_high_toxicity:
-        return True
-    else:
-        return False
+    return bool(vadose_pollution_high_toxicity)
 
 
 def check_topsoil_limiting(limiting_layer, k_min_vadose):
-    if limiting_layer == 0 and k_min_vadose < get_default("k_min_vadose_threshold"):
-        return True
-    else:
-        return False
+    return bool(limiting_layer == 0) and bool(k_min_vadose < get_default("k_min_vadose_threshold"))
 
 
 def check_topsoil_removable(top_soil_limiting, strat_df):
 
     if top_soil_limiting:
         top_soil_thickness = strat_df["thickness"].values[0]
-        if top_soil_thickness < 6:
-            return True
-        else:
-            return False
+        return bool(top_soil_thickness < 6)
     else:
         return None  # irrelevant if top soil is not limiting
 

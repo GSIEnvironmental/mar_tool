@@ -2,6 +2,7 @@
 Main dashboard application for MAR DSS.
 """
 
+import contextlib
 import logging
 import webbrowser
 from pathlib import Path
@@ -20,29 +21,8 @@ def _resolve_assets_folder() -> str:
     return str(_APP_DIR / "assets")
 
 
-try:
-    # Try absolute imports first (when run as module)
+with contextlib.suppress(ImportError):
     from mar_dss.app.callbacks.hydro_callbacks import setup_hydro_callbacks
-    from mar_dss.app.components.ai_generated_decision_tab import (
-        create_ai_generated_decision_content,
-    )
-    from mar_dss.app.components.dashboard_tab import create_dashboard_content
-    from mar_dss.app.components.data_export_tab import (
-        create_data_export_content,
-    )
-    from mar_dss.app.components.decision_interpretation_tab import (
-        create_decision_interpretation_content,
-    )
-    from mar_dss.app.components.hydro_tab import create_hydro_tab_content
-    from mar_dss.app.components.scenarios_comparison_tab import (
-        create_scenarios_comparison_content,
-    )
-    from mar_dss.app.components.water_source_tab import (
-        create_general_tab_content,
-    )
-except ImportError:
-    # Fallback to relative imports (when run directly)
-    pass
 
 
 class DashboardApp:

@@ -82,7 +82,7 @@ def build_graph():
     return g
 
 
-def test_branching_A_true():
+def test_branching_a_true():
     g = build_graph()
     inputs = {"A": True}
 
@@ -97,7 +97,7 @@ def test_branching_A_true():
     assert results["E"] is None
 
 
-def test_branching_A_false():
+def test_branching_a_false():
     g = build_graph()
     inputs = {"A": False}
 

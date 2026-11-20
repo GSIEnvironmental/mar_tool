@@ -89,7 +89,8 @@ def create_dashboard_content():
                                     [
                                         html.Div(id="conditionally-feasible-technologies-container"),
                                         html.Small(
-                                            "These technologies may be feasible with certain conditions or modifications",
+                                            "These technologies may be feasible with certain conditions or "
+                                            "modifications",
                                             className="text-muted",
                                         ),
                                     ],
@@ -261,7 +262,9 @@ def create_dashboard_content():
                                                             ),
                                                             html.P(
                                                                 id="feasibility-metrics-summary-text",
-                                                                children="Select a technology to view feasibility metrics.",
+                                                                children=(
+                                                                    "Select a technology to view feasibility metrics."
+                                                                ),
                                                                 className="mb-0",
                                                             ),
                                                         ],
@@ -447,7 +450,9 @@ def create_dashboard_content():
                                                                                 ],
                                                                             ),
                                                                         ],
-                                                                        className="table table-striped excel-computed-table",
+                                                                        className=(
+                                                                            "table table-striped excel-computed-table"
+                                                                        ),
                                                                     ),
                                                                 ],
                                                             ),
@@ -462,7 +467,10 @@ def create_dashboard_content():
                                                                 className="alert-heading",
                                                             ),
                                                             html.P(
-                                                                "Cost analysis shows moderate to high initial investment with reasonable operating costs. Consider phased implementation to reduce upfront capital requirements.",
+                                                                "Cost analysis shows moderate to high initial "
+                                                                "investment with reasonable operating costs. "
+                                                                "Consider phased implementation to reduce upfront "
+                                                                "capital requirements.",
                                                                 className="mb-0",
                                                             ),
                                                         ],
@@ -592,7 +600,9 @@ def create_dashboard_content():
                                                                                 [
                                                                                     html.Span(
                                                                                         "Score: 8.2/10",
-                                                                                        className="badge bg-success me-2",
+                                                                                        className=(
+                                                                                            "badge bg-success me-2"
+                                                                                        ),
                                                                                     ),
                                                                                     html.Span(
                                                                                         "Rank: #1",
@@ -614,7 +624,9 @@ def create_dashboard_content():
                                                                                 [
                                                                                     html.Span(
                                                                                         "Score: 7.5/10",
-                                                                                        className="badge bg-warning me-2",
+                                                                                        className=(
+                                                                                            "badge bg-warning me-2"
+                                                                                        ),
                                                                                     ),
                                                                                     html.Span(
                                                                                         "Rank: #2",
@@ -730,7 +742,10 @@ def create_dashboard_content():
                                                                                             ),
                                                                                             html.Td(
                                                                                                 "8.2",
-                                                                                                className="fw-bold text-success",
+                                                                                                className=(
+                                                                                                    "fw-bold "
+                                                                                                    "text-success"
+                                                                                                ),
                                                                                             ),
                                                                                         ],
                                                                                     ),
@@ -762,7 +777,10 @@ def create_dashboard_content():
                                                                                             ),
                                                                                             html.Td(
                                                                                                 "7.5",
-                                                                                                className="fw-bold text-warning",
+                                                                                                className=(
+                                                                                                    "fw-bold "
+                                                                                                    "text-warning"
+                                                                                                ),
                                                                                             ),
                                                                                         ],
                                                                                     ),
@@ -794,14 +812,19 @@ def create_dashboard_content():
                                                                                             ),
                                                                                             html.Td(
                                                                                                 "6.8",
-                                                                                                className="fw-bold text-info",
+                                                                                                className=(
+                                                                                                    "fw-bold text-info"
+                                                                                                ),
                                                                                             ),
                                                                                         ],
                                                                                     ),
                                                                                 ],
                                                                             ),
                                                                         ],
-                                                                        className="table table-striped table-hover excel-computed-table",
+                                                                        className=(
+                                                                            "table table-striped table-hover "
+                                                                            "excel-computed-table"
+                                                                        ),
                                                                     ),
                                                                 ],
                                                             ),
@@ -812,11 +835,16 @@ def create_dashboard_content():
                                                     dbc.Alert(
                                                         [
                                                             html.H6(
-                                                                "Recommended Technology ASR (Aquifer Storage & Recovery)",
+                                                                "Recommended Technology ASR (Aquifer Storage & "
+                                                                "Recovery)",
                                                                 className="alert-heading",
                                                             ),
                                                             html.P(
-                                                                "Based on the multi-criteria decision matrix, ASR technology scores highest with 8.2/10. It excels in physical feasibility and social acceptance while maintaining reasonable cost and environmental impact.",
+                                                                "Based on the multi-criteria decision matrix, ASR "
+                                                                "technology scores highest with 8.2/10. It excels in "
+                                                                "physical feasibility and social acceptance while "
+                                                                "maintaining reasonable cost and environmental "
+                                                                "impact.",
                                                                 className="mb-0",
                                                             ),
                                                         ],

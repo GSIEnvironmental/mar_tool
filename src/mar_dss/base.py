@@ -173,7 +173,10 @@ class DecisionGraph:
                 # if node_id == "design_sizing":
                 #     print(f"DEBUG design_sizing - Function loaded: {node.function is not None}")
                 #     if node.function is None:
-                #         print(f"  Failed to load function from module '{node.module}', function '{node.function_name}'")
+                #         print(
+                #             f"  Failed to load function from module '{node.module}', "
+                #             f"function '{node.function_name}'"
+                #         )
 
             if node.function:
                 # Pass arguments in the order of dependencies (not dict.values() order)
@@ -273,7 +276,7 @@ class DecisionGraph:
                 results[nid] = self.evaluate_node(nid, input_values, cache)
             except Exception as e:
                 logger.error(f"Error evaluating node '{nid}': {e}")
-                raise ValueError(f"Error evaluating node '{nid}': {e}")
+                raise ValueError(f"Error evaluating node '{nid}': {e}") from e
 
             # if nid == "design_sizing":
             #     print(f"DEBUG evaluate() - Finished evaluating design_sizing, result: {results[nid]}")
@@ -320,8 +323,12 @@ class DecisionGraph:
                 func = getattr(module, function_name, None)
                 if callable(func):
                     return func
+            except ModuleNotFoundError as err:
+                if err.name and (name == err.name or name.startswith(f"{err.name}.")):
+                    continue
+                logger.warning("Could not import rule module %s", name, exc_info=True)
             except Exception:
-                pass
+                logger.warning("Could not load rule %s from %s", function_name, name, exc_info=True)
 
         # Treat as file path if it looks like one or previous attempts failed
         path = Path(module_ref)
@@ -338,14 +345,17 @@ class DecisionGraph:
 
         if path.suffix != ".py" and path.exists():
             # If directory with __init__.py, try as package
+            spec_name = path.name.replace("-", "_")
             try:
-                spec_name = path.name.replace("-", "_")
                 module = importlib.import_module(spec_name)
                 func = getattr(module, function_name, None)
                 if callable(func):
                     return func
+            except ModuleNotFoundError as err:
+                if not err.name or (spec_name != err.name and not spec_name.startswith(f"{err.name}.")):
+                    logger.warning("Could not import rule module %s", spec_name, exc_info=True)
             except Exception:
-                pass
+                logger.warning("Could not load rule %s from %s", function_name, spec_name, exc_info=True)
 
         if path.suffix == ".py" and path.exists():
             try:
@@ -475,7 +485,7 @@ class DecisionGraph:
                 x_positions = [i / (num_nodes - 1) for i in range(num_nodes)]
 
             # Assign positions
-            for node, x in zip(sorted(nodes), x_positions):
+            for node, x in zip(sorted(nodes), x_positions, strict=True):
                 pos[node] = (x, y)
 
         # Adjust positions to avoid nodes on connecting lines
@@ -504,7 +514,7 @@ class DecisionGraph:
 
                 # Check all other nodes to see if they lie on the line segment
                 for node_id, (nx, ny) in list(pos.items()):
-                    if node_id == src or node_id == dst:
+                    if node_id in (src, dst):
                         continue
 
                     # Check if this node lies on or near the line segment between src and dst
@@ -549,18 +559,18 @@ class DecisionGraph:
                                     osrc, odst = other_edge
                                     ox0, oy0 = pos[osrc]
                                     ox1, oy1 = pos[odst]
-                                    if abs(oy1 - oy0) > node_radius:  # Only check non-horizontal edges
-                                        if self._point_on_line_segment(
-                                            new_x,
-                                            ny,
-                                            ox0,
-                                            oy0,
-                                            ox1,
-                                            oy1,
-                                            tolerance=node_radius * 3,
-                                        ):
-                                            still_on_edge = True
-                                            break
+                                    # Only check non-horizontal edges.
+                                    if abs(oy1 - oy0) > node_radius and self._point_on_line_segment(
+                                        new_x,
+                                        ny,
+                                        ox0,
+                                        oy0,
+                                        ox1,
+                                        oy1,
+                                        tolerance=node_radius * 3,
+                                    ):
+                                        still_on_edge = True
+                                        break
 
                                 if not conflict and not still_on_edge:
                                     pos[node_id] = (new_x, ny)
@@ -659,7 +669,7 @@ class DecisionGraph:
         edge_trace = go.Scatter(
             x=edge_x,
             y=edge_y,
-            line=dict(width=1, color="gray"),
+            line={"width": 1, "color": "gray"},
             hoverinfo="none",
             mode="lines",
             showlegend=False,
@@ -716,7 +726,7 @@ class DecisionGraph:
             mode="markers",
             hoverinfo="text",
             hovertext=node_hover,
-            marker=dict(showscale=False, color=node_color, size=30, line=dict(width=2, color="black")),
+            marker={"showscale": False, "color": node_color, "size": 30, "line": {"width": 2, "color": "black"}},
             showlegend=False,
         )
 
@@ -728,7 +738,7 @@ class DecisionGraph:
             mode="text",
             textposition="middle right",
             hoverinfo="none",
-            textfont=dict(size=12, color="black"),
+            textfont={"size": 12, "color": "black"},
             showlegend=False,
         )
 
@@ -783,11 +793,11 @@ class DecisionGraph:
                 x=[None],
                 y=[None],
                 mode="markers",
-                marker=dict(
-                    color="skyblue",
-                    size=20,
-                    line=dict(width=2, color="black"),
-                ),
+                marker={
+                    "color": "skyblue",
+                    "size": 20,
+                    "line": {"width": 2, "color": "black"},
+                },
                 name="Input Node",
                 showlegend=True,
             ),
@@ -795,11 +805,11 @@ class DecisionGraph:
                 x=[None],
                 y=[None],
                 mode="markers",
-                marker=dict(
-                    color="orange",
-                    size=20,
-                    line=dict(width=2, color="black"),
-                ),
+                marker={
+                    "color": "orange",
+                    "size": 20,
+                    "line": {"width": 2, "color": "black"},
+                },
                 name="Rule Node",
                 showlegend=True,
             ),
@@ -807,11 +817,11 @@ class DecisionGraph:
                 x=[None],
                 y=[None],
                 mode="markers",
-                marker=dict(
-                    color="red",
-                    size=20,
-                    line=dict(width=2, color="black"),
-                ),
+                marker={
+                    "color": "red",
+                    "size": 20,
+                    "line": {"width": 2, "color": "black"},
+                },
                 name="Decision Node",
                 showlegend=True,
             ),
@@ -822,9 +832,9 @@ class DecisionGraph:
             layout=go.Layout(
                 showlegend=True,
                 hovermode="closest",
-                margin=dict(b=20, l=5, r=5, t=40),
-                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                margin={"b": 20, "l": 5, "r": 5, "t": 40},
+                xaxis={"showgrid": False, "zeroline": False, "showticklabels": False},
+                yaxis={"showgrid": False, "zeroline": False, "showticklabels": False},
                 annotations=arrows,
             ),
         )

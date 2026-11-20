@@ -19,16 +19,6 @@ from mar_dss.app.utils.project_storage import (
 
 # Import content creation functions
 try:
-    from mar_dss.app.components.ai_generated_decision_tab import (
-        create_ai_generated_decision_content,
-    )
-    from mar_dss.app.components.dashboard_tab import create_dashboard_content
-    from mar_dss.app.components.data_export_tab import (
-        create_data_export_content,
-    )
-    from mar_dss.app.components.decision_interpretation_tab import (
-        create_decision_interpretation_content,
-    )
     from mar_dss.app.components.hydro_tab import (
         create_hydro_tab_content,
         default_stratigraphy_layers,
@@ -43,9 +33,6 @@ try:
         DEFAULT_OVERVIEW_MAP_LON,
         DEFAULT_OVERVIEW_MAP_ZOOM,
         create_overview_content,
-    )
-    from mar_dss.app.components.scenarios_comparison_tab import (
-        create_scenarios_comparison_content,
     )
     from mar_dss.app.components.water_source_tab import (
         create_general_tab_content,
@@ -239,7 +226,7 @@ def setup_main_callbacks(app, dashboard_instance):
         try:
             idx = MAIN_TAB_IDS.index(active_tab)
         except ValueError:
-            raise dash.exceptions.PreventUpdate
+            raise dash.exceptions.PreventUpdate from None
         if existing_children[idx]:
             raise dash.exceptions.PreventUpdate
         patch = [dash.no_update] * len(MAIN_TAB_IDS)
@@ -496,7 +483,7 @@ def setup_main_callbacks(app, dashboard_instance):
         out = []
         needs_restore = False
         has_negative = False
-        for id_dict, raw in zip(input_ids, values):
+        for id_dict, raw in zip(input_ids, values, strict=False):
             month = id_dict.get("month") if isinstance(id_dict, dict) else None
             stored_val = stored.get(month, 0.0) if month else 0.0
             blank = raw is None or (isinstance(raw, str) and str(raw).strip() == "")
@@ -613,28 +600,27 @@ def setup_main_callbacks(app, dashboard_instance):
         # Use whichever data store has data
         layers_data = current_data or local_data or []
 
-        if not ctx.triggered:
-            # Initial state - preserve existing data
-            if not layers_data:
-                return (
-                    [
-                        html.Div(
-                            [
-                                html.P(
-                                    "No layers added yet. Use the form on the left to add layers",
-                                    className="text-muted text-center p-3",
-                                ),
-                            ],
-                        ),
-                    ],
-                    [
-                        html.P("Total Depth: 0 m", className="mb-1"),
-                        html.P("Aquifer Layers: 0", className="mb-1"),
-                        html.P("Aquitard Layers: 0", className="mb-0"),
-                    ],
-                    layers_data,
-                    layers_data,
-                )
+        # Initial state - preserve existing data
+        if not ctx.triggered and not layers_data:
+            return (
+                [
+                    html.Div(
+                        [
+                            html.P(
+                                "No layers added yet. Use the form on the left to add layers",
+                                className="text-muted text-center p-3",
+                            ),
+                        ],
+                    ),
+                ],
+                [
+                    html.P("Total Depth: 0 m", className="mb-1"),
+                    html.P("Aquifer Layers: 0", className="mb-1"),
+                    html.P("Aquitard Layers: 0", className="mb-0"),
+                ],
+                layers_data,
+                layers_data,
+            )
 
         # Check if this is an add operation
         if "add-layer-btn" in ctx.triggered[0]["prop_id"]:
@@ -819,7 +805,7 @@ def setup_main_callbacks(app, dashboard_instance):
             create_overview_content(),
             filename,
             "overview",
-            dict(content=content, filename=filename),
+            {"content": content, "filename": filename},
         )
 
     def _download_project_error(e):

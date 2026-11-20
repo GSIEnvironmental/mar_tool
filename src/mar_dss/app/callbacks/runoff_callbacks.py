@@ -2,6 +2,7 @@
 Callbacks for the Runoff Calculator tab.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -43,7 +44,6 @@ logger = logging.getLogger(__name__)
 try:
     from mar_dss.app.components.runoff_calculator_tab import (
         _project_location_map_center,
-        create_runoff_map,
     )
 except ImportError:
     from ..components.runoff_calculator_tab import (
@@ -224,7 +224,7 @@ def _recompute_runoff_dependent_values(table_data):
 def _runoff_rows_equal(a, b):
     if not a or not b or len(a) != len(b):
         return False
-    for ra, rb in zip(a, b):
+    for ra, rb in zip(a, b, strict=True):
         if ra.get("Parameter") != rb.get("Parameter"):
             return False
         try:
@@ -286,16 +286,16 @@ def get_monthly_rain(latitude, longitude):
         logger.error(f"Error fetching data: {e}")
     except KeyError:
         logger.error(
-            "Error: Could not find the expected data structure in the API response. The parameter or time frame might be incorrect.",
+            "Error: Could not find the expected data structure in the API response. The parameter or time frame "
+            "might be incorrect.",
         )
 
 
 def get_rain_data(lat, lon):
     """Get rain data from NOAA Atlas 14 and return as DataFrame."""
     file_path = download(lat=lat, lon=lon, units="english", data="depth", overwrite=True)
-    fidr = open(file_path)
-    lines = fidr.readlines()
-    fidr.close()
+    with open(file_path) as fidr:
+        lines = fidr.readlines()
 
     # remove the file
     os.remove(file_path)
@@ -545,7 +545,7 @@ def _sync_runoff_volumes_to_monthly_flow():
         return None
     monthly_flows = _monthly_runoff_volumes_to_flow_list(saved_data)
     dash_storage.set_data("monthly_flow", monthly_flows)
-    return {month: flow for month, flow in zip(MONTHS_SHORT, monthly_flows)}
+    return dict(zip(MONTHS_SHORT, monthly_flows, strict=True))
 
 
 def _param_from_runoff_table(table_data, parameter, default=None):
@@ -1331,7 +1331,8 @@ def setup_runoff_callbacks(app):
                 except (ValueError, TypeError, IndexError):
                     table_data[3]["Value"] = 0
             elif selected_option == "1B":
-                # Formula: (((P11*P13)+(P12*(100-P13)))/100)-(((P14/100)*P13*((((P11*P13)+(P12*(100-P13)))/100)-P12))/100)
+                # Formula: (((P11*P13)+(P12*(100-P13)))/100)
+                #          -(((P14/100)*P13*((((P11*P13)+(P12*(100-P13)))/100)-P12))/100)
                 # P11: CN impervious, P12: CN pervious, P13: Total Impervious Area %, P14: R %
                 try:
                     p11 = float(table_data[0]["Value"]) if table_data[0]["Value"] != "" else 0
@@ -1411,10 +1412,8 @@ def setup_runoff_callbacks(app):
         composite_cn = None
         for row in cn_store_data:
             if row.get("Parameter") == "Composite CN":
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     composite_cn = float(row.get("Value", 0))
-                except (ValueError, TypeError):
-                    pass
                 break
 
         if composite_cn is None:
@@ -1690,7 +1689,10 @@ def setup_runoff_callbacks(app):
                     className="fw-bold mb-2",
                 ),
                 html.Small(
-                    "Note: The Annual Recurrence Interval (ARI), also known as the return period, is the average time interval between rainfall events of a given magnitude or greater. For example: An ARI of 100 years means that, on average, a precipitation event of that magnitude (e.g., 5.38 inches over 24-hr) or greater has a 1% chance (1/100) of being equaled or exceeded in any given year.",
+                    "Note: The Annual Recurrence Interval (ARI), also known as the return period, is the average "
+                    "time interval between rainfall events of a given magnitude or greater. For example: An ARI of "
+                    "100 years means that, on average, a precipitation event of that magnitude (e.g., 5.38 inches "
+                    "over 24-hr) or greater has a 1% chance (1/100) of being equaled or exceeded in any given year.",
                     className="text-muted d-block mb-2",
                 ),
                 rain_statistics_table,
@@ -1821,8 +1823,8 @@ def setup_runoff_callbacks(app):
             xaxis={"tickangle": -45},
             barmode="group",  # Group bars side by side
             height=400,
-            margin=dict(l=50, r=50, t=50, b=100),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin={"l": 50, "r": 50, "t": 50, "b": 100},
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},
         )
         monthly_rain_chart = dcc.Graph(figure=fig)
 

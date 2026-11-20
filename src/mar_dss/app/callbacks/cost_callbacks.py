@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 try:
     from mar_dss.app.callbacks.cost_calculator import CostCalculator
-    from mar_dss.app.components.water_source_tab import WATER_SOURCE_LABELS
 except ImportError:
     from .cost_calculator import CostCalculator
 
@@ -140,7 +139,7 @@ def _format_cost_column_values(df, cost_columns, label_col=None, round_all=False
         if col not in df.columns:
             continue
         formatted = []
-        for val, is_tot in zip(df[col], total_mask if not round_all else [True] * len(df)):
+        for val, is_tot in zip(df[col], total_mask if not round_all else [True] * len(df), strict=True):
             try:
                 if pd.notna(val) and str(val).strip() != "":
                     if round_all or is_tot:
@@ -514,7 +513,7 @@ def _recompute_method_costs_from_units(
             label = _row_label_text(df.loc[i].to_dict(), label_col)
             if label == subtotal_label:
                 df.at[i, col] = line_sum
-            elif label == fees_subtotal_label or label == grand_total_label:
+            elif label in (fees_subtotal_label, grand_total_label):
                 df.at[i, col] = with_fees
             else:
                 for fee_label, rate in soft_fee_rows:
@@ -570,7 +569,7 @@ def _totals_from_display_df(df, cost_columns, total_label, label_col="Row Label"
 def _maintenance_totals_from_capital(capital_totals):
     """Annual O&M = fraction of each option's capital total."""
     out = {}
-    for cap_col, maint_col in zip(CAPITAL_COST_TOTAL_KEYS, MAINTENANCE_COST_TOTAL_KEYS):
+    for cap_col, maint_col in zip(CAPITAL_COST_TOTAL_KEYS, MAINTENANCE_COST_TOTAL_KEYS, strict=True):
         out[maint_col] = (
             _parse_cost_float(
                 (capital_totals or {}).get(cap_col)
@@ -845,10 +844,9 @@ def _format_cost_summary_display(cost_data, cost_type, selected_technology, not_
             if (
                 tech_key.lower() in str(selected_technology).lower()
                 or str(selected_technology).lower() in tech_key.lower()
-            ):
-                if col_name in cost_data.index:
-                    cost_column = col_name
-                    break
+            ) and col_name in cost_data.index:
+                cost_column = col_name
+                break
         if cost_column and cost_column in cost_data.index:
             option_name = _COST_COLUMN_TO_OPTION.get(cost_column)
             if option_name in not_feasible_options:
@@ -904,11 +902,11 @@ def _build_npv_panel(npv_df, not_feasible_options):
         title="Net Present Value Over 20 Years",
         xaxis_title="Year",
         yaxis_title="Net Present Value ($)",
-        xaxis=dict(tickmode="linear", tick0=1, dtick=1),
-        yaxis=dict(tickformat="$,.0f"),
+        xaxis={"tickmode": "linear", "tick0": 1, "dtick": 1},
+        yaxis={"tickformat": "$,.0f"},
         height=500,
         autosize=True,
-        margin=dict(l=50, r=50, t=50, b=50),
+        margin={"l": 50, "r": 50, "t": 50, "b": 50},
         plot_bgcolor="white",
         paper_bgcolor="white",
         barmode="group",
