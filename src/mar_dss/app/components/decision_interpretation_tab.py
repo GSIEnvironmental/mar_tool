@@ -3,6 +3,7 @@ Decision Interpretation tab content for MAR DSS dashboard.
 """
 
 import math
+import string
 
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -16,6 +17,16 @@ from mar_dss.app.utils.cost_storage import (
 )
 
 _HEADER_STYLE = {"backgroundColor": "#1e3a5f", "fontSize": "0.95rem"}
+
+
+def _title_case_label(text):
+    """Title Case for UI labels (first letter of each word)."""
+    if text is None:
+        return ""
+    text = str(text).strip()
+    if not text:
+        return text
+    return string.capwords(text)
 
 _OPTION_TO_CAPITAL_COL = {
     "Surface Recharge": "Spreading Pond Cost ($)",
@@ -37,9 +48,9 @@ _OPTION_TO_NPV_COL = {
 
 _RESPONSE_LABELS = {
     0: "Acceptable",
-    1: "Acceptable with additional cost",
+    1: "Acceptable With Additional Cost",
     2: "Warning",
-    3: "Mitigation",
+    3: "Mitigation Needed",
     4: "Reject",
 }
 
@@ -116,15 +127,15 @@ CONSTRAINT_HELP = {
         "triggered": (
             "Uses ground-surface slope significance. For Surface Recharge: Gentle → "
             "acceptable; Moderate → cost; Steep → mitigation. Dry/Injection wells stay "
-            "acceptable. Confined aquifers → irrelevant."
+            "acceptable. Confined aquifers → Not Applicable."
         ),
         "why": ("Steep slopes raise earthwork cost and reduce reliable basin performance."),
     },
     "Vadose zone infiltration": {
         "meaning": ("Soft check that unsaturated-zone hydraulic conductivity supports infiltration."),
         "triggered": (
-            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
-            "Irrelevant. If the vadose K threshold is not met, Surface Recharge → "
+            "Always Not Applicable (−1 / grey) for Injection Well. Confined → "
+            "Not Applicable. If the vadose K threshold is not met, Surface Recharge → "
             "mitigation (consider bypassing the vadose)."
         ),
         "why": (
@@ -135,8 +146,8 @@ CONSTRAINT_HELP = {
     "Vadose zone pollution": {
         "meaning": "Soft check for pollution already present in the vadose zone.",
         "triggered": (
-            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
-            "Irrelevant. If pollution is present, Surface Recharge → mitigation "
+            "Always Not Applicable (−1 / grey) for Injection Well. Confined → "
+            "Not Applicable. If pollution is present, Surface Recharge → mitigation "
             "(bypass or remediate)."
         ),
         "why": (
@@ -146,8 +157,8 @@ CONSTRAINT_HELP = {
     "Vadose zone pollution biodegradability": {
         "meaning": ("Soft check on whether vadose pollution can biodegrade / attenuate naturally."),
         "triggered": (
-            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
-            "Irrelevant. Only scored when vadose pollution is present. "
+            "Always Not Applicable (−1 / grey) for Injection Well. Confined → "
+            "Not Applicable. Only scored when vadose pollution is present. "
             "Biodegradable + Surface Recharge → warning; non-biodegradable + "
             "Surface Recharge → mitigation; Dry Well may get a "
             "mounding/mobilization warning."
@@ -160,8 +171,8 @@ CONSTRAINT_HELP = {
     "Vadose zone remediation needed": {
         "meaning": ("Soft check on whether vadose cleanup is needed before or during recharge."),
         "triggered": (
-            "Always Irrelevant (−1 / grey) for Injection Well. Confined → "
-            "Irrelevant. If remediation is needed, Surface Recharge → mitigation."
+            "Always Not Applicable (−1 / grey) for Injection Well. Confined → "
+            "Not Applicable. If remediation is needed, Surface Recharge → mitigation."
         ),
         "why": (
             "Remediation adds cost and complexity for surface methods; injection "
@@ -174,11 +185,11 @@ CONSTRAINT_HELP = {
             "natural treatment needs (pathogens, organics, nutrients)."
         ),
         "triggered": (
-            "Always Irrelevant (−1 / grey) for Injection Well. Computed only when "
+            "Always Not Applicable (−1 / grey) for Injection Well. Computed only when "
             "Water Quality Q1 (source water contaminants) = Yes. Uses stratigraphy, "
             "groundwater depth, and design infiltration rate. If residence time is "
             "not reasonable for listed constituents → mitigation; if computed and "
-            "reasonable → monitoring warning. Confined aquifers → irrelevant. "
+            "reasonable → monitoring warning. Confined aquifers → Not Applicable. "
             "Q1 No / Unknown → not computed (acceptable)."
         ),
         "why": (
@@ -191,8 +202,8 @@ CONSTRAINT_HELP = {
             "Overall soft roll-up of whether surface recharge is suitable (slope, infiltration, vadose issues)."
         ),
         "triggered": (
-            "Always Irrelevant (−1 / grey) for Injection Well and Dry Well. "
-            "Confined aquifers → Irrelevant. For surface options: True → "
+            "Always Not Applicable (−1 / grey) for Injection Well and Dry Well. "
+            "Confined aquifers → Not Applicable. For surface options: True → "
             "acceptable; False → mitigation."
         ),
         "why": (
@@ -203,13 +214,13 @@ CONSTRAINT_HELP = {
     "Confined aquifer depth Suitability": {
         "meaning": ("Soft check that a confined target is at a workable well depth."),
         "triggered": (
-            "Unconfined → irrelevant. Confined: Too Deep → reject; Moderate Deep → warning; otherwise acceptable."
+            "Unconfined → Not Applicable. Confined: Too Deep → reject; Moderate Deep → warning; otherwise acceptable."
         ),
         "why": ("Excessive depth drives drilling cost and may make injection impractical."),
     },
     "Confined leakage significance": {
         "meaning": "Soft check on leakage through confining layers.",
-        "triggered": ("Unconfined → irrelevant. Confined: low → acceptable; medium → warning; high → mitigation."),
+        "triggered": ("Unconfined → Not Applicable. Confined: low → acceptable; medium → warning; high → mitigation."),
         "why": ("High leakage can lose recharge, affect adjacent units, or create pressure issues."),
     },
     "Land Use": {
@@ -240,7 +251,7 @@ CONSTRAINT_HELP = {
             "impact for the surface recharge pathway (Water Quality Q3)."
         ),
         "triggered": (
-            "Confined → irrelevant. Vadose impacted Yes + Surface Recharge → reject. "
+            "Confined → Not Applicable. Vadose impacted Yes + Surface Recharge → reject. "
             "Wells that bypass the vadose stay acceptable. Unknown → yellow data-gap "
             "warning (missing information — not a remediation requirement)."
         ),
@@ -253,7 +264,7 @@ CONSTRAINT_HELP = {
     "Need for Remediation": {
         "meaning": ("Legacy name for Vadose Zone Contaminant Impact (Water Quality Q3)."),
         "triggered": (
-            "Confined → irrelevant. Vadose impacted Yes + Surface Recharge → reject. "
+            "Confined → Not Applicable. Vadose impacted Yes + Surface Recharge → reject. "
             "Wells that bypass the vadose stay acceptable. Unknown → yellow data-gap "
             "warning (missing information — not a remediation requirement)."
         ),
@@ -301,7 +312,7 @@ def _format_cost(cost):
     """Format cost for display."""
     if isinstance(cost, list):
         if len(cost) == 0:
-            return "To be calculated"
+            return "To Be Calculated"
         return f"{len(cost)} cost items"
     if isinstance(cost, (int, float)):
         return f"${cost:,.0f}"
@@ -398,9 +409,9 @@ def _cost_section_body(option_name, legacy_cost, not_feasible=False):
     if not_feasible:
         return html.Div(
             [
-                _cost_line("Capital cost (total)", "N/A", emphasize=True),
-                _cost_line("Annual maintenance cost", "N/A"),
-                _cost_line("Net present value (20 years)", "N/A"),
+                _cost_line("Capital Cost (Total)", "N/A", emphasize=True),
+                _cost_line("Annual Maintenance Cost", "N/A"),
+                _cost_line("20-Year Net Present Value", "N/A"),
             ],
             className="di-cost-block",
         )
@@ -412,16 +423,16 @@ def _cost_section_body(option_name, legacy_cost, not_feasible=False):
         return html.Div(
             [
                 _cost_line(
-                    "Capital cost (total)",
+                    "Capital Cost (Total)",
                     _format_usd_nearest_thousand(capital),
                     emphasize=True,
                 ),
                 _cost_line(
-                    "Annual maintenance cost",
+                    "Annual Maintenance Cost",
                     _format_usd_nearest_thousand(maintenance),
                 ),
                 _cost_line(
-                    "Net present value (20 years)",
+                    "20-Year Net Present Value",
                     _format_usd_nearest_thousand(npv),
                 ),
             ],
@@ -436,11 +447,11 @@ def _cost_section_body(option_name, legacy_cost, not_feasible=False):
                 className="mb-0 di-list",
             )
         return html.P(
-            "Cost items to be calculated. Run Cost Analysis to populate totals",
+            "Cost items to be calculated. Run Cost Analysis to populate totals.",
             className="text-muted mb-0 small",
         )
     return html.P(
-        f"Total cost: {_format_cost(legacy_cost)}",
+        f"Total Cost: {_format_cost(legacy_cost)}",
         className="mb-0",
     )
 
@@ -481,10 +492,11 @@ def _constraint_help_btn(constraint_name):
 
 
 def _constraint_name_cell(constraint_name):
+    display_name = _title_case_label(constraint_name)
     return html.Td(
         html.Div(
             [
-                html.Span(constraint_name, className="di-constraint-name"),
+                html.Span(display_name, className="di-constraint-name"),
                 _constraint_help_btn(constraint_name),
             ],
             className="d-flex align-items-center justify-content-between gap-2",
@@ -495,24 +507,31 @@ def _constraint_name_cell(constraint_name):
 def constraint_help_body(constraint_name):
     """Build modal body content for a constraint help entry."""
     info = CONSTRAINT_HELP.get(constraint_name)
+    if info is None:
+        # Tolerate Title Case / original-case key mismatches
+        for key, value in CONSTRAINT_HELP.items():
+            if _title_case_label(key) == _title_case_label(constraint_name):
+                info = value
+                break
+    display_name = _title_case_label(constraint_name)
     if not info:
         return [
             html.P(
-                f"No detailed help is defined yet for “{constraint_name}”",
+                f'No detailed help is defined yet for "{display_name}".',
                 className="mb-0",
             ),
         ]
     return [
         html.P(
-            [html.Strong("What it means: "), info["meaning"]],
+            [html.Strong("What It Means: "), info["meaning"]],
             className="mb-2",
         ),
         html.P(
-            [html.Strong("How it is triggered: "), info["triggered"]],
+            [html.Strong("How It Is Triggered: "), info["triggered"]],
             className="mb-2",
         ),
         html.P(
-            [html.Strong("Why it matters: "), info["why"]],
+            [html.Strong("Why It Matters: "), info["why"]],
             className="mb-0",
         ),
     ]
@@ -522,7 +541,7 @@ def _constraint_help_modal():
     return dbc.Modal(
         [
             dbc.ModalHeader(
-                dbc.ModalTitle(id="di-constraint-help-title", children="Constraint help"),
+                dbc.ModalTitle(id="di-constraint-help-title", children="Constraint Help"),
                 close_button=True,
             ),
             dbc.ModalBody(id="di-constraint-help-body"),
@@ -627,7 +646,7 @@ def _create_option_interpretation(option_name, result, filters=None):
 
     sections.append(
         _section(
-            "Cost information",
+            "Cost Information",
             _cost_section_body(
                 option_name,
                 cost,
@@ -651,7 +670,7 @@ def _create_option_interpretation(option_name, result, filters=None):
     if mitigations:
         sections.append(
             _section(
-                "Required mitigations",
+                "Required Mitigations",
                 html.Ul(
                     [html.Li(m) for m in mitigations],
                     className="mb-0 di-list di-list-info",
@@ -674,13 +693,13 @@ def _create_option_interpretation(option_name, result, filters=None):
                                 color="success" if passed else "danger",
                             ),
                         ),
-                        html.Td(hc.get("why", "No explanation available")),
+                        html.Td(hc.get("why", "No Explanation Available")),
                     ],
                 ),
             )
         sections.append(
             _section(
-                "Hard constraints",
+                "Hard Constraints",
                 dbc.Table(
                     [
                         html.Thead(
@@ -734,7 +753,7 @@ def _create_option_interpretation(option_name, result, filters=None):
         if soft_rows:
             sections.append(
                 _section(
-                    "Soft constraints",
+                    "Soft Constraints",
                     dbc.Table(
                         [
                             html.Thead(
@@ -841,12 +860,18 @@ def create_decision_interpretation_content():
                             html.Div(
                                 [
                                     html.Label(
-                                        "MAR technology option",
+                                        "MAR Technology Option",
                                         className="di-label form-label fw-bold mb-2",
                                     ),
                                     dcc.Dropdown(
                                         id="decision-interpretation-option-selector",
-                                        options=[{"label": name, "value": name} for name in option_names],
+                                        options=[
+                                            {
+                                                "label": _title_case_label(name),
+                                                "value": name,
+                                            }
+                                            for name in option_names
+                                        ],
                                         value=option_names[0] if option_names else None,
                                         placeholder="Select an option…",
                                         className="di-dropdown",
@@ -855,7 +880,7 @@ def create_decision_interpretation_content():
                                 className="di-dropdown-highlight mb-2",
                             ),
                             dbc.Tooltip(
-                                "Choose an option to see its decision narrative and constraint evaluation",
+                                "Choose an option to see its decision narrative and constraint evaluation.",
                                 target="decision-interpretation-option-selector",
                                 placement="bottom",
                             ),

@@ -55,7 +55,7 @@ _INPUT_SUMMARY_FIELDS = (
     ("design_events_per_month", "Design Events per Month"),
     ("fraction_flow_capture", "Fraction Flow Capture (fixed at 1)"),
     ("conveyance_method", "Conveyance Method (source → recharge)"),
-    ("distance_to_sediment", "Conveyance Length (miles, source → recharge)"),
+    ("distance_to_sediment", "Conveyance Distance (miles, Source → Recharge Site)"),
     ("distance_to_storage_pond_ft", "Distance to Storage Pond (ft)"),
     ("max_infiltration_area", "Max Infiltration Area"),
     ("wq_source_contaminants", "Source Water Contaminants"),

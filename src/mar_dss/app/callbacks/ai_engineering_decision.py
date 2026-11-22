@@ -278,18 +278,18 @@ def build_engineering_decision_prompt(context: dict | None = None) -> str:
 
     options_list = ", ".join(f'"{name}"' for name in ENGINEERING_OPTIONS)
     html_instructions = downloadable_html_deliverable_instructions(
-        f"MAR Engineering Option Decision Report — {location}",
+        f"MAR Engineering Option Analysis Report — {location}",
         context_line=f"Project location: {location}",
     )
 
     return textwrap.dedent(
         f"""
-        **ROLE:** Multidisciplinary Managed Aquifer Recharge (MAR) Decision Support Expert
+        **ROLE:** Multidisciplinary Managed Aquifer Recharge (MAR) Analysis Expert
         (Hydrogeologist, Civil/Environmental Engineer, Regulatory Specialist, Economist)
 
         **GOAL:** Evaluate and rank the three MAR engineering options for **{location}** using
         all project data provided below. Assign a feasibility score (0–100) to each option and
-        explain your decision with actionable warnings and recommendations.
+        explain your analysis with actionable warnings and recommendations.
 
         **ENGINEERING OPTIONS (use these exact names):**
         1. Surface Recharge (spreading ponds / spreading basins)
@@ -344,18 +344,18 @@ def build_engineering_decision_prompt(context: dict | None = None) -> str:
         - `rank` is integer 1 (best) to 3.
         - `score_summary` is one concise sentence explaining the score.
 
-        #### Table 2 — Decision Explanation (SECONDARY)
+        #### Table 2 — Analysis Explanation (SECONDARY)
 
         Provide supporting rows with columns:
         | Category | Topic | Detail | Related Option |
 
-        - `category`: one of Warning, Recommendation, Key Finding, Decision Rationale, Mitigation, Data Gap
+        - `category`: one of Warning, Recommendation, Key Finding, Analysis Rationale, Mitigation, Data Gap
         - `topic`: short title
         - `detail`: actionable explanation
         - `related_option`: option name or "All"
 
         Include at least:
-        - 3 Decision Rationale rows (why the top option ranks first)
+        - 3 Analysis Rationale rows (why the top option ranks first)
         - 2 Warning rows (if applicable)
         - 2 Recommendation rows
         - 1 Key Finding row summarizing trade-offs across options

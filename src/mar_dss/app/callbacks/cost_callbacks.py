@@ -4,6 +4,8 @@ Callbacks for Cost calculations and display in the Engineering tab.
 
 import json
 import logging
+import math
+from datetime import date
 
 import dash
 import dash_bootstrap_components as dbc
@@ -249,6 +251,38 @@ _MAINT_UNIT_OVERRIDES_KEY = "maintenance_cost_unit_overrides"
 _COST_ECONOMICS_REVISION_KEY = "cost_economics_revision"
 # Annual O&M is a flat fraction of each option's Capital Total Cost.
 _MAINTENANCE_FRACTION_OF_CAPITAL = 0.05
+
+
+def _unit_cost_inflation_note_text():
+    """Explain 2026-base unit-cost escalation for the Cost Summary card."""
+    try:
+        from mar_dss.app.callbacks.cost_calculator import (
+            ANNUAL_UNIT_COST_INFLATION_RATE,
+            COST_BASE_YEAR,
+            unit_cost_inflation_factor,
+            unit_cost_inflation_years,
+        )
+    except ImportError:
+        from .cost_calculator import (
+            ANNUAL_UNIT_COST_INFLATION_RATE,
+            COST_BASE_YEAR,
+            unit_cost_inflation_factor,
+            unit_cost_inflation_years,
+        )
+    years = unit_cost_inflation_years()
+    factor = unit_cost_inflation_factor()
+    rate_pct = ANNUAL_UNIT_COST_INFLATION_RATE * 100.0
+    as_of_year = date.today().year
+    if years <= 0:
+        return (
+            f"Unit costs are {COST_BASE_YEAR} catalog prices "
+            f"(no escalation yet; {rate_pct:g}%/yr applies after {COST_BASE_YEAR})."
+        )
+    return (
+        f"Unit costs are based on {COST_BASE_YEAR} catalog prices and inflated "
+        f"{rate_pct:g}%/yr compound for {years} year(s) "
+        f"({COST_BASE_YEAR} → {as_of_year}; factor ×{factor:.4f})."
+    )
 
 
 def bump_cost_economics_revision():
@@ -899,14 +933,14 @@ def _build_npv_panel(npv_df, not_feasible_options):
             ),
         )
     npv_plot.update_layout(
-        title="Net Present Value Over 20 Years",
+        title=None,
         xaxis_title="Year",
         yaxis_title="Net Present Value ($)",
         xaxis={"tickmode": "linear", "tick0": 1, "dtick": 1},
         yaxis={"tickformat": "$,.0f"},
         height=500,
         autosize=True,
-        margin={"l": 50, "r": 50, "t": 50, "b": 50},
+        margin={"l": 50, "r": 50, "t": 20, "b": 50},
         plot_bgcolor="white",
         paper_bgcolor="white",
         barmode="group",
@@ -944,7 +978,7 @@ def _build_npv_panel(npv_df, not_feasible_options):
                 [
                     dbc.Col(
                         [
-                            html.H5("Net Present Value Table", className="mb-3"),
+                            html.H5("Net Present Value", className="mb-3"),
                             table,
                         ],
                         width=12,
@@ -996,11 +1030,38 @@ def _source_to_recharge_distance_miles():
     return float(_haversine_miles(slat, slon, rlat, rlon))
 
 
-def _sync_conveyance_distance_storage():
-    """Store source→recharge distance (miles) for costing and reports."""
-    miles = _source_to_recharge_distance_miles()
-    dash_storage.set_data("distance_to_sediment", miles)
+def _parse_conveyance_distance_miles(raw):
+    """Return a non-negative finite miles value, or None if invalid."""
+    if raw is None:
+        return None
+    try:
+        miles = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(miles) or miles < 0:
+        return None
     return miles
+
+
+def _sync_conveyance_distance_storage(*, force_from_map=False):
+    """Return conveyance length (miles) for costing and reports.
+
+    Defaults to the Water Source tab map distance. Once the user edits the
+    Engineering input, that value is kept until they reset from Water Source.
+    """
+    map_miles = _source_to_recharge_distance_miles()
+    if force_from_map:
+        dash_storage.set_data("distance_to_sediment", map_miles)
+        dash_storage.set_data("conveyance_distance_user_set", False)
+        return map_miles
+
+    user_set = bool(dash_storage.get_data("conveyance_distance_user_set"))
+    stored = _parse_conveyance_distance_miles(dash_storage.get_data("distance_to_sediment"))
+    if user_set and stored is not None:
+        return stored
+
+    dash_storage.set_data("distance_to_sediment", map_miles)
+    return map_miles
 
 
 def _sediment_target_from_turbidity():
@@ -1239,15 +1300,63 @@ def setup_cost_callbacks(app):
         return current_selection
 
     @app.callback(
-        Output("conveyance-distance-display", "children"),
-        Input("top-tabs", "active_tab"),
+        [
+            Output("conveyance-distance-miles-input", "value"),
+            Output("conveyance-distance-feet-display", "children"),
+        ],
+        [
+            Input("top-tabs", "active_tab"),
+            Input("conveyance-distance-miles-input", "value"),
+            Input("conveyance-distance-miles-input", "n_blur"),
+            Input("conveyance-distance-miles-input", "n_submit"),
+            Input("conveyance-distance-reset-btn", "n_clicks"),
+        ],
         prevent_initial_call=False,
     )
-    def update_conveyance_distance_display(active_tab):
-        """Show source→recharge straight-line distance used for conveyance length."""
-        miles = _sync_conveyance_distance_storage()
-        feet = miles * _MILES_TO_FEET
-        return f"{miles:,.2f} miles  ({feet:,.0f} ft)"
+    def handle_conveyance_distance_miles(
+        active_tab, value, n_blur, n_submit, reset_clicks
+    ):
+        """Default conveyance length from Water Source; allow user override."""
+        ctx = dash.callback_context
+
+        def _feet_label(miles):
+            feet = float(miles) * _MILES_TO_FEET
+            return f"{feet:,.0f} ft  (miles × 5,280)"
+
+        if not ctx.triggered:
+            miles = _sync_conveyance_distance_storage()
+            return round(float(miles), 4), _feet_label(miles)
+
+        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        trigger_prop = ctx.triggered[0]["prop_id"].split(".")[1]
+
+        if trigger_id == "conveyance-distance-reset-btn":
+            miles = _sync_conveyance_distance_storage(force_from_map=True)
+            return round(float(miles), 4), _feet_label(miles)
+
+        if trigger_id == "top-tabs" or trigger_prop in ("n_blur", "n_submit"):
+            # Tab open / blur: keep override if set, else refresh from map.
+            if trigger_id == "top-tabs":
+                miles = _sync_conveyance_distance_storage()
+            else:
+                parsed = _parse_conveyance_distance_miles(value)
+                if parsed is None:
+                    miles = _sync_conveyance_distance_storage()
+                else:
+                    dash_storage.set_data("distance_to_sediment", parsed)
+                    dash_storage.set_data("conveyance_distance_user_set", True)
+                    miles = parsed
+            return round(float(miles), 4), _feet_label(miles)
+
+        # Input value change
+        parsed = _parse_conveyance_distance_miles(value)
+        if parsed is None:
+            miles = _sync_conveyance_distance_storage()
+            return round(float(miles), 4), _feet_label(miles)
+
+        dash_storage.set_data("distance_to_sediment", parsed)
+        dash_storage.set_data("conveyance_distance_user_set", True)
+        return round(float(parsed), 4), _feet_label(parsed)
 
     # Sediment removal needed (Yes/No)
     @app.callback(
@@ -1346,6 +1455,7 @@ def setup_cost_callbacks(app):
             Output("maintenance-cost-table-content", "children"),
             Output("npv-table-content", "children"),
             Output("cost-economics-revision", "data"),
+            Output("unit-cost-inflation-note", "children"),
         ],
         [
             Input("top-tabs", "active_tab"),
@@ -1368,6 +1478,7 @@ def setup_cost_callbacks(app):
         # Only calculate if we're on the Analysis tab and Cost sub-tab is selected
         if not top_tab or not analysis_tab or top_tab != "analysis" or analysis_tab != "analysis-cost":
             return (
+                dash.no_update,
                 dash.no_update,
                 dash.no_update,
                 dash.no_update,
@@ -1565,7 +1676,8 @@ def setup_cost_callbacks(app):
                             },
                         ),
                         html.Span(
-                            "Yellow Unit Cost $ cells are editable. Number of Units is calculated and not editable.",
+                            "Yellow Unit Cost $ cells are editable (2026 catalog × "
+                            "2.5%/yr inflation). Number of Units is calculated and not editable.",
                             className="small fw-bold",
                         ),
                     ],
@@ -1674,6 +1786,7 @@ def setup_cost_callbacks(app):
             maintenance_cost_table,
             npv_table,
             bump_cost_economics_revision(),
+            _unit_cost_inflation_note_text(),
         )
 
     def _capital_edit_outputs(capital_totals, capital_display_df):

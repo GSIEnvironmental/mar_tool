@@ -107,7 +107,7 @@ class DashboardApp:
             from .callbacks.legal_constraints_callbacks import setup_legal_constraints_callbacks
         setup_legal_constraints_callbacks(self.app)
 
-        # Set up AI Generated Decision callbacks
+        # Set up AI-Powered Analysis callbacks
         try:
             from mar_dss.app.callbacks.ai_decision_callbacks import (
                 setup_ai_decision_callbacks,

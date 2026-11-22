@@ -5,6 +5,8 @@ Callbacks for the Feasibilities tab.
 import json
 import logging
 import math
+import string
+from datetime import datetime
 
 import dash
 import dash_bootstrap_components as dbc
@@ -101,6 +103,26 @@ def _format_currency(val):
 # Feasibility Summary cost uncertainty band (−20% / +50%)
 _COST_RANGE_LOW_FACTOR = 0.80
 _COST_RANGE_HIGH_FACTOR = 1.50
+
+# Heatmap / legend response labels (Title Case for consistent graph text)
+_RESPONSE_LEVEL_LABELS = {
+    -1: "Not Applicable",
+    0: "Acceptable",
+    1: "Acceptable With Additional Cost",
+    2: "Warning",
+    3: "Mitigation Needed",
+    4: "Reject",
+}
+
+
+def _title_case_label(text):
+    """Capitalize the first letter of each word for graph / legend labels."""
+    if text is None:
+        return ""
+    text = str(text).strip()
+    if not text:
+        return text
+    return string.capwords(text)
 
 
 def _format_currency_range(val):
@@ -257,10 +279,10 @@ def _collect_engineering_option_economics():
         recharge_pct = _recharge_percentage(option_name)
         if option_name == "Injection Well":
             wells_required = n_injection
-            wells_label = "Injection wells required"
+            wells_label = "Injection Wells Required"
         elif option_name == "Dry Well":
             wells_required = n_dry
-            wells_label = "Dry wells required"
+            wells_label = "Dry Wells Required"
         else:
             wells_required = None
             wells_label = None
@@ -293,22 +315,28 @@ def _option_feasibility_badges(categorized_data):
     for opt in categorized_data.get("recommended", []):
         badges[opt["name"]] = ("Feasible", "success")
     for opt in categorized_data.get("conditional", []):
-        badges[opt["name"]] = ("Conditionally feasible", "warning")
+        badges[opt["name"]] = ("Conditionally Feasible", "warning")
     for opt in categorized_data.get("rejected", []):
-        badges[opt["name"]] = ("Not feasible", "danger")
+        badges[opt["name"]] = ("Not Feasible", "danger")
     return badges
 
 
 def _option_metric_row(label, value, *, highlight=False):
     """Single label/value row for an option economics card."""
+    # Match Analysis / Feasibility tab label readability (~1rem).
+    _text_style = {"fontSize": "1rem"}
     value_class = "fw-semibold text-end mb-0"
     if highlight:
         value_class += " text-primary"
     return dbc.Row(
         [
-            dbc.Col(html.Span(label, className="text-muted small"), width=7, className="pe-0"),
             dbc.Col(
-                html.P(value, className=value_class, style={"fontSize": "0.85rem"}),
+                html.Span(label, className="text-muted", style=_text_style),
+                width=7,
+                className="pe-0",
+            ),
+            dbc.Col(
+                html.P(value, className=value_class, style=_text_style),
                 width=5,
             ),
         ],
@@ -325,8 +353,8 @@ def _build_engineering_options_summary(categorized_data):
     for econ in economics:
         name = econ["name"]
         style = _OPTION_CARD_STYLE.get(name, {"color": "#1e3a5f", "bg": "#f8f9fa", "icon": "fas fa-circle"})
-        badge_label, badge_color = badges.get(name, ("Not evaluated", "secondary"))
-        not_feasible = badge_label == "Not feasible"
+        badge_label, badge_color = badges.get(name, ("Not Evaluated", "secondary"))
+        not_feasible = badge_label == "Not Feasible"
         capital_display = "N/A" if not_feasible else _format_currency_range(econ["capital"])
         maintenance_display = "N/A" if not_feasible else _format_currency_range(econ["maintenance"])
         capital_unit_display = "N/A" if not_feasible else _format_per_acre_ft_range(econ["capital_per_acre_ft"])
@@ -345,7 +373,7 @@ def _build_engineering_options_summary(categorized_data):
                                     color=badge_color,
                                     className="float-end",
                                     style={
-                                        "fontSize": "0.7rem",
+                                        "fontSize": "0.9rem",
                                         **(
                                             {
                                                 "border": "1px solid #000",
@@ -358,25 +386,25 @@ def _build_engineering_options_summary(categorized_data):
                                 ),
                             ],
                             className="text-white py-2",
-                            style={"backgroundColor": style["color"], "fontSize": "0.9rem"},
+                            style={"backgroundColor": style["color"], "fontSize": "1rem"},
                         ),
                         dbc.CardBody(
                             [
                                 html.Div(
-                                    "Project costs",
+                                    f"Project Costs ({datetime.now().year})",
                                     className="text-uppercase text-muted fw-semibold mb-2",
-                                    style={"fontSize": "0.65rem", "letterSpacing": "0.05em"},
+                                    style={"fontSize": "0.9rem", "letterSpacing": "0.05em"},
                                 ),
-                                _option_metric_row("Capital cost", capital_display),
-                                _option_metric_row("Annual O&M cost", maintenance_display),
+                                _option_metric_row("Capital Cost", capital_display),
+                                _option_metric_row("Annual O&M Cost", maintenance_display),
                                 html.Hr(className="my-2"),
                                 html.Div(
-                                    "Recharge performance",
+                                    "Recharge Performance",
                                     className="text-uppercase text-muted fw-semibold mb-2",
-                                    style={"fontSize": "0.65rem", "letterSpacing": "0.05em"},
+                                    style={"fontSize": "0.9rem", "letterSpacing": "0.05em"},
                                 ),
                                 _option_metric_row(
-                                    "Total annual recharge",
+                                    "Total Annual Recharge",
                                     _format_volume_acre_ft(econ["acre_ft"]),
                                     highlight=True,
                                 ),
@@ -396,16 +424,16 @@ def _build_engineering_options_summary(categorized_data):
                                 ),
                                 html.Hr(className="my-2"),
                                 html.Div(
-                                    "Unit economics",
+                                    "Unit Economics",
                                     className="text-uppercase text-muted fw-semibold mb-2",
-                                    style={"fontSize": "0.65rem", "letterSpacing": "0.05em"},
+                                    style={"fontSize": "0.9rem", "letterSpacing": "0.05em"},
                                 ),
                                 _option_metric_row(
-                                    "Capital cost / volume",
+                                    "Capital Cost / Volume/Year",
                                     capital_unit_display,
                                 ),
                                 _option_metric_row(
-                                    "O&M cost / volume",
+                                    "O&M Cost / Volume/Year",
                                     maintenance_unit_display,
                                 ),
                             ],
@@ -527,22 +555,24 @@ def _get_empty_dashboard_content(is_dark=False):
 
     empty_hydro_heatmap_fig = go.Figure()
     empty_hydro_heatmap_fig.update_layout(
-        title={"text": "Hydrogeologic Constraints Heatmap", "font": {"color": font_color}},
+        title=None,
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
         font={"color": font_color},
+        margin={"t": 30},
     )
 
     empty_hydro_heatmap_legend = html.Div()
 
     empty_env_heatmap_fig = go.Figure()
     empty_env_heatmap_fig.update_layout(
-        title={"text": "Water Quality Constraints Heatmap", "font": {"color": font_color}},
+        title=None,
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
         font={"color": font_color},
+        margin={"t": 30},
     )
 
     empty_env_heatmap_legend = html.Div()
@@ -567,7 +597,7 @@ def _get_empty_dashboard_content(is_dark=False):
 
     empty_npv_fig = go.Figure()
     empty_npv_fig.update_layout(
-        title={"text": "NPV (20 years)", "font": {"color": font_color}},
+        title={"text": "20-Year Net Present Value", "font": {"color": font_color}},
         template=template,
         height=300,
         paper_bgcolor=paper_bg,
@@ -762,14 +792,7 @@ def _prepare_constraints_data(results, filters, constraint_type=None):
     constraint_data = {}  # {option_name: {constraint_name: response_level}}
     detail_data = {}  # {option_name: {constraint_name: detail_text}}
 
-    _RESPONSE_LABELS = {
-        -1: "Irrelevant",
-        0: "Acceptable",
-        1: "Acceptable with additional cost",
-        2: "Warning",
-        3: "Mitigation needed",
-        4: "Reject",
-    }
+    _RESPONSE_LABELS = dict(_RESPONSE_LEVEL_LABELS)
 
     for option_name in results:
         constraint_data[option_name] = {}
@@ -833,48 +856,45 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
     plot_bg = "#212529" if is_dark else "white"
     paper_bg = "rgba(0,0,0,0)" if is_dark else "white"
 
-    _RESPONSE_LABELS = {
-        -1: "Irrelevant",
-        0: "Acceptable",
-        1: "Acceptable with additional cost",
-        2: "Warning",
-        3: "Mitigation needed",
-        4: "Reject",
-    }
+    _RESPONSE_LABELS = dict(_RESPONSE_LEVEL_LABELS)
 
-    if title is None:
-        title = "Constraints Heatmap"
+    show_title = bool(title and str(title).strip())
+    title_text = _title_case_label(title) if show_title else None
 
     if not sorted_constraints or not constraint_data:
         heatmap_fig = go.Figure()
         heatmap_fig.update_layout(
-            title={"text": title, "font": {"size": 16, "color": font_color}},
+            title={"text": title_text, "font": {"size": 16, "color": font_color}} if show_title else None,
             template="plotly_dark" if is_dark else "plotly_white",
             height=520,
             autosize=True,
-            xaxis_title="No constraints data available",
+            xaxis_title="No Constraints Data Available",
             yaxis_title="",
             paper_bgcolor=paper_bg,
             plot_bgcolor=plot_bg,
             font={"color": font_color},
+            margin={"t": 30} if not show_title else None,
         )
         return heatmap_fig, html.Div()
 
     # Get all option names from results to ensure consistent y-axis across all heatmaps
-    all_option_names = list(results.keys())
+    all_option_names = [_title_case_label(n) for n in results.keys()]
+    # Display names (Title Case) while looking up data with original keys
+    display_constraints = [_title_case_label(n) for n in sorted_constraints]
 
     # Prepare data for measles chart (scatter plot with circles)
-    x_data = []  # Constraint names
-    y_data = []  # Option names
+    x_data = []  # Constraint names (display)
+    y_data = []  # Option names (display)
     response_levels = []  # Response levels for coloring
     marker_sizes = []  # Marker sizes (fixed or based on response level)
     status_details = []  # Penalty / why text for hover
 
     for option_name in option_names:
+        option_display = _title_case_label(option_name)
         for constraint_name in sorted_constraints:
             response_level = constraint_data[option_name].get(constraint_name, 0)
-            x_data.append(constraint_name)
-            y_data.append(option_name)
+            x_data.append(_title_case_label(constraint_name))
+            y_data.append(option_display)
             response_levels.append(response_level)
             # Fixed marker size, or could vary based on response level
             marker_sizes.append(34)  # Circle diameter for measles/heatmap markers
@@ -957,79 +977,87 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                 textposition="middle center",
                 textfont={"size": 9, "color": "#666666", "family": "Arial, sans-serif"},
                 hovertemplate=(
-                    "<b>%{customdata[0]}</b><br>%{x}<br>Response Level: Irrelevant (excluded from "
-                    "analysis)<extra></extra>"
+                    "<b>%{customdata[0]}</b><br>%{x}<br>Response Level: Not Applicable "
+                    "(excluded from analysis)<extra></extra>"
                 ),
-                customdata=[[y_data[i], "Irrelevant"] for i in irrelevant_indices],
+                customdata=[[y_data[i], "Not Applicable"] for i in irrelevant_indices],
                 showlegend=False,
             ),
         )
 
     # Function to split constraint names into two lines
     def split_constraint_name(name):
-        """Split constraint name into two lines intelligently."""
-        # Common patterns to split on (in order of preference)
-        split_patterns = [
-            (" Cost ", " Cost"),
-            (" Efficiency", " Efficiency"),
-            (" Volume", " Volume"),
-            (" Rate", " Rate"),
-            (" Depth", " Depth"),
-            (" Area", " Area"),
-            (" Quality", " Quality"),
-            (" Risk", " Risk"),
-            (" Impact", " Impact"),
-            (" Factor", " Factor"),
-            (" Level", " Level"),
-            (" Ratio", " Ratio"),
-            (" Index", " Index"),
-            (" Constraint", " Constraint"),
-            (" Feasibility", " Feasibility"),
-        ]
+        """Split constraint name into two lines on whole words only.
 
-        # Try to find a split pattern
-        for pattern_with_space, pattern in split_patterns:
-            if pattern_with_space in name:
-                parts = name.split(pattern_with_space, 1)
-                if len(parts) == 2:
-                    return f"{parts[0]}<br>{parts[1]}{pattern}"
-            elif pattern in name and not name.startswith(pattern):
-                # Handle case where pattern is at the end
-                idx = name.rfind(pattern)
-                if idx > 0:
-                    return f"{name[:idx]}<br>{name[idx:]}"
+        Avoids bugs like splitting ``Risks`` on ``Risk`` → ``s Risk``.
+        """
+        words = name.split()
+        if len(words) <= 1:
+            return name
 
-        # If no pattern found, try to split at middle if long
+        # Prefer breaking before a trailing keyword when present as a full word.
+        trailing_keywords = {
+            "Cost",
+            "Costs",
+            "Efficiency",
+            "Volume",
+            "Volumes",
+            "Rate",
+            "Rates",
+            "Depth",
+            "Area",
+            "Quality",
+            "Risk",
+            "Risks",
+            "Impact",
+            "Impacts",
+            "Factor",
+            "Factors",
+            "Level",
+            "Levels",
+            "Ratio",
+            "Ratios",
+            "Index",
+            "Constraint",
+            "Constraints",
+            "Feasibility",
+            "Suitability",
+            "Contaminants",
+            "Contamination",
+        }
+        for i in range(1, len(words)):
+            if words[i] in trailing_keywords:
+                return f"{' '.join(words[:i])}<br>{' '.join(words[i:])}"
+
+        # Otherwise split near the middle for long labels
         if len(name) > 15:
-            words = name.split()
-            if len(words) > 1:
-                mid = len(words) // 2
-                return f"{' '.join(words[:mid])}<br>{' '.join(words[mid:])}"
+            mid = len(words) // 2
+            return f"{' '.join(words[:mid])}<br>{' '.join(words[mid:])}"
 
         return name
 
-    # Create x-axis labels with two lines
-    x_labels = [split_constraint_name(name) for name in sorted_constraints]
+    # Create x-axis labels with two lines (Title Case constraint names)
+    x_labels = [split_constraint_name(name) for name in display_constraints]
 
     # Use categorical axes to ensure consistent spacing across all heatmaps
     # Both x and y axes are categorical to prevent layout shifts
     heatmap_fig.update_layout(
-        title={"text": title, "font": {"size": 16, "color": font_color}},
+        title={"text": title_text, "font": {"size": 16, "color": font_color}} if show_title else None,
         xaxis_title={"text": "Constraints", "font": {"size": 13, "color": font_color}},
         yaxis_title={"text": "Options", "font": {"size": 13, "color": font_color}},
         template="plotly_dark" if is_dark else "plotly_white",
         height=520,
         autosize=True,
-        margin={"l": 100, "r": 40, "t": 50, "b": 120},
+        margin={"l": 100, "r": 40, "t": 30 if not show_title else 50, "b": 120},
         paper_bgcolor=paper_bg,
         plot_bgcolor=plot_bg,
         font={"color": font_color},
         xaxis={
             "type": "category",  # Categorical x-axis for consistent spacing
             "categoryorder": "array",
-            "categoryarray": sorted_constraints,  # Use original names for data mapping
+            "categoryarray": display_constraints,
             "tickmode": "array",
-            "tickvals": sorted_constraints,
+            "tickvals": display_constraints,
             "ticktext": x_labels,  # Use two-line labels for display
             "side": "bottom",
             "tickangle": 0,  # No rotation needed with two-line labels
@@ -1082,7 +1110,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "verticalAlign": "middle",
                         },
                     ),
-                    html.Small("1: Cost Penalty", className="me-4"),
+                    html.Small("1: Acceptable With Additional Cost", className="me-4"),
                     html.Span(
                         "",
                         style={
@@ -1110,7 +1138,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "verticalAlign": "middle",
                         },
                     ),
-                    html.Small("3: Mitigation", className="me-4"),
+                    html.Small("3: Mitigation Needed", className="me-4"),
                     html.Span(
                         "",
                         style={
@@ -1139,7 +1167,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
                             "opacity": "0.4",
                         },
                     ),
-                    html.Small("-1: Irrelevant", className="text-muted"),
+                    html.Small("-1: Not Applicable", className="text-muted"),
                 ],
                 className="d-flex align-items-center justify-content-center flex-wrap",
             ),
@@ -1210,22 +1238,40 @@ def _extract_cost_data():
     return option_names, capital_costs, maintenance_costs, npv_values
 
 
+def _format_cost_bar_label(cost):
+    """Compact rounded cost label for bar text and hover."""
+    try:
+        c = float(cost)
+    except (TypeError, ValueError):
+        return "$0"
+    if not math.isfinite(c):
+        return "$0"
+    if abs(c) >= 1e6:
+        return f"${c / 1e6:.2f}M"
+    if abs(c) >= 1e3:
+        return f"${c / 1e3:.0f}K"
+    return f"${c:,.0f}"
+
+
 def _create_cost_chart(option_names, values, title, color):
     """Create a single cost chart (capital, maintenance, or NPV)."""
+    labels = [_format_cost_bar_label(c) for c in values]
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
             x=option_names,
             y=values,
             marker_color=color,
-            text=[f"${c / 1e6:.2f}M" if c >= 1e6 else f"${c / 1e3:.0f}K" for c in values],
+            text=labels,
             textposition="auto",
             name=title,
+            customdata=labels,
+            hovertemplate="<b>%{x}</b><br>%{fullData.name}: %{customdata}<extra></extra>",
         ),
     )
     fig.update_layout(
         title=title,
-        xaxis_title="Options",
+        xaxis_title=None,
         yaxis_title="Cost ($)",
         template="plotly_white",
         height=320,
@@ -1233,18 +1279,20 @@ def _create_cost_chart(option_names, values, title, color):
         margin={"l": 50, "r": 20, "t": 40, "b": 50},
         showlegend=False,
         yaxis={"tickformat": "$,.0f"},
+        hoverlabel={"namelength": -1},
     )
     return fig
 
 
-def _create_empty_cost_charts():
+def _create_empty_cost_charts(message=None):
     """Create empty cost charts when no data is available."""
+    msg = message or "No cost data available. Please run cost analysis first."
     empty_capital_fig = go.Figure()
     empty_capital_fig.update_layout(
         title="Capital Cost",
         template="plotly_white",
         height=350,
-        xaxis_title="No cost data available. Please run cost analysis first.",
+        xaxis_title=msg,
         yaxis_title="",
     )
 
@@ -1253,32 +1301,46 @@ def _create_empty_cost_charts():
         title="Annual Maintenance Cost",
         template="plotly_white",
         height=350,
-        xaxis_title="No cost data available. Please run cost analysis first.",
+        xaxis_title=msg,
         yaxis_title="",
     )
 
     empty_npv_fig = go.Figure()
     empty_npv_fig.update_layout(
-        title="Net Present Value (20 years)",
+        title="20-Year Net Present Value",
         template="plotly_white",
         height=350,
-        xaxis_title="No cost data available. Please run cost analysis first.",
+        xaxis_title=msg,
         yaxis_title="",
     )
 
     return empty_capital_fig, empty_maintenance_fig, empty_npv_fig
 
 
-def _create_cost_comparison_charts():
-    """Create the three cost comparison charts."""
+def _create_cost_comparison_charts(categorized_data=None):
+    """Create the three cost comparison charts (feasible options only)."""
     option_names, capital_costs, maintenance_costs, npv_values = _extract_cost_data()
 
     if not option_names:
         return _create_empty_cost_charts()
 
+    if categorized_data is not None:
+        filtered = [
+            (name, cap, maint, npv)
+            for name, cap, maint, npv in zip(
+                option_names, capital_costs, maintenance_costs, npv_values, strict=True
+            )
+            if not _is_option_not_feasible(categorized_data, name)
+        ]
+        if not filtered:
+            return _create_empty_cost_charts(
+                "No feasible options to compare. Not-feasible options are omitted."
+            )
+        option_names, capital_costs, maintenance_costs, npv_values = map(list, zip(*filtered, strict=True))
+
     capital_fig = _create_cost_chart(option_names, capital_costs, "Capital Cost", "#007bff")
     maintenance_fig = _create_cost_chart(option_names, maintenance_costs, "Annual Maintenance Cost", "#28a745")
-    npv_fig = _create_cost_chart(option_names, npv_values, "Net Present Value (20 years)", "#ffc107")
+    npv_fig = _create_cost_chart(option_names, npv_values, "20-Year Net Present Value", "#ffc107")
 
     return capital_fig, maintenance_fig, npv_fig
 
@@ -1436,18 +1498,18 @@ def setup_feasibilities_callbacks(app):
             results,
             filters,
             constraint_type="hydrogeologic",
-            title="Hydrogeologic Constraints Heatmap",
+            title="",
             is_dark=is_dark,
         )
         env_heatmap_fig, env_heatmap_legend = _create_constraints_heatmap(
             results,
             filters,
             constraint_type="environmental",
-            title="Water Quality Constraints Heatmap",
+            title="",
             is_dark=is_dark,
         )
 
-        capital_fig, maintenance_fig, npv_fig = _create_cost_comparison_charts()
+        capital_fig, maintenance_fig, npv_fig = _create_cost_comparison_charts(categorized_data)
 
         # Create spider plots
         spider_plots_content = _create_spider_plots(dss_results, categorized_data)
@@ -1623,7 +1685,7 @@ def _create_spider_plots(dss_results, categorized_data):
             "Capital Cost Efficiency",
             "Maintenance Cost Efficiency",
             "NPV Efficiency",
-            "Cost per Acre-Ft",
+            "Annual Capital Cost Per Acre-ft",
         ]
         values = [
             hydro_score,
@@ -1634,14 +1696,11 @@ def _create_spider_plots(dss_results, categorized_data):
             cost_per_acre_ft_efficiency,
         ]
 
-        # Calculate average score
-        average_score = sum(values) / len(values)
-
         # Create categories with scores (score below category name, centered)
         categories_with_scores = []
         for category, score in zip(categories, values, strict=True):
             style = get_score_style(score)
-            if category == "Cost per Acre-Ft":
+            if category == "Annual Capital Cost Per Acre-ft":
                 if cost_per_acre_ft_val > 0:
                     label = (
                         f"{category}\n"
@@ -1716,10 +1775,7 @@ def _create_spider_plots(dss_results, categorized_data):
             height=350,
             margin={"l": 80, "r": 80, "t": 100, "b": 80},
             title={
-                "text": (
-                    f'{option_name}<br><span style="font-size:14px; color:red;">Average Score: '
-                    f"{average_score:.1f}%</span>"
-                ),
+                "text": option_name,
                 "x": 0.5,
                 "y": 0.98,
                 "font": {"size": 16, "color": "#006400", "family": "Arial, sans-serif", "weight": "bold"},

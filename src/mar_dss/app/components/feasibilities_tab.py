@@ -8,7 +8,7 @@ from dash import dcc, html
 import mar_dss.app.utils.data_storage as dash_storage
 from mar_dss.app.utils.tab_tooltips import tab_nav_id, tab_tooltip
 
-_HEADER_STYLE = {"backgroundColor": "#1e3a5f", "fontSize": "0.9rem"}
+_HEADER_STYLE = {"backgroundColor": "#1e3a5f", "fontSize": "1rem"}
 
 
 def _detail_card_header(title, help_btn=None):
@@ -70,7 +70,6 @@ def _spider_performance_help_modal():
                                 "is better on that axis.",
                             ),
                             html.Li("Score colors under each axis label: green ≥ 75%, orange 50–75%, red < 50%."),
-                            html.Li("Average Score (title) is the simple mean of the six axis scores for this option."),
                             html.Li(
                                 "If an option is not feasible, all six scores are set "
                                 "to 0% so the polygon collapses to the center.",
@@ -110,7 +109,7 @@ def _spider_performance_help_modal():
                             ),
                             html.Li(
                                 [
-                                    html.Strong("Cost per Acre-Ft: "),
+                                    html.Strong("Annual Capital Cost Per Acre-ft: "),
                                     "Same relative-efficiency idea using capital cost "
                                     "divided by annual recharge volume (acre-ft/yr). "
                                     "The lowest $/acre-ft among feasible options is 100%. "
@@ -128,9 +127,7 @@ def _spider_performance_help_modal():
                         "\n"
                         "Cost efficiency (capital, O&M, NPV, or $/acre-ft):\n"
                         "  Efficiency = 100 × (min_feasible_value / this_value)\n"
-                        "  (clamped to 0–100; infeasible options → 0)\n"
-                        "\n"
-                        "Average Score = mean of the six axis scores",
+                        "  (clamped to 0–100; infeasible options → 0)",
                         className="bg-light border rounded p-2 small mb-0",
                     ),
                 ],
@@ -189,7 +186,8 @@ def _executive_summary_card():
                     children=[
                         html.Div(
                             "Loading option economics...",
-                            className="text-center text-muted p-3 small",
+                            className="text-center text-muted p-3",
+                            style={"fontSize": "1rem"},
                         ),
                     ],
                 ),
@@ -263,15 +261,15 @@ def _response_level_help_block():
                         [
                             "Response levels: ",
                             html.Strong("−1"),
-                            " Irrelevant (grey; excluded); ",
+                            " Not Applicable (grey; excluded); ",
                             html.Strong("0"),
                             " Acceptable; ",
                             html.Strong("1"),
-                            " Acceptable with additional cost; ",
+                            " Acceptable With Additional Cost; ",
                             html.Strong("2"),
                             " Warning; ",
                             html.Strong("3"),
-                            " Mitigation needed; ",
+                            " Mitigation Needed; ",
                             html.Strong("4"),
                             " Reject.",
                         ],
@@ -306,7 +304,7 @@ def _hydrogeologic_constraints_help_modal():
                         "These soft constraints screen each MAR option against "
                         "site hydrogeology from the decision graph and related inputs. "
                         "Many vadose/surface checks apply mainly to Surface Recharge "
-                        "and are marked Irrelevant (−1) for confined aquifers or for "
+                        "and are marked Not Applicable (−1) for confined aquifers or for "
                         "well-based options when the pathway is bypassed.",
                         className="mb-3",
                     ),
@@ -328,7 +326,7 @@ def _hydrogeologic_constraints_help_modal():
                             _constraint_entry(
                                 "Vadose zone infiltration",
                                 "Whether unsaturated-zone hydraulic conductivity supports meaningful infiltration.",
-                                "Always Irrelevant (−1 / grey) for Injection Well. "
+                                "Always Not Applicable (−1 / grey) for Injection Well. "
                                 "Confined → −1. If infiltration is inadequate, "
                                 "Surface Recharge → 3 (consider bypassing the vadose); "
                                 "Dry Well stays 0.",
@@ -338,7 +336,7 @@ def _hydrogeologic_constraints_help_modal():
                             _constraint_entry(
                                 "Vadose zone pollution",
                                 "Whether the vadose zone currently contains pollution.",
-                                "Always Irrelevant (−1 / grey) for Injection Well. "
+                                "Always Not Applicable (−1 / grey) for Injection Well. "
                                 "Confined → −1. If pollution is present, Surface "
                                 "Recharge → 3 (bypass or remediate); Dry Well stays 0.",
                                 "Recharge through a polluted vadose can mobilize "
@@ -347,7 +345,7 @@ def _hydrogeologic_constraints_help_modal():
                             _constraint_entry(
                                 "Vadose zone pollution biodegradability",
                                 "Whether vadose pollution can biodegrade / attenuate naturally.",
-                                "Always Irrelevant (−1 / grey) for Injection Well. "
+                                "Always Not Applicable (−1 / grey) for Injection Well. "
                                 "Only scored when vadose pollution is present. "
                                 "Biodegradable + Surface Recharge → 2 (monitor "
                                 "attenuation). Non-biodegradable + Surface Recharge → 3; "
@@ -359,7 +357,7 @@ def _hydrogeologic_constraints_help_modal():
                             _constraint_entry(
                                 "Vadose zone remediation needed",
                                 "Whether cleanup of the vadose is required before or during recharge.",
-                                "Always Irrelevant (−1 / grey) for Injection Well. "
+                                "Always Not Applicable (−1 / grey) for Injection Well. "
                                 "Confined → −1. If remediation is needed, Surface "
                                 "Recharge → 3.",
                                 "Remediation adds cost for surface methods; injection wells bypass the vadose.",
@@ -368,7 +366,7 @@ def _hydrogeologic_constraints_help_modal():
                                 "Vadose zone residence time",
                                 "Travel time of water through the vadose relative to "
                                 "treatment / risk needs for contaminated source water.",
-                                "Always Irrelevant (−1 / grey) for Injection Well. "
+                                "Always Not Applicable (−1 / grey) for Injection Well. "
                                 "Computed only when Water Quality Q1 (source "
                                 "contaminants) = Yes. If residence-time issues are "
                                 "flagged → 3 (mitigation); otherwise a monitoring "
@@ -381,7 +379,7 @@ def _hydrogeologic_constraints_help_modal():
                                 "Surface recharge suitability",
                                 "Overall Boolean suitability for surface recharge "
                                 "(slope, infiltration, vadose contamination, etc.).",
-                                "Always Irrelevant (−1 / grey) for Injection Well and "
+                                "Always Not Applicable (−1 / grey) for Injection Well and "
                                 "Dry Well. Confined → −1. False → 3 for surface "
                                 "options; True → 0.",
                                 "A single roll-up flag that surface methods are "

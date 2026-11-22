@@ -630,7 +630,7 @@ def create_legal_constraints_content():
         html.Div(
             [
                 html.H4("How To Use This Tab", className="mb-2 text-primary"),
-                html.Ol(
+                html.Ul(
                     [
                         html.Li(
                             [
@@ -660,7 +660,8 @@ def create_legal_constraints_content():
                             className="mb-0",
                         ),
                     ],
-                    className="mb-3 ps-3 text-muted",
+                    className="mb-3 text-muted",
+                    style={"listStyleType": "none", "paddingLeft": "0"},
                 ),
                 dbc.Tabs(
                     [

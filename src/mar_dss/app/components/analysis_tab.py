@@ -70,7 +70,7 @@ def create_analysis_tab_content():
                         **_subtab_styles(2),
                     ),
                     dbc.Tab(
-                        label="(7.4) AI Generated Decision",
+                        label="(7.4) AI-Powered Analysis",
                         id=tab_nav_id("analysis-ai-decision"),
                         tab_id="analysis-ai-decision",
                         children=[html.Div(id="analysis-ai-decision-content", children="Loading...")],  # Lazy load
@@ -101,7 +101,7 @@ def create_analysis_tab_content():
             ),
             tab_tooltip(
                 "analysis-ai-decision",
-                "AI-powered decision support and technology recommendations",
+                "AI-powered analysis and technology recommendations",
             ),
             tab_tooltip(
                 "analysis-data-export",

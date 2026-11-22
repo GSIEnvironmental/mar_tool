@@ -320,9 +320,9 @@ def create_scenarios_content():
 
 
 def create_ai_decision_content():
-    """Create content for AI Generated Decision sidebar tab."""
-    # Generate AI decision analysis
-    decision_factors = [
+    """Create content for AI-Powered Analysis sidebar tab."""
+    # Generate AI analysis demo chart
+    analysis_factors = [
         "Water Availability",
         "Economic Viability",
         "Environmental Impact",
@@ -336,7 +336,7 @@ def create_ai_decision_content():
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
-            x=decision_factors,
+            x=analysis_factors,
             y=ai_scores,
             name="AI Assessment Score",
             marker_color="#4CAF50",
@@ -346,7 +346,7 @@ def create_ai_decision_content():
     )
     fig.add_trace(
         go.Scatter(
-            x=decision_factors,
+            x=analysis_factors,
             y=confidence_levels,
             mode="markers",
             name="Confidence Level",
@@ -356,8 +356,8 @@ def create_ai_decision_content():
     )
 
     fig.update_layout(
-        title="AI Generated Decision Analysis",
-        xaxis_title="Decision Factors",
+        title="AI-Powered Analysis",
+        xaxis_title="Analysis Factors",
         yaxis={"title": "Assessment Score (%)", "side": "left"},
         yaxis2={"title": "Confidence Level (%)", "side": "right", "overlaying": "y"},
         hovermode="x unified",
@@ -367,8 +367,8 @@ def create_ai_decision_content():
 
     return html.Div(
         [
-            html.H3("AI Generated Decision"),
-            html.P("Artificial Intelligence powered decision recommendations and analysis"),
+            html.H3("AI-Powered Analysis"),
+            html.P("Artificial Intelligence powered analysis and technology recommendations"),
             dcc.Graph(figure=fig),
             html.Hr(),
             html.H5("AI Recommendation", className="mt-3"),

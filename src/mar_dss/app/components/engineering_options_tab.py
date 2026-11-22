@@ -213,8 +213,9 @@ def create_engineering_help_modals():
             [
                 html.P(
                     "Choose how source water is conveyed to the recharge site. "
-                    "Length is the straight-line (great-circle) distance between "
-                    "the source and recharge locations on the Water Source tab.",
+                    "Length defaults to the straight-line (great-circle) distance "
+                    "between the Water Source tab map points; you can revise it "
+                    "on this tab if a different conveyance route length is needed.",
                     className="text-muted mb-3",
                 ),
                 html.H6("Allowable methods", className="fw-bold mb-2"),
@@ -252,7 +253,8 @@ def create_engineering_help_modals():
                 ),
                 html.H6("Capital and O&M unit rates", className="fw-bold mb-2"),
                 html.Pre(
-                    "L (ft) = haversine(source, recharge) × 5280\n"
+                    "L (ft) = conveyance length (miles) × 5280\n"
+                    "  (default miles = haversine(source, recharge); editable)\n"
                     "\n"
                     "Capital:\n"
                     "  Gravity ditch/channel:   $93/LF × L\n"
@@ -284,9 +286,10 @@ def create_engineering_help_modals():
                         html.Li(
                             [
                                 html.Strong("Distance L: "),
-                                "set by source and recharge map points on Water "
-                                "Source. Longer L increases all $/LF capital and "
-                                "O&M line items proportionally.",
+                                "defaults to the straight-line distance between "
+                                "Water Source map points, but can be revised on "
+                                "this tab. Longer L increases all $/LF capital "
+                                "and O&M line items proportionally.",
                             ],
                         ),
                         html.Li(
@@ -646,14 +649,34 @@ def create_engineering_elements_content():
                                             id="conveyance-method-radio",
                                             className="eng-radio-stack",
                                         ),
-                                        _eng_question("Conveyance length (source → recharge)"),
-                                        _eng_metric(
-                                            "conveyance-distance-display",
-                                            "Not available — set source and recharge "
-                                            "locations on the Water Source tab.",
+                                        _eng_question("Conveyance Distance (Source → Recharge Site)"),
+                                        dbc.Input(
+                                            type="number",
+                                            id="conveyance-distance-miles-input",
+                                            debounce=True,
+                                            min=0,
+                                            step=0.01,
+                                            className="eng-input",
+                                            placeholder="miles",
                                         ),
                                         html.Small(
-                                            "Straight-line distance from Water Source tab locations",
+                                            id="conveyance-distance-feet-display",
+                                            children="—",
+                                            className="eng-hint d-block mb-1",
+                                        ),
+                                        dbc.Button(
+                                            "Reset from Water Source",
+                                            id="conveyance-distance-reset-btn",
+                                            color="secondary",
+                                            outline=True,
+                                            size="sm",
+                                            className="mb-1",
+                                        ),
+                                        html.Small(
+                                            "Auto populated with the straight-line distance "
+                                            "between the source and recharge locations "
+                                            "specified on the Water Source tab. Can be "
+                                            "overwritten.",
                                             className="eng-hint mb-0",
                                         ),
                                     ],
@@ -671,7 +694,10 @@ def create_engineering_elements_content():
                                                             "sediment-pond",
                                                             "Help: sediment removal need and target",
                                                         ),
-                                                        _eng_question("Is sediment removal needed prior to recharge?"),
+                                                        _eng_question(
+                                                            "Is sediment removal (e.g., pond, filter) "
+                                                            "needed prior to recharge?"
+                                                        ),
                                                         dbc.RadioItems(
                                                             options=[
                                                                 {
@@ -688,14 +714,10 @@ def create_engineering_elements_content():
                                                             inline=True,
                                                             className="eng-radio-inline",
                                                         ),
-                                                        _eng_question("Sediment removal target"),
-                                                        _eng_metric(
-                                                            "sediment-removal-target-display",
-                                                            "Medium Silt",
-                                                        ),
-                                                        html.Small(
-                                                            "Auto from Environmental → Water Quality Q2 (turbidity)",
-                                                            className="eng-hint mb-0",
+                                                        # Target stays auto from WQ turbidity (hidden; still synced for costing).
+                                                        html.Div(
+                                                            id="sediment-removal-target-display",
+                                                            style={"display": "none"},
                                                         ),
                                                     ],
                                                     className="eng-section eng-section-nested h-100",
@@ -827,18 +849,19 @@ def create_engineering_elements_content():
             placement="top",
         ),
         dbc.Tooltip(
-            "Straight-line distance between Water Source tab source and recharge sites",
-            target="conveyance-distance-display",
+            "Default: straight-line miles between Water Source tab sites. "
+            "Edit to use a revised conveyance length for costing.",
+            target="conveyance-distance-miles-input",
+            placement="top",
+        ),
+        dbc.Tooltip(
+            "Restore conveyance length from the Water Source tab map distance",
+            target="conveyance-distance-reset-btn",
             placement="top",
         ),
         dbc.Tooltip(
             "Whether sediment removal is needed before recharge",
             target="sediment-removal-needed-radio",
-            placement="top",
-        ),
-        dbc.Tooltip(
-            "Auto-set from Water Quality question 2 (turbidity)",
-            target="sediment-removal-target-display",
             placement="top",
         ),
         dbc.Tooltip(
@@ -956,7 +979,14 @@ def create_cost_content():
                             "Class 5 classification (Concept Screening), applying "
                             "a range of -20% for the lower bound and +50% for the "
                             "higher bound.",
-                            className="mb-0 mt-2 text-muted",
+                            className="mb-2 mt-2 text-muted",
+                        ),
+                        html.P(
+                            "Unit costs are based on 2026 catalog prices and are "
+                            "automatically inflated by 2.5% per year for each full "
+                            "calendar year after 2026 (compound).",
+                            id="unit-cost-inflation-note",
+                            className="mb-0 text-muted",
                         ),
                     ],
                 ),
@@ -980,7 +1010,7 @@ def create_cost_content():
                     title_color="#2a4060",
                 ),
                 _cost_summary_metric_card(
-                    title="NPV (20 Years)",
+                    title="20-Year Net Present Value",
                     display_id="npv-20-years-display",
                     accent="#b45309",
                     background="#fff4e8",
@@ -1032,7 +1062,7 @@ def create_cost_content():
                     ],
                 ),
                 dbc.Tab(
-                    label="Net Present Value Table",
+                    label="Net Present Value",
                     id=tab_nav_id("npv-table-tab"),
                     tab_id="npv-table-tab",
                     children=[
@@ -1041,7 +1071,7 @@ def create_cost_content():
                                 dbc.CardBody(
                                     [
                                         html.P(
-                                            "Net Present Value Table will be displayed here.",
+                                            "Net Present Value will be displayed here.",
                                             id="npv-table-content",
                                         ),
                                     ],

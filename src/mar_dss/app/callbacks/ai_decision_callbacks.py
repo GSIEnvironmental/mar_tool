@@ -1,4 +1,4 @@
-"""Dash callbacks for the AI Generated Decision sub-tab (prompt builder only).
+"""Dash callbacks for the AI-Powered Analysis sub-tab (prompt builder only).
 
 In-app Gemini API generation has been removed; users build and copy prompts
 for an external AI model.
@@ -19,7 +19,7 @@ data_storage = dash_storage
 
 
 def setup_ai_decision_callbacks(app):
-    """Register callbacks for AI Generated Decision sub-tab."""
+    """Register callbacks for AI-Powered Analysis sub-tab."""
 
     @app.callback(
         Output("ai-decision-location-input", "value"),

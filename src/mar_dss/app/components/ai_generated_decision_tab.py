@@ -1,5 +1,5 @@
 """
-AI Generated Decision tab content for MAR DSS dashboard.
+AI-Powered Analysis tab content for MAR DSS dashboard.
 
 Prompt-builder only — in-app Gemini API generation has been removed.
 """
@@ -12,12 +12,12 @@ from mar_dss.app.callbacks.ai_environment import _normalize_stored_string
 
 
 def create_ai_generated_decision_content():
-    """Create content for AI Generated Decision sub-tab (prompt builder)."""
+    """Create content for AI-Powered Analysis sub-tab (prompt builder)."""
     project_location = _normalize_stored_string(dash_storage.get_data("project_location"))
 
     return html.Div(
         [
-            html.H3("AI Generated Decision", className="mb-2"),
+            html.H3("AI-Powered Analysis", className="mb-2"),
             html.P(
                 "Build a prompt that summarizes MAR DSS project data for ranking "
                 "Surface Recharge, Injection Well, and Dry Well. Internal unit prices "
@@ -67,7 +67,7 @@ def create_ai_generated_decision_content():
             dbc.Card(
                 [
                     dbc.CardHeader(
-                        "Build Engineering Decision Prompt",
+                        "Build Analysis Prompt",
                         className="fw-bold bg-primary text-white py-2",
                     ),
                     dbc.CardBody(
@@ -122,7 +122,7 @@ def create_ai_generated_decision_content():
                 placement="top",
             ),
             dbc.Tooltip(
-                "Create the engineering decision prompt from current project data",
+                "Create the analysis prompt from current project data",
                 target="build-ai-decision-prompt-btn",
                 placement="top",
             ),

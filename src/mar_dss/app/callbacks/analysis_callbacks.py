@@ -1202,6 +1202,7 @@ def setup_analysis_callbacks(app):
     def toggle_di_constraint_help(open_clicks, close_clicks, btn_ids, is_open):
         """Open constraint help modal for the clicked ? button."""
         from mar_dss.app.components.decision_interpretation_tab import (
+            _title_case_label,
             constraint_help_body,
         )
 
@@ -1224,7 +1225,7 @@ def setup_analysis_callbacks(app):
             return dash.no_update, dash.no_update, dash.no_update
 
         name = triggered_id.get("name", "Constraint")
-        return True, name, constraint_help_body(name)
+        return True, _title_case_label(name), constraint_help_body(name)
 
     @app.callback(
         Output("analysis-ai-decision-content", "children"),

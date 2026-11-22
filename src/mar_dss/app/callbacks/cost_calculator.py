@@ -1,7 +1,38 @@
+from datetime import date
+
 import numpy as np
 import pandas as pd
 
 import mar_dss.app.utils.data_storage as dash_storage
+
+# Catalog unit costs in this module are priced in COST_BASE_YEAR dollars.
+# At runtime they are escalated to the current calendar year.
+COST_BASE_YEAR = 2026
+ANNUAL_UNIT_COST_INFLATION_RATE = 0.025  # 2.5% per year
+
+
+def unit_cost_inflation_years(as_of: date | None = None) -> int:
+    """Whole calendar years after ``COST_BASE_YEAR`` (never negative)."""
+    year = (as_of or date.today()).year
+    return max(0, int(year) - COST_BASE_YEAR)
+
+
+def unit_cost_inflation_factor(as_of: date | None = None) -> float:
+    """Compound inflation factor: ``(1 + 2.5%) ** years_since_2026``."""
+    years = unit_cost_inflation_years(as_of)
+    return float((1.0 + ANNUAL_UNIT_COST_INFLATION_RATE) ** years)
+
+
+def inflate_2026_unit_cost(cost_2026, as_of: date | None = None) -> float:
+    """Escalate a 2026 catalog unit cost to current-year dollars."""
+    try:
+        base = float(cost_2026)
+    except (TypeError, ValueError):
+        return 0.0
+    if not np.isfinite(base):
+        return 0.0
+    return base * unit_cost_inflation_factor(as_of)
+
 
 # default_engineering_elements = {
 #    "Flow Capture Structure": True,
@@ -621,7 +652,19 @@ class CostCalculator:
             self.infiltration_basin_calculations["Basin Area (sf)"][0] / 43560.0,
         ]
 
-        # Catalog Unit Cost $ stays fixed for display. Method columns zero out
+        # Escalate catalog Unit Cost $ from COST_BASE_YEAR to the current year
+        # (2.5%/yr compound). Soft-cost % rows are added below and are not inflated.
+        years = unit_cost_inflation_years()
+        factor = unit_cost_inflation_factor()
+        dash_storage.set_data("unit_cost_base_year", COST_BASE_YEAR)
+        dash_storage.set_data("unit_cost_inflation_rate", ANNUAL_UNIT_COST_INFLATION_RATE)
+        dash_storage.set_data("unit_cost_inflation_years", years)
+        dash_storage.set_data("unit_cost_inflation_factor", factor)
+        df["Unit Cost $"] = (
+            pd.to_numeric(df["Unit Cost $"], errors="coerce").fillna(0.0) * factor
+        )
+
+        # Catalog Unit Cost $ (inflated) × quantity. Method columns zero out
         # rows that do not apply to that recharge option (do not mutate Unit Cost $).
         line_cost = df["Unit Cost $"] * df["Number of Units"]
         method_exclude = {

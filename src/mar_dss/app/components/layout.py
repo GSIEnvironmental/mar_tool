@@ -568,7 +568,7 @@ def _build_sidebar_nav() -> dbc.Nav:
             dbc.NavItem([dbc.NavLink("Decision Sensitivity", id=("nav-recharge"), href="#")]),
             dbc.NavItem([dbc.NavLink("Decision Interpretation", id=("nav-quality"), href="#")]),
             dbc.NavItem([dbc.NavLink("Scenarios Comparison", id=("nav-scenarios"), href="#")]),
-            dbc.NavItem([dbc.NavLink("AI Generated Decision", id=("nav-ai-decision"), href="#")]),
+            dbc.NavItem([dbc.NavLink("AI-Powered Analysis", id=("nav-ai-decision"), href="#")]),
             dbc.NavItem([dbc.NavLink("Data Export", id=("nav-export"), href="#")]),
         ],
         vertical=True,
