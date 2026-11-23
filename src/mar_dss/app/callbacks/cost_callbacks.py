@@ -1313,9 +1313,7 @@ def setup_cost_callbacks(app):
         ],
         prevent_initial_call=False,
     )
-    def handle_conveyance_distance_miles(
-        active_tab, value, n_blur, n_submit, reset_clicks
-    ):
+    def handle_conveyance_distance_miles(active_tab, value, n_blur, n_submit, reset_clicks):
         """Default conveyance length from Water Source; allow user override."""
         ctx = dash.callback_context
 

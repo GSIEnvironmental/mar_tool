@@ -131,7 +131,8 @@ include_namespace_packages = true
 [tool.ruff]
 line-length = 120
 # pfdf is copied from the USGS pfdf package, so leave it as is.
-extend-exclude = ["src/mar_dss/pfdf"]
+# recycle_bin is local scratch / discarded code, not part of the package.
+extend-exclude = ["src/mar_dss/pfdf", "recycle_bin"]
 
 [tool.ruff.lint]
 # Same rule set as our other apps.

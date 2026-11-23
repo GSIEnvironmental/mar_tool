@@ -28,6 +28,7 @@ def _title_case_label(text):
         return text
     return string.capwords(text)
 
+
 _OPTION_TO_CAPITAL_COL = {
     "Surface Recharge": "Spreading Pond Cost ($)",
     "Injection Well": "Injection Wells Cost ($)",

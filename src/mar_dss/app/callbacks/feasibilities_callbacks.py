@@ -1327,15 +1327,11 @@ def _create_cost_comparison_charts(categorized_data=None):
     if categorized_data is not None:
         filtered = [
             (name, cap, maint, npv)
-            for name, cap, maint, npv in zip(
-                option_names, capital_costs, maintenance_costs, npv_values, strict=True
-            )
+            for name, cap, maint, npv in zip(option_names, capital_costs, maintenance_costs, npv_values, strict=True)
             if not _is_option_not_feasible(categorized_data, name)
         ]
         if not filtered:
-            return _create_empty_cost_charts(
-                "No feasible options to compare. Not-feasible options are omitted."
-            )
+            return _create_empty_cost_charts("No feasible options to compare. Not-feasible options are omitted.")
         option_names, capital_costs, maintenance_costs, npv_values = map(list, zip(*filtered, strict=True))
 
     capital_fig = _create_cost_chart(option_names, capital_costs, "Capital Cost", "#007bff")

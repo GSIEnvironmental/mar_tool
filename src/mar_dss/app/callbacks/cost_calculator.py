@@ -660,9 +660,7 @@ class CostCalculator:
         dash_storage.set_data("unit_cost_inflation_rate", ANNUAL_UNIT_COST_INFLATION_RATE)
         dash_storage.set_data("unit_cost_inflation_years", years)
         dash_storage.set_data("unit_cost_inflation_factor", factor)
-        df["Unit Cost $"] = (
-            pd.to_numeric(df["Unit Cost $"], errors="coerce").fillna(0.0) * factor
-        )
+        df["Unit Cost $"] = pd.to_numeric(df["Unit Cost $"], errors="coerce").fillna(0.0) * factor
 
         # Catalog Unit Cost $ (inflated) × quantity. Method columns zero out
         # rows that do not apply to that recharge option (do not mutate Unit Cost $).
