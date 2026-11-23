@@ -714,7 +714,8 @@ def create_engineering_elements_content():
                                                             inline=True,
                                                             className="eng-radio-inline",
                                                         ),
-                                                        # Target stays auto from WQ turbidity (hidden; still synced for costing).
+                                                        # Target auto from WQ turbidity
+                                                        # (hidden; still synced for costing).
                                                         html.Div(
                                                             id="sediment-removal-target-display",
                                                             style={"display": "none"},

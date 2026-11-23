@@ -878,7 +878,7 @@ def _create_constraints_heatmap(results, filters, constraint_type=None, title=No
         return heatmap_fig, html.Div()
 
     # Get all option names from results to ensure consistent y-axis across all heatmaps
-    all_option_names = [_title_case_label(n) for n in results.keys()]
+    all_option_names = [_title_case_label(n) for n in results]
     # Display names (Title Case) while looking up data with original keys
     display_constraints = [_title_case_label(n) for n in sorted_constraints]
 
